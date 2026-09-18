@@ -298,7 +298,7 @@ def screen_investigation():
     st.markdown("#### AnA decision log")
     for d in run.decisions:
         st.markdown(f"{badge(d.policy)} **Selected:** {', '.join(d.selected_topics) or 'stop'}", unsafe_allow_html=True)
-        for part in d.rationale.split("; "):
+        for part in d.rationale.split(" | "):
             st.markdown(f"- {part}")
         for pr in d.new_probes:
             st.markdown(f"  - `{pr.id}` {pr.text} <span class='muted'>(from {', '.join(pr.parent_probe_ids)})</span>",
@@ -405,6 +405,13 @@ def screen_report():
                 else:
                     st.markdown(f"**Capability:** insufficient evidence — none mapped  \n**Next:** {f.suggested_action}")
                 st.caption(f"Evidence: {', '.join(f.evidence_ids)} · fit evidence: {', '.join(f.fit_evidence_ids) or 'none'}")
+                with st.expander("Supporting evidence"):
+                    for pid in f.evidence_ids:
+                        e = next((x for x in run.evaluations if x.probe_id == pid), None)
+                        pr = next((x for x in run.probes if x.id == pid), None)
+                        if e and pr:
+                            quotes = " ".join(f"“{q}”" for q in e.evidence_quotes)
+                            st.markdown(f"**{pid}** {html.escape(pr.text)}  \n{html.escape(e.explanation)} {html.escape(quotes)}")
                 if f.exploratory_note:
                     st.caption(f.exploratory_note)
                 st.caption("Limitations: " + " ".join(f.limitations))

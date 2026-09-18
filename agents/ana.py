@@ -85,4 +85,4 @@ def choose_followup(topics: list[Topic], topic_evals: list[TopicEvaluation], eva
         why.append(f"{te.topic_id} ({te.status}, {te.recommendations}/{te.n} recommended, priority {te.gap_priority:g}): "
                    f"tests {uncertainty}; motivated by {', '.join(motivating) or 'topic-level results'}")
     return AdaptiveDecision(selected_topics=[te.topic_id for te in chosen], new_probes=new,
-                            evidence_probe_ids=evidence, rationale="; ".join(why))
+                            evidence_probe_ids=evidence, rationale=" | ".join(why))

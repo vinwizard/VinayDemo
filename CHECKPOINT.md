@@ -43,3 +43,8 @@
 
 ## Milestone 5 — tests (done)
 - `python -m pytest -q` → 46 passed. `tests/test_core.py` (engine, network blocked), `tests/test_ui.py` (AppTest journey per fixture, rerender, reopen, arbitrary company).
+
+## Milestone 6 — polish + screenshots (done)
+- `.streamlit/config.toml`: minimal toolbar, restrained indigo primary, no usage stats.
+- "Where Profound could help" cards gained a Supporting evidence expander (probe text, explanation, verbatim quotes).
+- Screenshots in `screenshots/` (1_setup, 2_investigation_A, 3_report_A, 4_profound_help_A, 5_followups_A, 6_investigation_B) captured with Playwright driving installed Google Chrome (dev-only tool, not in requirements.txt).
