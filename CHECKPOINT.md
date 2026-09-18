@@ -48,3 +48,6 @@
 - `.streamlit/config.toml`: minimal toolbar, restrained indigo primary, no usage stats.
 - "Where Profound could help" cards gained a Supporting evidence expander (probe text, explanation, verbatim quotes).
 - Screenshots in `screenshots/` (1_setup, 2_investigation_A, 3_report_A, 4_profound_help_A, 5_followups_A, 6_investigation_B) captured with Playwright driving installed Google Chrome (dev-only tool, not in requirements.txt).
+
+## Milestone 7 — docs + deployment prep (done)
+- README (run/test/deploy), DEMO.md (2-minute script), .env.example, Dockerfile ($PORT), .dockerignore.
