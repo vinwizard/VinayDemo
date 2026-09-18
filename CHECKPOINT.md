@@ -40,3 +40,6 @@
 ### Decisions
 - Used curl + local string checks (not WebFetch's summarizer) so excerpts are guaranteed verbatim.
 - pp4 reworded in both fixtures to what the source supports (dropped the unsourced "templates" claim).
+
+## Milestone 5 — tests (done)
+- `python -m pytest -q` → 46 passed. `tests/test_core.py` (engine, network blocked), `tests/test_ui.py` (AppTest journey per fixture, rerender, reopen, arbitrary company).
