@@ -1,0 +1,881 @@
+{
+  "scenario": "A",
+  "title": "Scenario A \u2014 project tracking looks weak",
+  "notice": "SYNTHETIC DEMO DATA. Answers were authored for illustration by a coding session that knew the target company; they are not chatbot measurements. Citation URLs on example.com are fictional.",
+  "profile": {
+    "name": "Notion",
+    "domain": "notion.com",
+    "owned_domains": [
+      "notion.so"
+    ],
+    "aliases": [
+      "Notion",
+      "Notion Labs"
+    ],
+    "branded_terms": [
+      "Notion AI",
+      "Notion Calendar",
+      "Notion Mail",
+      "Notion Sites",
+      "Notion Labs"
+    ],
+    "customer_types": [
+      "Startups and small teams",
+      "Enterprises",
+      "Individuals and students"
+    ],
+    "capabilities": [
+      "Docs and wikis",
+      "Projects and task databases",
+      "AI meeting notes",
+      "AI search and writing assistance",
+      "Templates"
+    ],
+    "use_cases": [
+      "Team knowledge base",
+      "Project tracking",
+      "Meeting documentation",
+      "Personal organization"
+    ],
+    "positioning_points": [
+      {
+        "id": "pp1",
+        "text": "A connected workspace where teams keep docs and wikis in one place.",
+        "evidence_ids": [
+          "ev1"
+        ],
+        "support": "uncertain"
+      },
+      {
+        "id": "pp2",
+        "text": "Projects and tasks tracked in flexible databases alongside the docs they relate to.",
+        "evidence_ids": [
+          "ev2"
+        ],
+        "support": "uncertain"
+      },
+      {
+        "id": "pp3",
+        "text": "AI meeting notes that capture and summarize meetings.",
+        "evidence_ids": [
+          "ev3"
+        ],
+        "support": "uncertain"
+      },
+      {
+        "id": "pp4",
+        "text": "Flexible templates for personal notes, goals and planning; free for individuals.",
+        "evidence_ids": [
+          "ev4"
+        ],
+        "support": "uncertain"
+      },
+      {
+        "id": "pp5",
+        "text": "AI search and answers across the workspace and connected apps.",
+        "evidence_ids": [
+          "ev5"
+        ],
+        "support": "uncertain"
+      }
+    ],
+    "evidence": [
+      {
+        "id": "ev1",
+        "url": null,
+        "excerpt": "Illustrative placeholder: docs/wiki positioning (to be replaced by a sourced excerpt).",
+        "retrieved_at": null,
+        "source_type": "illustrative"
+      },
+      {
+        "id": "ev2",
+        "url": null,
+        "excerpt": "Illustrative placeholder: projects/tasks positioning (to be replaced by a sourced excerpt).",
+        "retrieved_at": null,
+        "source_type": "illustrative"
+      },
+      {
+        "id": "ev3",
+        "url": null,
+        "excerpt": "Illustrative placeholder: AI meeting notes positioning (to be replaced by a sourced excerpt).",
+        "retrieved_at": null,
+        "source_type": "illustrative"
+      },
+      {
+        "id": "ev4",
+        "url": null,
+        "excerpt": "Illustrative placeholder: personal use / templates positioning (to be replaced by a sourced excerpt).",
+        "retrieved_at": null,
+        "source_type": "illustrative"
+      },
+      {
+        "id": "ev5",
+        "url": null,
+        "excerpt": "Illustrative placeholder: AI search positioning (to be replaced by a sourced excerpt).",
+        "retrieved_at": null,
+        "source_type": "illustrative"
+      }
+    ],
+    "warnings": [
+      "Profile evidence is illustrative until replaced by a sourced research snapshot."
+    ],
+    "approved": false
+  },
+  "topics": [
+    {
+      "id": "kb",
+      "label": "Team knowledge bases",
+      "buyer_need": "Keep company knowledge findable in one shared place",
+      "positioning_point_ids": [
+        "pp1"
+      ],
+      "fit": "strong",
+      "fit_evidence_ids": [
+        "ev1"
+      ]
+    },
+    {
+      "id": "pt",
+      "label": "Project tracking",
+      "buyer_need": "Plan and track team work and tasks",
+      "positioning_point_ids": [
+        "pp2"
+      ],
+      "fit": "strong",
+      "fit_evidence_ids": [
+        "ev2"
+      ]
+    },
+    {
+      "id": "mtg",
+      "label": "Meeting documentation",
+      "buyer_need": "Capture, summarize and share meeting outcomes",
+      "positioning_point_ids": [
+        "pp3"
+      ],
+      "fit": "partial",
+      "fit_evidence_ids": [
+        "ev3"
+      ]
+    },
+    {
+      "id": "po",
+      "label": "Personal organization",
+      "buyer_need": "Organize personal notes, goals and to-dos",
+      "positioning_point_ids": [
+        "pp4"
+      ],
+      "fit": "strong",
+      "fit_evidence_ids": [
+        "ev4"
+      ]
+    }
+  ],
+  "baseline_probes": [
+    {
+      "id": "kb-1",
+      "topic_id": "kb",
+      "text": "What are the best tools for building an internal team knowledge base?",
+      "phase": "baseline",
+      "purpose": "Broad discovery",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "kb-2",
+      "topic_id": "kb",
+      "text": "Which wiki software works well for a 50-person startup where engineers and non-technical staff share one knowledge base?",
+      "phase": "baseline",
+      "purpose": "Audience-specific: mixed-skill startup",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "kb-3",
+      "topic_id": "kb",
+      "text": "What knowledge base tool can a small team set up in a day without IT support, ideally with a free tier?",
+      "phase": "baseline",
+      "purpose": "Constraint-specific: setup effort and cost",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "pt-1",
+      "topic_id": "pt",
+      "text": "What are good project tracking tools for small teams?",
+      "phase": "baseline",
+      "purpose": "Broad discovery",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "pt-2",
+      "topic_id": "pt",
+      "text": "Which project management tool suits a marketing team that also writes briefs and campaign docs?",
+      "phase": "baseline",
+      "purpose": "Audience-specific: marketing team",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "pt-3",
+      "topic_id": "pt",
+      "text": "What task tracker keeps docs and tasks in one workspace for under $10 per user per month?",
+      "phase": "baseline",
+      "purpose": "Constraint-specific: price and docs+tasks",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "mtg-1",
+      "topic_id": "mtg",
+      "text": "What tools help teams capture and share meeting notes?",
+      "phase": "baseline",
+      "purpose": "Broad discovery",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "mtg-2",
+      "topic_id": "mtg",
+      "text": "How can a remote product team keep meeting notes linked to decisions and action items?",
+      "phase": "baseline",
+      "purpose": "Audience-specific: remote product team",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "mtg-3",
+      "topic_id": "mtg",
+      "text": "Which meeting notes tool can transcribe and summarize calls without adding a separate bot to every meeting?",
+      "phase": "baseline",
+      "purpose": "Constraint-specific: no meeting bot",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "po-1",
+      "topic_id": "po",
+      "text": "What are the best apps for organizing personal notes, goals and to-dos?",
+      "phase": "baseline",
+      "purpose": "Broad discovery",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "po-2",
+      "topic_id": "po",
+      "text": "What app should a university student use to organize class notes, assignments and reading lists?",
+      "phase": "baseline",
+      "purpose": "Audience-specific: students",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "po-3",
+      "topic_id": "po",
+      "text": "Which personal organization app works offline across Mac, Windows and phone and is free for individuals?",
+      "phase": "baseline",
+      "purpose": "Constraint-specific: offline + free",
+      "parent_probe_ids": []
+    }
+  ],
+  "baseline_answers": [
+    {
+      "probe_id": "kb-1",
+      "text": "Popular choices for an internal knowledge base include Notion, Confluence and Guru. Notion is a strong pick for teams that want docs and wikis in one flexible workspace. Confluence suits organizations already on Jira.",
+      "citations": [
+        "https://example.com/demo-source-1",
+        "https://www.notion.com/"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Confluence"
+        ],
+        "evidence_quotes": [
+          "Notion is a strong pick for teams that want docs and wikis in one flexible workspace."
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    {
+      "probe_id": "kb-2",
+      "text": "For a 50-person startup with mixed technical skills, Notion is often recommended because non-technical staff find the editor approachable while engineers can still structure pages. Slab is a simpler alternative.",
+      "citations": [
+        "https://example.com/demo-source-2"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Slab"
+        ],
+        "evidence_quotes": [
+          "Notion is often recommended because non-technical staff find the editor approachable"
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    {
+      "probe_id": "kb-3",
+      "text": "If you need something running in a day without IT, Notion and Slab both have free or low-cost tiers. I would start with Notion for its templates, or Slab if you only need a plain wiki.",
+      "citations": [
+        "https://example.com/demo-source-3"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Slab"
+        ],
+        "evidence_quotes": [
+          "I would start with Notion for its templates"
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    {
+      "probe_id": "pt-1",
+      "text": "For small teams, Asana, Trello and monday.com are the most commonly recommended project trackers. Trello is simplest for kanban boards; Asana adds timelines and workload views.",
+      "citations": [
+        "https://example.com/demo-source-5",
+        "https://example.com/demo-source-6"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Asana",
+          "Trello",
+          "monday.com"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    {
+      "probe_id": "pt-2",
+      "text": "Marketing teams often choose Asana or ClickUp. ClickUp includes docs, so briefs and tasks can live together; Asana has strong campaign templates.",
+      "citations": [
+        "https://example.com/demo-source-7",
+        "https://notion.so.example.com/best-pm-tools"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Asana",
+          "ClickUp"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    {
+      "probe_id": "pt-3",
+      "text": "ClickUp is the usual answer here: docs and tasks in one workspace under $10 per user. Notion is sometimes suggested, but reviewers say its task features are lighter than dedicated trackers.",
+      "citations": [
+        "https://example.com/demo-source-8",
+        "https://www.notion.com/"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": true,
+        "recommended": false,
+        "negative_mention": true,
+        "competitor_recommendations": [
+          "ClickUp"
+        ],
+        "evidence_quotes": [
+          "Notion is sometimes suggested, but reviewers say its task features are lighter than dedicated trackers."
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    {
+      "probe_id": "mtg-1",
+      "text": "Otter.ai and Fireflies.ai are widely recommended for recording and transcribing meetings. Teams then often paste summaries into a shared doc tool such as Notion or Google Docs.",
+      "citations": [
+        "https://example.com/demo-source-9"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": true,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Otter.ai",
+          "Fireflies.ai"
+        ],
+        "evidence_quotes": [
+          "Teams then often paste summaries into a shared doc tool such as Notion or Google Docs."
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    {
+      "probe_id": "mtg-2",
+      "text": "A good approach is to keep meeting notes in the same place as your decisions log. Notion works well for this because each note can link to a decisions database and action items. Fellow is a dedicated alternative.",
+      "citations": [
+        "https://example.com/demo-source-10",
+        "https://www.notion.com/"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Fellow"
+        ],
+        "evidence_quotes": [
+          "Notion works well for this because each note can link to a decisions database and action items."
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    {
+      "probe_id": "mtg-3",
+      "text": "Fathom and Otter.ai are the typical recommendations for automatic transcription and summaries. Some tools join as a bot; check each product's recording settings.",
+      "citations": [
+        "https://example.com/demo-source-11"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Fathom",
+          "Otter.ai"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    {
+      "probe_id": "po-1",
+      "text": "Notion is one of the most recommended all-in-one apps for personal notes, goals and to-dos, thanks to its templates.",
+      "citations": [
+        "https://example.com/demo-source-12"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [],
+        "evidence_quotes": [
+          "Notion is one of the most recommended all-in-one apps for personal notes, goals and to-dos"
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    {
+      "probe_id": "po-2",
+      "text": "Many students use Notion to organize class notes, assignments and reading lists, and it is free for individuals. GoodNotes is popular for handwritten notes.",
+      "citations": [
+        "https://example.com/demo-source-13"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "GoodNotes"
+        ],
+        "evidence_quotes": [
+          "Many students use Notion to organize class notes, assignments and reading lists"
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    {
+      "probe_id": "po-3",
+      "text": "For offline use on Mac, Windows and phone at no cost, Obsidian is the usual recommendation because notes are local files. Microsoft OneNote is another free option.",
+      "citations": [
+        "https://example.com/demo-source-14"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Obsidian",
+          "Microsoft OneNote"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    }
+  ],
+  "followup_bank": {
+    "kb": [
+      {
+        "id": "kb-f1",
+        "topic_id": "kb",
+        "text": "What should a growing company look for when replacing a scattered set of shared docs with a single wiki?",
+        "phase": "followup",
+        "purpose": "Tests evaluation-criteria framing where the brand was absent"
+      },
+      {
+        "id": "kb-f2",
+        "topic_id": "kb",
+        "text": "Which knowledge base tools let employees ask questions and get answers from company documentation?",
+        "phase": "followup",
+        "purpose": "Tests AI-answer framing of the knowledge-base need"
+      }
+    ],
+    "pt": [
+      {
+        "id": "pt-f1",
+        "topic_id": "pt",
+        "text": "What is a lightweight alternative to heavyweight project management suites for a 10-person team?",
+        "phase": "followup",
+        "purpose": "Tests whether 'lightweight' framing changes which tools appear"
+      },
+      {
+        "id": "pt-f2",
+        "topic_id": "pt",
+        "text": "Which tools let a team track projects in a table, board and timeline view of the same data?",
+        "phase": "followup",
+        "purpose": "Tests capability-led framing of the same need"
+      }
+    ],
+    "mtg": [
+      {
+        "id": "mtg-f1",
+        "topic_id": "mtg",
+        "text": "What is the best way to turn meeting transcripts into a searchable team record?",
+        "phase": "followup",
+        "purpose": "Tests archive/search framing of meeting documentation"
+      },
+      {
+        "id": "mtg-f2",
+        "topic_id": "mtg",
+        "text": "Which note-taking tools include built-in AI meeting summaries?",
+        "phase": "followup",
+        "purpose": "Tests AI-summary framing where specialist tools dominated"
+      }
+    ],
+    "po": [
+      {
+        "id": "po-f1",
+        "topic_id": "po",
+        "text": "What is a good all-in-one app for planning personal projects, habits and journaling?",
+        "phase": "followup",
+        "purpose": "Tests all-in-one framing of personal organization"
+      },
+      {
+        "id": "po-f2",
+        "topic_id": "po",
+        "text": "Which note apps have a large library of free templates for personal planning?",
+        "phase": "followup",
+        "purpose": "Tests template-led framing"
+      }
+    ]
+  },
+  "followup_answers": {
+    "kb-f1": {
+      "probe_id": "kb-f1",
+      "text": "Look for fast search, permissions and an editor people enjoy. Notion and Confluence are both commonly recommended for consolidating scattered docs.",
+      "citations": [
+        "https://example.com/demo-source-16"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Confluence"
+        ],
+        "evidence_quotes": [
+          "Notion and Confluence are both commonly recommended"
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    "kb-f2": {
+      "probe_id": "kb-f2",
+      "text": "Guru and Glean are recommended for question-answering over company docs. Notion also offers AI answers over workspace content.",
+      "citations": [
+        "https://example.com/demo-source-17"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": true,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Guru",
+          "Glean"
+        ],
+        "evidence_quotes": [
+          "Notion also offers AI answers over workspace content."
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    "pt-f1": {
+      "probe_id": "pt-f1",
+      "text": "Trello and Linear are the usual lightweight recommendations; Basecamp is another simple option.",
+      "citations": [
+        "https://example.com/demo-source-18"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Trello",
+          "Linear",
+          "Basecamp"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    "pt-f2": {
+      "probe_id": "pt-f2",
+      "text": "Airtable and Notion both let you view the same records as a table, board or timeline. Airtable is recommended for data-heavy tracking; Notion is recommended when the projects also need rich docs.",
+      "citations": [
+        "https://example.com/demo-source-19",
+        "https://www.notion.com/"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Airtable"
+        ],
+        "evidence_quotes": [
+          "Notion is recommended when the projects also need rich docs."
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    "mtg-f1": {
+      "probe_id": "mtg-f1",
+      "text": "Fireflies.ai is recommended for a searchable archive of transcripts across meetings. Otter.ai offers similar search.",
+      "citations": [
+        "https://example.com/demo-source-20"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Fireflies.ai",
+          "Otter.ai"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    "mtg-f2": {
+      "probe_id": "mtg-f2",
+      "text": "Notion, Fathom and Otter.ai all offer AI meeting summaries. Notion is a good recommendation if you want the summary stored with the rest of your team docs.",
+      "citations": [
+        "https://example.com/demo-source-21"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Fathom",
+          "Otter.ai"
+        ],
+        "evidence_quotes": [
+          "Notion is a good recommendation if you want the summary stored with the rest of your team docs."
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    "po-f1": {
+      "probe_id": "po-f1",
+      "text": "Notion is a popular all-in-one choice for personal projects, habits and journaling.",
+      "citations": [
+        "https://example.com/demo-source-22"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [],
+        "evidence_quotes": [
+          "Notion is a popular all-in-one choice"
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    },
+    "po-f2": {
+      "probe_id": "po-f2",
+      "text": "Notion has one of the largest free template galleries for personal planning.",
+      "citations": [
+        "https://example.com/demo-source-23"
+      ],
+      "provider": "fixture",
+      "model": null,
+      "collected_at": null,
+      "provenance": "synthetic",
+      "search_executed": null,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [],
+        "evidence_quotes": [
+          "Notion has one of the largest free template galleries"
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null
+      }
+    }
+  }
+}
