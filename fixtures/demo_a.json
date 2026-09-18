@@ -1,6 +1,6 @@
 {
   "scenario": "A",
-  "title": "Scenario A \u2014 project tracking looks weak",
+  "title": "Scenario A — project tracking looks weak",
   "notice": "SYNTHETIC DEMO DATA. Answers were authored for illustration by a coding session that knew the target company; they are not chatbot measurements. Citation URLs on example.com are fictional.",
   "profile": {
     "name": "Notion",
@@ -64,7 +64,7 @@
       },
       {
         "id": "pp4",
-        "text": "Flexible templates for personal notes, goals and planning; free for individuals.",
+        "text": "Writing, planning and organizing in one place for individuals, free to start.",
         "evidence_ids": [
           "ev4"
         ],

@@ -1,0 +1,70 @@
+{
+  "provenance": "web_research_snapshot",
+  "company": "Notion",
+  "retrieved_at": "2026-09-18T01:50:00-04:00",
+  "method": "Claude Code development-time research: curl of 5 public notion.com pages; excerpts are verbatim from page meta descriptions/headings and were string-checked against the fetched HTML.",
+  "limitations": [
+    "Company/context research only. Not evidence of chatbot visibility; never used for mention or recommendation scores.",
+    "Pages may have changed since retrieval."
+  ],
+  "evidence": [
+    {
+      "id": "src-wikis",
+      "supports": "pp1",
+      "url": "https://www.notion.com/product/wikis",
+      "excerpt": "It’s hard to move fast if you’ve got a clunky and disorganized workspace. Centralize all your knowledge in Notion instead.",
+      "retrieved_at": "2026-09-18T01:50:00-04:00"
+    },
+    {
+      "id": "src-projects",
+      "supports": "pp2",
+      "url": "https://www.notion.com/product/projects",
+      "excerpt": "With Notion’s connected workspace, get your projects to the finish line faster and with less context switching.",
+      "retrieved_at": "2026-09-18T01:50:00-04:00"
+    },
+    {
+      "id": "src-projects-docs",
+      "supports": "pp2",
+      "url": "https://www.notion.com/product/projects",
+      "excerpt": "Wikis and docs included, for the same price",
+      "retrieved_at": "2026-09-18T01:50:00-04:00"
+    },
+    {
+      "id": "src-meetings",
+      "supports": "pp3",
+      "url": "https://www.notion.com/product/ai-meeting-notes",
+      "excerpt": "Capture every detail and deliver organised summaries – right where you plan, collaborate and get things done.",
+      "retrieved_at": "2026-09-18T01:50:00-04:00"
+    },
+    {
+      "id": "src-personal",
+      "supports": "pp4",
+      "url": "https://www.notion.com/personal",
+      "excerpt": "Get started with Notion for personal use for $0, forever. Write, plan, and organize - all in one place.",
+      "retrieved_at": "2026-09-18T01:50:00-04:00"
+    },
+    {
+      "id": "src-home",
+      "supports": "pp5",
+      "url": "https://www.notion.com/",
+      "excerpt": "Build Custom Agents, search across all your apps, and automate busywork. The AI workspace where teams get more done, faster.",
+      "retrieved_at": "2026-09-18T01:50:00-04:00"
+    },
+    {
+      "id": "src-home-answers",
+      "supports": "pp5",
+      "url": "https://www.notion.com/",
+      "excerpt": "Get answers, instantly—with citations.",
+      "retrieved_at": "2026-09-18T01:50:00-04:00"
+    }
+  ],
+  "profound_capability_check": {
+    "retrieved_at": "2026-09-18T01:50:00-04:00",
+    "pages": {
+      "https://www.tryprofound.com/features/answer-engine-insights": "Lists Competitive Benchmarking, Sentiment Tracking & Analysis, Citation Tracking & Analysis, FactCheck.",
+      "https://www.tryprofound.com/features/agents": "Describes Agents for content campaigns, Deep Research & Citation Analysis, AEO-Optimized FAQ Generator.",
+      "https://www.tryprofound.com/agent-templates": "Template catalog includes Content Brief Creation, AEO-Optimized FAQ Generator, FactCheck Action templates."
+    }
+  },
+  "operations_used": 8
+}

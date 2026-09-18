@@ -31,3 +31,12 @@
 ### Decisions
 - Screen navigation is a horizontal radio (tabs can't be switched programmatically).
 - Switching scenario keeps approval (same profile) and clears the run.
+
+## Milestone 4 — bounded research snapshot (done)
+- 8 of 12 allowed operations: curl of 5 notion.com pages + 3 tryprofound.com pages.
+- `data/research/notion_2026-09-18.json` (provenance `web_research_snapshot`): 7 verbatim excerpts, each string-checked against fetched HTML; plus notes confirming each Profound capability named in the mapping table appears on the official pages.
+- App applies the snapshot to profile evidence by default (sidebar toggle). Answers remain synthetic; snapshot never feeds scores.
+
+### Decisions
+- Used curl + local string checks (not WebFetch's summarizer) so excerpts are guaranteed verbatim.
+- pp4 reworded in both fixtures to what the source supports (dropped the unsourced "templates" claim).
