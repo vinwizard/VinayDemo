@@ -22,3 +22,12 @@
 - Gap priority uses exact fractions (not rounded rates).
 - URL fetching kept DISABLED (spec allows this); pasted text + bundled snapshots only. A safe fetcher (DNS-rebinding-proof) is real work with no demo payoff tonight.
 - Live adapter is a disabled stub with limits + neutral prompt builder; never claims to work.
+
+## Milestone 3 — no-key user journey (done)
+- `app.py`: three screens (setup / investigation / gap report), permanent mode banner, sidebar scenario switch, reset, reopen saved runs, import JSON, live-adapter status.
+- Runs execute only via a one-shot `run_requested` flag consumed before graph execution (rerenders never restart).
+- Verified with Streamlit AppTest: load → review → explore → run A (pt, mtg) → switch to B → run (po, kb) → report renders, no exceptions.
+
+### Decisions
+- Screen navigation is a horizontal radio (tabs can't be switched programmatically).
+- Switching scenario keeps approval (same profile) and clears the run.
