@@ -51,3 +51,42 @@
 
 ## Milestone 7 — docs + deployment prep (done)
 - README (run/test/deploy), DEMO.md (2-minute script), .env.example, Dockerfile ($PORT), .dockerignore.
+
+## Section 10 acceptance checks — results (2026-09-18)
+
+| Check | Result | How verified |
+| --- | --- | --- |
+| Starts and completes both scenarios with no keys / no internet | PASS | `test_both_scenarios_complete_offline` (sockets blocked), `test_journey[A,B]`; app has no network code |
+| Three agent roles implemented and visible | PASS | `agents/`, stage row in UI, `test_three_agent_roles_in_workflow` |
+| Adaptive selection changes with fixture results | PASS | A→pt,mtg; B→po,kb; swapped-evaluation test |
+| Baseline unchanged after follow-up | PASS | hash + recomputed baseline scores equal stored |
+| Every query/topic explained with provenance | PASS | `test_every_query_and_topic_explained` |
+| Every gap → capability or insufficient evidence | PASS | `test_every_gap_maps_to_capability_or_insufficient`, insufficient-evidence test |
+| Synthetic never under a real provider / live timestamp | PASS | Answer validator + parametrized tests |
+| Search snapshots never scored as chatbot visibility | PASS | `test_search_snapshot_never_scored` |
+| [2,1,0] → 50; no eligible → null | PASS | `test_visibility_math`, `test_no_eligible_answers_gives_null` |
+| Negative, citation-only, ambiguous alias, deceptive domain, timeout, ungrounded | PASS | dedicated tests each |
+| Invalid quotes flagged; brand-leaking questions rejected | PASS | quote/competitor tests; leak tests incl. graph halt |
+| Export/import preserves provenance, counts, baseline version | PASS | round-trip + tamper rejection |
+| Arbitrary company can't get bundled report | PASS | engine + UI tests; structural edits also rejected |
+| Rerenders don't restart runs | PASS | `test_rerenders_do_not_restart_runs` (answer-call counter) |
+| Secrets not logged/exported/committed | PASS | `test_secrets_not_exported_or_committed`; `.env` gitignored |
+| Local URL responds; completed report reopens | PASS | curl `/` 200 + health ok; Playwright reopen in fresh session |
+| Live adapter | NOT TESTED — not implemented (no credentials) | reported honestly |
+| Docker image build | NOT VERIFIED — Docker daemon not running | Dockerfile written only |
+
+## Section 12 handoff
+
+- **URL:** http://localhost:8501 (this Mac; verified responding).
+- **Restart:** `cd ~/Projects/VinayDemo && source .venv/bin/activate && python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501`
+- **Screenshots:** `screenshots/1_setup.png`, `2_investigation_A.png`, `3_report_A.png`, `4_profound_help_A.png`, `5_followups_A.png`, `6_investigation_B.png`
+- **Demo script:** `DEMO.md`
+- **Tests:** `python -m pytest -q` → 46 passed (offline).
+- **Simulated:** all AI answers and their labels, AnA follow-up policy, evaluator judgment, every score.
+- **Genuine research:** Notion positioning evidence (7 verbatim excerpts from 5 notion.com pages, 2026-09-18) and the Profound capability names/links (3 official pages).
+- **Needs API credentials:** live answers, model-backed AnA planning and evaluation (`providers/live.py` is a disabled stub).
+- **Known blockers:** no API keys; Docker daemon was off so the image is unbuilt; URL fetching intentionally disabled; `data/runs/` is not durable on Cloud Run.
+- **Shortest deploy path:** start Docker → `docker build -t ve . && docker run -p 8080:8080 ve` to check → `gcloud run deploy visibility-explorer --source . --region us-central1` after creating a GCP project with billing.
+
+## Next task
+Nothing required for the demo. Optional next: implement `providers/live.py` against one official search-grounded API once a key exists.
