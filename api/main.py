@@ -7,6 +7,7 @@ well as per node, so the browser sees real progress while a long batch is still 
 import json
 import queue
 import threading
+import traceback
 from typing import Iterator
 
 from fastapi import FastAPI, HTTPException
@@ -85,6 +86,10 @@ def run_events(scenario: str, mode: str = "demo") -> Iterator[str]:
         prov, profile, expected, run_mode = build_provider(scenario, mode)
     except HTTPException as e:
         yield sse("error", {"message": str(e.detail)})
+        return
+    except Exception as e:                           # setup failures surface too, minus the detail
+        traceback.print_exc()                        # the detail stays on the server console
+        yield sse("error", {"message": f"Setup failed before the run started: {type(e).__name__}"})
         return
     q: queue.Queue = queue.Queue()
     state = {"done": 0}

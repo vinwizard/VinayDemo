@@ -161,18 +161,26 @@ export function streamRun(scenario: string, mode: "demo" | "live", h: StreamHand
   const es = new EventSource(
     `${API}/api/stream?scenario=${encodeURIComponent(scenario)}&mode=${mode}`,
   );
-  const on = (name: string, fn?: (d: never) => void) =>
+  // JSON.parse yields any, so each handler's own parameter type fixes T at the call site.
+  const on = <T>(name: string, fn?: (d: T) => void) =>
     es.addEventListener(name, (ev) => fn?.(JSON.parse((ev as MessageEvent).data)));
-  on("node", h.onNode as never);
-  on("answer", h.onAnswer as never);
-  on("done", ((d: { run_id: string; run: Run }) => {
+  on("node", h.onNode);
+  on("answer", h.onAnswer);
+  on("done", (d: { run_id: string; run: Run }) => {
     h.onDone?.(d);
     es.close(); // the server ends the response; close so the browser does not reconnect
-  }) as never);
-  on("error", ((d: { message: string }) => {
-    h.onError?.(d);
+  });
+  // One listener for both error shapes: the server's `event: error` carries JSON,
+  // while a transport failure dispatches a bare Event with no data. Closing either
+  // way stops EventSource from retrying forever.
+  es.addEventListener("error", (ev) => {
+    const data: unknown = (ev as MessageEvent).data;
+    h.onError?.(
+      typeof data === "string"
+        ? (JSON.parse(data) as { message: string })
+        : { message: "Could not reach the run stream. Check the API server is running on port 8000." },
+    );
     es.close();
-  }) as never);
-  es.onerror = () => es.close(); // transport-level failure: EventSource would otherwise retry forever
+  });
   return () => es.close();
 }

@@ -94,7 +94,7 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
 
 ## Not done yet
 
-- No tests for the API or the React app
+- No tests for the React app; the API has one, over the stream endpoint's setup-error path (`tests/test_api_stream.py`)
 - Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)
 - No production build wiring — Vite dev server only, so nothing is deployable from here yet
 - `app.py` (Streamlit) is still the demo of record until this reaches parity
