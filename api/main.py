@@ -23,7 +23,12 @@ _LOADED = load_env()
 print(f"[config] {redacted_status(_LOADED)}")  # names only; a key value is never printed
 
 app = FastAPI(title="Positioning Drift API")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+
+# Any loopback port, because Vite silently moves to 5174/5175 when 5173 is taken and a pinned
+# origin then fails as an opaque "TypeError: Failed to fetch" in the browser.
+# DEV ONLY: tighten this to the real origin before deploying anywhere.
+LOOPBACK_ORIGIN = r"http://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?"
+app.add_middleware(CORSMiddleware, allow_origin_regex=LOOPBACK_ORIGIN,
                    allow_methods=["*"], allow_headers=["*"])
 
 
@@ -146,6 +151,11 @@ def get_run(run_id: str):
 @app.get("/api/health")
 def health():
     """Reports whether live mode is usable — never the key itself."""
+    from agents import evaluator_model
+    measured = live.model_name() if live.available() else None
+    evaluator = evaluator_model.model_name() if live.available() else None
     return {"ok": True, "scenarios": sorted(fixture.SCENARIOS),
             "live_available": live.available(), "live_status": live.status(),
-            "measured_model": live.model_name() if live.available() else None}
+            "measured_model": measured, "evaluator_model": evaluator,
+            # a model grading its own output has a self-preference bias worth surfacing
+            "same_model_warning": bool(measured and evaluator and measured == evaluator)}
