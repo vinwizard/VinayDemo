@@ -112,6 +112,8 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
   `app.py` is deleted once the React UI reaches parity
 - Streamlit `app.py` still prints raw probe and node ids; it was deliberately not relabelled here
   because it is scheduled for deletion in a later task once the React UI reaches parity
+- Report-surface attribute descriptions render nothing because `AttributeScore` carries no
+  `description` field; to be resolved by the onboarding task
 - Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)
 - No production build wiring — Vite dev server only, so nothing is deployable from here yet
 - `app.py` (Streamlit) is still the demo of record until this reaches parity

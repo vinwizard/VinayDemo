@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from agents.ana import baseline_hash
-from labels import probe_names, source_names, with_ids
+from labels import probe_names, source_names, spoken, with_ids
 from schemas import SCHEMA_VERSION, Run
 
 RUNS = Path(__file__).resolve().parent / "data" / "runs"
@@ -15,11 +15,6 @@ STRENGTH_LABEL = {0: "absent", 1: "mentioned", 2: "recommended"}
 # TopicEvaluation.status. Statuses with no entry print as they are.
 TOPIC_STATUS_LABEL = {"candidate gap": "Not recommended", "mixed": "Split results",
                       "observed presence": "Found"}
-
-# Answer.provenance, spoken. Mirrors web/src/labels.ts.
-PROVENANCE_LABEL = {"synthetic": "Sample data", "demo_replay": "Sample run",
-                    "live_api": "Measured live", "page_fetch": "From their website",
-                    "user_provided": "You told us", "web_research_snapshot": "Research snapshot"}
 
 MODE_LABELS = {
     "demo_replay": "SYNTHETIC DEMO — fixture replay; no live chatbot measurements; model judgment simulated.",
@@ -88,7 +83,7 @@ def to_markdown(run: Run) -> str:
            f"- Run of {when(run.created_at)} · {run.profile.name} · id `{run.id}`",
            f"- Scenario {run.scenario or '—'} · schema v{run.schema_version}",
            f"- Baseline hash `{run.baseline_hash}`",
-           f"- Profile evidence: {', '.join(sorted({e.source_type for e in run.profile.evidence})) or 'none'}", "",
+           f"- Profile evidence: {', '.join(sorted({spoken(e.source_type) for e in run.profile.evidence})) or 'none'}", "",
            "## Baseline topics (simulated scores)" if run.mode == "demo_replay" else "## Baseline topics", "",
            "| Topic | Fit | Recommended | Visibility | Owned citations | Status | Heuristic investigation priority |",
            "|---|---|---|---|---|---|---|"]
@@ -105,7 +100,7 @@ def to_markdown(run: Run) -> str:
                 f"- Suggested action: {f.suggested_action}",
                 f"- Evidence: {with_ids(f.evidence_ids, pn)} · fit evidence: "
                 f"{with_ids(f.fit_evidence_ids, src) or 'none'}",
-                f"- Provenance: {f.provenance}", f"- Limitations: {' '.join(f.limitations)}"]
+                f"- Provenance: {spoken(f.provenance)}", f"- Limitations: {' '.join(f.limitations)}"]
         if f.exploratory_note:
             out.append(f"- {f.exploratory_note}")
         out.append("")
@@ -124,7 +119,7 @@ def to_markdown(run: Run) -> str:
         for p in [p for p in run.probes if p.phase == phase]:
             e, a = ev.get(p.id), ans.get(p.id)
             out += [f"**{pn[p.id]}** (`{p.id}`, {p.purpose}) — {p.text}",
-                    f"- Answer [{PROVENANCE_LABEL.get(a.provenance, a.provenance) if a else '—'}]: "
+                    f"- Answer [{spoken(a.provenance) if a else '—'}]: "
                     f"{a.text if a else '—'}",
                     f"- Citations: {', '.join(a.citations) if a and a.citations else 'none'}",
                     f"- Evaluation: {STRENGTH_LABEL[e.strength] if e and e.strength is not None else '—'}"

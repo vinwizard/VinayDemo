@@ -9,6 +9,16 @@ import re
 from schemas import Evidence, Probe, Topic
 
 
+PROVENANCE_LABEL = {"synthetic": "Sample data", "demo_replay": "Sample run",
+                    "live_api": "Measured live", "page_fetch": "From their website",
+                    "user_provided": "You told us", "web_research_snapshot": "Research snapshot"}
+
+
+def spoken(value: str) -> str:
+    """`Answer.provenance`, `Evidence.source_type` and `Run.mode` all speak this one vocabulary."""
+    return PROVENANCE_LABEL.get(value, value)
+
+
 def probe_name(probe: Probe) -> str:
     """`np-4` -> "Brand question 4", `kb-2` -> "Buyer question 2", `kb-f1` -> "Follow-up question 1".
 
@@ -25,13 +35,13 @@ def probe_name(probe: Probe) -> str:
 
 
 def source_names(evidence: list[Evidence]) -> dict[str, str]:
-    """`ev2` -> "Source 2 — notion.com/product", or the source type when there is no URL.
+    """`ev2` -> "Source 2 — notion.com/product", or where it came from when there is no URL.
 
     Numbering follows the profile's own evidence order, so a source keeps its name across exports.
     """
     out = {}
     for i, e in enumerate(evidence, start=1):
-        where = re.sub(r"^https?://(www\.)?", "", e.url) if e.url else e.source_type.replace("_", " ")
+        where = re.sub(r"^https?://(www\.)?", "", e.url) if e.url else spoken(e.source_type)
         out[e.id] = f"Source {i} — {where}"
     return out
 

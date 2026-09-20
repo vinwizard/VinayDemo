@@ -61,6 +61,9 @@ def test_followup_rationale_names_topics_and_keeps_the_ids_in_the_data(run_a):
 
 BACKTICKED = re.compile(r"`[^`]*`")
 
+# synthetic, page_fetch, demo_replay — a stored value that was never turned into words
+RAW_VALUE = re.compile(r"(?<!\w)(" + "|".join(labels.PROVENANCE_LABEL) + r")(?!\w)")
+
 
 @pytest.mark.parametrize("scenario", ["A", "B"])
 def test_markdown_report_never_leaves_an_id_as_the_only_name(scenario):
@@ -70,9 +73,12 @@ def test_markdown_report_never_leaves_an_id_as_the_only_name(scenario):
     md = to_markdown(run)
     spoken = BACKTICKED.sub("", md)  # backticked ids are traceability, and always follow their name
     assert [l for l in spoken.splitlines() if ID_SHAPED.search(l)] == []
+    assert [l for l in spoken.splitlines() if RAW_VALUE.search(l)] == []
     # display only: the ids are still in the export and in the stored findings
-    assert "`np-1`" in md and any(ID_SHAPED.search(f.observation + (f.exploratory_note or ""))
-                                 or f.evidence_ids for f in run.findings)
+    assert "`np-1`" in md
+    stored = [i for f in run.findings for i in f.evidence_ids]
+    assert stored and all(ID_SHAPED.fullmatch(i) for i in stored)
+    assert {a.provenance for a in run.answers} == {"synthetic"}
 
 
 def test_markdown_report_leads_with_names(run_a):
