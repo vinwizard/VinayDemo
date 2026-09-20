@@ -82,13 +82,14 @@ VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -m uvicorn api.main:app -
 | `GET /api/stream?scenario=A` | SSE: `node`, `answer`, `done`, `error` events while the graph runs |
 | `GET /api/runs` | run history, newest first |
 | `GET /api/runs/{id}` | one full run, including the drift report |
+| `GET /api/onboard?url=` | Agent 1: crawl up to 3 of a company's own pages and extract the **claimed** layer (attributes, verbatim quotes, derived page counts). Needs the same key as live mode; intent weights are the user's input and are never returned |
 
 Comparison is done client-side from two `GET /api/runs/{id}` responses — no extra endpoint.
 
 ## Views
 
 - **Measure** — pick a scenario, see intended attributes and how much of their own copy states each, run it, watch the live feed and progress bar
-- **Report** — alignment headline, four zone counters, the claim-vs-echo drift map, "whose problem is each gap" cards, evidence behind a disclosure
+- **Report** — alignment headline, five zone counters (landed, lost claim, contested, never stated, imposed), the claim-vs-echo drift map, "whose problem is each gap" cards, evidence behind a disclosure
 - **History** — every saved run from `data/runs/`, click to open
 - **Compare** — two runs side by side with the alignment delta and per-attribute zone changes (`lost claim → landed`)
 
