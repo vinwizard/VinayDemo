@@ -79,8 +79,12 @@ python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
 
 Open http://localhost:8501. No API keys, accounts, or internet needed. Stop the server with `Ctrl+C`.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 79 tests incl. one UI journey per
-scenario and the live adapter under an injected transport — no API key, no network).
+Tests: `conda activate visexp && python -m pytest -q` (offline; 129 tests incl. one UI journey per
+scenario, the live adapter under an injected transport and the stream endpoint's setup-error path — no
+API key, no network).
+
+CI runs those tests plus the web typecheck (`npx tsc -b`) and lint (`npx oxlint`) on every pull request.
+`.github/workflows/ci.yml` states what a green tick does and does not cover.
 
 ### If you get `command not found: conda`
 
