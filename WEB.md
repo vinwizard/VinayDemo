@@ -16,24 +16,59 @@ the end. That is the whole reason for the move; Three.js and other rendering cho
 
 ## Run it
 
-Two processes. Terminal 1 — the API, from the repo root:
+Two processes. Both commands work in **any** shell, interactive or not.
+
+Terminal 1 — the API, from the repo root:
 
 ```bash
-conda activate visexp && python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+cd ~/Projects/VinayDemo/.claude/worktrees/web-frontend && ~/miniconda3/envs/visexp/bin/python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
 Terminal 2 — the frontend:
 
 ```bash
-conda activate visexp && cd web && npm run dev
+cd ~/Projects/VinayDemo/.claude/worktrees/web-frontend/web && export PATH="$HOME/miniconda3/envs/visexp/bin:$PATH" && npm run dev
 ```
 
-Open http://localhost:5173. The API must be on port 8000; CORS allows only the Vite dev origin.
+Open **http://localhost:5173** — not `127.0.0.1:5173`. Vite binds IPv6 localhost and the numeric
+address is refused. The API must be on port 8000; CORS allows only the Vite dev origin.
 
-To watch the streaming do its job, start the API with an artificial per-answer stall:
+### Why not `conda activate`
+
+`conda activate` is a shell function installed into `~/.zshrc`, so it only exists in an **interactive**
+shell that has sourced that file. It works in a fresh Terminal.app tab; it fails with
+`command not found: conda` in a non-interactive shell, a script, or an editor's embedded terminal.
+
+The commands above sidestep it entirely. The API command calls the env's Python by absolute path.
+The frontend command needs the `PATH` export because npm's shebang is `#!/usr/bin/env node` and
+cannot find node otherwise. If you prefer `conda activate`, open a new terminal window first, or run
+`source ~/.zshrc`.
+
+### Live mode
+
+Put your key in `.env` at the repo root (gitignored, never committed):
+
+```
+OPENAI_API_KEY=sk-...
+LIVE_MODEL=gpt-6-astra
+```
+
+Restart the API. It prints `[config] loaded from .env: OPENAI_API_KEY=<set>` — names only, never
+values. Check `curl -s http://127.0.0.1:8000/api/health` for `"live_available": true`, then reload the
+page and the Mode dropdown becomes selectable.
+
+A live run is 16 calls: 8 to the measured model with web search, 8 to the evaluator. It measures
+perception only, so alignment is produced and visibility stays null. Without a key, live mode
+**errors** rather than falling back to fixtures — a fixture result under a live label would be a
+fabricated measurement.
+
+Set `EVALUATOR_MODEL` to a different model from `LIVE_MODEL` once it works: a model grading its own
+output has a self-preference bias.
+
+To watch the streaming work without spending anything, run the API with a per-answer stall:
 
 ```bash
-VISEXP_DEV_DELAY=1 python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
 `node` and `npm` come from the `visexp` conda env — nothing is installed system-wide.
