@@ -224,7 +224,7 @@ export function Compare({ a, b, runs = [] }: { a: Run; b: Run; runs?: RunSummary
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <div>
-            <div className="muted" title={a.id}>{name(a)} · scenario {a.scenario}</div>
+            <div className="muted" title={a.id}>{name(a)}</div>
             <div className="value" style={{ fontSize: "1.6rem", fontWeight: 600 }}>
               {da?.alignment ?? "n/a"}%
             </div>
@@ -237,7 +237,7 @@ export function Compare({ a, b, runs = [] }: { a: Run; b: Run; runs?: RunSummary
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div className="muted" title={b.id}>{name(b)} · scenario {b.scenario}</div>
+            <div className="muted" title={b.id}>{name(b)}</div>
             <div className="value" style={{ fontSize: "1.6rem", fontWeight: 600 }}>
               {db?.alignment ?? "n/a"}%
             </div>

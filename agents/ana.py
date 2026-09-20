@@ -139,6 +139,7 @@ def choose_followup(topics: list[Topic], topic_evals: list[TopicEvaluation], eva
     for te in chosen:
         motivating = [p.id for p in probes if p.topic_id == te.topic_id and p.phase == "baseline"
                       and (strength.get(p.id) or 0) < 2]
+        answered = [i for i in motivating if strength.get(i) is not None]
         evidence += motivating
         for raw in bank.get(te.topic_id, [])[:PER_FOLLOWUP_TOPIC]:
             p = Probe(**raw, parent_probe_ids=motivating)
@@ -149,8 +150,8 @@ def choose_followup(topics: list[Topic], topic_evals: list[TopicEvaluation], eva
                        if te.status == "candidate gap" else "why results were split across similar questions")
         found = (f"not recommended in any of {te.n} answers" if not te.recommendations
                  else f"recommended in only {te.recommendations} of {te.n} answers")
-        n_m = len(motivating)
-        motive = (f"{n_m} answer{'' if n_m == 1 else 's'} that did not recommend the brand" if motivating
+        n_m = len(answered)
+        motive = (f"{n_m} answer{'' if n_m == 1 else 's'} that did not recommend the brand" if answered
                   else "the topic-level result")
         why.append(f"{label.get(te.topic_id, te.topic_id)} — {found}; asking more questions to test "
                    f"{uncertainty}, prompted by {motive}")

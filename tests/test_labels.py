@@ -63,7 +63,7 @@ BACKTICKED = re.compile(r"`[^`]*`")
 
 # One list of what a reader must never be shown: engine id shapes, stored provenance values and the
 # acronyms this task removed. Add the next word here.
-NEVER_SHOWN = re.compile("|".join([ID_SHAPED.pattern,
+NEVER_SHOWN = re.compile("|".join([f"(?i:{ID_SHAPED.pattern})",
                                    *(rf"(?<!\w){v}(?!\w)" for v in labels.PROVENANCE_LABEL),
                                    r"(?<!\w)AnA(?!\w)"]))
 
