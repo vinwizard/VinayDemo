@@ -1,7 +1,9 @@
 # What these checks cover: the Python engine tests under tests/, the web
 # TypeScript types (tsc -b) and the web lint (oxlint).
 # What they do NOT cover: api/main.py and the /api/stream SSE endpoint have no
-# tests at all, so a green tick here says nothing about the HTTP server.
+# tests at all, so a green tick here says nothing about the HTTP server. There is
+# also no web test runner, so no web/src behaviour — including the stream client
+# in web/src/api.ts — is executed by CI; it is only typechecked and linted.
 name: CI
 
 on:

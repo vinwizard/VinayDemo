@@ -178,7 +178,7 @@ export function streamRun(scenario: string, mode: "demo" | "live", h: StreamHand
     h.onError?.(
       typeof data === "string"
         ? (JSON.parse(data) as { message: string })
-        : { message: "Lost the connection to the server before the run finished." },
+        : { message: "Could not reach the run stream. Check the API server is running on port 8000." },
     );
     es.close();
   });
