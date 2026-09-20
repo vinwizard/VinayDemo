@@ -1,8 +1,8 @@
 // Typed client for the Python engine's HTTP API. Mirrors schemas.py — keep in sync.
 export const API = "http://127.0.0.1:8000";
 
-export type Zone = "landed" | "lost_claim" | "unstated_intent" | "imposed";
-export type Owner = "authority_gap" | "messaging_gap" | "imposed_identity" | "none";
+export type Zone = "landed" | "lost_claim" | "contested" | "unstated_intent" | "imposed";
+export type Owner = "authority_gap" | "messaging_gap" | "contested_identity" | "imposed_identity" | "none";
 
 export interface AttributeScore {
   attribute_id: string;
@@ -14,6 +14,8 @@ export interface AttributeScore {
   echoes: number;
   echo_rate: number | null;
   negative_echoes: number;
+  mention_rate: number | null;
+  negative_rate: number | null;
   zone: Zone;
   owner: Owner;
   quotes: string[];
@@ -32,6 +34,7 @@ export interface DriftReport {
   visibility: number | null;
   landed: string[];
   lost_claims: string[];
+  contested: string[];
   imposed: string[];
   unstated_intent: string[];
   scores: AttributeScore[];
@@ -79,6 +82,7 @@ export interface RunSummary {
   visibility: number | null;
   landed: number;
   lost: number;
+  contested: number;
   unstated: number;
   imposed: number;
 }
@@ -96,6 +100,7 @@ export interface Scenario {
 export const ZONE_LABEL: Record<Zone, string> = {
   landed: "landed",
   lost_claim: "lost claim",
+  contested: "contested",
   unstated_intent: "never stated",
   imposed: "imposed",
 };
@@ -103,6 +108,7 @@ export const ZONE_LABEL: Record<Zone, string> = {
 export const OWNER_TITLE: Record<Owner, string> = {
   authority_gap: "Authority gap",
   messaging_gap: "Messaging gap",
+  contested_identity: "Contested",
   imposed_identity: "Imposed identity",
   none: "Aligned",
 };
@@ -111,15 +117,17 @@ export const OWNER_TITLE: Record<Owner, string> = {
 export const OWNER_TEXT: Record<Owner, string> = {
   authority_gap: "You state this clearly and the models are not repeating it.",
   messaging_gap: "AI does not say it because your own copy does not clearly say it either.",
+  contested_identity: "AI talks about this and says the opposite of what you claim.",
   imposed_identity: "AI asserts this about you without you claiming it.",
   none: "Intended positioning is reflected in AI answers.",
 };
 
 export const ZONE_ORDER: Record<Zone, number> = {
-  lost_claim: 0,
-  unstated_intent: 1,
-  imposed: 2,
-  landed: 3,
+  contested: 0,   // AI contradicting a claim you care about outranks AI merely ignoring it
+  lost_claim: 1,
+  unstated_intent: 2,
+  imposed: 3,
+  landed: 4,
 };
 
 async function json<T>(path: string): Promise<T> {

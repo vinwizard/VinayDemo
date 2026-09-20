@@ -198,8 +198,8 @@ class GapFinding(BaseModel):
     exploratory_note: Optional[str] = None
 
 
-Zone = Literal["landed", "lost_claim", "imposed", "unstated_intent"]
-Owner = Literal["authority_gap", "messaging_gap", "imposed_identity", "none"]
+Zone = Literal["landed", "lost_claim", "contested", "imposed", "unstated_intent"]
+Owner = Literal["authority_gap", "messaging_gap", "contested_identity", "imposed_identity", "none"]
 
 
 class AttributeScore(BaseModel):
@@ -213,8 +213,10 @@ class AttributeScore(BaseModel):
     claim_strength: Optional[float] = None  # fraction of known pages stating it
     n: int = 0                              # eligible named-probe answers
     echoes: int = 0                         # answers where AI associated it with the target
-    echo_rate: Optional[float] = None
+    echo_rate: Optional[float] = None       # SUPPORTIVE echoes only: criticism is not an endorsement
     negative_echoes: int = 0
+    mention_rate: Optional[float] = None    # any mention, whatever its polarity
+    negative_rate: Optional[float] = None
     zone: Zone
     owner: Owner
     quotes: list[str] = []      # verbatim, from answers
@@ -234,6 +236,7 @@ class DriftReport(BaseModel):
     visibility: Optional[float] = None      # 0-100, reuses the existing blind-probe score
     landed: list[str] = []
     lost_claims: list[str] = []
+    contested: list[str] = []
     imposed: list[str] = []
     unstated_intent: list[str] = []
     scores: list[AttributeScore] = []

@@ -16,12 +16,14 @@ from scoring import eligible, rate
 
 ECHO_THRESHOLD = 0.5   # share of eligible named answers that must echo an attribute to count as present
 IMPOSED_MIN = 0.25     # an attribute you never claimed is worth flagging at a lower bar than one you want
+CONTESTED_MIN = 0.25   # AI actively saying the opposite of an intended claim is a problem at the same low bar
 CLAIM_THRESHOLD = 0.4  # share of known pages that must state it before absence is an authority problem
 MIN_NAMED = 3          # below this, perception is not measurable and alignment is null
 
 OWNER_TEXT = {
     "authority_gap": "You state this clearly and the models are not repeating it.",
     "messaging_gap": "AI does not say it because your own copy does not clearly say it either.",
+    "contested_identity": "AI talks about this and says the opposite of what you claim.",
     "imposed_identity": "AI asserts this about you without you claiming it.",
     "none": "Intended positioning is reflected in AI answers.",
 }
@@ -31,24 +33,35 @@ def claim_strength(a: Attribute) -> Optional[float]:
     return None if not a.claim_pages_total else round(a.claim_pages / a.claim_pages_total, 3)
 
 
-def relevant(a: Attribute, echo_rate: Optional[float]) -> bool:
+def relevant(a: Attribute, mention_rate: Optional[float]) -> bool:
     """Intended attributes always appear. An attribute nobody claimed AND AI barely says is noise.
 
-    Without this, every unclaimed attribute would be reported as 'imposed' at a 0% echo rate.
+    Deliberately keyed on MENTIONS, not supportive echoes: an unclaimed attribute AI raises only to
+    criticise ("expensive at scale") is the most reportable imposed identity there is, and keying
+    this on the supportive rate would silently delete it from the report.
     """
-    return a.intended or (echo_rate is not None and echo_rate >= IMPOSED_MIN)
+    return a.intended or (mention_rate is not None and mention_rate >= IMPOSED_MIN)
 
 
-def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float]) -> tuple[str, str]:
+def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float],
+             negative_rate: Optional[float] = None) -> tuple[str, str]:
     """Zone x owner. Pure function of the three layers; deliberately has no access to an LLM.
 
-    An intended attribute needs a majority echo to count as landed. An unwanted one is flagged at the
-    lower IMPOSED_MIN bar, because being called something you never claimed is a problem sooner.
+    The model already judged each mention's polarity (agents/evaluation.py extract_attributes); this
+    function consumes that judgment, it does not second-guess it.
+
+    An intended attribute needs a majority SUPPORTIVE echo to count as landed - criticism is not an
+    endorsement. One that AI raises mainly to contradict is `contested`, checked before the absence
+    zones because "AI says the opposite" is a different problem from "AI never says it", and at the
+    low CONTESTED_MIN bar for the same reason IMPOSED_MIN is low.
     """
     echoed = echo_rate is not None and echo_rate >= ECHO_THRESHOLD
     stated = cs is not None and cs >= CLAIM_THRESHOLD
+    contested = negative_rate is not None and negative_rate >= CONTESTED_MIN
     if a.intended and echoed:
         return "landed", "none"
+    if a.intended and contested:
+        return "contested", "contested_identity"
     if a.intended and stated:
         return "lost_claim", "authority_gap"
     if a.intended:
@@ -88,19 +101,28 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
         hits = [(pid, o) for pid in kept for o in observations.get(pid, []) if o.attribute_id == a.id]
         echoes = len({pid for pid, _ in hits})
         neg = len({pid for pid, o in hits if o.polarity == "negative"})
-        er = rate(echoes, n)
+        # echo_rate drives `landed` and the alignment score, so it counts only supportive mentions.
+        # extract_attributes keeps at most one observation per attribute per answer, so these are
+        # disjoint counts of answers, not of sentences.
+        mr = rate(echoes, n)
+        nr = rate(neg, n)
+        er = rate(echoes - neg, n)
         cs = claim_strength(a)
-        if not relevant(a, er):
-            continue  # unclaimed and barely echoed: not a finding, and never padding for the report
-        zone, owner = classify(a, er, cs)
+        if not relevant(a, mr):
+            continue  # unclaimed and barely mentioned: not a finding, and never padding for the report
+        zone, owner = classify(a, er, cs, nr)
         limits = []
+        if zone == "contested":
+            limits.append(f"AI raised this in {echoes} of {n} answers and was negative in {neg} of them; "
+                          "the score counts only the supportive mentions.")
         if n < MIN_NAMED:
             limits.append(f"Only {n} eligible named-probe answer(s); perception is not measurable.")
         if a.intended and cs is None:
             limits.append("No page-level claim data: cannot separate an authority gap from a messaging gap.")
         out.append(AttributeScore(
             attribute_id=a.id, label=a.label, intended_weight=a.intended_weight, claim_strength=cs,
-            n=n, echoes=echoes, echo_rate=er, negative_echoes=neg, zone=zone, owner=owner,
+            n=n, echoes=echoes, echo_rate=er, negative_echoes=neg, mention_rate=mr,
+            negative_rate=nr, zone=zone, owner=owner,
             quotes=[o.quote for _, o in hits][:3], probe_ids=sorted({pid for pid, _ in hits}),
             limitations=limits))
     return out
@@ -139,5 +161,5 @@ def build_report(scores: list[AttributeScore], provenance: str, n_blind: int,
         excluded_named=len(reasons), excluded_reasons=reasons,
         alignment=alignment(scores) if n >= MIN_NAMED else None,
         visibility=visibility, scores=scores, limitations=limits,
-        landed=by("landed"), lost_claims=by("lost_claim"), imposed=by("imposed"),
-        unstated_intent=by("unstated_intent"))
+        landed=by("landed"), lost_claims=by("lost_claim"), contested=by("contested"),
+        imposed=by("imposed"), unstated_intent=by("unstated_intent"))

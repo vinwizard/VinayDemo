@@ -117,3 +117,32 @@ def test_named_probe_may_name_the_brand():
 def test_blind_probe_naming_the_brand_is_still_rejected():
     profile = CompanyProfile(name="Notion", domain="notion.com", aliases=["Notion"])
     assert ana.brand_leaks("Is Notion good for wikis?", profile)
+
+
+# --- negative polarity reaches the score (Option C: contested zone) -----------
+def test_criticism_is_not_an_endorsement():
+    """The defect this fixes: 4 criticisms + 1 nod used to read as 'landed, no problem'."""
+    a = mk(**INTENDED_STATED)
+    cs = drift.claim_strength(a)
+    # 5 of 8 answers raised it; 4 of those were negative. Supportive rate is 1/8.
+    assert drift.classify(a, 0.125, cs, 0.5) == ("contested", "contested_identity")
+    # same mention volume, no criticism, still lands
+    assert drift.classify(a, 0.625, cs, 0.0) == ("landed", "none")
+
+
+def test_majority_supportive_still_lands_despite_some_criticism():
+    a = mk(**INTENDED_STATED)
+    assert drift.classify(a, 0.75, drift.claim_strength(a), 0.25)[0] == "landed"
+
+
+def test_purely_negative_unclaimed_attribute_is_still_reported():
+    """Relevance is keyed on mentions, not supportive echoes, or 'expensive at scale' disappears."""
+    a = mk(claim_pages=0, claim_pages_total=8)
+    assert drift.relevant(a, 0.375)               # mentioned in 3 of 8, all negative
+    assert drift.classify(a, 0.0, 0.0, 0.375) == ("imposed", "imposed_identity")
+
+
+def test_negative_echoes_lower_the_alignment_score():
+    a = mk(**INTENDED_STATED)
+    obs = {f"p{i}": [] for i in range(8)}
+    assert drift.alignment([score(1.0, 0.125)]) < drift.alignment([score(1.0, 0.625)])

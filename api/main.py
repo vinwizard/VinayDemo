@@ -145,6 +145,7 @@ def list_all():
                         visibility=d.visibility if d else None,
                         landed=len(d.landed) if d else 0,
                         lost=len(d.lost_claims) if d else 0,
+                        contested=len(d.contested) if d else 0,
                         unstated=len(d.unstated_intent) if d else 0,
                         imposed=len(d.imposed) if d else 0))
     return sorted(out, key=lambda r: r["created_at"], reverse=True)

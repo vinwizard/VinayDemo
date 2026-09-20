@@ -5,6 +5,7 @@ import { OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_ORDER } from "./api";
 const ZONE_FILL: Record<string, string> = {
   landed: "var(--landed)",
   lost_claim: "var(--lost)",
+  contested: "var(--contested)",
   unstated_intent: "var(--unstated)",
   imposed: "var(--imposed)",
 };
@@ -21,6 +22,7 @@ export function Metrics({ d }: { d: DriftReport }) {
         </div>
         <div className="metric"><div className="label">Landed</div><div className="value">{d.landed.length}</div></div>
         <div className="metric"><div className="label">Lost claims</div><div className="value">{d.lost_claims.length}</div></div>
+        <div className="metric"><div className="label">Contested</div><div className="value">{d.contested?.length ?? 0}</div></div>
         <div className="metric"><div className="label">Never stated</div><div className="value">{d.unstated_intent.length}</div></div>
         <div className="metric"><div className="label">Imposed</div><div className="value">{d.imposed.length}</div></div>
       </div>
@@ -92,7 +94,7 @@ function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
 export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run }) {
   const [open, setOpen] = useState<string | null>(null);
   const rows = [...scores].sort(
-    (a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.echo_rate ?? 0) - (a.echo_rate ?? 0),
+    (a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.mention_rate ?? b.echo_rate ?? 0) - (a.mention_rate ?? a.echo_rate ?? 0),
   );
   return (
     <div className="card">
@@ -115,10 +117,15 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
             <div className="muted">{pct(s.claim_strength)}% of pages</div>
           </div>
           <div>
+            {/* Width is how OFTEN AI raises it; the red segment is how much of that was criticism.
+                Using echo_rate alone would draw a zero-width bar for an attribute AI only attacks. */}
             <div className="bar-track">
               <div className="bar" style={{ width: `${pct(s.echo_rate)}%`, background: ZONE_FILL[s.zone] }} />
+              <div className="bar neg" style={{ width: `${pct(s.negative_rate)}%` }} />
             </div>
-            <div className="muted">{s.echoes}/{s.n} answers</div>
+            <div className="muted">
+              {s.echoes}/{s.n} answers{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
+            </div>
           </div>
           <div><span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span></div>
           <button className="info" aria-expanded={open === s.attribute_id}
