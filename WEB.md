@@ -107,16 +107,7 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
 ## Not done yet
 
 - No tests for the React app; the API has one, over the stream endpoint's setup-error path (`tests/test_api_stream.py`)
-- Streamlit `app.py` still prints raw probe and node ids; it has not been through the wording pass
-- Streamlit `app.py` still prints raw probe and node ids; it has not been through the wording pass.
-  Deliberately deferred, not forgotten: relabelling it is waiting on the open decision about whether
-  `app.py` is deleted once the React UI reaches parity
-- Streamlit `app.py` still prints raw probe and node ids; it was deliberately not relabelled here
-  because it is scheduled for deletion in a later task once the React UI reaches parity
-- Streamlit `app.py` still prints raw probe and node ids. It is scheduled for removal in a filed
-  follow-up task, together with `app_detail_legacy.py`, the `streamlit` dependency and the DEMO.md /
-  README.md references that still point at it, so leaving it unrelabelled here is a deliberate scope
-  decision, not an omission
+- Streamlit `app.py` still prints raw probe and node ids; it is scheduled for deletion rather than relabelling
 - Report-surface attribute descriptions render nothing because `AttributeScore` carries no
   `description` field; to be resolved by the onboarding task
 - `_useful_description` in `agents/onboarding_model.py` strips the description to `[a-z ]` but
