@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { AttributeScore, DriftReport, Run, RunSummary } from "./api";
 import { OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_ORDER } from "./api";
 
@@ -27,18 +28,75 @@ export function Metrics({ d }: { d: DriftReport }) {
         {d.n_named} named answers drive perception · {d.n_blind} blind answers give a separate visibility
         score of {d.visibility == null ? "n/a" : `${d.visibility}/100`} · provenance {d.provenance}
       </p>
+      {d.excluded_named > 0 && (
+        <div className="bubble" style={{ borderLeftColor: "var(--lost)", marginTop: ".5rem", gridColumn: "auto" }}>
+          <h4 className="warn">{d.excluded_named} of {d.named_asked} named answers excluded</h4>
+          <p style={{ margin: ".2rem 0 .4rem" }}>
+            Alignment rests on {d.n_named}. An excluded answer cannot count against the brand, so this
+            score is biased upward — read it as a ceiling, not a measurement.
+          </p>
+          <ul>{d.excluded_reasons.map((r, i) => <li key={i} className="log">{r}</li>)}</ul>
+        </div>
+      )}
     </>
   );
 }
 
-export function DriftMap({ scores }: { scores: AttributeScore[] }) {
+/** Evidence for one attribute, inline and scrollable. Beats sending the reader to the page bottom. */
+function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
+  const probeText = new Map((run?.probes ?? []).map((p) => [p.id, p.text]));
+  return (
+    <div className="bubble" role="region" aria-label={`Evidence for ${s.label}`}>
+      <h4>Evidence · {s.label}</h4>
+      <dl>
+        <dt>Zone</dt><dd>{ZONE_LABEL[s.zone]} — {OWNER_TITLE[s.owner]}</dd>
+        <dt>Your copy</dt>
+        <dd>{s.claim_strength == null ? "no page data" : `states it on ${pct(s.claim_strength)}% of known pages`}</dd>
+        <dt>AI echo</dt>
+        <dd>{s.echoes} of {s.n} eligible answers{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}</dd>
+        {s.intended_weight != null && <><dt>Intent weight</dt><dd>{s.intended_weight}</dd></>}
+      </dl>
+      {s.quotes.length > 0 && (
+        <>
+          <h4>Verbatim quotes</h4>
+          {s.quotes.map((q, i) => <p className="quote" key={i}>{q}</p>)}
+        </>
+      )}
+      {s.probe_ids.length > 0 && (
+        <>
+          <h4>From these questions</h4>
+          <ul>
+            {s.probe_ids.map((id) => (
+              <li key={id}><span className="log">{id}</span> {probeText.get(id) ?? ""}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      {s.limitations.length > 0 && (
+        <>
+          <h4>Limitations</h4>
+          <ul>{s.limitations.map((l, i) => <li className="warn" key={i}>{l}</li>)}</ul>
+        </>
+      )}
+      {s.quotes.length === 0 && (
+        <p className="muted" style={{ margin: 0 }}>
+          No verbatim quote supports this attribute in any eligible answer. Absence of evidence, not
+          evidence of absence — but nothing here was scored on faith.
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run }) {
+  const [open, setOpen] = useState<string | null>(null);
   const rows = [...scores].sort(
     (a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.echo_rate ?? 0) - (a.echo_rate ?? 0),
   );
   return (
     <div className="card">
       <div className="drift-head">
-        <div>Attribute</div><div>What you claim</div><div>What AI says</div><div />
+        <div>Attribute</div><div>What you claim</div><div>What AI says</div><div /><div />
       </div>
       {rows.map((s) => (
         <div className="drift-row" key={s.attribute_id}>
@@ -61,6 +119,12 @@ export function DriftMap({ scores }: { scores: AttributeScore[] }) {
             <div className="muted">{s.echoes}/{s.n} answers</div>
           </div>
           <div><span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span></div>
+          <button className="info" aria-expanded={open === s.attribute_id}
+                  aria-label={`Evidence for ${s.label}`}
+                  onClick={() => setOpen(open === s.attribute_id ? null : s.attribute_id)}>
+            i
+          </button>
+          {open === s.attribute_id && <EvidenceBubble s={s} run={run} />}
         </div>
       ))}
     </div>

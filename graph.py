@@ -1,5 +1,6 @@
 """Orchestrator: ordinary code owning LangGraph state, routing, budgets and validation."""
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -75,7 +76,14 @@ def execute_or_replay(s: State):
     run = s["run"]
     done = {a.probe_id for a in run.answers}
     todo = [p for p in run.probes if p.id not in done]
-    run.answers += [s["provider"].answer(p) for p in todo]
+    # Live answers are two slow calls each (measured + evaluator). Serially that is ~8 minutes for a
+    # 12-probe run; ThreadPoolExecutor.map preserves order so results stay deterministic.
+    workers = min(getattr(s["provider"], "concurrency", 1), len(todo)) if todo else 1
+    if workers > 1:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            run.answers += list(pool.map(s["provider"].answer, todo))
+    else:
+        run.answers += [s["provider"].answer(p) for p in todo]
     phase = todo[0].phase if todo else "?"
     new = [a for a in run.answers if a.probe_id in {p.id for p in todo}]
     failed = sum(a.status != "ok" for a in new)
@@ -151,8 +159,10 @@ def measure_drift(s: State):
     provenance = named_provenance.pop() if named_provenance else "synthetic"
     run.attribute_scores = drift.score_attributes(run.attributes, run.probes, run.answers,
                                                   run.evaluations, observations)
+    _, excluded, asked = drift.named_eligibility(run.probes, run.answers, run.evaluations)
     run.drift = drift.build_report(run.attribute_scores, provenance, n_blind=len(strengths),
-                                   visibility=visibility_score(strengths))
+                                   visibility=visibility_score(strengths),
+                                   asked=asked, excluded_reasons=excluded)
     if dropped:
         run.drift.limitations += [f"Dropped unverifiable observation — {d}" for d in dropped]
     run.log.append(f"Drift measured over {run.drift.n_named} named answers: alignment "

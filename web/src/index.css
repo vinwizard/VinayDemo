@@ -103,3 +103,28 @@ tr.pick:hover { background: #f5f8fc; cursor: pointer; }
   .drift-head { display: none; }
   .drift-row { grid-template-columns: 1fr 1fr; row-gap: .4rem; }
 }
+
+.drift-head, .drift-row { grid-template-columns: 2.1fr 1.35fr 1.35fr .95fr 1.6rem; }
+
+.info {
+  border: none; background: none; cursor: pointer; padding: 0; line-height: 1;
+  width: 1.35rem; height: 1.35rem; border-radius: 999px;
+  color: var(--muted); font-size: .8rem; font-weight: 600;
+}
+.info:hover, .info[aria-expanded="true"] { background: #eef1f5; color: var(--text); }
+
+.bubble {
+  grid-column: 1 / -1; margin: .4rem 0 .2rem;
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0; padding: .7rem .85rem;
+  max-height: 15rem; overflow-y: auto; font-size: .86rem;
+}
+.bubble h4 { margin: 0 0 .35rem; font-size: .76rem; color: var(--muted);
+             text-transform: uppercase; letter-spacing: .04em; font-weight: 500; }
+.bubble + .bubble { margin-top: 0; }
+.bubble dl { display: grid; grid-template-columns: auto 1fr; gap: .15rem .6rem; margin: 0 0 .5rem; }
+.bubble dt { color: var(--muted); }
+.bubble dd { margin: 0; }
+.bubble ul { margin: 0 0 .5rem; padding-left: 1.1rem; }
+.bubble .quote { margin: .3rem 0; }
+.bubble .warn { color: var(--lost); }

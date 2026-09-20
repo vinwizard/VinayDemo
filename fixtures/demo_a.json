@@ -919,7 +919,12 @@
    ],
    "claim_pages": 6,
    "claim_pages_total": 8,
-   "note": "Stated on the homepage and the AI product page."
+   "note": "Stated on the homepage and the AI product page.",
+   "buyer_questions": [
+    "Which team workspace app has AI built directly into writing, search and answering questions about your own documents?",
+    "I want one app where AI can summarise and answer questions across all my team's internal docs. What should I look at?",
+    "Are there note-taking or wiki tools where an assistant can draft and edit content inline for me?"
+   ]
   },
   {
    "id": "replaces_stack",
@@ -934,7 +939,12 @@
    ],
    "claim_pages": 7,
    "claim_pages_total": 8,
-   "note": "Core homepage claim."
+   "note": "Core homepage claim.",
+   "buyer_questions": [
+    "What single app could replace my separate notes app, task tracker and team wiki?",
+    "We pay for four different tools for docs, tasks and wikis. Is there one product that covers all of it?",
+    "What is the best all-in-one productivity tool for a small startup that does not want five separate subscriptions?"
+   ]
   },
   {
    "id": "connected_docs",
@@ -948,7 +958,12 @@
     "ev-c3"
    ],
    "claim_pages": 8,
-   "claim_pages_total": 8
+   "claim_pages_total": 8,
+   "buyer_questions": [
+    "I need documents and databases that link to each other so the same records show up in different views. What tools do that?",
+    "Which app lets a project page pull from the same underlying database as my meeting notes?",
+    "Which tools give me relational databases inside my documents rather than a separate spreadsheet?"
+   ]
   },
   {
    "id": "enterprise",
@@ -961,7 +976,12 @@
    "claim_evidence_ids": [],
    "claim_pages": 1,
    "claim_pages_total": 8,
-   "note": "Customer named this as intended, but their own copy barely states it."
+   "note": "Customer named this as intended, but their own copy barely states it.",
+   "buyer_questions": [
+    "Which flexible docs and wiki platform is actually suitable for a 2,000-person company with audit logging and SSO?",
+    "We need a customisable internal knowledge platform that satisfies enterprise compliance and admin controls. What qualifies?",
+    "What internal documentation platforms do large enterprises actually approve for company-wide rollout?"
+   ]
   },
   {
    "id": "note_taking",

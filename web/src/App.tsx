@@ -164,7 +164,7 @@ export default function App() {
       {tab === "report" && run?.drift && (
         <div className="stack">
           <Metrics d={run.drift} />
-          <DriftMap scores={run.attribute_scores} />
+          <DriftMap scores={run.attribute_scores} run={run} />
           <h2 style={{ marginTop: ".6rem" }}>Whose problem is each gap?</h2>
           <GapCards scores={run.attribute_scores} />
           <Evidence run={run} />

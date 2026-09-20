@@ -16,7 +16,8 @@ from schemas import Answer, Attribute, CompanyProfile, Probe
 
 KEY_ENV = "OPENAI_API_KEY"
 MODEL_ENV = "EVALUATOR_MODEL"
-DEFAULT_MODEL = "gpt-6-astra"
+# The evaluator reads text it is handed: it needs no web search and no flagship reasoning.
+DEFAULT_MODEL = "gpt-4o-mini"
 
 SCHEMA_HINT = """Return ONLY JSON with exactly these keys:
 {
@@ -109,7 +110,7 @@ def parse_labels(raw: str) -> dict:
 
 class ModelEvaluator:
     def __init__(self, model: Optional[str] = None, transport: Optional[Callable] = None,
-                 timeout: int = 25):
+                 timeout: int = 60):
         self.model = model or model_name()
         self._transport = transport or default_transport
         self.timeout = timeout

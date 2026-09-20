@@ -45,6 +45,40 @@ def attribute_leaks(text: str, attributes: list[Attribute]) -> list[str]:
     return hits
 
 
+def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyProfile
+                                 ) -> tuple[list[Topic], list[Probe]]:
+    """The placebo test: one buyer topic per intended attribute, questions that never name the brand.
+
+    If a company claims to be X, a buyer asking for X should find them. Asking the question the
+    company's own positioning implies — with no brand name, in a fresh context — is a stronger test
+    than a generic topic question, because a miss cannot be blamed on an irrelevant question.
+
+    Aspiration is not product fit (agents.md section 3): an attribute their own copy states gets
+    `strong` fit, one they merely want gets `partial`. A question that leaks the brand is rejected,
+    never rewritten.
+    """
+    topics, probes, dropped = [], [], []
+    for a in [x for x in attributes if x.intended and x.buyer_questions]:
+        topic = Topic(id=f"pos-{a.id}", label=a.label, kind="buyer",
+                      buyer_need=f"A buyer looking for: {a.label.lower()}",
+                      positioning_point_ids=[], fit="strong" if a.claimed else "partial",
+                      fit_evidence_ids=list(a.claim_evidence_ids))
+        kept = 0
+        for i, text in enumerate(a.buyer_questions[:PER_TOPIC], start=1):
+            if leaks := brand_leaks(text, profile):
+                dropped.append(f"{a.id}-{i} ({', '.join(leaks)})")
+                continue
+            probes.append(Probe(
+                id=f"{a.id}-b{i}", topic_id=topic.id, text=text, kind="blind", phase="baseline",
+                purpose=f"Placebo: would a buyer wanting '{a.label}' be shown this brand?"))
+            kept += 1
+        if kept:
+            topics.append(topic)
+    if dropped:
+        raise ValueError("buyer questions leak the brand and were not rewritten: " + "; ".join(dropped))
+    return topics[:MAX_TOPICS], probes
+
+
 def validate_named_probes(probes: list[Probe], attributes: list[Attribute]) -> list[str]:
     errors = []
     for p in probes:

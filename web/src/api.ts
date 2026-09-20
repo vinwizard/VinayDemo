@@ -24,6 +24,9 @@ export interface DriftReport {
   provenance: string;
   n_named: number;
   n_blind: number;
+  named_asked: number;
+  excluded_named: number;
+  excluded_reasons: string[];
   alignment: number | null;
   visibility: number | null;
   landed: string[];

@@ -41,6 +41,7 @@ class ReplayUnavailable(Exception):
 
 class FixtureProvider:
     name = "fixture"
+    concurrency = 1  # deterministic replay order, and keeps the CALLS counter race-free
 
     def __init__(self, scenario: str):
         self.scenario = scenario

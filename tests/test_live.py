@@ -109,11 +109,45 @@ def test_live_answers_are_marked_live_api():
     assert a.provenance == "live_api" and a.provider == "openai" and a.collected_at
 
 
-def test_live_plan_has_no_blind_probes_so_visibility_stays_null():
+def test_live_plan_includes_attribute_derived_blind_probes():
+    """The placebo axis: one buyer topic per intended attribute, plus the perception container."""
     p = provider(transport=lambda *_: response())
-    topics, probes = p.plan(fixture.bundled_profile("A"))
-    assert probes == [] and [t.kind for t in topics] == ["perception"]
+    profile = fixture.bundled_profile("A")
+    topics, probes = p.plan(profile)
+    assert [t.kind for t in topics].count("perception") == 1
+    buyer = [t for t in topics if t.kind == "buyer"]
+    assert len(buyer) == 4                      # four intended attributes
+    assert all(pr.kind == "blind" for pr in probes)
+    assert len(probes) == 12                    # three questions each: scoring needs n=3 per topic
     assert len(p.named_probes()) == 8
+
+
+def test_placebo_questions_never_name_the_brand():
+    from agents import ana
+    p = provider(transport=lambda *_: response())
+    profile = fixture.bundled_profile("A")
+    _, probes = p.plan(profile)
+    for pr in probes:
+        assert not ana.brand_leaks(pr.text, profile), f"{pr.id} leaks: {pr.text}"
+
+
+def test_aspiration_alone_is_not_strong_product_fit():
+    """agents.md section 3: a claim their own copy does not state cannot count as strong fit."""
+    p = provider(transport=lambda *_: response())
+    topics, _ = p.plan(fixture.bundled_profile("A"))
+    fits = {t.id: t.fit for t in topics if t.kind == "buyer"}
+    assert fits["pos-enterprise"] == "partial"   # Notion barely states enterprise readiness
+    assert fits["pos-replaces_stack"] == "strong"
+
+
+def test_brand_leaking_buyer_question_is_rejected_not_rewritten():
+    from agents import ana
+    from schemas import Attribute
+    profile = fixture.bundled_profile("A")
+    bad = [Attribute(id="x", label="X", intended_weight=1.0,
+                     buyer_questions=["Is Notion the best wiki?"])]
+    with pytest.raises(ValueError, match="leak the brand"):
+        ana.blind_probes_from_attributes(bad, profile)
 
 
 def test_adapter_is_disabled_without_a_key(monkeypatch):

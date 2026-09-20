@@ -18,10 +18,12 @@ from schemas import Answer, Attribute, CompanyProfile, Probe, Topic
 
 KEY_ENV = "OPENAI_API_KEY"
 MODEL_ENV = "LIVE_MODEL"
-DEFAULT_MODEL = "gpt-6-astra"
+# Cheap search-native default. gpt-5.5 + web_search cost ~$10/run and timed out on 4 of 8 calls,
+# which is paid work thrown away. Override with LIVE_MODEL for a demo-grade run.
+DEFAULT_MODEL = "gpt-4o-mini-search-preview"
 
 LIMITS = dict(max_unique_probes=16, max_probe_retries=4, max_model_attempts=40, concurrency=3,
-              per_call_timeout_s=25, investigation_deadline_s=240)
+              per_call_timeout_s=90, investigation_deadline_s=600)
 
 NEUTRAL_INSTRUCTION = ("Answer the user's question as a helpful assistant. Use web search. "
                        "Recommend specific products where appropriate and cite sources.")
@@ -96,6 +98,7 @@ class LiveProvider:
     """
     name = "openai"
     scenario = None
+    concurrency = LIMITS["concurrency"]
 
     def __init__(self, attributes: list[Attribute], named_probes: list[Probe],
                  profile: Optional[CompanyProfile] = None, model: Optional[str] = None,
@@ -111,10 +114,13 @@ class LiveProvider:
         self.calls = 0
 
     def plan(self, profile: CompanyProfile) -> tuple[list[Topic], list[Probe]]:
+        """Both axes: attribute-derived blind probes (placebo) plus the perception container."""
+        from agents.ana import blind_probes_from_attributes
+        topics, blind = blind_probes_from_attributes(self._attributes, profile)
         perception = Topic(id="perception", label="Brand perception", kind="perception",
                            buyer_need="How AI characterises the brand when asked about it directly",
                            positioning_point_ids=[], fit="strong")
-        return [perception], []          # no blind probes: visibility stays null and is labelled so
+        return topics + [perception], blind
 
     def attributes(self) -> list[Attribute]:
         return self._attributes

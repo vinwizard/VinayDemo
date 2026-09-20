@@ -58,6 +58,9 @@ class Attribute(BaseModel):
     claim_evidence_ids: list[str] = []       # set only when their own copy states it
     claim_pages: int = 0                     # how many crawled/known pages state it
     claim_pages_total: int = 0               # denominator for claim strength
+    # The buyer questions this claim implies, with no brand name anywhere. If the positioning were
+    # landing, the company should surface for these. This is the placebo test.
+    buyer_questions: list[str] = []
     note: Optional[str] = None
 
     @property
@@ -219,6 +222,9 @@ class DriftReport(BaseModel):
     provenance: Provenance
     n_named: int = 0           # eligible named-probe answers behind the perception layer
     n_blind: int = 0           # eligible blind-probe answers behind the visibility layer
+    named_asked: int = 0       # how many were attempted, so a reader can see what was lost
+    excluded_named: int = 0
+    excluded_reasons: list[str] = []
     alignment: Optional[float] = None       # 0-100, weighted echo of intended attributes
     visibility: Optional[float] = None      # 0-100, reuses the existing blind-probe score
     landed: list[str] = []

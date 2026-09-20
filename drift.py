@@ -56,15 +56,31 @@ def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float]) -> t
     return "imposed", "imposed_identity"
 
 
+def named_eligibility(probes: list[Probe], answers: list[Answer],
+                      evals: list[QueryEvaluation]) -> tuple[list[str], list[str], int]:
+    """-> (kept probe ids, exclusion reasons, how many were asked).
+
+    Exclusions must be reported, not just applied: a timeout removes an answer that would otherwise
+    have counted against you, so a silent exclusion inflates alignment. Callers surface the counts.
+    """
+    named_ids = [p.id for p in probes if p.kind == "named"]
+    ans = {a.probe_id: a for a in answers}
+    ev = {e.probe_id: e for e in evals}
+    kept, reasons = [], []
+    for pid in named_ids:
+        if pid not in ans or pid not in ev:
+            reasons.append(f"{pid}: no answer collected")
+            continue
+        ok, why = eligible(ans[pid], ev[pid])
+        kept.append(pid) if ok else reasons.append(f"{pid}: {why}")
+    return kept, reasons, len(named_ids)
+
+
 def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: list[Answer],
                      evals: list[QueryEvaluation],
                      observations: dict[str, list[AttributeObservation]]) -> list[AttributeScore]:
     """observations: probe_id -> validated observations (quotes already checked verbatim upstream)."""
-    named_ids = [p.id for p in probes if p.kind == "named"]
-    ans = {a.probe_id: a for a in answers}
-    ev = {e.probe_id: e for e in evals}
-    kept = [pid for pid in named_ids
-            if pid in ans and pid in ev and eligible(ans[pid], ev[pid])[0]]
+    kept, _, _ = named_eligibility(probes, answers, evals)
     n = len(kept)
 
     out = []
@@ -100,17 +116,27 @@ def alignment(scores: list[AttributeScore]) -> Optional[float]:
 
 
 def build_report(scores: list[AttributeScore], provenance: str, n_blind: int,
-                 visibility: Optional[float]) -> DriftReport:
+                 visibility: Optional[float], asked: int = 0,
+                 excluded_reasons: Optional[list[str]] = None) -> DriftReport:
     n = scores[0].n if scores else 0
+    reasons = list(excluded_reasons or [])
+    asked = asked or n
     by = lambda z: [s.label for s in scores if s.zone == z]
-    limits = ["Small sample: alignment rests on a handful of named-probe answers.",
-              "An echo is an association in the answer text, not proof of why the model said it."]
+    limits = []
+    if reasons:
+        # first, because it changes how every number below should be read
+        limits.append(f"{len(reasons)} of {asked} named answers were excluded, so alignment rests on "
+                      f"{n}. Excluded answers cannot count against the brand, which biases the score "
+                      f"upward: {'; '.join(reasons)}")
+    limits += ["Small sample: alignment rests on a handful of named-probe answers.",
+               "An echo is an association in the answer text, not proof of why the model said it."]
     if provenance == "synthetic":
         limits.append("Simulated: attribute observations come from authored fixtures, not a measured chatbot.")
     if n < MIN_NAMED:
         limits.append(f"Only {n} eligible named answer(s) (minimum {MIN_NAMED}); alignment withheld.")
     return DriftReport(
-        provenance=provenance, n_named=n, n_blind=n_blind,
+        provenance=provenance, n_named=n, n_blind=n_blind, named_asked=asked,
+        excluded_named=len(reasons), excluded_reasons=reasons,
         alignment=alignment(scores) if n >= MIN_NAMED else None,
         visibility=visibility, scores=scores, limitations=limits,
         landed=by("landed"), lost_claims=by("lost_claim"), imposed=by("imposed"),
