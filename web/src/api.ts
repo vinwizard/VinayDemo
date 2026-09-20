@@ -170,10 +170,17 @@ export function streamRun(scenario: string, mode: "demo" | "live", h: StreamHand
     h.onDone?.(d);
     es.close(); // the server ends the response; close so the browser does not reconnect
   });
-  on("error", (d: { message: string }) => {
-    h.onError?.(d);
+  // One listener for both error shapes: the server's `event: error` carries JSON,
+  // while a transport failure dispatches a bare Event with no data. Closing either
+  // way stops EventSource from retrying forever.
+  es.addEventListener("error", (ev) => {
+    const data: unknown = (ev as MessageEvent).data;
+    h.onError?.(
+      typeof data === "string"
+        ? (JSON.parse(data) as { message: string })
+        : { message: "Lost the connection to the server before the run finished." },
+    );
     es.close();
   });
-  es.onerror = () => es.close(); // transport-level failure: EventSource would otherwise retry forever
   return () => es.close();
 }
