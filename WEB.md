@@ -119,5 +119,9 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
   decision, not an omission
 - Report-surface attribute descriptions render nothing because `AttributeScore` carries no
   `description` field; to be resolved by the onboarding task
+- `_useful_description` in `agents/onboarding_model.py` strips the description to `[a-z ]` but
+  matches the label unnormalized, so a label containing a hyphen, digit or ampersand ("AI-native
+  workspace") can never be found and the restatement check degrades to a bare word count; filed as a
+  separate follow-up
 - Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)
 - No production build wiring — Vite dev server only, so nothing is deployable from here yet
