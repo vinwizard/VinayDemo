@@ -61,9 +61,16 @@ def build_provider(scenario: str, mode: str):
         return base, profile, len(base.named_probes()) + graph.MAX_BASELINE + graph.MAX_FOLLOWUP, "demo_replay"
     if not live.available():
         raise HTTPException(400, f"Live mode needs {live.KEY_ENV}. {live.status()}")
+    try:
+        live.preflight()   # one trivial call: an unusable model fails once, not 20 times
+    except live.ModelUnsupported as e:
+        raise HTTPException(400, str(e))
     prov = live.LiveProvider(base.attributes(), base.named_probes(), profile=profile,
                              evaluator=ModelEvaluator())
-    return prov, profile, len(base.named_probes()), "live_api"
+    # a live run is both axes now: count the blind probes its own plan will produce, or the progress
+    # bar reads "20/8"
+    _, blind = prov.plan(profile)
+    return prov, profile, len(blind) + len(base.named_probes()), "live_api"
 
 
 def run_events(scenario: str, mode: str = "demo") -> Iterator[str]:

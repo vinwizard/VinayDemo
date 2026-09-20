@@ -191,3 +191,25 @@ def test_fixture_answers_never_claim_search_executed():
     f = fixture.FixtureProvider("A")
     for pr in f.named_probes():
         assert f.answer(pr).search_executed is None
+
+
+# --- preflight: an unusable model must fail once, with a usable message ------
+def test_preflight_rejects_a_model_that_cannot_take_the_tool():
+    """Regression: gpt-4o-mini-search-preview 400s on the Responses API, producing 20 identical
+    errors and an unreadable report. Preflight turns that into one clear message."""
+    def boom(*_):
+        raise RuntimeError("Error code: 400 - {'error': {'message': \"The requested model "
+                           "'gpt-4o-mini-search-preview' is not supported with the Responses API.\"}}")
+    with pytest.raises(live.ModelUnsupported, match="does not accept the Responses API"):
+        live.preflight("gpt-4o-mini-search-preview", transport=boom)
+
+
+def test_preflight_passes_a_working_model():
+    assert live.preflight("gpt-4o-mini", transport=lambda *_: response()) is None
+
+
+def test_preflight_reraises_unrelated_failures():
+    def boom(*_):
+        raise RuntimeError("Connection reset by peer")
+    with pytest.raises(RuntimeError, match="Connection reset"):
+        live.preflight("gpt-4o-mini", transport=boom)

@@ -18,9 +18,11 @@ from schemas import Answer, Attribute, CompanyProfile, Probe, Topic
 
 KEY_ENV = "OPENAI_API_KEY"
 MODEL_ENV = "LIVE_MODEL"
-# Cheap search-native default. gpt-5.5 + web_search cost ~$10/run and timed out on 4 of 8 calls,
-# which is paid work thrown away. Override with LIVE_MODEL for a demo-grade run.
-DEFAULT_MODEL = "gpt-4o-mini-search-preview"
+# Cheap default that is VERIFIED to accept the Responses API web_search tool and to actually invoke
+# it on buyer questions. Note: the *-search-preview models are Chat Completions only and 400 here
+# ("not supported with the Responses API"), so they cannot be used. gpt-4.1-nano also rejects the
+# tool. Override with LIVE_MODEL (gpt-5.5, gpt-4.1-mini, gpt-4o and gpt-5* all work).
+DEFAULT_MODEL = "gpt-4o-mini"
 
 LIMITS = dict(max_unique_probes=16, max_probe_retries=4, max_model_attempts=40, concurrency=3,
               per_call_timeout_s=90, investigation_deadline_s=600)
@@ -47,6 +49,30 @@ def status() -> str:
 
 def available() -> bool:
     return bool(os.environ.get(KEY_ENV))
+
+
+class ModelUnsupported(RuntimeError):
+    pass
+
+
+def preflight(model: Optional[str] = None, transport: Optional[Callable] = None) -> None:
+    """One trivial call before a run, so an unusable model fails once with a clear message.
+
+    Without this, a model that cannot take the web_search tool produces N identical 400s — one per
+    probe — and the report is an unreadable wall of the same error.
+    """
+    model = model or model_name()
+    try:
+        (transport or default_transport)([{"role": "user", "content": "hi"}], model, 30)
+    except Exception as e:
+        msg = str(e)
+        if "not supported" in msg or "invalid_request_error" in msg:
+            raise ModelUnsupported(
+                f"Model {model!r} cannot be used: it does not accept the Responses API web_search "
+                f"tool. Set LIVE_MODEL to one that does (gpt-4o-mini, gpt-4.1-mini, gpt-4o, "
+                f"gpt-5-mini, gpt-5.5). Note the *-search-preview models are Chat Completions only. "
+                f"Original error: {msg[:200]}") from e
+        raise
 
 
 # ---------------------------------------------------------------- response parsing
