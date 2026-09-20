@@ -6,7 +6,7 @@ same job for identifiers the browser already has in hand.
 """
 import re
 
-from schemas import Evidence, Probe
+from schemas import Evidence, Probe, Topic
 
 
 def probe_name(probe: Probe) -> str:
@@ -34,3 +34,15 @@ def source_names(evidence: list[Evidence]) -> dict[str, str]:
         where = re.sub(r"^https?://(www\.)?", "", e.url) if e.url else e.source_type.replace("_", " ")
         out[e.id] = f"Source {i} — {where}"
     return out
+
+
+def probe_names(probes: list[Probe], topics: list[Topic] = ()) -> dict[str, str]:
+    """id -> "Buyer question 3 — Project tracking". Buyer questions carry their topic; brand ones have none."""
+    label = {t.id: t.label for t in topics}
+    return {p.id: probe_name(p) + (f" — {label[p.topic_id]}" if p.kind == "blind" and p.topic_id in label else "")
+            for p in probes}
+
+
+def with_ids(ids, names: dict[str, str]) -> str:
+    """"Buyer question 3 — Project tracking (`pt-3`)": the name a reader needs, the id traceability needs."""
+    return ", ".join(f"{names.get(i, i)} (`{i}`)" for i in ids)

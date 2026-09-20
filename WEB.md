@@ -94,10 +94,13 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
 
 ## Wording
 
-Engine identifiers never reach the screen. `web/src/labels.ts` names everything the browser holds
-(probe ids, run ids, provenance, strengths, probe kinds); `labels.py` names the ids the engine bakes
-into strings it hands over whole (exclusion reasons, the follow-up rationale, the Markdown export).
-Change a word in one of those two files, not in a component. The ids themselves are untouched — the
+No engine identifier is the only name a reader gets: where a raw id is still shown for traceability
+it follows the words it stands for, as in "Buyer question 3 — Project tracking (`pt-3`)".
+`web/src/labels.ts` names everything the browser holds (probe ids, run ids, provenance, probe kinds);
+`labels.py` names the ids the engine bakes into strings it hands over whole (exclusion reasons, the
+follow-up rationale, gap findings, the Markdown export), and `reports.py` names strengths and topic
+statuses where the Markdown export prints them.
+Change a word in one of those label modules, not in a component. The ids themselves are untouched — the
 JSON export, `data/runs/` and the baseline hash are exactly what they were.
 
 ## Not done yet
@@ -107,6 +110,8 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
 - Streamlit `app.py` still prints raw probe and node ids; it has not been through the wording pass.
   Deliberately deferred, not forgotten: relabelling it is waiting on the open decision about whether
   `app.py` is deleted once the React UI reaches parity
+- Streamlit `app.py` still prints raw probe and node ids; it was deliberately not relabelled here
+  because it is scheduled for deletion in a later task once the React UI reaches parity
 - Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)
 - No production build wiring — Vite dev server only, so nothing is deployable from here yet
 - `app.py` (Streamlit) is still the demo of record until this reaches parity

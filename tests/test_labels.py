@@ -59,6 +59,22 @@ def test_followup_rationale_names_topics_and_keeps_the_ids_in_the_data(run_a):
     assert d.evidence_probe_ids and all(ID_SHAPED.match(p) for p in d.evidence_probe_ids)
 
 
+BACKTICKED = re.compile(r"`[^`]*`")
+
+
+@pytest.mark.parametrize("scenario", ["A", "B"])
+def test_markdown_report_never_leaves_an_id_as_the_only_name(scenario):
+    """The Markdown export is the generated artefact a reader is handed; ids may only trail a name."""
+    prov = fixture.FixtureProvider(scenario)
+    run = graph.execute(graph.new_run(fixture.bundled_profile(scenario), prov), prov)
+    md = to_markdown(run)
+    spoken = BACKTICKED.sub("", md)  # backticked ids are traceability, and always follow their name
+    assert [l for l in spoken.splitlines() if ID_SHAPED.search(l)] == []
+    # display only: the ids are still in the export and in the stored findings
+    assert "`np-1`" in md and any(ID_SHAPED.search(f.observation + (f.exploratory_note or ""))
+                                 or f.evidence_ids for f in run.findings)
+
+
 def test_markdown_report_leads_with_names(run_a):
     md = to_markdown(run_a)
     assert "**Brand question 1** (`np-1`" in md

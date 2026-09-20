@@ -22,13 +22,6 @@ export const PROBE_KIND_LABEL: Record<string, string> = {
   blind: "buyer search",
 };
 
-/** `TopicEvaluation.status`. */
-export const TOPIC_STATUS_LABEL: Record<string, string> = {
-  "candidate gap": "Not recommended",
-  mixed: "Split results",
-  "observed presence": "Found",
-};
-
 /** The number a probe id already carries: np-3 -> 3, ai_native-b1 -> 1, kb-f2 -> 2. */
 const idNumber = (id: string): number | null => {
   const m = /(\d+)$/.exec(id);
@@ -40,23 +33,13 @@ const idNumber = (id: string): number | null => {
  *
  * Numbering comes from the id itself, so "Brand question 3" is the same question on every screen and
  * in every rerender; array position would renumber the moment the engine planned probes in a
- * different order. Ids with no trailing number fall back to their rank in id order — still stable,
- * still independent of how the array happened to arrive.
+ * different order.
  */
 export function probeLabels(probes: Probe[], topics: Topic[] = []): Record<string, string> {
   const topicLabel = new Map(topics.map((t) => [t.id, t.label]));
-  const out: Record<string, string> = {};
-  for (const kind of ["named", "blind"]) {
-    const group = probes.filter((p) => p.kind === kind).sort((a, b) => a.id.localeCompare(b.id));
-    group.forEach((p, i) => {
-      const n = idNumber(p.id) ?? i + 1;
-      const topic = topicLabel.get(p.topic_id);
-      if (kind === "named") out[p.id] = `Brand question ${n}`;
-      else if (p.phase === "followup") out[p.id] = `Follow-up question ${n}${topic ? ` — ${topic}` : ""}`;
-      else out[p.id] = `Buyer question ${n}${topic ? ` — ${topic}` : ""}`;
-    });
-  }
-  return out;
+  return Object.fromEntries(
+    probes.map((p) => [p.id, streamingProbeLabel(p.id, p.kind, p.phase, topicLabel.get(p.topic_id))]),
+  );
 }
 
 /** Live-feed name for one answer, where only the probe id, kind and topic label have arrived yet. */
@@ -73,18 +56,18 @@ const when = (iso: string) =>
     day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
   });
 
-export interface RunLabel { short: string; full: string; hash: string }
+export interface RunLabel { short: string; full: string }
 
 /**
  * Hex run ids ("d428e213e6") name nothing. Number runs in the order they were made — oldest is
- * Run 1 — and keep the hash as a tooltip so a run is still findable on disk by its real name.
+ * Run 1. Callers keep the raw id as a tooltip so a run is still findable on disk by its real name.
  */
 export function runLabels(runs: RunSummary[]): Record<string, RunLabel> {
   const oldestFirst = [...runs].sort((a, b) => a.created_at.localeCompare(b.created_at));
   const out: Record<string, RunLabel> = {};
   oldestFirst.forEach((r, i) => {
     const short = `Run ${i + 1}`;
-    out[r.id] = { short, full: `${short} · ${when(r.created_at)} · ${r.company}`, hash: r.id };
+    out[r.id] = { short, full: `${short} · ${when(r.created_at)} · ${r.company}` };
   });
   return out;
 }

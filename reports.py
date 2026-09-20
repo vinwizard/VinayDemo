@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from agents.ana import baseline_hash
-from labels import probe_name, source_names
+from labels import probe_names, source_names, with_ids
 from schemas import SCHEMA_VERSION, Run
 
 RUNS = Path(__file__).resolve().parent / "data" / "runs"
@@ -12,7 +12,7 @@ RUNS = Path(__file__).resolve().parent / "data" / "runs"
 # QueryEvaluation.strength is 0/1/2 in the data and never on a page.
 STRENGTH_LABEL = {0: "absent", 1: "mentioned", 2: "recommended"}
 
-# TopicEvaluation.status. Mirrors web/src/labels.ts. Statuses with no entry print as they are.
+# TopicEvaluation.status. Statuses with no entry print as they are.
 TOPIC_STATUS_LABEL = {"candidate gap": "Not recommended", "mixed": "Split results",
                       "observed presence": "Found"}
 
@@ -81,11 +81,8 @@ def to_markdown(run: Run) -> str:
     ev = {e.probe_id: e for e in run.evaluations}
     ans = {a.probe_id: a for a in run.answers}
     src = source_names(run.profile.evidence)
-    pn = {p.id: probe_name(p) + (f' — {topics[p.topic_id].label}'
-                                if p.kind == 'blind' and p.topic_id in topics else '')
-          for p in run.probes}
+    pn = probe_names(run.probes, run.topics)
     status = lambda s: TOPIC_STATUS_LABEL.get(s, s)
-    named = lambda ids, book: ', '.join(f'{book.get(i, i)} (`{i}`)' for i in ids)
     out = [f"# Visibility Explorer report — {run.profile.name}", "",
            f"> **{mode_label(run)}**", "",
            f"- Run of {when(run.created_at)} · {run.profile.name} · id `{run.id}`",
@@ -106,8 +103,8 @@ def to_markdown(run: Run) -> str:
                 f"- Capability: {f.profound_capability or 'Insufficient evidence — none mapped'}"
                 + (f" ({f.capability_url})" if f.capability_url else ""),
                 f"- Suggested action: {f.suggested_action}",
-                f"- Evidence: {named(f.evidence_ids, pn)} · fit evidence: "
-                f"{named(f.fit_evidence_ids, src) or 'none'}",
+                f"- Evidence: {with_ids(f.evidence_ids, pn)} · fit evidence: "
+                f"{with_ids(f.fit_evidence_ids, src) or 'none'}",
                 f"- Provenance: {f.provenance}", f"- Limitations: {' '.join(f.limitations)}"]
         if f.exploratory_note:
             out.append(f"- {f.exploratory_note}")
@@ -121,7 +118,7 @@ def to_markdown(run: Run) -> str:
     for d in run.decisions:
         picked = ", ".join(topics[t].label if t in topics else t for t in d.selected_topics) or "stop"
         out += ["", "## Follow-up decision (" + d.policy + ")", "", f"- Selected: {picked}",
-                f"- Rationale: {d.rationale}", f"- Motivating questions: {named(d.evidence_probe_ids, pn)}"]
+                f"- Rationale: {d.rationale}", f"- Motivating questions: {with_ids(d.evidence_probe_ids, pn)}"]
     for phase in ("baseline", "followup"):
         out += ["", f"## {'Baseline' if phase == 'baseline' else 'Exploratory follow-up'} questions", ""]
         for p in [p for p in run.probes if p.phase == phase]:
