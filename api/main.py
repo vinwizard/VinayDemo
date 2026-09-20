@@ -86,6 +86,9 @@ def run_events(scenario: str, mode: str = "demo") -> Iterator[str]:
     except HTTPException as e:
         yield sse("error", {"message": str(e.detail)})
         return
+    except Exception as e:                           # setup failures surface too, minus the detail
+        yield sse("error", {"message": f"Setup failed before the run started: {type(e).__name__}"})
+        return
     q: queue.Queue = queue.Queue()
     state = {"done": 0}
 
