@@ -8,7 +8,8 @@ import hashlib
 import json
 import re
 
-from schemas import AdaptiveDecision, CompanyProfile, Probe, QueryEvaluation, Topic, TopicEvaluation
+from schemas import (AdaptiveDecision, Attribute, CompanyProfile, Probe, QueryEvaluation, Topic,
+                     TopicEvaluation)
 
 MAX_TOPICS = 4
 PER_TOPIC = 3
@@ -28,25 +29,52 @@ def brand_leaks(text: str, profile: CompanyProfile) -> list[str]:
     return [t for t in leak_terms(profile) if re.search(rf"(?<!\w){re.escape(t)}(?!\w)", text, re.I)]
 
 
+def attribute_leaks(text: str, attributes: list[Attribute]) -> list[str]:
+    """A named probe may say the brand; it must NEVER say the attribute being measured.
+
+    Asking "is Notion an AI-native workspace?" invites the model to agree, and the resulting echo
+    measures the question, not the model's own view. This is the perception-axis analogue of
+    `brand_leaks` and is just as load-bearing.
+    """
+    hits = []
+    for a in attributes:
+        for phrase in [a.label, *a.aliases]:
+            if len(phrase) > 3 and re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text, re.I):
+                hits.append(a.id)
+                break
+    return hits
+
+
+def validate_named_probes(probes: list[Probe], attributes: list[Attribute]) -> list[str]:
+    errors = []
+    for p in probes:
+        if p.kind != "named":
+            continue
+        if leaks := attribute_leaks(p.text, attributes):
+            errors.append(f"{p.id} leaks the attribute(s) it measures: {', '.join(leaks)}")
+    return errors
+
+
 def validate_probes(probes: list[Probe], topics: list[Topic], profile: CompanyProfile) -> list[str]:
     errors = []
     topic_ids = {t.id for t in topics}
-    if len(topics) > MAX_TOPICS:
-        errors.append(f"{len(topics)} topics exceeds {MAX_TOPICS}")
-    for t in topics:
+    buyer = [t for t in topics if t.kind == "buyer"]
+    if len(buyer) > MAX_TOPICS:
+        errors.append(f"{len(buyer)} buyer topics exceeds {MAX_TOPICS}")
+    for t in buyer:
         if t.fit == "unsupported":
             errors.append(f"topic {t.id} has no supported fit")
     seen = set()
     for p in probes:
-        if leaks := brand_leaks(p.text, profile):
+        if p.kind == "blind" and (leaks := brand_leaks(p.text, profile)):
             errors.append(f"{p.id} leaks target identity: {', '.join(leaks)}")
         if p.topic_id not in topic_ids:
             errors.append(f"{p.id} references unknown topic {p.topic_id}")
         if p.text.strip().lower() in seen:
             errors.append(f"{p.id} duplicates an earlier question")
         seen.add(p.text.strip().lower())
-    for t in topics:
-        if sum(p.topic_id == t.id for p in probes) > PER_TOPIC:
+    for t in buyer:  # the perception container is sized by the named-probe budget, not PER_TOPIC
+        if sum(p.topic_id == t.id and p.kind == "blind" for p in probes) > PER_TOPIC:
             errors.append(f"topic {t.id} has more than {PER_TOPIC} baseline questions")
     return errors
 

@@ -1,0 +1,117 @@
+"""Positioning drift: intended vs claimed vs perceived. Deterministic — no model judgment here.
+
+Three layers, kept separate on purpose:
+  intended  — what the customer says they want to be known for (aspirational, never product fit)
+  claimed   — what their own public copy actually states (evidence-backed)
+  perceived — what AI associated with them in eligible named-probe answers
+
+The zone is intended x perceived. The owner uses the claimed layer to say *whose* problem it is,
+which is the whole point: a gap where the company never stated the claim is not an AI problem.
+"""
+from typing import Optional
+
+from schemas import (Attribute, AttributeObservation, AttributeScore, DriftReport, QueryEvaluation,
+                     Answer, Probe)
+from scoring import eligible, rate
+
+ECHO_THRESHOLD = 0.5   # share of eligible named answers that must echo an attribute to count as present
+IMPOSED_MIN = 0.25     # an attribute you never claimed is worth flagging at a lower bar than one you want
+CLAIM_THRESHOLD = 0.4  # share of known pages that must state it before absence is an authority problem
+MIN_NAMED = 3          # below this, perception is not measurable and alignment is null
+
+OWNER_TEXT = {
+    "authority_gap": "You state this clearly and the models are not repeating it.",
+    "messaging_gap": "AI does not say it because your own copy does not clearly say it either.",
+    "imposed_identity": "AI asserts this about you without you claiming it.",
+    "none": "Intended positioning is reflected in AI answers.",
+}
+
+
+def claim_strength(a: Attribute) -> Optional[float]:
+    return None if not a.claim_pages_total else round(a.claim_pages / a.claim_pages_total, 3)
+
+
+def relevant(a: Attribute, echo_rate: Optional[float]) -> bool:
+    """Intended attributes always appear. An attribute nobody claimed AND AI barely says is noise.
+
+    Without this, every unclaimed attribute would be reported as 'imposed' at a 0% echo rate.
+    """
+    return a.intended or (echo_rate is not None and echo_rate >= IMPOSED_MIN)
+
+
+def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float]) -> tuple[str, str]:
+    """Zone x owner. Pure function of the three layers; deliberately has no access to an LLM.
+
+    An intended attribute needs a majority echo to count as landed. An unwanted one is flagged at the
+    lower IMPOSED_MIN bar, because being called something you never claimed is a problem sooner.
+    """
+    echoed = echo_rate is not None and echo_rate >= ECHO_THRESHOLD
+    stated = cs is not None and cs >= CLAIM_THRESHOLD
+    if a.intended and echoed:
+        return "landed", "none"
+    if a.intended and stated:
+        return "lost_claim", "authority_gap"
+    if a.intended:
+        return "unstated_intent", "messaging_gap"
+    return "imposed", "imposed_identity"
+
+
+def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: list[Answer],
+                     evals: list[QueryEvaluation],
+                     observations: dict[str, list[AttributeObservation]]) -> list[AttributeScore]:
+    """observations: probe_id -> validated observations (quotes already checked verbatim upstream)."""
+    named_ids = [p.id for p in probes if p.kind == "named"]
+    ans = {a.probe_id: a for a in answers}
+    ev = {e.probe_id: e for e in evals}
+    kept = [pid for pid in named_ids
+            if pid in ans and pid in ev and eligible(ans[pid], ev[pid])[0]]
+    n = len(kept)
+
+    out = []
+    for a in attributes:
+        hits = [(pid, o) for pid in kept for o in observations.get(pid, []) if o.attribute_id == a.id]
+        echoes = len({pid for pid, _ in hits})
+        neg = len({pid for pid, o in hits if o.polarity == "negative"})
+        er = rate(echoes, n)
+        cs = claim_strength(a)
+        if not relevant(a, er):
+            continue  # unclaimed and barely echoed: not a finding, and never padding for the report
+        zone, owner = classify(a, er, cs)
+        limits = []
+        if n < MIN_NAMED:
+            limits.append(f"Only {n} eligible named-probe answer(s); perception is not measurable.")
+        if a.intended and cs is None:
+            limits.append("No page-level claim data: cannot separate an authority gap from a messaging gap.")
+        out.append(AttributeScore(
+            attribute_id=a.id, label=a.label, intended_weight=a.intended_weight, claim_strength=cs,
+            n=n, echoes=echoes, echo_rate=er, negative_echoes=neg, zone=zone, owner=owner,
+            quotes=[o.quote for _, o in hits][:3], probe_ids=sorted({pid for pid, _ in hits}),
+            limitations=limits))
+    return out
+
+
+def alignment(scores: list[AttributeScore]) -> Optional[float]:
+    """Weighted echo of INTENDED attributes only. Imposed attributes never flatter this number."""
+    rows = [s for s in scores if s.intended_weight and s.echo_rate is not None]
+    total = sum(s.intended_weight for s in rows)
+    if not rows or total == 0:
+        return None
+    return round(100 * sum(s.intended_weight * s.echo_rate for s in rows) / total, 1)
+
+
+def build_report(scores: list[AttributeScore], provenance: str, n_blind: int,
+                 visibility: Optional[float]) -> DriftReport:
+    n = scores[0].n if scores else 0
+    by = lambda z: [s.label for s in scores if s.zone == z]
+    limits = ["Small sample: alignment rests on a handful of named-probe answers.",
+              "An echo is an association in the answer text, not proof of why the model said it."]
+    if provenance == "synthetic":
+        limits.append("Simulated: attribute observations come from authored fixtures, not a measured chatbot.")
+    if n < MIN_NAMED:
+        limits.append(f"Only {n} eligible named answer(s) (minimum {MIN_NAMED}); alignment withheld.")
+    return DriftReport(
+        provenance=provenance, n_named=n, n_blind=n_blind,
+        alignment=alignment(scores) if n >= MIN_NAMED else None,
+        visibility=visibility, scores=scores, limitations=limits,
+        landed=by("landed"), lost_claims=by("lost_claim"), imposed=by("imposed"),
+        unstated_intent=by("unstated_intent"))

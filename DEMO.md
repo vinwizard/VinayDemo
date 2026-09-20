@@ -1,6 +1,6 @@
 # Two-minute demo script
 
-Setup beforehand: `source .venv/bin/activate && python -m streamlit run app.py --server.port 8501`, open
+Setup beforehand: `conda activate visexp && python -m streamlit run app.py --server.port 8501`, open
 http://localhost:8501, click **Reset to original sample** in the sidebar.
 
 **0:00 — Frame it (15s).** "Visibility Explorer finds the buyer questions where a brand is missing from AI answers.

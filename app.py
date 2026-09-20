@@ -144,6 +144,9 @@ if SS.profile is not None:
     lines.append("Company profile evidence: " + (", ".join(kinds) or "none")
                  + (" (Claude Code research snapshot; not cross-model chatbot visibility)" if "web_research_snapshot" in kinds else ""))
 lines.append("Independent portfolio demo — not a Profound product or integration.")
+if (_d := fixture.dev_delay()):
+    lines.append(f"<b>DEV MODE — artificial {_d:g}s stall per answer ({fixture.DEV_DELAY_ENV}). "
+                 "This is a local UI test, NOT provider latency. No provider is called. Do not screenshot for the demo.</b>")
 st.markdown(f'<div class="banner">{"<br>".join(lines)}</div>', unsafe_allow_html=True)
 
 with st.sidebar:
@@ -283,8 +286,11 @@ def screen_investigation():
         return
     c1, c2 = st.columns([1, 3])
     c1.button("Run demo replay", type="primary", on_click=request_run, key="run_replay", width="stretch")
+    _delay = fixture.dev_delay()
     c2.caption("Replays authored fixture answers through real graph transitions. No provider is called; "
-               "no latency, token cost or live status is simulated.")
+               + (f"an artificial {_delay:g}s/answer dev stall is ACTIVE ({fixture.DEV_DELAY_ENV}) — UI test only, "
+                  "not provider latency; no token cost or live status is simulated."
+                  if _delay else "no latency, token cost or live status is simulated."))
     if run is None:
         return
     base = sum(pr.phase == "baseline" for pr in run.probes)

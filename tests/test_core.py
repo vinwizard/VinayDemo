@@ -84,8 +84,8 @@ def test_baseline_unchanged_after_followup(runs):
         base = [p for p in r.probes if p.phase == "baseline"]
         assert ana.baseline_hash(r.probes) == r.baseline_hash == ana.baseline_hash(base)
         ev, ans = {e.probe_id: e for e in r.evaluations}, {a.probe_id: a for a in r.answers}
-        for t in r.topics:
-            ps = [p for p in base if p.topic_id == t.id]
+        for t in [x for x in r.topics if x.kind == "buyer"]:
+            ps = [p for p in base if p.topic_id == t.id and p.kind == "blind"]
             fresh = score_topic(t, "baseline", [ans[p.id] for p in ps], [ev[p.id] for p in ps])
             stored = next(x for x in r.topic_evaluations if x.topic_id == t.id and x.phase == "baseline")
             assert stored == fresh and stored.n == 3  # follow-ups never pooled into baseline

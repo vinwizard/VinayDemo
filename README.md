@@ -9,19 +9,61 @@ integration. Spec: [`agents.md`](agents.md). Progress log: [`CHECKPOINT.md`](CHE
 > **Default mode is a synthetic demo.** Answers are authored fixtures, AnA follow-up selection is a deterministic
 > simulated policy, and evaluation is fixture labels + deterministic validation. No chatbot was measured.
 
-## Run it (macOS, this machine)
+## Run it (macOS, Miniconda)
+
+The environment is managed with **Miniconda**, in a conda env named `visexp` (Python 3.12).
+
+### First time only — install Miniconda
+
+Skip if `conda --version` already works.
+
+```bash
+curl -fsSL -o /tmp/miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh
+bash /tmp/miniconda.sh -b -p "$HOME/miniconda3"
+"$HOME/miniconda3/bin/conda" init zsh
+```
+
+On Intel Macs use `Miniconda3-latest-MacOSX-x86_64.sh` instead. Restart your shell (or `source ~/.zshrc`) afterwards.
+
+This project uses the **conda-forge** channel only, which avoids the Anaconda `defaults` Terms-of-Service
+prompt. If `~/.condarc` does not already say so:
+
+```bash
+printf 'channels:\n  - conda-forge\nchannel_priority: strict\n' > ~/.condarc
+```
+
+### First time only — create the environment
 
 ```bash
 cd ~/Projects/VinayDemo
-/usr/local/bin/python3.12 -m venv .venv          # first time only
-source .venv/bin/activate
-python -m pip install -r requirements.txt       # first time only
+conda create -y -n visexp --override-channels -c conda-forge python=3.12
+conda activate visexp
+python -m pip install -r requirements.txt
+```
+
+Conda supplies the Python interpreter; the four project pins in `requirements.txt` are installed with `pip`
+inside the env, which keeps the versions identical to the ones that passed the acceptance checks.
+
+### Every time — run the app
+
+```bash
+cd ~/Projects/VinayDemo
+conda activate visexp
 python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
 ```
 
-Open http://localhost:8501. No API keys, accounts, or internet needed.
+Open http://localhost:8501. No API keys, accounts, or internet needed. Stop the server with `Ctrl+C`.
 
-Tests: `python -m pytest -q` (offline; 46 tests incl. one Streamlit UI journey per scenario).
+Tests: `conda activate visexp && python -m pytest -q` (offline; 46 tests incl. one Streamlit UI journey per
+scenario).
+
+### Rebuilding the environment from scratch
+
+```bash
+conda env remove -y -n visexp
+```
+
+Then repeat the create step above.
 
 ## What's what
 

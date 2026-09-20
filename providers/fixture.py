@@ -1,5 +1,7 @@
 """Demo replay provider: authored deterministic fixtures. Everything it returns is synthetic."""
 import json
+import os
+import time
 from pathlib import Path
 
 from agents.onboarding import structural_fingerprint
@@ -8,6 +10,21 @@ from schemas import Answer, CompanyProfile, Probe, Topic
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 SCENARIOS = {"A": "demo_a.json", "B": "demo_b.json"}
 CALLS = {"answer": 0}  # observable request counter (rerender tests)
+
+DEV_DELAY_ENV = "VISEXP_DEV_DELAY"
+
+
+def dev_delay() -> float:
+    """Seconds to stall per replayed answer — a DEVELOPMENT aid only, off unless the env var is set.
+
+    agents.md section 7 forbids simulated latency in the demo, and this must never be used to imply a
+    provider was called. Its only purpose is to expose how the UI behaves when `execute_or_replay`
+    blocks, which is what a real per-call provider will do. When it is on, the app says so loudly.
+    """
+    try:
+        return max(0.0, float(os.environ.get(DEV_DELAY_ENV, "0") or 0))
+    except ValueError:
+        return 0.0
 
 
 def load(scenario: str) -> dict:
@@ -48,6 +65,8 @@ class FixtureProvider:
     def answer(self, probe: Probe) -> Answer:
         """Only the probe id is used to look up the answer; a live provider would receive only probe.text."""
         CALLS["answer"] += 1
+        if d := dev_delay():
+            time.sleep(d)  # dev-only stall; see dev_delay(). Never on by default.
         pool = self.data["baseline_answers"] if probe.phase == "baseline" else list(self.data["followup_answers"].values())
         raw = next((a for a in pool if a["probe_id"] == probe.id), None)
         if raw is None:

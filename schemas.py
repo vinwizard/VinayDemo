@@ -44,9 +44,42 @@ class CompanyProfile(BaseModel):
         return sorted({self.domain, *self.owned_domains})
 
 
+class Attribute(BaseModel):
+    """One thing a brand can be known for. The unit of positioning drift.
+
+    `intended` — the customer says they want to own it (aspirational; never counts as product fit).
+    `claimed`  — their own public copy states it (evidence-backed).
+    `emergent` — neither; AI assigned it. Discovered from answers, never declared up front.
+    """
+    id: str
+    label: str
+    aliases: list[str] = []  # phrasings that count as an echo of this attribute
+    intended_weight: Optional[float] = None  # set only when the customer named it
+    claim_evidence_ids: list[str] = []       # set only when their own copy states it
+    claim_pages: int = 0                     # how many crawled/known pages state it
+    claim_pages_total: int = 0               # denominator for claim strength
+    note: Optional[str] = None
+
+    @property
+    def intended(self) -> bool:
+        return self.intended_weight is not None
+
+    @property
+    def claimed(self) -> bool:
+        return bool(self.claim_evidence_ids)
+
+
+class AttributeObservation(BaseModel):
+    """One attribute AI associated with the target in one answer, with the quote that proves it."""
+    attribute_id: str
+    quote: str  # must appear verbatim in the answer or the observation is dropped
+    polarity: Literal["positive", "neutral", "negative"] = "neutral"
+
+
 class Topic(BaseModel):
     id: str
     label: str
+    kind: Literal["buyer", "perception"] = "buyer"  # perception holds named probes; not a buyer use case
     buyer_need: str
     positioning_point_ids: list[str]
     fit: Literal["strong", "partial", "unsupported"]
@@ -57,6 +90,7 @@ class Probe(BaseModel):
     id: str
     topic_id: str
     text: str
+    kind: Literal["blind", "named"] = "blind"  # blind: never names the brand. named: may, but never names an attribute.
     phase: Literal["baseline", "followup"]
     purpose: str
     parent_probe_ids: list[str] = []
@@ -147,6 +181,45 @@ class GapFinding(BaseModel):
     exploratory_note: Optional[str] = None
 
 
+Zone = Literal["landed", "lost_claim", "imposed", "unstated_intent"]
+Owner = Literal["authority_gap", "messaging_gap", "imposed_identity", "none"]
+
+
+class AttributeScore(BaseModel):
+    """One row of the drift map: intended vs claimed vs perceived, and whose problem the gap is.
+
+    zone/owner are assigned by deterministic rules in drift.py, never by a model.
+    """
+    attribute_id: str
+    label: str
+    intended_weight: Optional[float] = None
+    claim_strength: Optional[float] = None  # fraction of known pages stating it
+    n: int = 0                              # eligible named-probe answers
+    echoes: int = 0                         # answers where AI associated it with the target
+    echo_rate: Optional[float] = None
+    negative_echoes: int = 0
+    zone: Zone
+    owner: Owner
+    quotes: list[str] = []      # verbatim, from answers
+    probe_ids: list[str] = []
+    limitations: list[str] = []
+
+
+class DriftReport(BaseModel):
+    """The single-screen result. Alignment is over intended attributes only."""
+    provenance: Provenance
+    n_named: int = 0           # eligible named-probe answers behind the perception layer
+    n_blind: int = 0           # eligible blind-probe answers behind the visibility layer
+    alignment: Optional[float] = None       # 0-100, weighted echo of intended attributes
+    visibility: Optional[float] = None      # 0-100, reuses the existing blind-probe score
+    landed: list[str] = []
+    lost_claims: list[str] = []
+    imposed: list[str] = []
+    unstated_intent: list[str] = []
+    scores: list[AttributeScore] = []
+    limitations: list[str] = []
+
+
 class Run(BaseModel):
     id: str
     schema_version: int = SCHEMA_VERSION
@@ -162,5 +235,8 @@ class Run(BaseModel):
     topic_evaluations: list[TopicEvaluation] = []
     decisions: list[AdaptiveDecision] = []
     findings: list[GapFinding] = []
+    attributes: list[Attribute] = []
+    attribute_scores: list[AttributeScore] = []
+    drift: Optional[DriftReport] = None
     log: list[str] = []
     status: str = "planned"

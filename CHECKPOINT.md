@@ -2,12 +2,12 @@
 
 ## Milestone 1 — environment (done)
 - Added `CLAUDE.md` containing `@agents.md`. Existing `README.md` (one line) and `agents.md` preserved.
-- venv with `/usr/local/bin/python3.12` (system python is 3.9). Pinned: streamlit 1.64.0, langgraph 1.2.11, pydantic 2.13.5, pytest 9.1.1.
+- Miniconda env `visexp` on Python 3.12 (conda-forge channel only; system python is 3.9). Pinned via pip inside the env: streamlit 1.64.0, langgraph 1.2.11, pydantic 2.13.5, pytest 9.1.1.
 - Empty page verified: `curl localhost:8501/_stcore/health` → 200.
 
 ## Decisions log
 - Python 3.12 from /usr/local/bin (3.13 also present; 3.12 preferred by spec).
-- Single `.venv` in repo; `data/runs/*.json` gitignored (local runs are user data).
+- Single conda env `visexp` (not in the repo); `data/runs/*.json` gitignored (local runs are user data).
 
 ## Milestone 2 — contracts, fixtures, scoring, graph (done)
 - `schemas.py`, `scoring.py`, `agents/{onboarding,ana,evaluation}.py`, `providers/{fixture,imported,live}.py`, `graph.py`, `reports.py`.
@@ -78,7 +78,7 @@
 ## Section 12 handoff
 
 - **URL:** http://localhost:8501 (this Mac; verified responding).
-- **Restart:** `cd ~/Projects/VinayDemo && source .venv/bin/activate && python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501`
+- **Restart:** `cd ~/Projects/VinayDemo && conda activate visexp && python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501`
 - **Screenshots:** `screenshots/1_setup.png`, `2_investigation_A.png`, `3_report_A.png`, `4_profound_help_A.png`, `5_followups_A.png`, `6_investigation_B.png`
 - **Demo script:** `DEMO.md`
 - **Tests:** `python -m pytest -q` → 46 passed (offline).
