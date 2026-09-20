@@ -118,7 +118,8 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
         limits = []
         if zone == "contested":
             limits.append(f"AI raised this in {echoes} of {n} answers and was negative in {neg} of them; "
-                          "the score counts only the supportive mentions.")
+                          "the score counts the mentions that were not critical, whether they "
+                          "endorsed the claim or merely noted it.")
         if n < MIN_NAMED:
             limits.append(f"Only {n} eligible brand-question answer(s); perception is not measurable.")
         if a.intended and cs is None:

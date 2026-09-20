@@ -61,8 +61,11 @@ def test_followup_rationale_names_topics_and_keeps_the_ids_in_the_data(run_a):
 
 BACKTICKED = re.compile(r"`[^`]*`")
 
-# synthetic, page_fetch, demo_replay — a stored value that was never turned into words
-RAW_VALUE = re.compile(r"(?<!\w)(" + "|".join(labels.PROVENANCE_LABEL) + r")(?!\w)")
+# One list of what a reader must never be shown: engine id shapes, stored provenance values and the
+# acronyms this task removed. Add the next word here.
+NEVER_SHOWN = re.compile("|".join([ID_SHAPED.pattern,
+                                   *(rf"(?<!\w){v}(?!\w)" for v in labels.PROVENANCE_LABEL),
+                                   r"(?<!\w)AnA(?!\w)"]))
 
 
 @pytest.mark.parametrize("scenario", ["A", "B"])
@@ -72,8 +75,7 @@ def test_markdown_report_never_leaves_an_id_as_the_only_name(scenario):
     run = graph.execute(graph.new_run(fixture.bundled_profile(scenario), prov), prov)
     md = to_markdown(run)
     spoken = BACKTICKED.sub("", md)  # backticked ids are traceability, and always follow their name
-    assert [l for l in spoken.splitlines() if ID_SHAPED.search(l)] == []
-    assert [l for l in spoken.splitlines() if RAW_VALUE.search(l)] == []
+    assert [l for l in spoken.splitlines() if NEVER_SHOWN.search(l)] == []
     # display only: the ids are still in the export and in the stored findings
     assert "`np-1`" in md
     stored = [i for f in run.findings for i in f.evidence_ids]

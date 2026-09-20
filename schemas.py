@@ -213,7 +213,7 @@ class AttributeScore(BaseModel):
     claim_strength: Optional[float] = None  # fraction of known pages stating it
     n: int = 0                              # eligible named-probe answers
     echoes: int = 0                         # answers where AI associated it with the target
-    echo_rate: Optional[float] = None       # SUPPORTIVE echoes only: criticism is not an endorsement
+    echo_rate: Optional[float] = None       # non-negative echoes: criticism excluded, a neutral mention counts
     negative_echoes: int = 0
     mention_rate: Optional[float] = None    # any mention, whatever its polarity
     negative_rate: Optional[float] = None

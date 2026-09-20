@@ -16,6 +16,9 @@ STRENGTH_LABEL = {0: "absent", 1: "mentioned", 2: "recommended"}
 TOPIC_STATUS_LABEL = {"candidate gap": "Not recommended", "mixed": "Split results",
                       "observed presence": "Found"}
 
+# AdaptiveDecision.policy. The stored value keeps its engine name; only the heading is spoken.
+POLICY_LABEL = {"simulated AnA policy (deterministic)": "simulated policy, deterministic"}
+
 MODE_LABELS = {
     "demo_replay": "SYNTHETIC DEMO — fixture replay; no live chatbot measurements; model judgment simulated.",
     "live_api": "LIVE API — see per-answer provider, model, timestamp and grounding status.",
@@ -109,10 +112,10 @@ def to_markdown(run: Run) -> str:
         tested = [t for t in run.topics if pp.id in t.positioning_point_ids]
         res = "; ".join(f"{t.label}: {status(next((x.status for x in run.topic_evaluations if x.topic_id == t.id and x.phase == 'baseline'), '—'))}" for t in tested)
         sources = ", ".join(src.get(e, e) for e in pp.evidence_ids) or "no source"
-        out.append(f"- Point {i} (`{pp.id}`, {pp.support}, {sources}): {pp.text} → {res or 'not tested'}")
+        out.append(f"- Point {i} (`{pp.id}`, {spoken(pp.support)}, {sources}): {pp.text} → {res or 'not tested'}")
     for d in run.decisions:
         picked = ", ".join(topics[t].label if t in topics else t for t in d.selected_topics) or "stop"
-        out += ["", "## Follow-up decision (" + d.policy + ")", "", f"- Selected: {picked}",
+        out += ["", "## Follow-up decision (" + POLICY_LABEL.get(d.policy, d.policy) + ")", "", f"- Selected: {picked}",
                 f"- Rationale: {d.rationale}", f"- Motivating questions: {with_ids(d.evidence_probe_ids, pn)}"]
     for phase in ("baseline", "followup"):
         out += ["", f"## {'Baseline' if phase == 'baseline' else 'Exploratory follow-up'} questions", ""]
