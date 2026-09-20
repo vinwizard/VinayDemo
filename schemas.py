@@ -53,11 +53,16 @@ class Attribute(BaseModel):
     """
     id: str
     label: str
+    # What the claim actually MEANS for this company, in one concrete sentence. A bare label like
+    # "Enterprise ready" asserts a category and explains nothing; the description carries the
+    # substance ("SSO, audit logs and SCIM for org-wide rollout").
+    description: Optional[str] = None
     aliases: list[str] = []  # phrasings that count as an echo of this attribute
     intended_weight: Optional[float] = None  # set only when the customer named it
     claim_evidence_ids: list[str] = []       # set only when their own copy states it
-    claim_pages: int = 0                     # how many crawled/known pages state it
-    claim_pages_total: int = 0               # denominator for claim strength
+    claim_quotes: list[str] = []             # verbatim site copy stating it, per page
+    claim_pages: int = 0                     # DERIVED: pages whose text contains a validated quote
+    claim_pages_total: int = 0               # DERIVED: pages actually fetched
     # The buyer questions this claim implies, with no brand name anywhere. If the positioning were
     # landing, the company should surface for these. This is the placebo test.
     buyer_questions: list[str] = []

@@ -13,8 +13,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
+import fetching
 import graph
 from agents.evaluator_model import ModelEvaluator
+from agents.onboarding_model import OnboardingAgent
 from config import load_env, redacted_status
 from providers import fixture, live
 from reports import RUNS, load_run, save_run
@@ -46,8 +48,9 @@ def scenarios():
             id=sid, title=p.title, notice=p.data.get("notice"),
             company=p.data["profile"]["name"],
             named_probes=len(p.named_probes()),
-            intended=[dict(id=a.id, label=a.label, weight=a.intended_weight,
-                           claim_pages=a.claim_pages, claim_pages_total=a.claim_pages_total)
+            intended=[dict(id=a.id, label=a.label, description=a.description,
+                           weight=a.intended_weight, claim_pages=a.claim_pages,
+                           claim_pages_total=a.claim_pages_total)
                       for a in attrs if a.intended]))
     return out
 
@@ -153,6 +156,41 @@ def get_run(run_id: str):
         return json.loads(load_run(run_id).model_dump_json())
     except FileNotFoundError:
         raise HTTPException(404, f"run {run_id} not found")
+
+
+@app.get("/api/onboard")
+def onboard(url: str, name: str = ""):
+    """Agent 1: crawl a company's own pages and extract the CLAIMED layer.
+
+    Returns claimed attributes with descriptions, verbatim quotes and page counts DERIVED from
+    those quotes. Intent weights are deliberately absent — what a company wants to be known for is
+    the customer's input and is not derivable from their own marketing copy.
+    """
+    if not live.available():
+        raise HTTPException(400, f"Onboarding needs {live.KEY_ENV} for the extraction model.")
+    try:
+        pages = fetching.fetch_site(url, max_pages=3)
+    except fetching.UnsafeURL as e:
+        raise HTTPException(400, f"Refused: {e}")
+    except fetching.FetchError as e:
+        raise HTTPException(502, f"Could not fetch: {e}")
+    domain = fetching.validate(url)[1].removeprefix("www.")
+    try:
+        profile, attrs, warnings = OnboardingAgent().run(name, domain, pages)
+    except ValueError as e:
+        raise HTTPException(502, f"Extraction failed: {e}")
+    return dict(
+        profile=dict(name=profile.name, domain=profile.domain, aliases=profile.aliases,
+                     customer_types=profile.customer_types,
+                     one_liner=profile.positioning_points[0].text if profile.positioning_points else None,
+                     warnings=profile.warnings),
+        pages=[dict(url=u, chars=len(t)) for u, t in pages],
+        attributes=[dict(id=a.id, label=a.label, description=a.description, aliases=a.aliases,
+                         claim_quotes=a.claim_quotes, claim_pages=a.claim_pages,
+                         claim_pages_total=a.claim_pages_total,
+                         buyer_questions=a.buyer_questions, intended_weight=a.intended_weight)
+                    for a in attrs],
+        warnings=warnings)
 
 
 @app.get("/api/health")

@@ -48,6 +48,7 @@ function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
   return (
     <div className="bubble" role="region" aria-label={`Evidence for ${s.label}`}>
       <h4>Evidence · {s.label}</h4>
+      {s.description && <p style={{ margin: "0 0 .5rem" }}>{s.description}</p>}
       <dl>
         <dt>Zone</dt><dd>{ZONE_LABEL[s.zone]} — {OWNER_TITLE[s.owner]}</dd>
         <dt>Your copy</dt>
@@ -102,6 +103,7 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
         <div className="drift-row" key={s.attribute_id}>
           <div>
             <div>{s.label}</div>
+            {s.description && <div className="muted desc">{s.description}</div>}
             <div className="muted">
               {s.intended_weight ? `intent ${s.intended_weight}` : "not claimed by you"}
             </div>

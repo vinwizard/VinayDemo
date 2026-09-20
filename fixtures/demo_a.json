@@ -924,7 +924,8 @@
     "Which team workspace app has AI built directly into writing, search and answering questions about your own documents?",
     "I want one app where AI can summarise and answer questions across all my team's internal docs. What should I look at?",
     "Are there note-taking or wiki tools where an assistant can draft and edit content inline for me?"
-   ]
+   ],
+   "description": "AI is built into writing, search and answering questions across your own pages, rather than bolted on as a separate paid add-on."
   },
   {
    "id": "replaces_stack",
@@ -944,7 +945,8 @@
     "What single app could replace my separate notes app, task tracker and team wiki?",
     "We pay for four different tools for docs, tasks and wikis. Is there one product that covers all of it?",
     "What is the best all-in-one productivity tool for a small startup that does not want five separate subscriptions?"
-   ]
+   ],
+   "description": "One subscription covering docs, task tracking and a team wiki, so a team can drop three or four single-purpose tools."
   },
   {
    "id": "connected_docs",
@@ -963,7 +965,8 @@
     "I need documents and databases that link to each other so the same records show up in different views. What tools do that?",
     "Which app lets a project page pull from the same underlying database as my meeting notes?",
     "Which tools give me relational databases inside my documents rather than a separate spreadsheet?"
-   ]
+   ],
+   "description": "Pages sit on top of shared relational databases, so the same records surface in a project board, a meeting note and a roadmap view."
   },
   {
    "id": "enterprise",
@@ -981,7 +984,8 @@
     "Which flexible docs and wiki platform is actually suitable for a 2,000-person company with audit logging and SSO?",
     "We need a customisable internal knowledge platform that satisfies enterprise compliance and admin controls. What qualifies?",
     "What internal documentation platforms do large enterprises actually approve for company-wide rollout?"
-   ]
+   ],
+   "description": "SAML single sign-on, audit logging, granular permissions and admin controls sufficient for a company-wide IT rollout."
   },
   {
    "id": "note_taking",
@@ -992,7 +996,8 @@
    ],
    "intended_weight": null,
    "claim_pages": 0,
-   "claim_pages_total": 8
+   "claim_pages_total": 8,
+   "description": "Perceived as a place to write and keep personal or meeting notes \u2014 the narrow framing the company is trying to grow out of."
   },
   {
    "id": "templates",
@@ -1003,7 +1008,8 @@
    ],
    "intended_weight": null,
    "claim_pages": 0,
-   "claim_pages_total": 8
+   "claim_pages_total": 8,
+   "description": "Perceived as valued mainly for its gallery of pre-built, attractive page layouts."
   },
   {
    "id": "learning_curve",
@@ -1014,7 +1020,8 @@
    ],
    "intended_weight": null,
    "claim_pages": 0,
-   "claim_pages_total": 8
+   "claim_pages_total": 8,
+   "description": "Perceived as hard to get started with: a blank canvas that needs someone to design the structure before a team gets value."
   }
  ],
  "named_probes": [

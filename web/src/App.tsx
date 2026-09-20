@@ -121,11 +121,15 @@ export default function App() {
                 <h3 style={{ marginTop: "1.1rem" }}>{sc.company} wants to be known for</h3>
                 <div className="stack" style={{ marginTop: ".5rem" }}>
                   {sc.intended.map((a) => (
-                    <div key={a.id} className="row" style={{ justifyContent: "space-between" }}>
-                      <span>{a.label}</span>
-                      <span className="muted">
-                        intent {a.weight} · stated on {Math.round((a.claim_pages / a.claim_pages_total) * 100)}% of known pages
-                      </span>
+                    <div key={a.id}>
+                      <div className="row" style={{ justifyContent: "space-between" }}>
+                        <span>{a.label}</span>
+                        <span className="muted">
+                          intent {a.weight} · stated on{" "}
+                          {Math.round((a.claim_pages / a.claim_pages_total) * 100)}% of known pages
+                        </span>
+                      </div>
+                      {a.description && <div className="muted desc">{a.description}</div>}
                     </div>
                   ))}
                 </div>

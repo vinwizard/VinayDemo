@@ -7,6 +7,7 @@ export type Owner = "authority_gap" | "messaging_gap" | "imposed_identity" | "no
 export interface AttributeScore {
   attribute_id: string;
   label: string;
+  description: string | null;
   intended_weight: number | null;
   claim_strength: number | null;
   n: number;
@@ -88,7 +89,8 @@ export interface Scenario {
   notice: string | null;
   company: string;
   named_probes: number;
-  intended: { id: string; label: string; weight: number; claim_pages: number; claim_pages_total: number }[];
+  intended: { id: string; label: string; description: string | null; weight: number;
+              claim_pages: number; claim_pages_total: number }[];
 }
 
 export const ZONE_LABEL: Record<Zone, string> = {
