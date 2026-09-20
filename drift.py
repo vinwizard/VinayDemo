@@ -51,8 +51,9 @@ def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float],
     The model already judged each mention's polarity (agents/evaluation.py extract_attributes); this
     function consumes that judgment, it does not second-guess it.
 
-    An intended attribute needs a majority SUPPORTIVE echo to count as landed - criticism is not an
-    endorsement. One that AI raises mainly to contradict is `contested`, checked before the absence
+    An intended attribute needs a majority of its answers to mention it without criticising it before
+    it counts as landed: `echo_rate` excludes criticism, but a neutral association counts the same as
+    an endorsement. One that AI raises mainly to contradict is `contested`, checked before the absence
     zones because "AI says the opposite" is a different problem from "AI never says it", and at the
     low CONTESTED_MIN bar for the same reason IMPOSED_MIN is low.
     """
@@ -102,7 +103,9 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
         hits = [(pid, o) for pid in kept for o in observations.get(pid, []) if o.attribute_id == a.id]
         echoes = len({pid for pid, _ in hits})
         neg = len({pid for pid, o in hits if o.polarity == "negative"})
-        # echo_rate drives `landed` and the alignment score, so it counts only supportive mentions.
+        # echo_rate drives `landed` and the alignment score. It counts every non-negative mention -
+        # positive and neutral alike - and excludes only criticism; mention_rate keeps the full count
+        # so a reader can see the volume, and negative_rate the criticism inside it.
         # extract_attributes keeps at most one observation per attribute per answer, so these are
         # disjoint counts of answers, not of sentences.
         mr = rate(echoes, n)
