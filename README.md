@@ -79,8 +79,29 @@ python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
 
 Open http://localhost:8501. No API keys, accounts, or internet needed. Stop the server with `Ctrl+C`.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 46 tests incl. one Streamlit UI journey per
-scenario).
+Tests: `conda activate visexp && python -m pytest -q` (offline; 79 tests incl. one UI journey per
+scenario and the live adapter under an injected transport — no API key, no network).
+
+### If you get `command not found: conda`
+
+`conda activate` is a shell function from `~/.zshrc`, so it only exists in an **interactive** shell.
+It works in a fresh Terminal tab and fails in scripts, non-interactive shells and some embedded
+terminals. Either run `source ~/.zshrc` first, or skip it entirely by calling the env directly:
+
+```bash
+cd ~/Projects/VinayDemo && ~/miniconda3/envs/visexp/bin/python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
+```
+
+For anything needing `npm`, export the env onto PATH instead (npm's shebang has to find `node`):
+
+```bash
+export PATH="$HOME/miniconda3/envs/visexp/bin:$PATH"
+```
+
+### Web frontend
+
+A React + FastAPI frontend with live OpenAI measurement lives on the `worktree-web-frontend` branch.
+See [`WEB.md`](WEB.md). The Streamlit app here remains the offline demo of record.
 
 ### Rebuilding the environment from scratch
 

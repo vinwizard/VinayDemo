@@ -5,3 +5,7 @@ __pycache__/
 .pytest_cache/
 data/runs/*.json
 !data/runs/.gitkeep
+node_modules/
+web/dist/
+web/node_modules/
+*.log

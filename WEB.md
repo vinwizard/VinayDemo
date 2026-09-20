@@ -1,0 +1,100 @@
+# Web frontend (React + FastAPI)
+
+Replaces the Streamlit UI. The Python engine is **unchanged** — `graph.py`, `drift.py`, `agents/`,
+`scoring.py` and the fixtures are imported, not modified. `app.py` still runs; this is additive until
+the React app reaches parity.
+
+## Why not Streamlit
+
+`st.status` can only render when a graph **node** returns. `execute_or_replay` answers the whole batch
+inside one node call, so the page froze for the entire batch with no feedback — 24 seconds at 1s/answer,
+and 50–130s with a real search-grounded provider.
+
+The API runs the graph on a worker thread and pushes an SSE event per **answer** as well as per node.
+Measured with `VISEXP_DEV_DELAY=1`, events arrive once per second throughout the batch instead of all at
+the end. That is the whole reason for the move; Three.js and other rendering choices are irrelevant to it.
+
+## Run it
+
+Two processes. Both commands work in **any** shell, interactive or not.
+
+Terminal 1 — the API, from the repo root:
+
+```bash
+cd ~/Projects/VinayDemo/.claude/worktrees/web-frontend && ~/miniconda3/envs/visexp/bin/python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+Terminal 2 — the frontend:
+
+```bash
+cd ~/Projects/VinayDemo/.claude/worktrees/web-frontend/web && export PATH="$HOME/miniconda3/envs/visexp/bin:$PATH" && npm run dev
+```
+
+Open **http://localhost:5173** — not `127.0.0.1:5173`. Vite binds IPv6 localhost and the numeric
+address is refused. The API must be on port 8000; CORS allows only the Vite dev origin.
+
+### Why not `conda activate`
+
+`conda activate` is a shell function installed into `~/.zshrc`, so it only exists in an **interactive**
+shell that has sourced that file. It works in a fresh Terminal.app tab; it fails with
+`command not found: conda` in a non-interactive shell, a script, or an editor's embedded terminal.
+
+The commands above sidestep it entirely. The API command calls the env's Python by absolute path.
+The frontend command needs the `PATH` export because npm's shebang is `#!/usr/bin/env node` and
+cannot find node otherwise. If you prefer `conda activate`, open a new terminal window first, or run
+`source ~/.zshrc`.
+
+### Live mode
+
+Put your key in `.env` at the repo root (gitignored, never committed):
+
+```
+OPENAI_API_KEY=sk-...
+LIVE_MODEL=gpt-6-astra
+```
+
+Restart the API. It prints `[config] loaded from .env: OPENAI_API_KEY=<set>` — names only, never
+values. Check `curl -s http://127.0.0.1:8000/api/health` for `"live_available": true`, then reload the
+page and the Mode dropdown becomes selectable.
+
+A live run is 16 calls: 8 to the measured model with web search, 8 to the evaluator. It measures
+perception only, so alignment is produced and visibility stays null. Without a key, live mode
+**errors** rather than falling back to fixtures — a fixture result under a live label would be a
+fabricated measurement.
+
+Set `EVALUATOR_MODEL` to a different model from `LIVE_MODEL` once it works: a model grading its own
+output has a self-preference bias.
+
+To watch the streaming work without spending anything, run the API with a per-answer stall:
+
+```bash
+VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+`node` and `npm` come from the `visexp` conda env — nothing is installed system-wide.
+
+## API
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/health` | liveness + known scenarios |
+| `GET /api/scenarios` | scenario list with each company's intended attributes and claim strength |
+| `GET /api/stream?scenario=A` | SSE: `node`, `answer`, `done`, `error` events while the graph runs |
+| `GET /api/runs` | run history, newest first |
+| `GET /api/runs/{id}` | one full run, including the drift report |
+
+Comparison is done client-side from two `GET /api/runs/{id}` responses — no extra endpoint.
+
+## Views
+
+- **Measure** — pick a scenario, see intended attributes and how much of their own copy states each, run it, watch the live feed and progress bar
+- **Report** — alignment headline, four zone counters, the claim-vs-echo drift map, "whose problem is each gap" cards, evidence behind a disclosure
+- **History** — every saved run from `data/runs/`, click to open
+- **Compare** — two runs side by side with the alignment delta and per-attribute zone changes (`lost claim → landed`)
+
+## Not done yet
+
+- No tests for the API or the React app
+- Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)
+- No production build wiring — Vite dev server only, so nothing is deployable from here yet
+- `app.py` (Streamlit) is still the demo of record until this reaches parity

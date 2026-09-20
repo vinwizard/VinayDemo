@@ -58,6 +58,9 @@ class Attribute(BaseModel):
     claim_evidence_ids: list[str] = []       # set only when their own copy states it
     claim_pages: int = 0                     # how many crawled/known pages state it
     claim_pages_total: int = 0               # denominator for claim strength
+    # The buyer questions this claim implies, with no brand name anywhere. If the positioning were
+    # landing, the company should surface for these. This is the placebo test.
+    buyer_questions: list[str] = []
     note: Optional[str] = None
 
     @property
@@ -107,7 +110,14 @@ class Answer(BaseModel):
     search_executed: Optional[bool] = None
     status: Literal["ok", "timeout", "error"] = "ok"
     error: Optional[str] = None
-    fixture_labels: Optional[dict] = None  # authored labels; synthetic only
+    fixture_labels: Optional[dict] = None    # authored labels; synthetic only
+    evaluator_labels: Optional[dict] = None  # model-produced labels; live only
+    evaluator_model: Optional[str] = None
+
+    @property
+    def labels(self) -> Optional[dict]:
+        """Whoever proposed the judgment. Downstream code validates it the same way either way."""
+        return self.evaluator_labels if self.evaluator_labels is not None else self.fixture_labels
 
     @model_validator(mode="after")
     def _honest_provenance(self):
@@ -116,6 +126,8 @@ class Answer(BaseModel):
                 raise ValueError("synthetic answers may not carry a real provider, model or live timestamp")
             if self.search_executed:
                 raise ValueError("synthetic answers may not claim search_executed=true")
+            if self.evaluator_labels is not None:
+                raise ValueError("evaluator labels are only allowed on live answers")
         elif self.fixture_labels is not None:
             raise ValueError("fixture labels are only allowed on synthetic answers")
         return self
@@ -210,6 +222,9 @@ class DriftReport(BaseModel):
     provenance: Provenance
     n_named: int = 0           # eligible named-probe answers behind the perception layer
     n_blind: int = 0           # eligible blind-probe answers behind the visibility layer
+    named_asked: int = 0       # how many were attempted, so a reader can see what was lost
+    excluded_named: int = 0
+    excluded_reasons: list[str] = []
     alignment: Optional[float] = None       # 0-100, weighted echo of intended attributes
     visibility: Optional[float] = None      # 0-100, reuses the existing blind-probe score
     landed: list[str] = []

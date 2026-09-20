@@ -41,7 +41,7 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
         return fail("Search snapshot, not a chatbot answer; never scored as visibility.", "search snapshot")
     if answer.provenance == "live_api" and not answer.search_executed:
         return fail("Answer was not search-grounded; excluded from live scores.", "ungrounded")
-    labels = answer.fixture_labels
+    labels = answer.labels  # fixture-authored or model-produced: validated identically
     if labels is None:
         return fail("No evaluator output available (model-backed evaluator not configured).", "needs review")
 
@@ -111,7 +111,7 @@ def extract_attributes(answer: Answer, attributes: list[Attribute]) -> tuple[lis
     A quote that is not a verbatim substring of the answer is dropped, not repaired. An unverifiable
     observation must never reach the drift map, or every number downstream is noise.
     """
-    labels = (answer.fixture_labels or {}).get("attributes") or []
+    labels = (answer.labels or {}).get("attributes") or []
     known = {a.id for a in attributes}
     kept, warnings = [], []
     for raw in labels:
