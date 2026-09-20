@@ -123,6 +123,15 @@ async function json<T>(path: string): Promise<T> {
   return r.json();
 }
 
+export interface Health {
+  ok: boolean;
+  scenarios: string[];
+  live_available: boolean;
+  live_status: string;
+  measured_model: string | null;
+}
+
+export const getHealth = () => json<Health>("/api/health");
 export const getScenarios = () => json<Scenario[]>("/api/scenarios");
 export const getRuns = () => json<RunSummary[]>("/api/runs");
 export const getRun = (id: string) => json<Run>(`/api/runs/${id}`);
@@ -135,8 +144,10 @@ export interface StreamHandlers {
 }
 
 /** Opens the SSE stream for one run. Returns a closer so the caller can abort. */
-export function streamRun(scenario: string, h: StreamHandlers): () => void {
-  const es = new EventSource(`${API}/api/stream?scenario=${encodeURIComponent(scenario)}`);
+export function streamRun(scenario: string, mode: "demo" | "live", h: StreamHandlers): () => void {
+  const es = new EventSource(
+    `${API}/api/stream?scenario=${encodeURIComponent(scenario)}&mode=${mode}`,
+  );
   const on = (name: string, fn?: (d: never) => void) =>
     es.addEventListener(name, (ev) => fn?.(JSON.parse((ev as MessageEvent).data)));
   on("node", h.onNode as never);

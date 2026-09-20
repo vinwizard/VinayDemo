@@ -98,13 +98,16 @@ class LiveProvider:
     scenario = None
 
     def __init__(self, attributes: list[Attribute], named_probes: list[Probe],
-                 model: Optional[str] = None, transport: Optional[Callable] = None):
+                 profile: Optional[CompanyProfile] = None, model: Optional[str] = None,
+                 transport: Optional[Callable] = None, evaluator=None):
         if not attributes:
             raise ValueError("live run needs the attribute set being measured")
         self._attributes = attributes
         self._named = named_probes
+        self._profile = profile
         self.model = model or model_name()
         self._transport = transport or default_transport
+        self.evaluator = evaluator          # None -> answers come back unlabelled ("needs review")
         self.calls = 0
 
     def plan(self, profile: CompanyProfile) -> tuple[list[Topic], list[Probe]]:
@@ -138,4 +141,12 @@ class LiveProvider:
         if not text:
             return Answer(**base, text="", status="error", error="empty response",
                           search_executed=searched)
-        return Answer(**base, text=text, citations=citations, search_executed=searched, status="ok")
+        answer = Answer(**base, text=text, citations=citations, search_executed=searched, status="ok")
+        if self.evaluator is not None and self._profile is not None:
+            # Agent 3 runs here, on a separate model, seeing the company. The measured call above
+            # has already returned, so nothing about the target could have reached it.
+            labels = self.evaluator.label(probe, answer, self._attributes, self._profile)
+            if labels is not None:
+                answer = answer.model_copy(update=dict(evaluator_labels=labels,
+                                                       evaluator_model=self.evaluator.model))
+        return answer

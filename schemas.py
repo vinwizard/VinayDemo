@@ -107,7 +107,14 @@ class Answer(BaseModel):
     search_executed: Optional[bool] = None
     status: Literal["ok", "timeout", "error"] = "ok"
     error: Optional[str] = None
-    fixture_labels: Optional[dict] = None  # authored labels; synthetic only
+    fixture_labels: Optional[dict] = None    # authored labels; synthetic only
+    evaluator_labels: Optional[dict] = None  # model-produced labels; live only
+    evaluator_model: Optional[str] = None
+
+    @property
+    def labels(self) -> Optional[dict]:
+        """Whoever proposed the judgment. Downstream code validates it the same way either way."""
+        return self.evaluator_labels if self.evaluator_labels is not None else self.fixture_labels
 
     @model_validator(mode="after")
     def _honest_provenance(self):
@@ -116,6 +123,8 @@ class Answer(BaseModel):
                 raise ValueError("synthetic answers may not carry a real provider, model or live timestamp")
             if self.search_executed:
                 raise ValueError("synthetic answers may not claim search_executed=true")
+            if self.evaluator_labels is not None:
+                raise ValueError("evaluator labels are only allowed on live answers")
         elif self.fixture_labels is not None:
             raise ValueError("fixture labels are only allowed on synthetic answers")
         return self

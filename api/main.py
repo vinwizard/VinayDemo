@@ -14,8 +14,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 import graph
-from providers import fixture
+from agents.evaluator_model import ModelEvaluator
+from config import load_env, redacted_status
+from providers import fixture, live
 from reports import RUNS, load_run, save_run
+
+_LOADED = load_env()
+print(f"[config] {redacted_status(_LOADED)}")  # names only; a key value is never printed
 
 app = FastAPI(title="Positioning Drift API")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -42,15 +47,31 @@ def scenarios():
     return out
 
 
-def run_events(scenario: str) -> Iterator[str]:
+def build_provider(scenario: str, mode: str):
+    """-> (provider, profile, expected_answers, run_mode). Live mode needs a key; it never falls back
+    silently to fixtures, because a fixture result labelled live would be a fabricated measurement."""
+    base = fixture.FixtureProvider(scenario)
+    profile = fixture.bundled_profile(scenario)
+    if mode != "live":
+        return base, profile, len(base.named_probes()) + graph.MAX_BASELINE + graph.MAX_FOLLOWUP, "demo_replay"
+    if not live.available():
+        raise HTTPException(400, f"Live mode needs {live.KEY_ENV}. {live.status()}")
+    prov = live.LiveProvider(base.attributes(), base.named_probes(), profile=profile,
+                             evaluator=ModelEvaluator())
+    return prov, profile, len(base.named_probes()), "live_api"
+
+
+def run_events(scenario: str, mode: str = "demo") -> Iterator[str]:
     """Executes one run on a worker thread, yielding SSE as the graph progresses."""
     if scenario not in fixture.SCENARIOS:
         yield sse("error", {"message": f"unknown scenario {scenario!r}"})
         return
+    try:
+        prov, profile, expected, run_mode = build_provider(scenario, mode)
+    except HTTPException as e:
+        yield sse("error", {"message": str(e.detail)})
+        return
     q: queue.Queue = queue.Queue()
-    prov = fixture.FixtureProvider(scenario)
-    profile = fixture.bundled_profile(scenario)
-    expected = len(prov.named_probes()) + graph.MAX_BASELINE + graph.MAX_FOLLOWUP
     state = {"done": 0}
 
     inner = prov.answer
@@ -67,7 +88,7 @@ def run_events(scenario: str) -> Iterator[str]:
 
     def work():
         try:
-            run = graph.new_run(profile, prov)
+            run = graph.new_run(profile, prov, mode=run_mode)
             for node, run in graph.stream(run, prov):
                 stage, agent = graph.STAGES[node]
                 q.put(("node", dict(node=node, stage=stage, agent=agent,
@@ -88,8 +109,8 @@ def run_events(scenario: str) -> Iterator[str]:
 
 
 @app.get("/api/stream")
-def stream(scenario: str = "A"):
-    return StreamingResponse(run_events(scenario), media_type="text/event-stream",
+def stream(scenario: str = "A", mode: str = "demo"):
+    return StreamingResponse(run_events(scenario, mode), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
@@ -124,4 +145,7 @@ def get_run(run_id: str):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "scenarios": sorted(fixture.SCENARIOS)}
+    """Reports whether live mode is usable — never the key itself."""
+    return {"ok": True, "scenarios": sorted(fixture.SCENARIOS),
+            "live_available": live.available(), "live_status": live.status(),
+            "measured_model": live.model_name() if live.available() else None}

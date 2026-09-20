@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Run, RunSummary, Scenario } from "./api";
-import { getRun, getRuns, getScenarios, streamRun } from "./api";
+import type { Health, Run, RunSummary, Scenario } from "./api";
+import { getHealth, getRun, getRuns, getScenarios, streamRun } from "./api";
 import { Compare, DriftMap, Evidence, GapCards, History, Metrics } from "./components";
 
 type Tab = "measure" | "report" | "history" | "compare";
@@ -10,6 +10,8 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("measure");
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [scenario, setScenario] = useState("A");
+  const [mode, setMode] = useState<"demo" | "live">("demo");
+  const [health, setHealth] = useState<Health | null>(null);
   const [run, setRun] = useState<Run | null>(null);
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [busy, setBusy] = useState(false);
@@ -24,6 +26,7 @@ export default function App() {
 
   useEffect(() => {
     getScenarios().then(setScenarios).catch((e) => setError(String(e)));
+    getHealth().then(setHealth).catch(() => {});
     refreshRuns();
     return () => closer.current?.(); // abort an in-flight stream if the app unmounts
   }, [refreshRuns]);
@@ -31,7 +34,7 @@ export default function App() {
   const measure = () => {
     setBusy(true); setFeed([]); setError(null); setProgress({ done: 0, expected: 0 });
     closer.current?.();
-    closer.current = streamRun(scenario, {
+    closer.current = streamRun(scenario, mode, {
       onNode: (e) =>
         setFeed((f) => [{ key: `n${f.length}`, text: `${e.node} · ${e.stage} · ${e.agent}`, sub: e.log }, ...f]),
       onAnswer: (e) => {
@@ -61,8 +64,19 @@ export default function App() {
       </div>
 
       <div className="banner">
-        <strong>SYNTHETIC DEMO — fixture replay; no live chatbot measurements; model judgment simulated.</strong>
-        <br />Independent portfolio demo — not a Profound product or integration.
+        {mode === "live" ? (
+          <>
+            <strong>LIVE MODE — real calls to {health?.measured_model ?? "the configured model"} via
+            the OpenAI Responses API with web search.</strong>
+            <br />This measures that API at this moment, not the ChatGPT consumer app. Answers with no
+            search behind them are excluded from scores. Calls cost money.
+          </>
+        ) : (
+          <>
+            <strong>SYNTHETIC DEMO — fixture replay; no live chatbot measurements; model judgment simulated.</strong>
+            <br />Independent portfolio demo — not a Profound product or integration.
+          </>
+        )}
       </div>
 
       <div className="tabs" role="tablist">
@@ -86,9 +100,21 @@ export default function App() {
                   {scenarios.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
                 </select>
               </div>
-              <button className="primary" onClick={measure} disabled={busy}>
-                {busy ? "Measuring…" : "Measure drift"}
-              </button>
+              <div className="row">
+                <label className="muted" htmlFor="md">Mode</label>
+                <select id="md" value={mode} disabled={busy}
+                        onChange={(e) => setMode(e.target.value as "demo" | "live")}>
+                  <option value="demo">Demo replay (synthetic)</option>
+                  <option value="live" disabled={!health?.live_available}>
+                    {health?.live_available
+                      ? `Live — ${health.measured_model}`
+                      : "Live (no API key configured)"}
+                  </option>
+                </select>
+                <button className="primary" onClick={measure} disabled={busy}>
+                  {busy ? "Measuring…" : mode === "live" ? "Run live measurement" : "Measure drift"}
+                </button>
+              </div>
             </div>
             {sc && (
               <>
@@ -104,8 +130,10 @@ export default function App() {
                   ))}
                 </div>
                 <p className="muted" style={{ marginBottom: 0 }}>
-                  Asks {sc.named_probes} questions that name the brand but never name an attribute, plus 12 blind
-                  questions that never name the brand.
+                  Asks {sc.named_probes} questions that name the brand but never name an attribute
+                  {mode === "live"
+                    ? ". Live runs measure perception only, so no visibility score is produced."
+                    : ", plus 12 blind questions that never name the brand."}
                 </p>
               </>
             )}
