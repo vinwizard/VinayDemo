@@ -93,6 +93,9 @@ def run_events(scenario: str, mode: str = "demo") -> Iterator[str]:
         return
     q: queue.Queue = queue.Queue()
     state = {"done": 0}
+    # id -> label, so the live feed can say "Buyer question 2 — Team knowledge bases" instead of
+    # "kb-2". Filled from plan_baseline's node event, which lands before any answer is produced.
+    topic_labels: dict[str, str] = {}
 
     inner = prov.answer
 
@@ -100,6 +103,7 @@ def run_events(scenario: str, mode: str = "demo") -> Iterator[str]:
         a = inner(probe)
         state["done"] += 1
         q.put(("answer", dict(probe_id=probe.id, kind=probe.kind, phase=probe.phase,
+                              topic_label=topic_labels.get(probe.topic_id),
                               text=probe.text, status=a.status,
                               done=state["done"], expected=expected)))
         return a
@@ -110,6 +114,7 @@ def run_events(scenario: str, mode: str = "demo") -> Iterator[str]:
         try:
             run = graph.new_run(profile, prov, mode=run_mode)
             for node, run in graph.stream(run, prov):
+                topic_labels.update({t.id: t.label for t in run.topics})
                 stage, agent = graph.STAGES[node]
                 q.put(("node", dict(node=node, stage=stage, agent=agent,
                                     log=run.log[-1] if run.log else "")))

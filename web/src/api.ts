@@ -41,6 +41,14 @@ export interface DriftReport {
   limitations: string[];
 }
 
+export interface Topic {
+  id: string;
+  label: string;
+  kind: "buyer" | "perception";
+  buyer_need: string;
+  fit: string;
+}
+
 export interface Probe {
   id: string;
   topic_id: string;
@@ -65,6 +73,7 @@ export interface Run {
   status: string;
   mode: string;
   profile: { name: string; domain: string };
+  topics: Topic[];
   probes: Probe[];
   answers: Answer[];
   attribute_scores: AttributeScore[];
@@ -151,7 +160,8 @@ export const getRun = (id: string) => json<Run>(`/api/runs/${id}`);
 
 export interface StreamHandlers {
   onNode?: (e: { node: string; stage: string; agent: string; log: string }) => void;
-  onAnswer?: (e: { probe_id: string; kind: string; phase: string; text: string; done: number; expected: number }) => void;
+  onAnswer?: (e: { probe_id: string; kind: string; phase: string; topic_label: string | null;
+                   text: string; done: number; expected: number }) => void;
   onDone?: (e: { run_id: string; run: Run }) => void;
   onError?: (e: { message: string }) => void;
 }

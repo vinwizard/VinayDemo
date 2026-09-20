@@ -79,13 +79,13 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
     if not valid:
         expl = "Needs review: evidence failed validation; excluded from scores."
     elif labels["recommended"]:
-        expl = "Target positively recommended (strength 2)."
+        expl = "Target positively recommended (scored: recommended)."
     elif labels["negative_mention"]:
-        expl = "Target mentioned negatively only (strength 0; criticism, not absence)."
+        expl = "Target mentioned negatively only (scored: absent — criticism, not absence)."
     elif labels["mentioned"]:
-        expl = "Target mentioned descriptively but not recommended (strength 1)."
+        expl = "Target mentioned descriptively but not recommended (scored: mentioned)."
     else:
-        expl = "Target absent from answer body (strength 0)."
+        expl = "Target absent from answer body (scored: absent)."
     if owned and not labels["mentioned"]:
         expl += " Owned domain cited without a body mention (citation-only; not counted as a mention)."
     elif owned:

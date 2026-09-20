@@ -58,7 +58,7 @@ def test_both_scenarios_complete_offline(runs):
 
 def test_three_agent_roles_in_workflow():
     agents = {a for _, a in graph.STAGES.values()}
-    assert {"Agent 2 · AnA", "Agent 3 · Evaluation", "Orchestrator"} <= agents
+    assert {"Agent 2 · Question planner", "Agent 3 · Answer evaluation", "Orchestrator"} <= agents
     assert hasattr(onboarding, "profile_from_user_input")  # Agent 1 (shown as the Onboarding stage in the UI)
 
 

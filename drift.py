@@ -10,6 +10,7 @@ which is the whole point: a gap where the company never stated the claim is not 
 """
 from typing import Optional
 
+from labels import probe_name
 from schemas import (Attribute, AttributeObservation, AttributeScore, DriftReport, QueryEvaluation,
                      Answer, Probe)
 from scoring import eligible, rate
@@ -76,17 +77,17 @@ def named_eligibility(probes: list[Probe], answers: list[Answer],
     Exclusions must be reported, not just applied: a timeout removes an answer that would otherwise
     have counted against you, so a silent exclusion inflates alignment. Callers surface the counts.
     """
-    named_ids = [p.id for p in probes if p.kind == "named"]
+    named = [p for p in probes if p.kind == "named"]
     ans = {a.probe_id: a for a in answers}
     ev = {e.probe_id: e for e in evals}
     kept, reasons = [], []
-    for pid in named_ids:
-        if pid not in ans or pid not in ev:
-            reasons.append(f"{pid}: no answer collected")
+    for p in named:  # reasons are read by a human, so they name the question, not its id
+        if p.id not in ans or p.id not in ev:
+            reasons.append(f"{probe_name(p)}: no answer collected")
             continue
-        ok, why = eligible(ans[pid], ev[pid])
-        kept.append(pid) if ok else reasons.append(f"{pid}: {why}")
-    return kept, reasons, len(named_ids)
+        ok, why = eligible(ans[p.id], ev[p.id])
+        kept.append(p.id) if ok else reasons.append(f"{probe_name(p)}: {why}")
+    return kept, reasons, len(named)
 
 
 def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: list[Answer],
@@ -116,7 +117,7 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
             limits.append(f"AI raised this in {echoes} of {n} answers and was negative in {neg} of them; "
                           "the score counts only the supportive mentions.")
         if n < MIN_NAMED:
-            limits.append(f"Only {n} eligible named-probe answer(s); perception is not measurable.")
+            limits.append(f"Only {n} eligible brand-question answer(s); perception is not measurable.")
         if a.intended and cs is None:
             limits.append("No page-level claim data: cannot separate an authority gap from a messaging gap.")
         out.append(AttributeScore(
@@ -147,15 +148,15 @@ def build_report(scores: list[AttributeScore], provenance: str, n_blind: int,
     limits = []
     if reasons:
         # first, because it changes how every number below should be read
-        limits.append(f"{len(reasons)} of {asked} named answers were excluded, so alignment rests on "
+        limits.append(f"{len(reasons)} of {asked} brand answers were excluded, so alignment rests on "
                       f"{n}. Excluded answers cannot count against the brand, which biases the score "
                       f"upward: {'; '.join(reasons)}")
-    limits += ["Small sample: alignment rests on a handful of named-probe answers.",
+    limits += ["Small sample: alignment rests on a handful of brand-question answers.",
                "An echo is an association in the answer text, not proof of why the model said it."]
     if provenance == "synthetic":
         limits.append("Simulated: attribute observations come from authored fixtures, not a measured chatbot.")
     if n < MIN_NAMED:
-        limits.append(f"Only {n} eligible named answer(s) (minimum {MIN_NAMED}); alignment withheld.")
+        limits.append(f"Only {n} eligible brand answer(s) (minimum {MIN_NAMED}); alignment withheld.")
     return DriftReport(
         provenance=provenance, n_named=n, n_blind=n_blind, named_asked=asked,
         excluded_named=len(reasons), excluded_reasons=reasons,

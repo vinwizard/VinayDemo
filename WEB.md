@@ -92,9 +92,18 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
 - **History** — every saved run from `data/runs/`, click to open
 - **Compare** — two runs side by side with the alignment delta and per-attribute zone changes (`lost claim → landed`)
 
+## Wording
+
+Engine identifiers never reach the screen. `web/src/labels.ts` names everything the browser holds
+(probe ids, run ids, provenance, strengths, probe kinds); `labels.py` names the ids the engine bakes
+into strings it hands over whole (exclusion reasons, the follow-up rationale, the Markdown export).
+Change a word in one of those two files, not in a component. The ids themselves are untouched — the
+JSON export, `data/runs/` and the baseline hash are exactly what they were.
+
 ## Not done yet
 
 - No tests for the React app; the API has one, over the stream endpoint's setup-error path (`tests/test_api_stream.py`)
+- Streamlit `app.py` still prints raw probe and node ids; it has not been through the wording pass
 - Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)
 - No production build wiring — Vite dev server only, so nothing is deployable from here yet
 - `app.py` (Streamlit) is still the demo of record until this reaches parity

@@ -3,9 +3,18 @@ import re
 from pathlib import Path
 
 from agents.ana import baseline_hash
+from labels import probe_name
 from schemas import SCHEMA_VERSION, Run
 
 RUNS = Path(__file__).resolve().parent / "data" / "runs"
+
+# QueryEvaluation.strength is 0/1/2 in the data and never on a page. Mirrors web/src/labels.ts.
+STRENGTH_LABEL = {0: "absent", 1: "mentioned", 2: "recommended"}
+
+# Answer.provenance, spoken. Mirrors web/src/labels.ts.
+PROVENANCE_LABEL = {"synthetic": "Sample data", "demo_replay": "Sample run",
+                    "live_api": "Measured live", "page_fetch": "From their website",
+                    "user_provided": "You told us", "web_research_snapshot": "Research snapshot"}
 
 MODE_LABELS = {
     "demo_replay": "SYNTHETIC DEMO — fixture replay; no live chatbot measurements; model judgment simulated.",
@@ -89,16 +98,19 @@ def to_markdown(run: Run) -> str:
         res = "; ".join(f"{t.label}: {next((x.status for x in run.topic_evaluations if x.topic_id == t.id and x.phase == 'baseline'), '—')}" for t in tested)
         out.append(f"- {pp.id} ({pp.support}): {pp.text} → {res or 'not tested'}")
     for d in run.decisions:
-        out += ["", "## AnA adaptive decision (" + d.policy + ")", "", f"- Selected: {', '.join(d.selected_topics) or 'stop'}",
-                f"- Rationale: {d.rationale}", f"- Motivating probes: {', '.join(d.evidence_probe_ids)}"]
+        picked = ", ".join(topics[t].label if t in topics else t for t in d.selected_topics) or "stop"
+        out += ["", "## Follow-up decision (" + d.policy + ")", "", f"- Selected: {picked}",
+                f"- Rationale: {d.rationale}", f"- Motivating question ids: {', '.join(d.evidence_probe_ids)}"]
     for phase in ("baseline", "followup"):
         out += ["", f"## {'Baseline' if phase == 'baseline' else 'Exploratory follow-up'} questions", ""]
         for p in [p for p in run.probes if p.phase == phase]:
             e, a = ev.get(p.id), ans.get(p.id)
-            out += [f"**{p.id}** ({p.purpose}) — {p.text}",
-                    f"- Answer [{a.provenance if a else '—'}]: {a.text if a else '—'}",
+            out += [f"**{probe_name(p)}** (`{p.id}`, {p.purpose}) — {p.text}",
+                    f"- Answer [{PROVENANCE_LABEL.get(a.provenance, a.provenance) if a else '—'}]: "
+                    f"{a.text if a else '—'}",
                     f"- Citations: {', '.join(a.citations) if a and a.citations else 'none'}",
-                    f"- Evaluation: strength {e.strength if e else '—'} — {e.explanation if e else '—'}",
+                    f"- Evaluation: {STRENGTH_LABEL[e.strength] if e and e.strength is not None else '—'}"
+                    f" — {e.explanation if e else '—'}",
                     *([f"- Warnings: {' | '.join(e.warnings)}"] if e and e.warnings else []), ""]
     out.append(f"_{mode_label(run)}_")
     return "\n".join(out)

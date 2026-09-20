@@ -7,6 +7,7 @@ from langgraph.graph import END, START, StateGraph
 
 import drift
 from agents import ana, evaluation
+from labels import probe_name
 from schemas import Run
 from scoring import score_topic, visibility_score
 
@@ -16,14 +17,14 @@ MAX_FOLLOWUP = 4
 MAX_ADAPTIVE_ROUNDS = 1
 RECURSION_LIMIT = 12
 
-STAGES = {  # node -> (UI stage, logical agent)
-    "plan_baseline": ("Topic planning", "Agent 2 · AnA"),
+STAGES = {  # node -> (UI stage, logical agent). Both strings are shown to the reader verbatim.
+    "plan_baseline": ("Topic planning", "Agent 2 · Question planner"),
     "validate_and_freeze": ("Topic planning", "Orchestrator"),
     "execute_or_replay": ("Baseline / Follow-up", "Orchestrator"),
-    "evaluate": ("Gap evaluation", "Agent 3 · Evaluation"),
-    "choose_followup": ("Follow-up", "Agent 2 · AnA"),
-    "measure_drift": ("Perception drift", "Agent 3 · Evaluation"),
-    "build_gap_report": ("Report", "Agent 3 · Evaluation"),
+    "evaluate": ("Gap evaluation", "Agent 3 · Answer evaluation"),
+    "choose_followup": ("Follow-up", "Agent 2 · Question planner"),
+    "measure_drift": ("Perception drift", "Agent 3 · Answer evaluation"),
+    "build_gap_report": ("Report", "Agent 3 · Answer evaluation"),
 }
 
 
@@ -48,8 +49,8 @@ def plan_baseline(s: State):
     if named and not any(t.kind == "perception" for t in topics):
         raise ValidationError("named probes planned without a perception topic to hold them")
     run.topics, run.probes = topics, probes + named
-    run.log.append(f"AnA planned {len(topics)} topics, {len(probes)} blind questions, "
-                   f"{len(named)} named questions and {len(run.attributes)} attributes.")
+    run.log.append(f"Question planner prepared {len(topics)} topics, {len(probes)} buyer questions, "
+                   f"{len(named)} brand questions and {len(run.attributes)} attributes.")
     return {"run": run}
 
 
@@ -67,8 +68,8 @@ def validate_and_freeze(s: State):
         raise ValidationError("; ".join(errors))
     run.baseline_hash = ana.baseline_hash(run.probes)
     run.status = "baseline_frozen"
-    run.log.append("Baseline validated (blind questions leak no brand, named questions leak no attribute) "
-                   f"and frozen: {run.baseline_hash[:12]}.")
+    run.log.append("Baseline validated (buyer questions leak no brand, brand questions leak no attribute) "
+                   f"and frozen with fingerprint {run.baseline_hash[:12]}.")
     return {"run": run}
 
 
@@ -84,7 +85,7 @@ def execute_or_replay(s: State):
             run.answers += list(pool.map(s["provider"].answer, todo))
     else:
         run.answers += [s["provider"].answer(p) for p in todo]
-    phase = todo[0].phase if todo else "?"
+    phase = ("follow-up" if todo[0].phase == "followup" else todo[0].phase) if todo else "?"
     new = [a for a in run.answers if a.probe_id in {p.id for p in todo}]
     failed = sum(a.status != "ok" for a in new)
     # the log must not claim "replayed from fixtures" for answers a real provider produced
@@ -122,7 +123,7 @@ def choose_followup(s: State):
     d.new_probes = d.new_probes[:MAX_FOLLOWUP]
     run.decisions.append(d)
     run.probes += d.new_probes
-    run.log.append(f"AnA decision: {', '.join(d.selected_topics) or 'stop'} — {d.rationale}")
+    run.log.append(f"Follow-up decision: {d.rationale}")
     return {"run": run, "rounds": s["rounds"] + 1}
 
 
@@ -145,7 +146,7 @@ def measure_drift(s: State):
         if pr.id in answers:
             obs, warns = evaluation.extract_attributes(answers[pr.id], run.attributes)
             observations[pr.id] = obs
-            dropped += [f"{pr.id}: {w}" for w in warns]
+            dropped += [f"{probe_name(pr)}: {w}" for w in warns]
     blind = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
     ev = {e.probe_id: e for e in run.evaluations}
     strengths = [ev[p.id].strength for p in blind
@@ -165,7 +166,7 @@ def measure_drift(s: State):
                                    asked=asked, excluded_reasons=excluded)
     if dropped:
         run.drift.limitations += [f"Dropped unverifiable observation — {d}" for d in dropped]
-    run.log.append(f"Drift measured over {run.drift.n_named} named answers: alignment "
+    run.log.append(f"Drift measured over {run.drift.n_named} brand answers: alignment "
                    f"{run.drift.alignment if run.drift.alignment is not None else 'n/a'} "
                    f"({len(run.drift.lost_claims)} lost, {len(run.drift.imposed)} imposed, "
                    f"{len(dropped)} observation(s) dropped).")
