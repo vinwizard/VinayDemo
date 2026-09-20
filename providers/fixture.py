@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 
 from agents.onboarding import structural_fingerprint
-from schemas import Answer, CompanyProfile, Probe, Topic
+from schemas import Answer, Attribute, CompanyProfile, Probe, Topic
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 SCENARIOS = {"A": "demo_a.json", "B": "demo_b.json"}
@@ -59,6 +59,14 @@ class FixtureProvider:
         self.check_profile(profile)
         return [Topic(**t) for t in self.data["topics"]], [Probe(**p) for p in self.data["baseline_probes"]]
 
+    def attributes(self) -> list[Attribute]:
+        """Intended + claimed layers. Emergent attributes are authored too, but with no intent weight."""
+        return [Attribute(**a) for a in self.data.get("attributes", [])]
+
+    def named_probes(self) -> list[Probe]:
+        """Perception probes: they name the brand, never the attribute being measured."""
+        return [Probe(**p) for p in self.data.get("named_probes", [])]
+
     def followup_bank(self) -> dict[str, list[dict]]:
         return self.data["followup_bank"]
 
@@ -67,7 +75,12 @@ class FixtureProvider:
         CALLS["answer"] += 1
         if d := dev_delay():
             time.sleep(d)  # dev-only stall; see dev_delay(). Never on by default.
-        pool = self.data["baseline_answers"] if probe.phase == "baseline" else list(self.data["followup_answers"].values())
+        if probe.kind == "named":
+            pool = self.data.get("named_answers", [])
+        elif probe.phase == "baseline":
+            pool = self.data["baseline_answers"]
+        else:
+            pool = list(self.data["followup_answers"].values())
         raw = next((a for a in pool if a["probe_id"] == probe.id), None)
         if raw is None:
             return Answer(probe_id=probe.id, provenance="synthetic", provider="fixture", status="error",

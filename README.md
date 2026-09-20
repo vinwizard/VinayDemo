@@ -1,13 +1,38 @@
-# VinayDemo — Visibility Explorer
+# VinayDemo — Positioning Drift
 
-*Find the buyer questions where your brand is missing.*
+*How different is your brand in AI answers from the brand you are trying to be?*
 
-A localhost demo that discovers a company's AI-visibility gaps across its supported buyer topics and explains
-where Profound capabilities could help investigate them. Independent portfolio demo — not a Profound product or
-integration. Spec: [`agents.md`](agents.md). Progress log: [`CHECKPOINT.md`](CHECKPOINT.md). Presenter script: [`DEMO.md`](DEMO.md).
+Most AI-visibility tooling asks "are you mentioned?". This asks the harder question: **when AI does
+describe you, is it describing the company you are trying to be?** A brand can be highly visible and
+still badly misrepresented, and a presence/absence check scores that as a win.
 
-> **Default mode is a synthetic demo.** Answers are authored fixtures, AnA follow-up selection is a deterministic
-> simulated policy, and evaluation is fixture labels + deterministic validation. No chatbot was measured.
+Three layers are kept deliberately separate:
+
+| Layer | What it is | Source |
+| --- | --- | --- |
+| **Intended** | What you want to be known for | Stated by the customer (aspirational; never counts as product fit) |
+| **Claimed** | What your own public copy actually says | Evidence-backed |
+| **Perceived** | What AI says when asked | Measured probes |
+
+The gap between **claimed** and **perceived** is an *authority gap* — you say it and the models do not
+repeat it. The gap between **intended** and **claimed** is a *messaging gap* — AI does not say it because
+you never clearly said it either. Naming which one you are looking at is the point of the product.
+
+Two probe families measure two different things:
+
+- **Blind probes** never name the brand → **visibility**. Do you show up at all?
+- **Named probes** name the brand but never name an attribute → **perception**. What does AI say you are?
+
+A named probe that contains the attribute it measures invites the model to agree, so `ana.attribute_leaks`
+rejects it. This is as load-bearing as the brand-leak rule on blind probes.
+
+Independent portfolio demo — not a Profound product or integration. Spec: [`agents.md`](agents.md).
+Architecture of the original visibility engine still applies: [`CHECKPOINT.md`](CHECKPOINT.md).
+Presenter script: [`DEMO.md`](DEMO.md).
+
+> **Default mode is a synthetic demo.** Answers, attribute observations and page-level claim counts are
+> authored fixtures. No chatbot was measured. Every quote is verified verbatim against the answer it
+> came from, and unverifiable observations are dropped rather than repaired.
 
 ## Run it (macOS, Miniconda)
 

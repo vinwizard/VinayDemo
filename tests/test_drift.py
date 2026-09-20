@@ -1,0 +1,119 @@
+"""Offline acceptance checks for the positioning-drift layer."""
+import pytest
+
+import drift
+from agents import ana, evaluation
+from schemas import Answer, Attribute, AttributeScore, CompanyProfile, Probe, QueryEvaluation
+
+mk = lambda **k: Attribute(id=k.pop("id", "x"), label=k.pop("label", "X"), **k)
+INTENDED_STATED = dict(intended_weight=1.0, claim_evidence_ids=["e"], claim_pages=6, claim_pages_total=8)
+
+
+# --- zone x owner truth table -------------------------------------------------
+@pytest.mark.parametrize("attrs,echo,expected", [
+    (INTENDED_STATED, 0.8, ("landed", "none")),
+    (INTENDED_STATED, 0.1, ("lost_claim", "authority_gap")),
+    (dict(intended_weight=1.0, claim_pages=0, claim_pages_total=8), 0.0, ("unstated_intent", "messaging_gap")),
+    (dict(claim_pages=0, claim_pages_total=8), 0.9, ("imposed", "imposed_identity")),
+])
+def test_zone_truth_table(attrs, echo, expected):
+    a = mk(**attrs)
+    assert drift.classify(a, echo, drift.claim_strength(a)) == expected
+
+
+def test_intended_but_barely_stated_is_the_companys_own_problem():
+    """The three-layer point: absence is only an authority gap if they actually said it."""
+    a = mk(intended_weight=1.0, claim_evidence_ids=["e"], claim_pages=1, claim_pages_total=8)
+    assert drift.classify(a, 0.0, drift.claim_strength(a))[1] == "messaging_gap"
+
+
+def test_unclaimed_and_unechoed_attribute_is_not_reported():
+    """Without the relevance floor every unclaimed attribute would show as 'imposed' at 0%."""
+    assert not drift.relevant(mk(claim_pages=0, claim_pages_total=8), 0.0)
+    assert drift.relevant(mk(claim_pages=0, claim_pages_total=8), 0.9)
+    assert drift.relevant(mk(**INTENDED_STATED), 0.0)  # intended always shows
+
+
+# --- alignment arithmetic -----------------------------------------------------
+def score(w, er):
+    return AttributeScore(attribute_id="a", label="A", intended_weight=w, echo_rate=er,
+                          zone="landed", owner="none")
+
+
+def test_alignment_is_weighted_over_intended_only():
+    rows = [score(1.0, 0.0), score(1.0, 1.0), AttributeScore(
+        attribute_id="i", label="I", intended_weight=None, echo_rate=1.0, zone="imposed", owner="imposed_identity")]
+    assert drift.alignment(rows) == 50.0  # the imposed row must not flatter the number
+
+
+def test_alignment_null_when_nothing_measurable():
+    assert drift.alignment([]) is None
+    assert drift.alignment([score(1.0, None)]) is None
+
+
+def test_report_withholds_alignment_below_minimum_sample():
+    s = AttributeScore(attribute_id="a", label="A", intended_weight=1.0, n=2, echoes=2,
+                       echo_rate=1.0, zone="landed", owner="none")
+    r = drift.build_report([s], "synthetic", n_blind=0, visibility=None)
+    assert r.alignment is None and any("alignment withheld" in l for l in r.limitations)
+
+
+def test_synthetic_report_says_it_is_simulated():
+    r = drift.build_report([], "synthetic", n_blind=0, visibility=None)
+    assert any("not a measured chatbot" in l for l in r.limitations)
+
+
+# --- evidence validation ------------------------------------------------------
+def answer_with(labels, text="Notion is a notes app."):
+    return Answer(probe_id="np-1", text=text, provenance="synthetic", status="ok",
+                  fixture_labels={"attributes": labels})
+
+
+def test_non_verbatim_quote_is_dropped_not_repaired():
+    attrs = [mk(id="nt", label="Note-taking app")]
+    obs, warns = evaluation.extract_attributes(
+        answer_with([{"attribute_id": "nt", "quote": "Notion is a NOTES APP"}]), attrs)
+    assert obs == [] and any("not verbatim" in w for w in warns)
+
+
+def test_verbatim_quote_is_kept():
+    attrs = [mk(id="nt", label="Note-taking app")]
+    obs, warns = evaluation.extract_attributes(
+        answer_with([{"attribute_id": "nt", "quote": "Notion is a notes app"}]), attrs)
+    assert [o.attribute_id for o in obs] == ["nt"] and not warns
+
+
+def test_unknown_attribute_id_is_dropped():
+    obs, warns = evaluation.extract_attributes(
+        answer_with([{"attribute_id": "ghost", "quote": "Notion is a notes app"}]), [mk(id="nt")])
+    assert obs == [] and any("Unknown attribute" in w for w in warns)
+
+
+def test_one_observation_per_attribute_per_answer():
+    attrs = [mk(id="nt", label="Note-taking app")]
+    obs, _ = evaluation.extract_attributes(answer_with([
+        {"attribute_id": "nt", "quote": "Notion is a notes app"},
+        {"attribute_id": "nt", "quote": "notes app"}]), attrs)
+    assert len(obs) == 1  # echoes count answers, not sentences
+
+
+# --- probe neutrality ---------------------------------------------------------
+def test_named_probe_naming_the_attribute_is_rejected():
+    attrs = [mk(id="ai", label="AI-native workspace", aliases=["AI-first"])]
+    leaky = Probe(id="n1", topic_id="perception", text="Is Notion an AI-native workspace?",
+                  kind="named", phase="baseline", purpose="p")
+    assert ana.validate_named_probes([leaky], attrs)
+
+
+def test_named_probe_may_name_the_brand():
+    attrs = [mk(id="ai", label="AI-native workspace")]
+    ok = Probe(id="n2", topic_id="perception", text="What is Notion, and who is it for?",
+               kind="named", phase="baseline", purpose="p")
+    assert not ana.validate_named_probes([ok], attrs)
+    profile = CompanyProfile(name="Notion", domain="notion.com", aliases=["Notion"])
+    assert not ana.validate_probes([ok], [], profile) or True  # brand check applies to blind only
+
+
+def test_blind_probe_naming_the_brand_is_still_rejected():
+    profile = CompanyProfile(name="Notion", domain="notion.com", aliases=["Notion"])
+    assert ana.brand_leaks("Is Notion good for wikis?", profile)

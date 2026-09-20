@@ -50,7 +50,8 @@ def synth(text, cites=(), **labels):
 def test_both_scenarios_complete_offline(runs):
     for r in runs.values():
         assert r.status == "complete"
-        assert len([p for p in r.probes if p.phase == "baseline"]) == 12
+        assert len([p for p in r.probes if p.phase == "baseline" and p.kind == "blind"]) == 12
+        assert len([p for p in r.probes if p.kind == "named"]) == 8
         assert len([p for p in r.probes if p.phase == "followup"]) == 4
         assert len(r.decisions) == 1
 

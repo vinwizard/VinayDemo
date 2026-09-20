@@ -1,4 +1,8 @@
-"""One UI smoke journey per fixture, plus rerender and reopen checks (Streamlit AppTest)."""
+"""One UI smoke journey per fixture, plus rerender, reopen and arbitrary-company checks.
+
+The app is one screen now, so a journey is: pick scenario -> Measure drift -> results render.
+Every acceptance guard the three-screen version enforced is still asserted here.
+"""
 from pathlib import Path
 
 import pytest
@@ -24,23 +28,30 @@ def start():
 def journey(scenario):
     at = start()
     at.radio(key="scenario").set_value(scenario).run()
-    at.button(key="load_demo").click().run()
-    at.checkbox(key="reviewed").check().run()
-    at.button(key="explore").click().run()
-    at.button(key="run_replay").click().run()
+    at.button(key="measure").click().run()
     assert not at.exception
     return at
 
 
-@pytest.mark.parametrize("scenario,selected", [("A", ["pt", "mtg"]), ("B", ["po", "kb"])])
-def test_journey(scenario, selected):
+@pytest.mark.parametrize("scenario,alignment,landed", [
+    ("A", 21.4, ["Connected docs and databases"]),
+    ("B", 30.7, ["Replaces multiple tools"]),
+])
+def test_journey(scenario, alignment, landed):
     at = journey(scenario)
     run = at.session_state.run
-    assert run.status == "complete" and run.decisions[0].selected_topics == selected
+    assert run.status == "complete"
+    assert run.drift.alignment == alignment
+    assert run.drift.landed == landed
     assert any("SYNTHETIC DEMO" in m.value for m in at.markdown)
-    at.radio(key="screen").set_value("3 · Gap report").run()
-    assert not at.exception
-    assert any("Answer Engine Insights" in m.value for m in at.markdown)
+
+
+def test_scenarios_differ():
+    """Perception is fixture-driven, not a fixed animation: different data, different zones."""
+    a, b = journey("A").session_state.run.drift, journey("B").session_state.run.drift
+    assert a.alignment != b.alignment
+    assert set(a.landed) != set(b.landed)
+    assert set(a.imposed) != set(b.imposed)
 
 
 def test_rerenders_do_not_restart_runs():
@@ -48,8 +59,6 @@ def test_rerenders_do_not_restart_runs():
     run_id, calls = at.session_state.run.id, fixture.CALLS["answer"]
     for _ in range(3):
         at.run()
-    at.radio(key="screen").set_value("3 · Gap report").run()
-    at.radio(key="screen").set_value("2 · Investigation").run()
     assert at.session_state.run.id == run_id and fixture.CALLS["answer"] == calls
 
 
@@ -59,7 +68,8 @@ def test_completed_run_can_be_reopened():
     fresh = start()  # simulates a restart: new session, same data/runs
     fresh.selectbox(key="reopen_id").set_value(run_id).run()
     fresh.button(key="reopen_btn").click().run()
-    assert fresh.session_state.run.id == run_id and fresh.session_state.screen == "3 · Gap report"
+    assert fresh.session_state.run.id == run_id
+    assert fresh.session_state.run.drift is not None
     assert not fresh.exception
 
 
@@ -71,5 +81,5 @@ def test_arbitrary_company_gets_research_plan_not_report():
     at.button(key="build_custom").click().run()
     assert at.session_state.profile.name == "Acme Wiki"
     assert any("Replay data exists only" in w.value for w in at.warning)
-    assert not [b for b in at.button if b.key == "explore"]
     assert at.session_state.run is None
+    assert not [b for b in at.button if b.key == "measure"]
