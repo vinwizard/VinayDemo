@@ -104,6 +104,9 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
 
 - No tests for the React app; the API has one, over the stream endpoint's setup-error path (`tests/test_api_stream.py`)
 - Streamlit `app.py` still prints raw probe and node ids; it has not been through the wording pass
+- Streamlit `app.py` still prints raw probe and node ids; it has not been through the wording pass.
+  Deliberately deferred, not forgotten: relabelling it is waiting on the open decision about whether
+  `app.py` is deleted once the React UI reaches parity
 - Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)
 - No production build wiring — Vite dev server only, so nothing is deployable from here yet
 - `app.py` (Streamlit) is still the demo of record until this reaches parity

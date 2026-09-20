@@ -16,12 +16,6 @@ export const PROVENANCE_LABEL: Record<string, string> = {
 export const provenanceLabel = (v: string | null | undefined) =>
   (v && PROVENANCE_LABEL[v]) || v || "unknown";
 
-/** `QueryEvaluation.strength`, which is 0/1/2 in the data and never on screen. */
-export const STRENGTH_LABEL = ["absent", "mentioned", "recommended"];
-
-export const strengthLabel = (s: number | null | undefined) =>
-  s == null ? "not scored" : STRENGTH_LABEL[s] ?? String(s);
-
 /** `Probe.kind`: what the question does, not what the enum is called. */
 export const PROBE_KIND_LABEL: Record<string, string> = {
   named: "names your brand",

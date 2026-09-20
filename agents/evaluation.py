@@ -81,7 +81,8 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
     elif labels["recommended"]:
         expl = "Target positively recommended (scored: recommended)."
     elif labels["negative_mention"]:
-        expl = "Target mentioned negatively only (scored: absent — criticism, not absence)."
+        expl = ("Target mentioned only critically; scored the same as absent, because "
+                "criticism is not a recommendation.")
     elif labels["mentioned"]:
         expl = "Target mentioned descriptively but not recommended (scored: mentioned)."
     else:

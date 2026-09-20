@@ -108,7 +108,7 @@ def test_every_query_and_topic_explained(runs):
             assert te.status and te.limitations and te.provenance == "synthetic"
         md = to_markdown(r)
         assert "SYNTHETIC DEMO" in md
-        points = [l for l in md.split("## Positioning points")[1].splitlines() if l.startswith("- pp")]
+        points = [l for l in md.split("## Positioning points")[1].splitlines() if l.startswith("- Point ")]
         assert [l.endswith("not tested") for l in points] == [False, False, False, False, True]  # pp5 has no topic
 
 
