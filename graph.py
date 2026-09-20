@@ -77,8 +77,12 @@ def execute_or_replay(s: State):
     todo = [p for p in run.probes if p.id not in done]
     run.answers += [s["provider"].answer(p) for p in todo]
     phase = todo[0].phase if todo else "?"
-    failed = sum(a.status != "ok" for a in run.answers if a.probe_id in {p.id for p in todo})
-    run.log.append(f"Replayed {len(todo)} {phase} answers from fixtures ({failed} failed).")
+    new = [a for a in run.answers if a.probe_id in {p.id for p in todo}]
+    failed = sum(a.status != "ok" for a in new)
+    # the log must not claim "replayed from fixtures" for answers a real provider produced
+    verb = "Replayed" if all(a.provenance == "synthetic" for a in new) else "Collected"
+    src = "fixtures" if verb == "Replayed" else f"{s['provider'].name} ({getattr(s['provider'], 'model', '?')})"
+    run.log.append(f"{verb} {len(todo)} {phase} answers from {src} ({failed} failed).")
     return {"run": run}
 
 
@@ -138,9 +142,16 @@ def measure_drift(s: State):
     ev = {e.probe_id: e for e in run.evaluations}
     strengths = [ev[p.id].strength for p in blind
                  if p.id in ev and ev[p.id].valid and ev[p.id].strength is not None]
+    # provenance is read off the answers that actually fed the perception layer — never hardcoded,
+    # or a live run would publish its drift report under a synthetic label (and vice versa)
+    named_provenance = {answers[p.id].provenance for p in run.probes
+                        if p.kind == "named" and p.id in answers}
+    if len(named_provenance) > 1:
+        raise ValidationError(f"named answers mix provenance types: {sorted(named_provenance)}")
+    provenance = named_provenance.pop() if named_provenance else "synthetic"
     run.attribute_scores = drift.score_attributes(run.attributes, run.probes, run.answers,
                                                   run.evaluations, observations)
-    run.drift = drift.build_report(run.attribute_scores, "synthetic", n_blind=len(strengths),
+    run.drift = drift.build_report(run.attribute_scores, provenance, n_blind=len(strengths),
                                    visibility=visibility_score(strengths))
     if dropped:
         run.drift.limitations += [f"Dropped unverifiable observation — {d}" for d in dropped]
