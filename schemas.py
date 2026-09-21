@@ -1,4 +1,4 @@
-"""Pydantic state contracts (agents.md section 5)."""
+"""Pydantic state contracts (.claude/skills/product-workflow)."""
 from datetime import datetime
 from typing import Literal, Optional
 
