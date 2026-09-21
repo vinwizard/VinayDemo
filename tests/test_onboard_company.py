@@ -236,6 +236,21 @@ def test_onboard_vetting_drops_brand_leaking_buyer_questions_and_says_so():
     assert any("named you" in w and "Fast to set up" in w for w in warnings)
 
 
+def test_onboard_vetting_drops_a_buyer_question_addressing_the_vendor_and_says_so():
+    """Put to a vendor, "your platform" was answered as ShipStation. Refused, like a brand leak."""
+    q = "How does your platform improve our team's shipping speed?"
+    attrs = [Attribute(id="fast", label="Ships fast",
+                       buyer_questions=["What issue tracker suits a team that ships weekly?", q])]
+    warnings = main.vet_questions(PROFILE, attrs)
+    assert attrs[0].buyer_questions == ["What issue tracker suits a team that ships weekly?"]
+    assert any("addressed the vendor" in w and "your platform" in w for w in warnings)
+    # and one saved before this check existed is not asked
+    attrs[0].buyer_questions.append(q)
+    _, probes = ana.blind_probes_from_attributes([attrs[0].model_copy(update=dict(intended_weight=1.0))],
+                                                 PROFILE)
+    assert [p.text for p in probes] == ["What issue tracker suits a team that ships weekly?"]
+
+
 def test_onboard_vetting_says_how_many_brand_questions_are_left():
     attrs = [Attribute(id=f"a{i}", label=f"Claim {i}",
                        aliases=["describe", "use", "strengths", "recommend", "changed", "team"])

@@ -32,6 +32,25 @@ def brand_leaks(text: str, profile: CompanyProfile) -> list[str]:
     return [t for t in leak_terms(profile) if re.search(rf"(?<!\w){re.escape(t)}(?!\w)", text, re.I)]
 
 
+# A buyer who has never heard of the brand cannot address it. "How does your platform improve our
+# shipping speed?" makes the chatbot play some vendor — it answered as ShipStation — and "these
+# agents" points at a product the question never names. Generic "you" ("your own documents",
+# "can you suggest…") is how people type to a chatbot and is left alone.
+# ponytail: lexical, catches the observed shapes only; a model judging "addressed to a vendor?" is
+# the upgrade if new shapes get through.
+VENDOR_ADDRESS = re.compile(
+    r"\byour (?:[\w-]+ )?(?:platform|product|software|solution|service|system|company|offering|"
+    r"features?|integrations?|pricing|plans?)\b"
+    r"|\b(?:do|does|can|could|will) you (?:offer|have|provide|support|sell|integrate)\b"
+    r"|\b(?:this|these) (?:product|platform|feature|tool|app|software|solution|service|system|agent)s?\b"
+    r"|\bthe (?:platform|system)\b", re.I)
+
+
+def vendor_address(text: str) -> list[str]:
+    """What in a buyer question addresses the vendor instead of describing the need, or []."""
+    return [m.group(0) for m in VENDOR_ADDRESS.finditer(text)]
+
+
 def attribute_leaks(text: str, attributes: list[Attribute]) -> list[str]:
     """A named probe may say the brand; it must NEVER say the attribute being measured.
 
@@ -75,6 +94,10 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
         for i, text in enumerate(a.buyer_questions[:PER_TOPIC], start=1):
             if leaks := brand_leaks(text, profile):
                 dropped.append(f"{a.id}-{i} ({', '.join(leaks)})")
+                continue
+            # Saved before onboarding vetted for this: refused, not rewritten, and not fatal — it
+            # measures our question, not the brand, but raising would strand every older company.
+            if vendor_address(text):
                 continue
             probes.append(Probe(
                 id=f"{a.id}-b{i}", topic_id=topic.id, text=text, kind="blind", phase="baseline",

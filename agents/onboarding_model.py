@@ -45,11 +45,23 @@ SCHEMA_HINT = """Return ONLY JSON:
       "claim_quotes": {            // for EVERY page that states this claim, one quote copied from
         "<page number>": string    // THAT page. Go through the pages one by one: a central claim
       },                           // is usually stated on more than one page.
-      "buyer_questions": [string]  // 3 questions a buyer wanting this would ask a chatbot,
-                                   // with NO brand name and no company-specific jargon
+      "buyer_questions": [string]  // 3 questions a buyer who has never heard of this company
+                                   // would type into a chatbot while shopping for what this
+                                   // claim offers. See the buyer-question rules below.
     }
   ]
 }
+Buyer-question rules — a question that breaks these is rejected, never rewritten:
+  GOOD: "What payroll software can pay contractors in several countries for a 20-person startup?"
+        (names the kind of product and the buyer's own situation)
+  BAD:  "How does your platform improve our team's shipping speed?"  (asks the vendor; a chatbot
+        answers as some unrelated vendor, and "shipping" with no category reads as parcels)
+  BAD:  "What types of tasks can these agents automate?"  (points at a product it never names)
+  * Say what kind of product the buyer is looking for, and the need or situation behind it, in
+    the buyer's own plain words.
+  * Never address the company: no "you", "your platform", "this product", "this feature", "the
+    platform". The buyer is asking a chatbot for options, not asking a vendor about itself.
+  * No brand names, and no company-specific feature names or jargon.
 Description rules — a description that breaks any of these is rejected and the claim is lost:
   GOOD: "Acme files federal and state payroll taxes automatically and pays contractors in 120
         countries."  (names mechanisms; an answer can confirm or deny each one)
@@ -88,7 +100,10 @@ They want: {label}
 
 Write {n} short, natural questions they would type into a chatbot while looking for that.
 
-Rules: never name a company, product or brand. No company-specific jargon. Plain buyer language.
+Rules: say what kind of product they are looking for and the need behind it, in their own plain
+words. Never address a vendor: no "you", "your platform", "this product", "this feature" — they are
+asking a chatbot for options, not asking a company about itself. Never name a company, product or
+brand. No company-specific jargon.
 Return ONLY JSON: {{"buyer_questions": [string]}}"""
 
 
@@ -103,7 +118,8 @@ def buyer_questions_for(label: str, description: Optional[str] = None, *,
 
     An added claim is the customer's aspiration, so there is no page text to draw questions from;
     the same model interface that reads their pages writes the buyer questions instead. The caller
-    still runs these through `ana.brand_leaks` — nothing generated is trusted to be neutral.
+    still runs these through `ana.brand_leaks` and `ana.vendor_address` — nothing generated is
+    trusted to be neutral.
     """
     prompt = QUESTIONS_PROMPT.format(label=label, description=description or "", n=n)
     raw = (transport or default_transport)(prompt, model or model_name(), timeout)

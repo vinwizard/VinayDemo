@@ -45,6 +45,21 @@ def answer_body(text: str) -> str:
     return LINK.sub(r"\1", CITATION.sub(" ", text))
 
 
+# Markdown emphasis delimiters: a run of * or _ touching a non-word character. The intraword _ of
+# "snake_case" is text, not emphasis, and stays.
+EMPHASIS = re.compile(r"(?<!\w)[*_]+|[*_]+(?!\w)")
+
+
+def quoted_in(quote: str, text: str) -> bool:
+    """Verbatim, except for markdown emphasis and case. An answer that names the brand is the only
+    kind with a quote to check, so every copy slip ("Notion AI: Enhances" for "**Notion AI**:
+    Enhances", "applications" for "Applications") deleted a positive observation and never a zero:
+    the check biased visibility toward absent. Still a substring test — a quote whose words differ
+    fails."""
+    plain = lambda s: EMPHASIS.sub("", s).casefold()
+    return plain(quote) in plain(text)
+
+
 def named_in(name: str, body: str) -> bool:
     """Word-bounded and case-sensitive, and never as a domain stem: "zapier" inside "zapier.com"
     and "Height" inside "Heights" are not a product being named."""
@@ -65,17 +80,17 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
 
     warnings = []
     body = answer_body(answer.text)
-    body_mention = mentions_alias(answer.text, profile.aliases or [profile.name])
-    if not body_mention and any(a.lower() in answer.text.lower() for a in profile.aliases):
+    body_mention = mentions_alias(answer.text, profile.names())
+    if not body_mention and any(a.lower() in answer.text.lower() for a in profile.names()):
         warnings.append("Ambiguous alias: lowercase/common-word use ignored, not counted as a brand mention.")
     # a blank string is a substring of everything, so it would pass a bare `in` test
     real = lambda q: isinstance(q, str) and bool(q.strip())
-    bad_quotes = [q for q in labels["evidence_quotes"] if not real(q) or q not in answer.text]
+    bad_quotes = [q for q in labels["evidence_quotes"] if not real(q) or not quoted_in(q, answer.text)]
     if bad_quotes:
         warnings.append(f"Invalid evidence quote(s) not found verbatim: {bad_quotes}")
     if labels["mentioned"] != body_mention:
         warnings.append(f"Label says mentioned={labels['mentioned']} but answer body says {body_mention}.")
-    elif labels["mentioned"] and not mentions_alias(body, profile.aliases or [profile.name]):
+    elif labels["mentioned"] and not mentions_alias(body, profile.names()):
         warnings.append("Label says mentioned, but the name appears only inside a citation.")
     if (labels["recommended"] or labels["negative_mention"]) and not labels["mentioned"]:
         warnings.append("Recommendation/negative flag without a mention.")

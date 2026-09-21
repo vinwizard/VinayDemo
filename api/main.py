@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 import fetching
 import graph
-from agents.ana import brand_leaks, discovered_competitors
+from agents.ana import brand_leaks, discovered_competitors, vendor_address
 from agents.evaluator_model import ModelEvaluator
 from agents.onboarding import NAMED_TEMPLATES, named_probes_for
 from agents.onboarding_model import MIN_CLAIMS, OnboardingAgent, buyer_questions_for
@@ -233,7 +233,8 @@ def vet_questions(profile, attributes: list[Attribute]) -> list[str]:
     `validate_and_freeze` and abort the run. That is true of all three of its checks — a leaked
     brand name, a leaked attribute, and a question repeated across two attributes, which is ordinary
     output when one response writes three questions each for eight claims. A contaminated question
-    is dropped, never rewritten — we refuse to ask it, we do not quietly repair it.
+    is dropped, never rewritten — we refuse to ask it, we do not quietly repair it. So is a question
+    addressed to the vendor ("your platform", "this product"), which measures our question, not the brand.
     """
     warnings, asked = [], set()
     for a in attributes:
@@ -242,6 +243,10 @@ def vet_questions(profile, attributes: list[Attribute]) -> list[str]:
             if leaks := brand_leaks(q, profile):
                 warnings.append(f"“{a.label}”: a buyer question named you ({', '.join(leaks)}) and was "
                                 "dropped — a question that names you cannot test whether a buyer finds you.")
+            elif vendor := vendor_address(q):
+                warnings.append(f"“{a.label}”: a buyer question addressed the vendor ({', '.join(vendor)}) "
+                                "and was dropped — a buyer who has never heard of you asks about a need, "
+                                "not about “your platform”.")
             elif q.strip().lower() in asked:
                 warnings.append(f"“{a.label}”: a buyer question repeated one already asked for an "
                                 "earlier claim and was dropped — one question cannot measure two claims.")
@@ -380,14 +385,14 @@ def added_buyer_questions(company: Company, raw: AddedAttribute) -> tuple[list[s
                     "claim is measured on the brand axis only."]
     kept = []
     for q in generated:
-        if brand_leaks(q, company.profile) or q.strip().lower() in asked:
+        if brand_leaks(q, company.profile) or vendor_address(q) or q.strip().lower() in asked:
             continue
         asked.add(q.strip().lower())
         kept.append(q)
     warnings = []
     if dropped := len(generated) - len(kept):
-        warnings.append(f"“{raw.label}”: {dropped} generated buyer question(s) named you or repeated "
-                        "one already asked, and were dropped.")
+        warnings.append(f"“{raw.label}”: {dropped} generated buyer question(s) named you, addressed "
+                        "the vendor or repeated one already asked, and were dropped.")
     if not kept:
         warnings.append(f"“{raw.label}”: no buyer question survived, so this claim is measured on "
                         "the brand axis only.")
