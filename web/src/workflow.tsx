@@ -168,7 +168,7 @@ export function CompanyWorkflow({ companyId, preloaded, onRunSaved }: {
 
   // ---------------------------------------------------------------- stages 4–7: the run
   const started = running || p.run || p.error || p.answers.length > 0;
-  const replay = p.node?.mode === "demo_replay" || p.run?.mode === "demo_replay";
+  const replay = !!company?.replay || p.node?.mode === "demo_replay" || p.run?.mode === "demo_replay";
   const planned = p.node?.planned;
   const of = (pred: (a: StreamAnswer) => boolean) => p.answers.filter(pred);
   const buyer = of((a) => a.phase === "baseline" && a.kind === "blind");
@@ -223,7 +223,7 @@ export function CompanyWorkflow({ companyId, preloaded, onRunSaved }: {
           {company.profile.one_liner && (
             <p className="one-liner">“{company.profile.one_liner}” <span className="muted">— how their own site puts it</span></p>
           )}
-          {preloaded && (
+          {preloaded && !company.replay && (
             <p className="muted" style={{ margin: ".3rem 0 0" }}>
               The claims below come from a real read of {company.profile.domain} on {day(company.created_at)}.
               The intent weights are an example set for this demo, not {company.profile.name}’s own — move them.
@@ -232,8 +232,17 @@ export function CompanyWorkflow({ companyId, preloaded, onRunSaved }: {
         </header>
       )}
 
+      {replay && (
+        <div className="callout sample">
+          <strong>Offline replay — sample answers, not a measurement.</strong> The claims and the answers
+          in every step below come from the bundled Notion sample: authored fixtures, not a read of the
+          site. No model is being asked, and model judgment is simulated.
+        </div>
+      )}
+
       <Stage n={1} title="Read their site" state={s1}
-             summary={s1 === "done" ? `${plural(pages.length, "page")} read from ${domain}`
+             summary={company?.replay ? "No site was read — bundled sample data"
+               : s1 === "done" ? `${plural(pages.length, "page")} read from ${domain}`
                : reading ? `Reading ${host(url)}…` : undefined}>
         {s1 === "done" ? (
           <PageList pages={pages} />
@@ -272,7 +281,8 @@ export function CompanyWorkflow({ companyId, preloaded, onRunSaved }: {
       </Stage>
 
       <Stage n={2} title="Extract what they claim" state={s2}
-             summary={company ? `${plural(company.attributes.length, "claim")} kept, each backed by a verbatim quote`
+             summary={company?.replay ? `${plural(company.attributes.length, "claim")} — authored sample claims`
+               : company ? `${plural(company.attributes.length, "claim")} kept, each backed by a verbatim quote`
                : extracting ? "Reading the pages for claims…" : undefined}>
         {extracting && (
           <div className="stack">
@@ -296,13 +306,6 @@ export function CompanyWorkflow({ companyId, preloaded, onRunSaved }: {
         )}
       </Stage>
 
-      {replay && (
-        <div className="callout sample">
-          <strong>Offline replay — sample answers, not a measurement.</strong> These answers, and the
-          claims they are scored against, are authored fixtures from the bundled Notion scenario —
-          not the claims above. No model is being asked, and model judgment is simulated.
-        </div>
-      )}
 
       <Stage n={4} title="Ask buyer questions" state={s4}
              summary={s4 === "skipped" ? "Skipped — no weighted claim has a buyer question"

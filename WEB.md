@@ -79,7 +79,9 @@ Nothing in the page can turn this on; it lives only in the server's environment,
 preloaded company is affected — any other company still refuses without a key. The run says what it
 is everywhere it appears: an "Offline replay — sample answers, not a measurement" notice above the
 stages, a SAMPLE tag on every streamed answer, and the SYNTHETIC DEMO banner on its report and in
-History. It is scored against the sample's own claims, not the preloaded ones.
+History. While it is on, the preloaded tab shows the sample's own claims in place of the real read of
+notion.com, so what is on screen is exactly what is scored; its sliders are locked and the API
+refuses to edit it, so the committed seed file is never touched.
 
 To watch the stages move with a visible pause per answer, add `VISEXP_DEV_DELAY=1` (seconds per
 replayed answer) to the same command:

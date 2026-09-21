@@ -62,6 +62,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
 
   /** Saves intent, then optionally measures with the company the server just returned. */
   const save = (thenMeasure: boolean) => {
+    if (company.replay) { if (thenMeasure) onMeasure(company); return; }
     setSaving(true); setError(null);
     const added = draft.label.trim()
       ? [{ label: draft.label.trim(), description: draft.description.trim() || null,
@@ -99,6 +100,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
   const brandAxisOnly = weighted.filter((a) => !onBuyerAxis.has(a.id)).map((a) => a.label);
   const nothingToMeasure = !company.attributes.length && !draft.label.trim();
   const locked = saving || running;
+  const fixed = locked || company.replay;
 
   return (
     <div className="stack">
@@ -126,11 +128,11 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
             </div>
             <div className="stack" style={{ gap: ".3rem", alignItems: "flex-end" }}>
               <Slider id={`w-${company.id}-${a.id}`} label={`Intent for ${a.label}`}
-                      value={weights[a.id] ?? 0} disabled={locked}
+                      value={weights[a.id] ?? 0} disabled={fixed}
                       min={a.added_by_user ? ADDED_MIN_WEIGHT : 0}
                       onChange={(v) => { setWeights((w) => ({ ...w, [a.id]: v })); setSaved(false); }} />
               {a.added_by_user && (
-                <button className="linky" disabled={locked}
+                <button className="linky" disabled={fixed}
                         onClick={() => remove(a.id)}>Remove this claim</button>
               )}
             </div>
@@ -148,15 +150,15 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
             </p>
             <div className="row" style={{ flexWrap: "wrap" }}>
               <input aria-label="Attribute" placeholder="e.g. Secure by default" value={draft.label}
-                     disabled={locked}
+                     disabled={fixed}
                      onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))} />
               <input aria-label="What it means" placeholder="What that means, in one sentence"
-                     value={draft.description} style={{ flex: "1 1 18rem" }} disabled={locked}
+                     value={draft.description} style={{ flex: "1 1 18rem" }} disabled={fixed}
                      onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} />
             </div>
           </div>
           <Slider id={`w-${company.id}-new`} label="Intent for the claim you are adding"
-                  min={ADDED_MIN_WEIGHT} value={draft.weight} disabled={locked}
+                  min={ADDED_MIN_WEIGHT} value={draft.weight} disabled={fixed}
                   onChange={(v) => setDraft((d) => ({ ...d, weight: v }))} />
         </div>
       </div>
@@ -186,7 +188,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
             : `${intended} claim${intended === 1 ? "" : "s"} weighted${saved ? " · saved" : ""}`}
         </span>
         <div className="row">
-          <button className="ghost" onClick={() => save(false)} disabled={locked}>
+          <button className="ghost" onClick={() => save(false)} disabled={fixed}>
             {saving ? "Saving…" : "Save weights"}
           </button>
           <button className="primary" onClick={() => save(true)} disabled={locked || nothingToMeasure}

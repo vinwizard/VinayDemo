@@ -208,6 +208,7 @@ export interface CompanyDetail {
   pages: string[];
   attributes: ClaimedAttribute[];
   warnings: string[];
+  replay: boolean;
 }
 
 export interface CompanySummary {

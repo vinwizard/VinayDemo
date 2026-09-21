@@ -59,6 +59,19 @@ SEED_COMPANY = "5eed0001"
 # Notion sample instead. Deliberately not reachable from the UI — only from the server's environment
 # — and the run it produces is saved as a sample run and says so on every surface that shows it.
 OFFLINE_ENV = "VISEXP_OFFLINE_REPLAY"
+OFFLINE_FIXED = "offline replay: the bundled sample's claims and weights are fixed"
+
+
+def offline_seed(company_id: str) -> bool:
+    return company_id == SEED_COMPANY and bool(os.environ.get(OFFLINE_ENV))
+
+
+def replay_company() -> Company:
+    """The seed as the offline run scores it: the bundled sample's claims, never written to disk."""
+    provider = fixture.FixtureProvider("A")
+    return Company(id=SEED_COMPANY, profile=provider.profile, attributes=provider.attributes(), pages=[],
+                   warnings=["Offline replay: these are the bundled sample's authored claims, not a "
+                             "read of the site."])
 
 
 def build_provider(mode: str, scenario: Optional[str] = None, company_id: Optional[str] = None):
@@ -68,7 +81,7 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
     labelled live would be a fabricated measurement. The one fallback, OFFLINE_ENV, is opt-in on the
     server and labels its run as replay.
     """
-    if company_id == SEED_COMPANY and os.environ.get(OFFLINE_ENV):
+    if company_id and offline_seed(company_id):
         company_id, scenario, mode = None, "A", "demo"
     if company_id:
         try:
@@ -265,7 +278,7 @@ def company_payload(c: Company) -> dict:
                          buyer_questions=a.buyer_questions, intended_weight=a.intended_weight,
                          added_by_user=a.added_by_user, note=a.note)
                     for a in c.attributes],
-        warnings=c.warnings)
+        warnings=c.warnings, replay=offline_seed(c.id))
 
 
 def onboard_steps(url: str, name: str) -> Iterator[tuple[str, dict]]:
@@ -386,7 +399,7 @@ def companies():
     out = []
     for path in list_companies():
         try:
-            c = load_company(path.stem)
+            c = _company(path.stem)
         except Exception:
             continue
         out.append(dict(id=c.id, name=c.profile.name, domain=c.profile.domain,
@@ -397,6 +410,8 @@ def companies():
 
 
 def _company(company_id: str) -> Company:
+    if offline_seed(company_id):
+        return replay_company()
     try:
         return load_company(company_id)
     except (FileNotFoundError, ValueError):
@@ -417,6 +432,8 @@ def patch_company(company_id: str, patch: CompanyPatch):
     invent an aspiration the customer never expressed. An ADDED claim is the opposite case — nothing
     but the customer's own intent puts it here — so it arrives already weighted.
     """
+    if offline_seed(company_id):
+        raise HTTPException(400, OFFLINE_FIXED)
     c = _company(company_id)
     by_id = {a.id: a for a in c.attributes}
     for aid, weight in patch.weights.items():
@@ -453,6 +470,8 @@ def patch_company(company_id: str, patch: CompanyPatch):
 @app.delete("/api/companies/{company_id}/attributes/{attribute_id}")
 def delete_attribute(company_id: str, attribute_id: str):
     """Remove a claim the customer typed. Only theirs: an extracted claim is evidence, not an opinion."""
+    if offline_seed(company_id):
+        raise HTTPException(400, OFFLINE_FIXED)
     c = _company(company_id)
     attr = next((a for a in c.attributes if a.id == attribute_id), None)
     if attr is None:

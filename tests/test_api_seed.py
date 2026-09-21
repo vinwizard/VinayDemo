@@ -81,3 +81,28 @@ def test_an_onboarding_failure_is_streamed_as_an_error_event(monkeypatch):
     out = events(main.onboard_events("https://acme.example/", "Acme"))
     assert [k for k, _ in out] == ["error"]
     assert "OPENAI_API_KEY" in out[0][1]["message"]
+
+
+def test_offline_seed_shows_exactly_the_claims_it_scores_and_cannot_be_edited(monkeypatch, tmp_path):
+    monkeypatch.setenv(main.OFFLINE_ENV, "1")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(reports, "RUNS", tmp_path)
+    seed_file = reports.COMPANIES / f"{main.SEED_COMPANY}.json"
+    before = seed_file.read_bytes()
+
+    shown = main.get_company(main.SEED_COMPANY)
+    assert shown["replay"] is True
+    ids = {a["id"] for a in shown["attributes"]}
+    run = events(main.run_events("A", "live", main.SEED_COMPANY))[-1][1]["run"]
+    assert ids == {s["attribute_id"] for s in run["attribute_scores"]}
+    assert ids == {a["id"] for a in run["attributes"]}
+    assert next(c for c in main.companies() if c["id"] == main.SEED_COMPANY)["attributes"] == len(ids)
+
+    for edit in (lambda: main.patch_company(main.SEED_COMPANY, main.CompanyPatch(weights={})),
+                 lambda: main.delete_attribute(main.SEED_COMPANY, next(iter(ids)))):
+        with pytest.raises(HTTPException) as e:
+            edit()
+        assert e.value.status_code == 400
+    assert seed_file.read_bytes() == before
+    monkeypatch.delenv(main.OFFLINE_ENV)
+    assert main.get_company(main.SEED_COMPANY)["replay"] is False
