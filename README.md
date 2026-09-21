@@ -196,6 +196,8 @@ estimate, never zero. A run or onboarding that reaches the cap stops with a mess
   and redeploy to rename someone; keep the `id`. A file's cap applies only when its pass is first
   created — after that the admin page owns the cap. Codes are never in the repo, only their hashes on
   the disk.
+- **Contact**: visitors without a pass, pass holders and a capped pass are all told to email
+  `CONTACT_EMAIL` (default in [`access.py`](access.py)) for a link or a higher cap.
 
 1. Sign in at [render.com](https://render.com) with GitHub.
 2. **New → Blueprint**, pick this repository (grant Render access to it if it is not listed).
