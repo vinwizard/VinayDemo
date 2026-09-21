@@ -105,7 +105,7 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 | `GET /api/health` | liveness, whether live mode is usable, and `seed_company` — the id of the preloaded company |
 | `GET /api/stream?company=<id>` or `?scenario=A&mode=demo` | SSE while the graph runs: `node` (with `planned` question counts per stage, discovered `competitors` and the run `mode`), `answer` (the question, the first 320 characters of its answer, provenance and whether a web search ran), `done` (the full run), `error`. A company is always `mode=live`, apart from the offline fallback above. The page only ever measures companies; `?scenario=` remains for the fixture path |
 | `GET /api/runs` | run history, newest first |
-| `GET /api/runs/{id}` | one full run, including the drift report |
+| `GET /api/runs/{id}` | one full run, including the drift report and `insights` (cited sources and share of voice, derived by `insights.py` from the counted baseline answers; also on `done` and `rescore`) |
 | `POST /api/runs/{id}/rescore` | lens 2 after the fact: `{weights: {id: 0..1}}` sets intent on a finished run and re-scores its saved answers — no provider is built and no model is asked. Unnamed weights keep their value; 0 unweights; with nothing weighted the run reads through the claim lens again. Saved in place |
 | `GET /api/onboard/stream?url=&name=` | the same onboarding as SSE: `pages` (the URLs the crawl fetched) as soon as the crawl lands, then `company` once extraction is saved, or `error`. The page uses this one |
 | `GET /api/onboard?url=&name=` | Agent 1: crawl up to 6 of a company's own pages, extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. Needs the same key as live mode. A company is always saved, never refused: a site where fewer than three claims survive quote validation carries a prominent warning that it states too little for a reliable claim percentage, and the existing insufficient-evidence rules withhold the scores rather than the company |
@@ -139,9 +139,12 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   that calls `POST /api/runs/{id}/rescore` (no new AI calls; a 409 is shown in the server's words),
   the claim-vs-echo drift map with an Evidence disclosure per claim, "where the upside is" cards,
   and four collapsible blocks whose headers state what each found: **buyer questions** ("12 asked ·
-  named you in 8"), **brand questions**, **who AI named instead** (every product named in a buyer
-  answer that counts, beside the line that names it, plus the round-two comparison question) and
-  **discovered identities**. Every n/a shows the server's reason from `na_reasons`. Two lenses: with
+  named you in 8"), **brand questions**, **share of voice** (answers recommending the brand beside
+  the three most-recommended competitors, on the buyer questions that count), **who AI named
+  instead** (every product named in a buyer answer that counts, beside the line that names it, plus
+  the round-two comparison question), **where AI gets its opinion** (every site cited in a counted
+  buyer or brand answer, ranked by answers citing it; a third-party site cited in two or more is
+  flagged as a target) and **discovered identities**. Every n/a shows the server's reason from `na_reasons`. Two lenses: with
   no weight set the report reads through the **claim lens** — buyer questions go to the claims
   stated on the most pages, **claim echo** (of what the site claims, weighted by pages stating it,
   how much AI repeats supportively) is the headline, and alignment is absent with its reason in
