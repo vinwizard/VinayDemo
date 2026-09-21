@@ -61,9 +61,10 @@ def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float],
     An intended attribute needs a majority of its answers to endorse it before it counts as landed:
     `echo_rate` counts only positive observations. A neutral mention ("Notion is sometimes used for
     project tracking") is not the model being convinced of anything, so it does not count as the
-    positioning having landed; neither does criticism. One that AI raises mainly to contradict is `contested`, checked before the absence
-    zones because "AI says the opposite" is a different problem from "AI never says it", and at the
-    low CONTESTED_MIN bar for the same reason IMPOSED_MIN is low.
+    positioning having landed; neither does criticism. One that AI raises mainly to contradict is
+    `contested`, checked before the absence zones because "AI says the opposite" is a different
+    problem from "AI never says it", and at the low CONTESTED_MIN bar for the same reason
+    IMPOSED_MIN is low.
     """
     echoed = echo_rate is not None and echo_rate >= ECHO_THRESHOLD
     stated = cs is not None and cs >= CLAIM_THRESHOLD
