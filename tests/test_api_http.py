@@ -20,6 +20,10 @@ from providers import live
 
 SENTINEL = "sk-SENTINEL-do-not-leak-7f3a9c"
 CO = "abcdef0123"            # a copy of the seed company under an id with no offline special case
+# Seed attributes these tests pin: both extracted from notion.com, the first weighted 1.0 in the
+# example intent set, the second left unweighted.
+CLAIM = "knowledge_centralization"
+UNWEIGHTED = "cross_team_collaboration"
 
 
 @pytest.fixture
@@ -125,7 +129,7 @@ def test_companies_list_and_get(client):
 def test_unknown_company_is_404(client, cid):
     assert client.get(f"/api/companies/{cid}").status_code == 404
     assert client.patch(f"/api/companies/{cid}", json={}).status_code == 404
-    assert client.delete(f"/api/companies/{cid}/attributes/ai_tools").status_code == 404
+    assert client.delete(f"/api/companies/{cid}/attributes/{CLAIM}").status_code == 404
 
 
 # --- PATCH: intent is the customer's, and adding a claim is intending it --------------------------
@@ -135,23 +139,23 @@ def test_an_empty_patch_derives_no_intent(client):
     r = client.patch(f"/api/companies/{CO}", json={})
     assert r.status_code == 200
     assert weights(r.json()) == before
-    assert weights(r.json())["meeting_notes"] is None        # untouched stays unintended
+    assert weights(r.json())[UNWEIGHTED] is None       # untouched stays unintended
 
 
 def test_zero_on_an_extracted_claim_means_not_intended_and_persists(client):
-    r = client.patch(f"/api/companies/{CO}", json={"weights": {"ai_tools": 0, "meeting_notes": 0.3}})
+    r = client.patch(f"/api/companies/{CO}", json={"weights": {CLAIM: 0, UNWEIGHTED: 0.3}})
     assert r.status_code == 200
     w = weights(client.get(f"/api/companies/{CO}").json())   # re-read from disk, not the echo
-    assert w["ai_tools"] is None                            # zero is "not intended", not 0.0
-    assert w["meeting_notes"] == 0.3
-    assert w["knowledge_base"] == 1.0                       # only what was sent changed
+    assert w[CLAIM] is None                               # zero is "not intended", not 0.0
+    assert w[UNWEIGHTED] == 0.3
+    assert w["ai_integration"] == 0.9                     # only what was sent changed
     assert reports.load_company(CO).attributes[0].intended is False
 
 
 def test_patch_rejects_out_of_range_and_unknown_weights_without_saving(client):
     before = weights(client.get(f"/api/companies/{CO}").json())
-    assert client.patch(f"/api/companies/{CO}", json={"weights": {"ai_tools": 1.5}}).status_code == 400
-    assert client.patch(f"/api/companies/{CO}", json={"weights": {"ai_tools": -0.1}}).status_code == 400
+    assert client.patch(f"/api/companies/{CO}", json={"weights": {CLAIM: 1.5}}).status_code == 400
+    assert client.patch(f"/api/companies/{CO}", json={"weights": {CLAIM: -0.1}}).status_code == 400
     assert client.patch(f"/api/companies/{CO}", json={"weights": {"nope": 0.5}}).status_code == 400
     assert weights(client.get(f"/api/companies/{CO}").json()) == before
 
@@ -213,9 +217,9 @@ def test_delete_removes_an_added_claim(client):
 
 
 def test_delete_refuses_an_extracted_claim(client):
-    r = client.delete(f"/api/companies/{CO}/attributes/ai_tools")
+    r = client.delete(f"/api/companies/{CO}/attributes/{CLAIM}")
     assert r.status_code == 400
-    assert "ai_tools" in weights(client.get(f"/api/companies/{CO}").json())
+    assert CLAIM in weights(client.get(f"/api/companies/{CO}").json())
 
 
 def test_delete_of_an_unknown_attribute_is_404(client):
@@ -239,8 +243,8 @@ def test_the_key_appears_in_no_response_body_or_header(client, monkeypatch):
         client.get("/api/companies"),
         client.get(f"/api/companies/{CO}"),
         client.get("/api/companies/0123456789"),
-        client.patch(f"/api/companies/{CO}", json={"weights": {"meeting_notes": 0.4}}),
-        client.patch(f"/api/companies/{CO}", json={"weights": {"ai_tools": 7}}),
+        client.patch(f"/api/companies/{CO}", json={"weights": {UNWEIGHTED: 0.4}}),
+        client.patch(f"/api/companies/{CO}", json={"weights": {CLAIM: 7}}),
         client.patch(f"/api/companies/{CO}", json={"added": [{"label": "Offline first"}]}),
         client.patch(f"/api/companies/{CO}", json={"added": [{"label": "x", "intended_weight": 0}]}),
         client.delete(f"/api/companies/{CO}/attributes/offline_first"),
