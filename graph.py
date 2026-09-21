@@ -51,6 +51,9 @@ def plan_baseline(s: State):
     run.topics, run.probes = topics, probes + named
     run.log.append(f"Question planner prepared {len(topics)} topics, {len(probes)} buyer questions, "
                    f"{len(named)} brand questions and {len(run.attributes)} attributes.")
+    if skipped := getattr(s["provider"], "skipped_questions", []):
+        run.log.append(f"{len(skipped)} saved buyer question(s) dropped for addressing the vendor instead of "
+                       f"describing a need: {'; '.join(skipped)}.")
     return {"run": run}
 
 

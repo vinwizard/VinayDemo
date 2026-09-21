@@ -39,8 +39,7 @@ def brand_leaks(text: str, profile: CompanyProfile) -> list[str]:
 # ponytail: lexical, catches the observed shapes only; a model judging "addressed to a vendor?" is
 # the upgrade if new shapes get through.
 VENDOR_ADDRESS = re.compile(
-    r"\byour (?:[\w-]+ )?(?:platform|product|software|solution|service|system|company|offering|"
-    r"features?|integrations?|pricing|plans?)\b"
+    r"\byour (?:[\w-]+ )?(?:platform|solution|service)\b"
     r"|\b(?:do|does|can|could|will) you (?:offer|have|provide|support|sell|integrate)\b"
     r"|\b(?:this|these) (?:product|platform|feature|tool|app|software|solution|service|system|agent)s?\b"
     r"|\bthe (?:platform|system)\b", re.I)
@@ -68,7 +67,7 @@ def attribute_leaks(text: str, attributes: list[Attribute]) -> list[str]:
 
 
 def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyProfile
-                                 ) -> tuple[list[Topic], list[Probe]]:
+                                 ) -> tuple[list[Topic], list[Probe], list[str]]:
     """The placebo test: one buyer topic per intended attribute, questions that never name the brand.
 
     If a company claims to be X, a buyer asking for X should find them. Asking the question the
@@ -77,9 +76,10 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
 
     Aspiration is not product fit (agents.md section 3): an attribute their own copy states gets
     `strong` fit, one they merely want gets `partial`. A question that leaks the brand is rejected,
-    never rewritten.
+    never rewritten. A question addressed to the vendor is skipped, not fatal; the third return value
+    names the skipped question ids so the run log can say why a topic is missing.
     """
-    topics, probes, dropped = [], [], []
+    topics, probes, dropped, skipped = [], [], [], []
     # Heaviest intent first, so truncation to MAX_TOPICS keeps the claims the customer cares about
     # most rather than whichever the extraction model emitted first. The sort is stable: equal
     # weights keep stored order, so the same company always plans the same questions.
@@ -97,7 +97,8 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
                 continue
             # Saved before onboarding vetted for this: refused, not rewritten, and not fatal — it
             # measures our question, not the brand, but raising would strand every older company.
-            if vendor_address(text):
+            if vendor := vendor_address(text):
+                skipped.append(f"{a.id}-{i} ({', '.join(vendor)})")
                 continue
             probes.append(Probe(
                 id=f"{a.id}-b{i}", topic_id=topic.id, text=text, kind="blind", phase="baseline",
@@ -111,7 +112,7 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
     # exists fails validation and kills the whole run.
     topics = topics[:MAX_TOPICS]
     kept_topics = {t.id for t in topics}
-    return topics, [p for p in probes if p.topic_id in kept_topics]
+    return topics, [p for p in probes if p.topic_id in kept_topics], skipped
 
 
 def validate_named_probes(probes: list[Probe], attributes: list[Attribute]) -> list[str]:
