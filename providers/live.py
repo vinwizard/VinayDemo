@@ -147,10 +147,9 @@ def default_transport(messages: list[dict], model: str, timeout: int):
 
 
 class LiveProvider:
-    """Perception-only live run: named probes are answered by the measured model.
-
-    plan() returns no blind probes on purpose, so `choose_followup` stops, no visibility score is
-    computed, and a live run never mixes measured answers with fixture ones.
+    """Live run on both axes: plan() returns the attribute-derived blind probes and the perception
+    topic, and named probes are answered by the measured model too. Every answer is live_api, so a
+    live run never mixes measured answers with fixture ones.
     """
     name = "openai"
     scenario = None
@@ -187,6 +186,12 @@ class LiveProvider:
 
     def followup_bank(self) -> dict[str, list[dict]]:
         return {}
+
+    def discover(self, attributes: list[Attribute], answers: list[tuple[Probe, Answer]]):
+        """Raw emergent-attribute proposals from the evaluator model, or None when there is none."""
+        if self.evaluator is None or self._profile is None:
+            return None
+        return self.evaluator.discover(self._profile, attributes, answers)
 
     def answer(self, probe: Probe) -> Answer:
         self.calls += 1

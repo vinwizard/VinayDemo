@@ -66,6 +66,8 @@ class Attribute(BaseModel):
     intended_weight: Optional[float] = None  # set only when the customer named it
     claim_evidence_ids: list[str] = []       # set only when their own copy states it
     added_by_user: bool = False              # typed in by the customer, not extracted from a page
+    # found by the discovery pass over the answers — neither the company nor the crawler supplied it
+    discovered: bool = False
     claim_quotes: list[str] = []             # verbatim site copy stating it, per page
     claim_pages: int = 0                     # DERIVED: pages whose text contains a validated quote
     claim_pages_total: int = 0               # DERIVED: pages actually fetched
@@ -216,6 +218,7 @@ class AttributeScore(BaseModel):
     """
     attribute_id: str
     label: str
+    discovered: bool = False                # emergent: found in the answers, not declared up front
     intended_weight: Optional[float] = None
     claim_strength: Optional[float] = None  # fraction of known pages stating it
     claim_pages: int = 0                    # carried through so a percentage can show its counts

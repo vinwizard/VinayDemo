@@ -9,6 +9,8 @@ export type Owner = "authority_gap" | "messaging_gap" | "contested_identity" | "
 export interface AttributeScore {
   attribute_id: string;
   label: string;
+  /** Emergent: found in the answers by the discovery pass, never supplied by you or your site. */
+  discovered: boolean;
   description: string | null;
   intended_weight: number | null;
   claim_strength: number | null;

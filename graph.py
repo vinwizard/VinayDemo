@@ -173,14 +173,34 @@ def measure_drift(s: State):
     if len(named_provenance) > 1:
         raise ValidationError(f"named answers mix provenance types: {sorted(named_provenance)}")
     provenance = named_provenance.pop() if named_provenance else "synthetic"
+    kept, excluded, asked = drift.named_eligibility(run.probes, run.answers, run.evaluations)
+    # Emergent attributes: one discovery call over every eligible brand answer at once, because
+    # repetition across answers is the signal. Only a provider with a model offers it, so the
+    # authored fixtures — whose unclaimed attributes are hand-written — never run it.
+    notes = []
+    propose = getattr(s["provider"], "discover", None)
+    if propose and len(kept) >= evaluation.EMERGENT_MIN_ANSWERS:
+        by_id = {p.id: p for p in run.probes}
+        proposals = propose(run.attributes, [(by_id[pid], answers[pid]) for pid in kept])
+        if proposals is None:
+            notes.append("the discovery call failed, so nothing was discovered from the answers")
+        else:
+            discovered, found, notes = evaluation.discover_attributes(
+                proposals, {pid: answers[pid] for pid in kept}, run.attributes, observations, run.profile)
+            run.attributes = run.attributes + discovered
+            for pid, obs in found.items():
+                observations[pid] = observations.get(pid, []) + obs
+            run.log.append(f"Discovery read {len(kept)} brand answers together: {len(proposals)} "
+                           f"proposed, {len(discovered)} kept"
+                           + (f" ({', '.join(a.label for a in discovered)})." if discovered else "."))
     run.attribute_scores = drift.score_attributes(run.attributes, run.probes, run.answers,
                                                   run.evaluations, observations)
-    _, excluded, asked = drift.named_eligibility(run.probes, run.answers, run.evaluations)
     run.drift = drift.build_report(run.attribute_scores, provenance, n_blind=len(strengths),
                                    visibility=visibility_score(strengths),
                                    asked=asked, excluded_reasons=excluded)
     if dropped:
         run.drift.limitations += [f"Dropped unverifiable observation — {d}" for d in dropped]
+    run.drift.limitations += [f"Discovery — {n}" for n in notes]
     if run.mode == "live_api" and not ana.discovered_competitors(run.topic_evaluations):
         # "Nobody was named" and "nobody was asked" are different findings: with no weighted claim
         # there are no buyer questions, so an empty competitor set is silence, not an absence.

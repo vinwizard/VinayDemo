@@ -162,6 +162,9 @@ class FakeEvaluator:
                     competitor_recommendations=list(self.competitors), evidence_quotes=self.quotes,
                     on_topic=True, attributes=[])
 
+    def discover(self, profile, attributes, answers):
+        return []
+
 
 def live_run(competitors, answer_text, mentioned=False, quotes=()):
     from providers import live

@@ -60,6 +60,11 @@ def quoted_in(quote: str, text: str) -> bool:
     return plain(quote) in plain(text)
 
 
+def real(q) -> bool:
+    """A blank string is a substring of everything, so it would pass a bare `in` test."""
+    return isinstance(q, str) and bool(q.strip())
+
+
 def named_in(name: str, body: str) -> bool:
     """Word-bounded and case-sensitive, and never as a domain stem: "zapier" inside "zapier.com"
     and "Height" inside "Heights" are not a product being named."""
@@ -83,8 +88,6 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
     body_mention = mentions_alias(answer.text, profile.names())
     if not body_mention and any(a.lower() in answer.text.lower() for a in profile.names()):
         warnings.append("Ambiguous alias: lowercase/common-word use ignored, not counted as a brand mention.")
-    # a blank string is a substring of everything, so it would pass a bare `in` test
-    real = lambda q: isinstance(q, str) and bool(q.strip())
     bad_quotes = [q for q in labels["evidence_quotes"] if not real(q) or not quoted_in(q, answer.text)]
     if bad_quotes:
         warnings.append(f"Invalid evidence quote(s) not found verbatim: {bad_quotes}")
@@ -182,6 +185,104 @@ def extract_attributes(answer: Answer, attributes: list[Attribute]) -> tuple[lis
             seen.add(o.attribute_id)
             deduped.append(o)
     return deduped, warnings
+
+
+# A characterisation one answer makes is one model's phrasing on one day: noise. The same one raised
+# independently by a second answer to a different question is the start of an identity, and is what
+# lets the discovery pass see repetition at all. Two is also what clears drift.IMPOSED_MIN at the
+# MAX_NAMED=8 brand answers a run can have, so a kept attribute can never be filtered out as noise.
+EMERGENT_MIN_ANSWERS = 2
+
+# Words that carry no claim. Two phrasings that share only these are not the same attribute.
+FILLER = frozenset("a an the and or of for to in on at by with from as is are be it its your you "
+                   "their very too more most less than that this can has have not no".split())
+SUFFIXES = ("able", "ing", "es", "ed", "ly", "ey", "er", "s", "y", "e")
+
+
+def _stem(w: str) -> str:
+    """Naive: "pricing", "priced" and "pricey" all become "pric". Over-merging is the safe error."""
+    return next((w[:-len(s)] for s in SUFFIXES if w.endswith(s) and len(w) - len(s) >= 3), w)
+
+
+def content_words(text: str, ignore: frozenset = frozenset()) -> set[str]:
+    return {_stem(w) for w in re.findall(r"[a-z0-9]+", text.lower())
+            if len(w) > 1 and w not in FILLER and w not in ignore}
+
+
+def discover_attributes(proposals, answers: dict[str, Answer], attributes: list[Attribute],
+                        observations: dict[str, list[AttributeObservation]], profile: CompanyProfile
+                        ) -> tuple[list[Attribute], dict[str, list[AttributeObservation]], list[str]]:
+    """The discovery pass proposes attributes nobody declared; this code refuses to trust them.
+
+    answers: the ELIGIBLE brand answers only, by probe id. observations: what extract_attributes
+    already kept for the declared attributes. -> (new attributes, their observations, drop reasons).
+
+    A proposal survives only if its quote is verbatim in the answer it cites — the same check as
+    `evaluate()`, never looser — in at least EMERGENT_MIN_ANSWERS different eligible answers, and it
+    is not an attribute already in the list. Sameness is decided conservatively, because a duplicate
+    double-counts in the report while a wrongly dropped proposal is only a finding not made: it is
+    the same as an attribute when at least half of its label's content words (filler and the brand's
+    own name ignored, suffixes trimmed) appear in that attribute's label or aliases, or when any of
+    its quotes contains, or is contained in, a quote already counted for that attribute in the same
+    answer. Proposals are taken most-supported first and checked against each other the same way.
+    """
+    brand = frozenset(w for n in profile.names() for w in re.findall(r"[a-z0-9]+", n.lower()))
+    dropped, candidates = [], []
+    for raw in proposals if isinstance(proposals, list) else []:
+        label = raw.get("label") if isinstance(raw, dict) else None
+        if not real(label):
+            dropped.append(f"Proposal without a label: {raw!r}")
+            continue
+        label, found, bad = label.strip(), {}, []
+        for e in raw.get("evidence") if isinstance(raw.get("evidence"), list) else []:
+            pid, quote = (e.get("answer"), e.get("quote")) if isinstance(e, dict) else (None, None)
+            if pid not in answers:
+                bad.append(f"cites {pid!r}, not an eligible brand answer")
+            elif not real(quote) or not quoted_in(quote, answers[pid].text):
+                bad.append(f"{pid}: quote not verbatim in the answer ({quote!r})")
+            elif not quoted_in(quote, CITATION.sub(" ", answers[pid].text)):
+                bad.append(f"{pid}: quote is from a citation, not the answer ({quote!r})")
+            elif pid not in found:  # one observation per answer: support counts answers
+                polarity = e.get("polarity") if e.get("polarity") in ("positive", "neutral", "negative") else "neutral"
+                found[pid] = AttributeObservation(attribute_id="", quote=quote, polarity=polarity)
+        candidates.append((label, raw.get("description"), found, bad))
+
+    # Everything already counted: each attribute's phrasings, and its quotes per answer.
+    known = [(content_words(" ".join([a.label, *a.aliases]), brand), a.label,
+              {pid: [o.quote for o in obs if o.attribute_id == a.id] for pid, obs in observations.items()})
+             for a in attributes]
+
+    def same_as(words: set[str], found: dict[str, AttributeObservation]):
+        for phrasing, name, quotes in known:
+            if 2 * len(words & phrasing) >= len(words):
+                return f"shares '{' '.join(sorted(words & phrasing))}' with '{name}'"
+            for pid, o in found.items():
+                if any(quoted_in(o.quote, q) or quoted_in(q, o.quote) for q in quotes.get(pid, [])):
+                    return f"{pid} quotes the same words for '{name}'"
+        return None
+
+    new, new_obs = [], {}
+    for label, desc, found, bad in sorted(candidates, key=lambda c: -len(c[2])):
+        why = f" Rejected evidence: {'; '.join(bad)}." if bad else ""
+        words = content_words(label, brand)
+        if len(found) < EMERGENT_MIN_ANSWERS:
+            dropped.append(f"'{label}': raised with a verbatim quote in {len(found)} eligible answer(s), "
+                           f"needs {EMERGENT_MIN_ANSWERS}.{why}")
+        elif not words:
+            dropped.append(f"'{label}': no content words to tell it apart from what is measured.")
+        elif same := same_as(words, found):
+            dropped.append(f"'{label}': same attribute as one already measured ({same}).{why}")
+        else:
+            # distinct words give a distinct slug: two labels that slug alike were dropped as the same
+            aid = "emergent_" + re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")
+            new.append(Attribute(id=aid, label=label, description=desc if real(desc) else None,
+                                 discovered=True))
+            if bad:
+                dropped.append(f"'{label}': kept on its verbatim answers.{why}")
+            for pid, o in found.items():
+                new_obs.setdefault(pid, []).append(o.model_copy(update={"attribute_id": aid}))
+            known.append((words, label, {pid: [o.quote] for pid, o in found.items()}))
+    return new, new_obs, dropped
 
 
 def build_findings(topics: list[Topic], topic_evals: list[TopicEvaluation], evals: list[QueryEvaluation],
