@@ -136,34 +136,43 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   score. Each stage is driven by the stream's events, shows what it actually did, and lists every
   answer as it arrives; a finished stage folds to a one-line summary. The report appears beneath
   the stages when scoring finishes. Previously onboarded companies can be reopened from step 1
-- **Report** (inline after a run, and from History) — the company's own website icon beside its
-  name (captured at onboarding from the homepage already fetched: `apple-touch-icon`, then any icon
-  link, then `/favicon.ico`, stored as `profile.logo_url`; the first letter in a coloured square when
-  there is none or it fails to load — never an external logo service), then where the answers came
-  from (measured live, with the model, or the SYNTHETIC DEMO banner for a replayed run), then the
-  headline framed as upside: the large number is **untapped potential** (100 minus the score) with
-  the real score directly beneath it ("AI echoes 21.4% of what you claim today"), beside buyer
-  visibility. A legend counts each zone in opportunity wording, then an optional **weights** block
-  that calls `POST /api/runs/{id}/rescore` (no new AI calls; a 409 is shown in the server's words),
-  the claim-vs-echo drift map with an Evidence disclosure per claim, "where the upside is" cards,
-  and four collapsible blocks whose headers state what each found: **buyer questions** ("12 asked ·
-  named you in 8"), **brand questions**, **share of voice** (answers recommending the brand beside
-  the three most-recommended competitors, on the buyer questions that count; a tie for first beyond
-  those three is counted in the headline, "A, B, C and 2 others 3 each"), **who AI named
-  instead** (every product named in a buyer answer that counts, beside the line that names it, plus
-  the round-two comparison question), **where AI gets its opinion** (every site cited in a counted
-  buyer or brand answer, ranked by answers citing it; a third-party site cited in two or more is
-  flagged as a target) and **discovered identities**. Every n/a shows the server's reason from `na_reasons`. Two lenses: with
-  and collapsible blocks whose headers state what each found: **how to win it back** (per claim to
-  win back or amplify, the page of theirs to change, a suggested rewrite and the buyer questions that
-  did not recommend them which it should help with — one evaluator-model call at the end of a live
-  run over the saved answers and pages, authored and labelled sample in replay; `agents/win_back.py`
-  drops any action whose page was not read, whose replaced copy is not verbatim on it, whose rewrite
-  is marketing language, or whose question was not asked, and says why; it moves no number),
-  **buyer questions** ("12 asked ·
-  named you in 8"), **brand questions**, **who AI named instead** (every product named in a buyer
-  answer that counts, beside the line that names it, plus the round-two comparison question) and
-  **discovered identities**. Every n/a shows the server's reason from `na_reasons`. Two lenses: with
+- **Report** (inline after a run, and from History) — a product view, not one long page. A summary
+  pinned at the top while you move around: the company's own website icon beside its name (captured
+  at onboarding from the homepage already fetched: `apple-touch-icon`, then any icon link, then
+  `/favicon.ico`, stored as `profile.logo_url`; the first letter in a coloured square when there is
+  none or it fails to load — never an external logo service), the run date and whether it was
+  measured live or is a sample, the headline framed as upside — **untapped potential** (100 minus
+  the score) with the real score beside it ("AI says 21.4% of what you want to be known for
+  today") — buyer visibility, the count of claims to win back, and **Download summary (PDF)**.
+  Below it, five tabs with counts (`role=tablist`, arrow keys, Home/End; the tab is kept in the URL
+  hash, so `#report-buyer` opens Buyer questions; on a phone the strip scrolls sideways):
+  - **Overview** — where the answers came from (measured live with the model, or the SYNTHETIC
+    DEMO banner for a replayed run), what the figures mean, a legend counting each zone in
+    opportunity wording, then every claim as a card (zone, a bar of how AI raises it, site share
+    and AI share). A card opens the **claim drawer** — a native modal dialog (Esc, backdrop or ✕
+    closes it; full screen on a phone): the site's verbatim quotes, what AI said with each
+    question's full answer, limitations, and the claim's win-back fix. Then the optional
+    **weights** block, which calls `POST /api/runs/{id}/rescore` (no new AI calls; a 409 is shown
+    in the server's words), and the limitations and workflow log.
+  - **Win it back** — the action plan (per claim to win back or amplify, the page of theirs to
+    change, a suggested rewrite and the buyer questions that did not recommend them which it should
+    help with — one evaluator-model call at the end of a live run over the saved answers and pages,
+    authored and labelled sample in replay; `agents/win_back.py` drops any action whose page was
+    not read, whose replaced copy is not verbatim on it, whose rewrite is marketing language, or
+    whose question was not asked, and says why; it moves no number), then "where the upside is"
+    cards for the biggest open claims.
+  - **Buyer questions** and **Brand questions** — one compact row per question with its verdict
+    ("recommended you", "did not name you yet", the claims it raised); a row opens to the full
+    answer and the scorer's note.
+  - **Sources & rivals** — **where AI gets its opinion** (every site cited in a counted buyer or
+    brand answer, ranked by answers citing it; a third-party site cited in two or more is flagged
+    as a target), **share of voice** (answers recommending the brand beside the three
+    most-recommended competitors, on the buyer questions that count; a tie for first beyond those
+    three is counted in the headline, "A, B, C and 2 others 3 each"), **who AI named instead**
+    (every product named in a buyer answer that counts, beside the line that names it, plus the
+    round-two comparison question) and **discovered identities** (cards that open the same drawer).
+
+  Every n/a shows the server's reason from `na_reasons`. Two lenses: with
   no weight set the report reads through the **claim lens** — buyer questions go to the claims
   stated on the most pages, **claim echo** (of what the site claims, weighted by pages stating it,
   how much AI repeats supportively) is the headline, and alignment is absent with its reason in
@@ -172,7 +181,7 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   company's own pages state and AI repeats, but which the customer did not weight. Zone keys and
   numbers never change; `web/src/labels.ts` only speaks them (`lost_claim` → "claim to win back",
   `contested` → "claim to correct", `unstated_intent` → "claim to amplify", `imposed` → "identity
-  to shape"). **Download summary (PDF)** beside the run date opens the browser's print dialog on a
+  to shape"). **Download summary (PDF)** opens the browser's print dialog on a
   one-page executive summary (logo, untapped potential with the real score beneath, top 3 landed
   claims, top 3 claims to win back / correct / amplify / shape, run date and live-vs-sample source);
   "Save as PDF" makes the file. It is print CSS over a view that never renders on screen — no PDF
