@@ -84,6 +84,14 @@ def test_verbatim_quote_is_kept():
     assert [o.attribute_id for o in obs] == ["nt"] and not warns
 
 
+def test_quote_from_a_citation_title_is_dropped():
+    text = "Notion is a notes app. ([Notion is the best AI workspace](https://example.com/x))"
+    obs, warns = evaluation.extract_attributes(
+        answer_with([{"attribute_id": "nt", "quote": "Notion is the best AI workspace"}], text),
+        [mk(id="nt", label="Note-taking app")])
+    assert obs == [] and any("from a citation" in w for w in warns)
+
+
 def test_unknown_attribute_id_is_dropped():
     obs, warns = evaluation.extract_attributes(
         answer_with([{"attribute_id": "ghost", "quote": "Notion is a notes app"}]), [mk(id="nt")])

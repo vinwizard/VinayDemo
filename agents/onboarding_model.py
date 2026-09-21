@@ -20,7 +20,9 @@ from schemas import Attribute, CompanyProfile, Evidence, PositioningPoint
 
 KEY_ENV = "OPENAI_API_KEY"
 MODEL_ENV = "ONBOARDING_MODEL"
-DEFAULT_MODEL = "gpt-4o-mini"
+# Measured on linear.app with the same prompt and pages: gpt-4o-mini kept 2 of 8 claims (its quotes
+# were not verbatim), gpt-4.1-mini kept 6 of 8. One call per onboarding, so the difference is cents.
+DEFAULT_MODEL = "gpt-4.1-mini"
 MAX_ATTRIBUTES = 8
 MIN_CLAIMS = 3   # below this the site states too little to measure drift against; callers refuse
 
@@ -34,21 +36,38 @@ SCHEMA_HINT = """Return ONLY JSON:
     {
       "id": string,                // short lowercase slug, e.g. "enterprise_ready"
       "label": string,             // 2-5 words, the claim itself
-      "description": string,       // ONE concrete sentence in YOUR OWN words describing what this
-                                   // claim means HERE, naming the specific capabilities behind it.
-                                   // Never restate the label. Never use a customer testimonial as
-                                   // the description — a customer praising the product is not the
-                                   // company stating what the product does.
+      "description": string,       // THE CLAIM, as one checkable assertion that starts with the
+                                   // company's name and says what the product concretely does or
+                                   // has: "<Name> <does/has/is> <specific, observable capability>".
+                                   // It must be something an AI answer could plainly agree or
+                                   // disagree with.
       "aliases": [string],         // other phrasings a third party might use for the same claim
-      "claim_quotes": [string],    // VERBATIM substrings of the supplied page text stating it
+      "claim_quotes": {            // for EVERY page that states this claim, one quote copied from
+        "<page number>": string    // THAT page. Go through the pages one by one: a central claim
+      },                           // is usually stated on more than one page.
       "buyer_questions": [string]  // 3 questions a buyer wanting this would ask a chatbot,
                                    // with NO brand name and no company-specific jargon
     }
   ]
 }
-Rules: quotes MUST be exact substrings of the page text. Never invent a quote. If a claim has no
-supporting quote, omit the attribute entirely. The description must add information the label does
-not already contain — "Enterprise ready: ready for enterprises" is useless and will be rejected."""
+Description rules — a description that breaks any of these is rejected and the claim is lost:
+  GOOD: "Acme files federal and state payroll taxes automatically and pays contractors in 120
+        countries."  (names mechanisms; an answer can confirm or deny each one)
+  BAD:  "The platform empowers teams to run payroll with less friction."  (no company name, no
+        mechanism; nothing could contradict it)
+  BAD:  "Designed for modern businesses, scaling seamlessly as they grow."  (a fragment in marketing
+        words; it rephrases the quote instead of saying what the product does)
+  * Start with the company's name. Never "The platform", "It" or a fragment.
+  * Name the concrete features, numbers, integrations or behaviours the pages give as evidence.
+  * No marketing adjectives or outcome slogans: seamless, effortless, streamlined, empowering,
+    powerful, intuitive, modern, cutting-edge, innovative, momentum, friction, and the like.
+  * Never restate the label or rephrase the quote. Never use a customer testimonial — a customer
+    praising the product is not the company stating what the product does.
+Quote rules — a quote that breaks these is discarded:
+  * Copy it character for character from the page text: same punctuation, same capitalisation,
+    and NO full stop added where the page has none (page headings usually have none).
+  * At least 5 words, from ONE place on the page. Never join two separate phrases, never shorten
+    with "...", never invent. If a claim has no supporting quote, omit the attribute entirely."""
 
 PROMPT = """You are reading a company's own public web pages to establish how it positions itself.
 
@@ -136,9 +155,38 @@ def _useful_description(label: str, description: str) -> bool:
     return len(words(description).replace(words(label), "").split()) >= 4
 
 
-def build_attributes(data: dict, pages: list[tuple[str, str]]) -> tuple[list[Attribute], list[str]]:
+# Words that make a sentence unfalsifiable: nothing an answer says can contradict "restores momentum".
+MARKETING = re.compile(
+    r"\b(seamless|effortless|streamlin|empower|unlock|supercharg|momentum|cutting[- ]edge|"
+    r"next[- ]gen|world[- ]class|best[- ]in[- ]class|innovat|revolution|game[- ]chang|delight|"
+    r"holistic|synerg|leverag|powerful|intuitive|modern|contemporary|accommodat|friction)\w*", re.I)
+MIN_QUOTE_WORDS = 5  # shorter is a heading or nav label: "Available today" is on every page
+
+
+def statement_problems(names: list[str], label: str, description: str) -> list[str]:
+    """Why a claim statement cannot be checked, or [] if it can. The prompt asks; this enforces.
+
+    A paraphrase of the quote passes the label check, so two more. The sentence must name the
+    company — a standalone assertion, not "The platform…" or a fragment — and carry no marketing
+    words, which is what a reworded slogan is made of.
+    ponytail: lexical, so a plain-worded vague sentence still passes; a second model pass judging
+    falsifiability is the upgrade if that shows up in real output.
+    """
+    if not _useful_description(label, description):
+        return ["restates the label or is too thin"]
+    problems = []
+    if not any(re.search(rf"(?<!\w){re.escape(n)}(?!\w)", description, re.I) for n in names if n):
+        problems.append("does not name the company, so it is not a standalone assertion")
+    if vague := sorted({m.group(0).lower() for m in MARKETING.finditer(description)}):
+        problems.append(f"marketing language nothing can contradict ({', '.join(vague)})")
+    return problems
+
+
+def build_attributes(data: dict, pages: list[tuple[str, str]], name: str = ""
+                     ) -> tuple[list[Attribute], list[str]]:
     """-> (claimed attributes, warnings). claim_pages is counted, never taken from the model."""
     texts = [text for _, text in pages]
+    names = [name, data.get("name") or "", *[a for a in (data.get("aliases") or []) if isinstance(a, str)]]
     out, warnings = [], []
     for i, raw in enumerate(data.get("attributes", [])[:MAX_ATTRIBUTES], start=1):
         label = (raw.get("label") or "").strip()
@@ -146,7 +194,13 @@ def build_attributes(data: dict, pages: list[tuple[str, str]]) -> tuple[list[Att
             warnings.append(f"attribute {i}: no label; dropped")
             continue
         aid = _slug(raw.get("id"), f"attr{i}")
-        quotes = [q for q in (raw.get("claim_quotes") or []) if isinstance(q, str) and q.strip()]
+        quotes = raw.get("claim_quotes") or []
+        quotes = [q for q in (quotes.values() if isinstance(quotes, dict) else quotes)
+                  if isinstance(q, str) and q.strip()]
+        if short := [q for q in quotes if len(q.split()) < MIN_QUOTE_WORDS]:
+            warnings.append(f"{aid}: {len(short)} quote(s) under {MIN_QUOTE_WORDS} words, too short to "
+                            "state a claim; dropped")
+        quotes = [q for q in quotes if q not in short]
         verified = [q for q in quotes if any(q in t for t in texts)]
         if bad := [q for q in quotes if q not in verified]:
             warnings.append(f"{aid}: {len(bad)} quote(s) not verbatim in the fetched pages; dropped")
@@ -154,12 +208,16 @@ def build_attributes(data: dict, pages: list[tuple[str, str]]) -> tuple[list[Att
             warnings.append(f"{aid}: no verifiable quote on any fetched page; attribute dropped")
             continue
         description = (raw.get("description") or "").strip()
-        if not _useful_description(label, description):
-            warnings.append(f"{aid}: description restates the label or is too thin; kept but flagged")
+        # A claim nobody could contradict cannot be measured as agreed or disagreed with: dropped,
+        # not flagged, and the rejected sentence is shown so the loss is visible.
+        if problems := statement_problems(names, label, description):
+            warnings.append(f"{aid}: claim statement rejected ({'; '.join(problems)}): "
+                            f"“{description}”; attribute dropped")
+            continue
         # the number that drives "stated on N% of your pages" — counted from validated quotes only
         pages_with = sum(1 for t in texts if any(q in t for q in verified))
         out.append(Attribute(
-            id=aid, label=label, description=description or None,
+            id=aid, label=label, description=description,
             aliases=[a for a in (raw.get("aliases") or []) if isinstance(a, str)][:6],
             claim_evidence_ids=[f"pg{j}" for j, t in enumerate(texts, start=1)
                                 if any(q in t for q in verified)],
@@ -178,10 +236,15 @@ def build_profile(data: dict, pages: list[tuple[str, str]], domain: str) -> Comp
         points.append(PositioningPoint(id="pp1", text=one_liner,
                                        evidence_ids=[evidence[0].id] if evidence else [],
                                        support="sourced"))
+    name = (data.get("name") or "").strip() or domain
+    # The name itself must be an alias: `aliases` is the vocabulary that counts as a mention, and a
+    # model asked for "other names" returns "Linear Agent" but never "Linear" — so every answer
+    # that just said "Linear" failed as a label/body mismatch. The fixtures always listed the name.
+    aliases = [a.strip() for a in (data.get("aliases") or []) if isinstance(a, str) and a.strip()]
     return CompanyProfile(
-        name=(data.get("name") or "").strip() or domain,
+        name=name,
         domain=domain,
-        aliases=[a for a in (data.get("aliases") or []) if isinstance(a, str)][:6],
+        aliases=list(dict.fromkeys([name, *aliases]))[:6],
         customer_types=[c for c in (data.get("customer_types") or []) if isinstance(c, str)][:6],
         positioning_points=points, evidence=evidence,
         warnings=["Claimed positioning only. Which of these you WANT to be known for, and how much "
@@ -200,7 +263,7 @@ class OnboardingAgent:
         if not pages:
             raise ValueError("onboarding needs at least one fetched page")
         data = parse(self._transport(build_prompt(name, pages), self.model, self.timeout))
-        attributes, warnings = build_attributes(data, pages)
+        attributes, warnings = build_attributes(data, pages, name)
         profile = build_profile(data, pages, domain)
         if not attributes:
             warnings.append("No attribute survived quote validation; nothing can be measured yet.")

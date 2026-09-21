@@ -233,6 +233,43 @@ def test_competitor_must_appear_in_text():
     assert not e.valid
 
 
+# A live search answer, shaped as the Responses API writes one: inline `([host](url))` citations and
+# bare source-card lines whose titles name products the answer itself never recommends.
+CITED = ("Asana is the pick for this. ([zapier.com](https://zapier.com/blog/asana?utm_source=openai))\n\n"
+         "[Trello vs Asana: which is better](https://example.com/trello?utm_source=openai)\n"
+         "Teams also like monday.com and Otter.ai, and Heights of focus.")
+
+
+@pytest.mark.parametrize("name,kept", [
+    ("Asana", True),         # named in the body
+    ("Otter.ai", True),      # a product whose name is a domain, written as a name
+    ("Trello", False),       # only in a source card's title
+    ("zapier.com", False),   # a citation's host
+    ("zapier", False),       # a domain stem
+    ("Height", False),       # inside another word
+    ("monday.com", False),   # lowercase host shape: dropped even in prose (see BARE_HOST)
+])
+def test_competitor_must_be_named_in_the_body_not_in_a_citation(name, kept):
+    e = evaluation.evaluate(PROBE, synth(CITED, competitor_recommendations=[name]), PROFILE)
+    assert e.valid   # the name is dropped; the answer's other labels still stand
+    assert (name in e.competitor_recommendations) is kept
+    assert kept or any("Citation-only" in w for w in e.warnings)
+
+
+@pytest.mark.parametrize("labels", [dict(mentioned=True, evidence_quotes=[""]),
+                                    dict(competitor_recommendations=[" "])])
+def test_a_blank_string_is_not_evidence(labels):
+    """`"" in text` is always true, so a blank quote or name would otherwise pass as verbatim."""
+    assert not evaluation.evaluate(PROBE, synth("Notion works. Asana too.", **labels), PROFILE).valid
+
+
+def test_brand_named_only_inside_a_citation_is_not_a_mention():
+    text = "Use Confluence. ([Notion vs Confluence](https://example.com/x))"
+    e = evaluation.evaluate(PROBE, synth(text, mentioned=True, evidence_quotes=["Notion vs Confluence"]),
+                            PROFILE)
+    assert not e.valid and any("only inside a citation" in w for w in e.warnings)
+
+
 @pytest.mark.parametrize("text", ["Is Notion good for wikis?", "What does notion.so offer?", "Compare notion AI tools",
                                   "Which tool like Notion Calendar is best?"])
 def test_brand_leaking_questions_rejected(text):
