@@ -1,8 +1,9 @@
 // Typed client for the Python engine's HTTP API. Mirrors schemas.py — keep in sync.
 export const API = "http://127.0.0.1:8000";
 
-export type Zone = "landed" | "lost_claim" | "contested" | "unstated_intent" | "imposed";
-export type Owner = "authority_gap" | "messaging_gap" | "contested_identity" | "imposed_identity" | "none";
+export type Zone = "landed" | "lost_claim" | "contested" | "unstated_intent" | "imposed" | "unprioritised";
+export type Owner = "authority_gap" | "messaging_gap" | "contested_identity" | "imposed_identity"
+  | "unprioritised_claim" | "none";
 
 export interface AttributeScore {
   attribute_id: string;
@@ -10,6 +11,8 @@ export interface AttributeScore {
   description: string | null;
   intended_weight: number | null;
   claim_strength: number | null;
+  claim_pages: number;
+  claim_pages_total: number;
   n: number;
   echoes: number;
   echo_rate: number | null;
@@ -37,6 +40,7 @@ export interface DriftReport {
   contested: string[];
   imposed: string[];
   unstated_intent: string[];
+  unprioritised: string[];
   scores: AttributeScore[];
   limitations: string[];
 }
@@ -66,6 +70,14 @@ export interface Answer {
   status: string;
 }
 
+export interface TopicEvaluation {
+  topic_id: string;
+  phase: string;
+  n: number;
+  recommendations: number;
+  top_competitors: string[];
+}
+
 export interface Run {
   id: string;
   created_at: string;
@@ -76,6 +88,7 @@ export interface Run {
   topics: Topic[];
   probes: Probe[];
   answers: Answer[];
+  topic_evaluations: TopicEvaluation[];
   attribute_scores: AttributeScore[];
   drift: DriftReport | null;
   log: string[];
@@ -94,6 +107,7 @@ export interface RunSummary {
   contested: number;
   unstated: number;
   imposed: number;
+  unprioritised: number;
 }
 
 export interface Scenario {
@@ -112,6 +126,7 @@ export const ZONE_LABEL: Record<Zone, string> = {
   contested: "contested",
   unstated_intent: "never stated",
   imposed: "imposed",
+  unprioritised: "unprioritised",
 };
 
 export const OWNER_TITLE: Record<Owner, string> = {
@@ -119,6 +134,7 @@ export const OWNER_TITLE: Record<Owner, string> = {
   messaging_gap: "Messaging gap",
   contested_identity: "Contested",
   imposed_identity: "Imposed identity",
+  unprioritised_claim: "Unprioritised",
   none: "Aligned",
 };
 
@@ -128,22 +144,87 @@ export const OWNER_TEXT: Record<Owner, string> = {
   messaging_gap: "AI does not say it because your own copy does not clearly say it either.",
   contested_identity: "AI talks about this and says the opposite of what you claim.",
   imposed_identity: "AI asserts this about you without you claiming it.",
+  unprioritised_claim: "You say this on your own site and AI repeats it, but you did not mark it as "
+    + "something you want to be known for.",
   none: "Intended positioning is reflected in AI answers.",
 };
+
+/**
+ * The zones that are somebody's problem. `landed` is working and `unprioritised` is the company's
+ * own claim being repeated back — neither belongs under a heading that calls it a gap. Mirrors
+ * drift.GAP_ZONES; filtering on "not landed" silently made every new non-problem zone a gap.
+ */
+export const GAP_ZONES: Zone[] = ["contested", "lost_claim", "unstated_intent", "imposed"];
 
 export const ZONE_ORDER: Record<Zone, number> = {
   contested: 0,   // AI contradicting a claim you care about outranks AI merely ignoring it
   lost_claim: 1,
   unstated_intent: 2,
   imposed: 3,
-  landed: 4,
+  unprioritised: 4,   // your own claim, echoed but unweighted: worth seeing, not a gap to fix
+  landed: 5,
 };
 
-async function json<T>(path: string): Promise<T> {
-  const r = await fetch(`${API}${path}`);
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText} for ${path}`);
+/** FastAPI puts the readable reason in `detail`; the bare status line is useless to a reader. */
+async function json<T>(path: string, init?: RequestInit): Promise<T> {
+  const r = await fetch(`${API}${path}`, init);
+  if (!r.ok) {
+    const detail = await r.json().then((b) => b?.detail).catch(() => null);
+    throw new Error(typeof detail === "string" ? detail : `${r.status} ${r.statusText} for ${path}`);
+  }
   return r.json();
 }
+
+// ---------------------------------------------------------------- onboarding
+export interface ClaimedAttribute {
+  id: string;
+  label: string;
+  description: string | null;
+  claim_quotes: string[];
+  claim_pages: number;
+  claim_pages_total: number;
+  buyer_questions: string[];
+  intended_weight: number | null;
+  added_by_user: boolean;
+  note: string | null;
+}
+
+export interface CompanyDetail {
+  id: string;
+  created_at: string;
+  profile: { name: string; domain: string; aliases: string[]; customer_types: string[];
+             one_liner: string | null; warnings: string[] };
+  pages: string[];
+  attributes: ClaimedAttribute[];
+  warnings: string[];
+}
+
+export interface CompanySummary {
+  id: string; name: string; domain: string; created_at: string;
+  pages: number; attributes: number; intended: number;
+}
+
+export const getCompanies = () => json<CompanySummary[]>("/api/companies");
+
+/** Removes a claim the customer typed. Extracted claims are evidence and cannot be deleted. */
+export const deleteAttribute = (companyId: string, attributeId: string) =>
+  json<CompanyDetail>(`/api/companies/${companyId}/attributes/${attributeId}`, { method: "DELETE" });
+export const getCompany = (id: string) => json<CompanyDetail>(`/api/companies/${id}`);
+
+/** Crawls the company's own site and saves what survived quote validation. Needs an API key. */
+export const onboard = (url: string, name: string) =>
+  json<CompanyDetail>(`/api/onboard?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`);
+
+/** The customer's own input: intent weights and claims their copy never makes. */
+export const patchCompany = (
+  id: string,
+  body: { weights: Record<string, number>;
+          added: { label: string; description: string | null; intended_weight: number }[] },
+) => json<CompanyDetail>(`/api/companies/${id}`, {
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
 
 export interface Health {
   ok: boolean;
@@ -166,11 +247,16 @@ export interface StreamHandlers {
   onError?: (e: { message: string }) => void;
 }
 
-/** Opens the SSE stream for one run. Returns a closer so the caller can abort. */
-export function streamRun(scenario: string, mode: "demo" | "live", h: StreamHandlers): () => void {
-  const es = new EventSource(
-    `${API}/api/stream?scenario=${encodeURIComponent(scenario)}&mode=${mode}`,
-  );
+/** Opens the SSE stream for one run, against a bundled scenario or an onboarded company. */
+export function streamRun(
+  target: { scenario: string } | { company: string },
+  mode: "demo" | "live",
+  h: StreamHandlers,
+): () => void {
+  const q = "scenario" in target
+    ? `scenario=${encodeURIComponent(target.scenario)}`
+    : `company=${encodeURIComponent(target.company)}`;
+  const es = new EventSource(`${API}/api/stream?${q}&mode=${mode}`);
   // JSON.parse yields any, so each handler's own parameter type fixes T at the call site.
   const on = <T>(name: string, fn?: (d: T) => void) =>
     es.addEventListener(name, (ev) => fn?.(JSON.parse((ev as MessageEvent).data)));

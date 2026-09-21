@@ -7,6 +7,7 @@ replace `choose_followup` behind the same signature later.
 import hashlib
 import json
 import re
+from collections import Counter
 
 from schemas import (AdaptiveDecision, Attribute, CompanyProfile, Probe, QueryEvaluation, Topic,
                      TopicEvaluation)
@@ -15,6 +16,8 @@ MAX_TOPICS = 4
 PER_TOPIC = 3
 MAX_FOLLOWUP_TOPICS = 2
 PER_FOLLOWUP_TOPIC = 2
+MAX_COMPARED = 3
+COMPARISON_PROBE_ID = "np-cmp"
 
 
 def leak_terms(profile: CompanyProfile) -> list[str]:
@@ -58,7 +61,12 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
     never rewritten.
     """
     topics, probes, dropped = [], [], []
-    for a in [x for x in attributes if x.intended and x.buyer_questions]:
+    # Heaviest intent first, so truncation to MAX_TOPICS keeps the claims the customer cares about
+    # most rather than whichever the extraction model emitted first. The sort is stable: equal
+    # weights keep stored order, so the same company always plans the same questions.
+    eligible = sorted((x for x in attributes if x.intended and x.buyer_questions),
+                      key=lambda x: -x.intended_weight)
+    for a in eligible:
         topic = Topic(id=f"pos-{a.id}", label=a.label, kind="buyer",
                       buyer_need=f"A buyer looking for: {a.label.lower()}",
                       positioning_point_ids=[], fit="strong" if a.claimed else "partial",
@@ -76,7 +84,11 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
             topics.append(topic)
     if dropped:
         raise ValueError("buyer questions leak the brand and were not rewritten: " + "; ".join(dropped))
-    return topics[:MAX_TOPICS], probes
+    # Truncation drops topics, so it must drop their questions too: a probe whose topic no longer
+    # exists fails validation and kills the whole run.
+    topics = topics[:MAX_TOPICS]
+    kept_topics = {t.id for t in topics}
+    return topics, [p for p in probes if p.topic_id in kept_topics]
 
 
 def validate_named_probes(probes: list[Probe], attributes: list[Attribute]) -> list[str]:
@@ -111,6 +123,32 @@ def validate_probes(probes: list[Probe], topics: list[Topic], profile: CompanyPr
         if sum(p.topic_id == t.id and p.kind == "blind" for p in probes) > PER_TOPIC:
             errors.append(f"topic {t.id} has more than {PER_TOPIC} baseline questions")
     return errors
+
+
+def discovered_competitors(topic_evals: list[TopicEvaluation], limit: int = MAX_COMPARED) -> list[str]:
+    """The names AI volunteered in the blind answers, most widely seen first.
+
+    Nobody supplied these and nobody was asked for them: a blind question describes what the
+    company does without naming it, so any brand the model offers back is, by definition, who it
+    thinks the buyer should use instead. Each name has already been checked verbatim against the
+    answer it came from (agents/evaluation.py), so nothing here is invented.
+    """
+    counts = Counter(c for te in topic_evals if te.phase == "baseline" for c in te.top_competitors)
+    return [name for name, _ in counts.most_common(limit)]
+
+
+def comparison_probe(profile: CompanyProfile, names: list[str], parents: list[str]) -> Probe:
+    """Round two of the named axis: compare the brand to the competitors AI itself named.
+
+    Kept at `phase="followup"` on purpose. It is exploratory evidence about how the model frames
+    the brand against that set, and it must not move the baseline alignment score — the baseline is
+    frozen before any of these names exist.
+    """
+    listed = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+    return Probe(id=COMPARISON_PROBE_ID, topic_id="perception", kind="named", phase="followup",
+                 text=f"How does {profile.name} compare to {listed}?",
+                 purpose="Exploratory: how AI frames the brand against the competitors it named itself.",
+                 parent_probe_ids=parents)
 
 
 def baseline_hash(probes: list[Probe]) -> str:

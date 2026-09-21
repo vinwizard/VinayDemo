@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Health, Run, RunSummary, Scenario } from "./api";
+import type { CompanyDetail, Health, Run, RunSummary, Scenario } from "./api";
 import { getHealth, getRun, getRuns, getScenarios, streamRun } from "./api";
-import { Compare, DriftMap, Evidence, GapCards, History, Metrics } from "./components";
-import { PROBE_KIND_LABEL, runLabels, streamingProbeLabel } from "./labels";
+import { Compare, Competitors, DriftMap, Evidence, GapCards, History, Metrics } from "./components";
+import { PROBE_KIND_LABEL, runLabels, statedOn, streamingProbeLabel } from "./labels";
+import { Onboard } from "./onboard";
 
-type Tab = "measure" | "report" | "history" | "compare";
+type Tab = "measure" | "onboard" | "report" | "history" | "compare";
 interface FeedItem { key: string; text: string; sub?: string }
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [progress, setProgress] = useState({ done: 0, expected: 0 });
   const [error, setError] = useState<string | null>(null);
+  const [companyRun, setCompanyRun] = useState<CompanyDetail | null>(null);
   const [cmpA, setCmpA] = useState(""), [cmpB, setCmpB] = useState("");
   const [pairA, setPairA] = useState<Run | null>(null), [pairB, setPairB] = useState<Run | null>(null);
   const closer = useRef<(() => void) | null>(null);
@@ -32,10 +34,10 @@ export default function App() {
     return () => closer.current?.(); // abort an in-flight stream if the app unmounts
   }, [refreshRuns]);
 
-  const measure = () => {
+  const startRun = (target: { scenario: string } | { company: string }, runMode: "demo" | "live") => {
     setBusy(true); setFeed([]); setError(null); setProgress({ done: 0, expected: 0 });
     closer.current?.();
-    closer.current = streamRun(scenario, mode, {
+    closer.current = streamRun(target, runMode, {
       onNode: (e) =>
         setFeed((f) => [{ key: `n${f.length}`, text: `${e.stage} · ${e.agent}`, sub: e.log }, ...f]),
       onAnswer: (e) => {
@@ -52,6 +54,13 @@ export default function App() {
     });
   };
 
+  const measure = () => { setCompanyRun(null); startRun({ scenario }, mode); };
+  // An onboarded company has no authored answers, so it is always a live measurement — and the
+  // banner has to say so, or real paid calls stream in under the synthetic-demo label.
+  const measureCompany = (c: CompanyDetail) => {
+    setCompanyRun(c); setMode("live"); setTab("measure"); startRun({ company: c.id }, "live");
+  };
+
   const openRun = (id: string) => { getRun(id).then((r) => { setRun(r); setTab("report"); }).catch((e) => setError(String(e))); };
 
   useEffect(() => {
@@ -61,7 +70,7 @@ export default function App() {
 
   const sc = scenarios.find((s) => s.id === scenario);
   const runNames = runLabels(runs);
-  const pctDone = progress.expected ? (progress.done / progress.expected) * 100 : 0;
+  const pctDone = progress.expected ? Math.min(100, (progress.done / progress.expected) * 100) : 0;
 
   return (
     <div className="shell">
@@ -87,10 +96,11 @@ export default function App() {
       </div>
 
       <div className="tabs" role="tablist">
-        {(["measure", "report", "history", "compare"] as Tab[]).map((t) => (
+        {(["measure", "onboard", "report", "history", "compare"] as Tab[]).map((t) => (
           <button key={t} role="tab" className="tab" aria-selected={tab === t}
                   onClick={() => setTab(t)} disabled={t === "report" && !run}>
-            {t === "measure" ? "Measure" : t === "report" ? "Report" : t === "history" ? "History" : "Compare"}
+            {t === "measure" ? "Measure" : t === "onboard" ? "Onboard a company"
+              : t === "report" ? "Report" : t === "history" ? "History" : "Compare"}
           </button>
         ))}
       </div>
@@ -123,7 +133,17 @@ export default function App() {
                 </button>
               </div>
             </div>
-            {sc && (
+            {companyRun ? (
+              <>
+                <h3 style={{ marginTop: "1.1rem" }}>
+                  Measuring {companyRun.profile.name} — onboarded from {companyRun.profile.domain}
+                </h3>
+                <p className="muted" style={{ marginBottom: 0 }}>
+                  A real company has no authored answers, so this is always a live measurement. The
+                  scenario above belongs to the bundled demos and is not part of this run.
+                </p>
+              </>
+            ) : sc && (
               <>
                 <h3 style={{ marginTop: "1.1rem" }}>{sc.company} wants to be known for</h3>
                 <div className="stack" style={{ marginTop: ".5rem" }}>
@@ -132,8 +152,7 @@ export default function App() {
                       <div className="row" style={{ justifyContent: "space-between" }}>
                         <span>{a.label}</span>
                         <span className="muted">
-                          intent {a.weight} · stated on{" "}
-                          {Math.round((a.claim_pages / a.claim_pages_total) * 100)}% of known pages
+                          intent {a.weight} · stated on {statedOn(a.claim_pages, a.claim_pages_total)}
                         </span>
                       </div>
                       {a.description && <div className="muted desc">{a.description}</div>}
@@ -172,12 +191,17 @@ export default function App() {
         </div>
       )}
 
+      {tab === "onboard" && (
+        <Onboard liveAvailable={!!health?.live_available} busy={busy} onMeasure={measureCompany} />
+      )}
+
       {tab === "report" && run?.drift && (
         <div className="stack">
           <Metrics d={run.drift} />
           <DriftMap scores={run.attribute_scores} run={run} />
           <h2 style={{ marginTop: ".6rem" }}>Whose problem is each gap?</h2>
           <GapCards scores={run.attribute_scores} />
+          <Competitors run={run} />
           <Evidence run={run} />
         </div>
       )}

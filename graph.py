@@ -121,6 +121,18 @@ def choose_followup(s: State):
     d = ana.choose_followup(run.topics, run.topic_evaluations, run.evaluations, run.probes,
                             s["provider"].followup_bank(), run.profile)
     d.new_probes = d.new_probes[:MAX_FOLLOWUP]
+    if run.mode == "live_api":
+        # Only a live provider can answer a question nobody authored, and this one's wording is not
+        # known until the baseline answers name somebody. A replay provider would return an error
+        # answer for it, so fixture runs never ask it.
+        if names := ana.discovered_competitors(run.topic_evaluations):
+            p = ana.comparison_probe(run.profile, names, d.evidence_probe_ids)
+            if leaks := ana.attribute_leaks(p.text, run.attributes):
+                run.log.append(f"Comparison question dropped: a competitor's name collides with the "
+                               f"attribute(s) being measured ({', '.join(leaks)}).")
+            else:
+                d.new_probes.append(p)
+                run.log.append(f"Competitors discovered, not asked for: {', '.join(names)}.")
     run.decisions.append(d)
     run.probes += d.new_probes
     run.log.append(f"Follow-up decision: {d.rationale}")
@@ -166,6 +178,14 @@ def measure_drift(s: State):
                                    asked=asked, excluded_reasons=excluded)
     if dropped:
         run.drift.limitations += [f"Dropped unverifiable observation — {d}" for d in dropped]
+    if run.mode == "live_api" and not ana.discovered_competitors(run.topic_evaluations):
+        # "Nobody was named" and "nobody was asked" are different findings: with no weighted claim
+        # there are no buyer questions, so an empty competitor set is silence, not an absence.
+        run.drift.limitations.append(
+            "No competitor was named in any baseline answer, so no comparison question was asked."
+            if blind else
+            "No buyer question was asked — no claim is weighted as intended — so the buyer axis was "
+            "not measured and no competitor could be discovered.")
     run.log.append(f"Drift measured over {run.drift.n_named} brand answers: alignment "
                    f"{run.drift.alignment if run.drift.alignment is not None else 'n/a'} "
                    f"({len(run.drift.lost_claims)} lost, {len(run.drift.imposed)} imposed, "

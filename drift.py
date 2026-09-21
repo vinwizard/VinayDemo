@@ -21,11 +21,18 @@ CONTESTED_MIN = 0.25   # AI actively saying the opposite of an intended claim is
 CLAIM_THRESHOLD = 0.4  # share of known pages that must state it before absence is an authority problem
 MIN_NAMED = 3          # below this, perception is not measurable and alignment is null
 
+# The zones that are somebody's problem. `landed` is working and `unprioritised` is the company's
+# own claim being repeated back — neither belongs under a heading that calls it a gap. Mirrored by
+# GAP_ZONES in web/src/api.ts.
+GAP_ZONES = ("contested", "lost_claim", "unstated_intent", "imposed")
+
 OWNER_TEXT = {
     "authority_gap": "You state this clearly and the models are not repeating it.",
     "messaging_gap": "AI does not say it because your own copy does not clearly say it either.",
     "contested_identity": "AI talks about this and says the opposite of what you claim.",
     "imposed_identity": "AI asserts this about you without you claiming it.",
+    "unprioritised_claim": "You say this on your own site and AI repeats it, but you did not mark it "
+                           "as something you want to be known for.",
     "none": "Intended positioning is reflected in AI answers.",
 }
 
@@ -60,14 +67,27 @@ def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float],
     echoed = echo_rate is not None and echo_rate >= ECHO_THRESHOLD
     stated = cs is not None and cs >= CLAIM_THRESHOLD
     contested = negative_rate is not None and negative_rate >= CONTESTED_MIN
+    claimed = bool(a.claim_evidence_ids) or (cs is not None and cs > 0)
     if a.intended and echoed:
         return "landed", "none"
-    if a.intended and contested:
+    # Contradiction of anything the company states on its own site, weighted or not: "AI says the
+    # opposite of what you claim" is literally true of an unweighted claim too, and it outranks
+    # being unweighted, so this is tested before `unprioritised` below.
+    if (a.intended or claimed) and contested:
         return "contested", "contested_identity"
     if a.intended and stated:
         return "lost_claim", "authority_gap"
     if a.intended:
         return "unstated_intent", "messaging_gap"
+    # Claimed but never weighted. This never arose in the fixtures — every unintended fixture
+    # attribute has claim_pages=0 — yet it is the DEFAULT state of every onboarded attribute until
+    # the customer moves a slider. `imposed` means AI asserts something the company never claimed
+    # ANYWHERE, so a claim their own site makes with a validated quote behind it can never be
+    # imposed, whatever the echo rate: keying this on the echo too would leave the ordinary
+    # [IMPOSED_MIN, ECHO_THRESHOLD) band reading "AI asserts this about you without you claiming it"
+    # beside that row's own "50% of pages (3 of 6)".
+    if claimed:
+        return "unprioritised", "unprioritised_claim"
     return "imposed", "imposed_identity"
 
 
@@ -78,7 +98,10 @@ def named_eligibility(probes: list[Probe], answers: list[Answer],
     Exclusions must be reported, not just applied: a timeout removes an answer that would otherwise
     have counted against you, so a silent exclusion inflates alignment. Callers surface the counts.
     """
-    named = [p for p in probes if p.kind == "named"]
+    # Baseline only. The adaptive comparison question is a named probe too, but it is chosen from
+    # results the baseline produced, so counting it here would let the follow-up round move the
+    # score it was selected by. It is reported as exploratory evidence instead.
+    named = [p for p in probes if p.kind == "named" and p.phase == "baseline"]
     ans = {a.probe_id: a for a in answers}
     ev = {e.probe_id: e for e in evals}
     kept, reasons = [], []
@@ -126,6 +149,7 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
             limits.append("No page-level claim data: cannot separate an authority gap from a messaging gap.")
         out.append(AttributeScore(
             attribute_id=a.id, label=a.label, intended_weight=a.intended_weight, claim_strength=cs,
+            claim_pages=a.claim_pages, claim_pages_total=a.claim_pages_total,
             n=n, echoes=echoes, echo_rate=er, negative_echoes=neg, mention_rate=mr,
             negative_rate=nr, zone=zone, owner=owner,
             quotes=[o.quote for _, o in hits][:3], probe_ids=sorted({pid for pid, _ in hits}),
@@ -167,4 +191,5 @@ def build_report(scores: list[AttributeScore], provenance: str, n_blind: int,
         alignment=alignment(scores) if n >= MIN_NAMED else None,
         visibility=visibility, scores=scores, limitations=limits,
         landed=by("landed"), lost_claims=by("lost_claim"), contested=by("contested"),
-        imposed=by("imposed"), unstated_intent=by("unstated_intent"))
+        imposed=by("imposed"), unstated_intent=by("unstated_intent"),
+        unprioritised=by("unprioritised"))

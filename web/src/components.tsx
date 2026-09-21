@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { AttributeScore, DriftReport, Run, RunSummary } from "./api";
-import { OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_ORDER } from "./api";
-import { probeLabels, provenanceLabel, runLabels } from "./labels";
+import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_ORDER } from "./api";
+import { claimShare, probeLabels, provenanceLabel, runLabels } from "./labels";
 
 const ZONE_FILL: Record<string, string> = {
   landed: "var(--landed)",
@@ -9,6 +9,7 @@ const ZONE_FILL: Record<string, string> = {
   contested: "var(--contested)",
   unstated_intent: "var(--unstated)",
   imposed: "var(--imposed)",
+  unprioritised: "var(--unprioritised)",
 };
 
 const pct = (x: number | null) => (x == null ? 0 : Math.round(x * 100));
@@ -26,6 +27,7 @@ export function Metrics({ d }: { d: DriftReport }) {
         <div className="metric"><div className="label">Contested</div><div className="value">{d.contested?.length ?? 0}</div></div>
         <div className="metric"><div className="label">Never stated</div><div className="value">{d.unstated_intent.length}</div></div>
         <div className="metric"><div className="label">Imposed</div><div className="value">{d.imposed.length}</div></div>
+        <div className="metric"><div className="label">Unprioritised</div><div className="value">{d.unprioritised?.length ?? 0}</div></div>
       </div>
       <p className="muted" style={{ marginTop: ".4rem" }}>
         {d.n_named} brand questions answered drive perception · {d.n_blind} buyer questions answered
@@ -50,6 +52,7 @@ export function Metrics({ d }: { d: DriftReport }) {
 function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
   const probeText = new Map((run?.probes ?? []).map((p) => [p.id, p.text]));
   const names = probeLabels(run?.probes ?? [], run?.topics ?? []);
+  const share = claimShare(s.claim_pages, s.claim_pages_total, s.claim_strength);
   return (
     <div className="bubble" role="region" aria-label={`Evidence for ${s.label}`}>
       <h4>Evidence · {s.label}</h4>
@@ -57,7 +60,7 @@ function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
       <dl>
         <dt>Zone</dt><dd>{ZONE_LABEL[s.zone]} — {OWNER_TITLE[s.owner]}</dd>
         <dt>How much of your site says it</dt>
-        <dd>{s.claim_strength == null ? "no page data" : `states it on ${pct(s.claim_strength)}% of known pages`}</dd>
+        <dd>{share ? `states it on ${share}` : "no page data"}</dd>
         <dt>How often AI says it</dt>
         <dd>{s.echoes} of {s.n} eligible answers{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}</dd>
         {s.intended_weight != null && <><dt>Intent weight</dt><dd>{s.intended_weight}</dd></>}
@@ -110,14 +113,20 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
             <div>{s.label}</div>
             {s.description && <div className="muted desc">{s.description}</div>}
             <div className="muted">
-              {s.intended_weight ? `intent ${s.intended_weight}` : "not claimed by you"}
+              {s.intended_weight
+                ? `intent ${s.intended_weight}`
+                : s.claim_pages > 0 || (s.claim_strength ?? 0) > 0
+                  ? "on your site, not weighted"
+                  : "not claimed by you"}
             </div>
           </div>
           <div>
             <div className="bar-track">
               <div className="bar" style={{ width: `${pct(s.claim_strength)}%`, background: "#8c959f" }} />
             </div>
-            <div className="muted">{pct(s.claim_strength)}% of pages</div>
+            <div className="muted">
+              {claimShare(s.claim_pages, s.claim_pages_total, s.claim_strength) ?? "no page data"}
+            </div>
           </div>
           <div>
             {/* Width is how OFTEN AI raises it; the red segment is how much of that was criticism.
@@ -143,42 +152,110 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
   );
 }
 
+function GapCard({ s }: { s: AttributeScore }) {
+  const share = claimShare(s.claim_pages, s.claim_pages_total, s.claim_strength);
+  return (
+    <div className="card">
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <h3>{s.label}</h3>
+        <span className={`pill ${s.zone}`}>{OWNER_TITLE[s.owner]}</span>
+      </div>
+      <p style={{ margin: ".4rem 0 0" }}>{OWNER_TEXT[s.owner]}</p>
+      <p className="muted" style={{ margin: ".3rem 0 0" }}>
+        {share ? `${share} state it` : "no page data"}
+        {" · "}AI echoed it in {s.echoes} of {s.n} brand answers
+        {s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
+      </p>
+      {s.quotes[0] && <p className="quote">{s.quotes[0]}</p>}
+      {s.owner === "authority_gap" && (
+        <p className="muted" style={{ marginBottom: 0 }}>
+          Relevant capability:{" "}
+          <a href="https://www.tryprofound.com/features/answer-engine-insights" target="_blank" rel="noreferrer">
+            Answer Engine Insights / citation analysis
+          </a>
+        </p>
+      )}
+      {s.owner === "messaging_gap" && (
+        <p className="muted" style={{ marginBottom: 0 }}>
+          Not an AI problem: your own copy does not state this clearly enough to be repeated.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function GapCards({ scores }: { scores: AttributeScore[] }) {
   const gaps = scores
-    .filter((s) => s.zone !== "landed")
+    .filter((s) => GAP_ZONES.includes(s.zone))
     .sort((a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.intended_weight ?? 0) - (a.intended_weight ?? 0))
     .slice(0, 4);
   if (!gaps.length) return null;
   return (
     <div className="stack">
-      {gaps.map((s) => (
-        <div className="card" key={s.attribute_id}>
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h3>{s.label}</h3>
-            <span className={`pill ${s.zone}`}>{OWNER_TITLE[s.owner]}</span>
-          </div>
-          <p style={{ margin: ".4rem 0 0" }}>{OWNER_TEXT[s.owner]}</p>
-          <p className="muted" style={{ margin: ".3rem 0 0" }}>
-            {s.claim_strength == null ? "no page data" : `${pct(s.claim_strength)}% of your known pages state it`}
-            {" · "}AI echoed it in {s.echoes} of {s.n} brand answers
-            {s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
-          </p>
-          {s.quotes[0] && <p className="quote">{s.quotes[0]}</p>}
-          {s.owner === "authority_gap" && (
-            <p className="muted" style={{ marginBottom: 0 }}>
-              Relevant capability:{" "}
-              <a href="https://www.tryprofound.com/features/answer-engine-insights" target="_blank" rel="noreferrer">
-                Answer Engine Insights / citation analysis
-              </a>
-            </p>
-          )}
-          {s.owner === "messaging_gap" && (
-            <p className="muted" style={{ marginBottom: 0 }}>
-              Not an AI problem: your own copy does not state this clearly enough to be repeated.
-            </p>
-          )}
-        </div>
-      ))}
+      {gaps.map((s) => <GapCard key={s.attribute_id} s={s} />)}
+    </div>
+  );
+}
+
+/**
+ * Who AI offered instead, and what it said when asked to compare.
+ *
+ * In a live run nobody supplied these names: a buyer question describes what the company does
+ * without naming it, so every brand in the answer is one the model chose. In replay they are
+ * authored fixture labels and the panel says so — a sentence asserting measured behaviour is
+ * believed over the banner at the top of the page, and this product's whole claim is that it never
+ * presents authored evidence as measured evidence.
+ */
+export function Competitors({ run }: { run: Run }) {
+  const replay = run.mode !== "live_api";
+  const byTopic = new Map(run.topics.map((t) => [t.id, t.label]));
+  const rows = run.topic_evaluations
+    .filter((te) => te.phase === "baseline" && te.top_competitors.length > 0)
+    .map((te) => ({ topic: byTopic.get(te.topic_id) ?? te.topic_id, names: te.top_competitors }));
+  const comparison = run.probes.find((p) => p.kind === "named" && p.phase === "followup");
+  const answer = comparison && run.answers.find((a) => a.probe_id === comparison.id);
+  // "Nobody was named" and "nobody was asked" are different findings. With no weighted claim there
+  // are no buyer questions at all, and an empty competitor set then means silence, not absence.
+  const askedBuyerQuestions = run.probes.some((p) => p.kind === "blind" && p.phase === "baseline");
+  if (!rows.length) {
+    return (
+      <div className="card muted">
+        {!askedBuyerQuestions
+          ? "No buyer question was asked — nothing is weighted as intended — so the buyer axis was not measured and no competitor could be discovered."
+          : replay
+            ? "This sample scenario names no competitor in its authored buyer answers. Replay never asks the comparison question either: that round exists only in a live run."
+            : "No competitor was named in any buyer answer, so there was nothing to compare against and no comparison question was asked."}
+      </div>
+    );
+  }
+  return (
+    <div className="card">
+      <h3>Who AI named instead</h3>
+      <p className="muted" style={{ margin: ".3rem 0 .6rem" }}>
+        {replay
+          ? "Authored sample data, not a measurement: no model volunteered these names. A live run"
+            + " puts here the brands the model itself offered when a buyer described what you do"
+            + " without naming you, and only a live run asks the comparison question below."
+          : "Discovered, not asked for: these are the brands the model volunteered when a buyer"
+            + " described what you do without naming you."}
+      </p>
+      <table>
+        <thead><tr><th>Buyer topic</th><th>Recommended instead</th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.topic}><td>{r.topic}</td><td>{r.names.join(", ")}</td></tr>
+          ))}
+        </tbody>
+      </table>
+      {comparison && (
+        <>
+          <h4 className="muted" style={{ marginTop: "1rem" }}>
+            Follow-up question, built from those names (exploratory — not counted in alignment)
+          </h4>
+          <strong>{comparison.text}</strong>
+          <p className="muted" style={{ marginBottom: 0 }}>{answer?.text ?? "no answer"}</p>
+        </>
+      )}
     </div>
   );
 }

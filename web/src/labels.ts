@@ -16,6 +16,26 @@ export const PROVENANCE_LABEL: Record<string, string> = {
 export const provenanceLabel = (v: string | null | undefined) =>
   (v && PROVENANCE_LABEL[v]) || v || "unknown";
 
+/**
+ * "50% of pages (3 of 6)". A percentage of six pages is not the same claim as a percentage of
+ * sixty, so the count travels with it everywhere the share is shown.
+ */
+export function statedOn(pages: number, total: number): string {
+  if (!total) return "no page data";
+  return `${Math.round((pages / total) * 100)}% of pages (${pages} of ${total})`;
+}
+
+/**
+ * How much of the site states an attribute, or null when nothing is known. Every report surface
+ * goes through here so two halves of one row cannot disagree: a run saved before the counts existed
+ * has claim_strength but no claim_pages, and "no page data" is false for it — that strength was
+ * itself derived from page counts, it just cannot show them.
+ */
+export function claimShare(pages: number, total: number, strength: number | null): string | null {
+  if (total) return statedOn(pages, total);
+  return strength == null ? null : `${Math.round(strength * 100)}% of pages`;
+}
+
 /** `Probe.kind`: what the question does, not what the enum is called. */
 export const PROBE_KIND_LABEL: Record<string, string> = {
   named: "names your brand",
@@ -46,7 +66,9 @@ export function probeLabels(probes: Probe[], topics: Topic[] = []): Record<strin
 export function streamingProbeLabel(probeId: string, kind: string, phase: string, topic?: string | null) {
   const n = idNumber(probeId);
   const suffix = topic ? ` — ${topic}` : "";
-  if (kind === "named") return `Brand question ${n ?? "?"}`;
+  // The adaptive comparison question is the one probe that is not an nth of anything — exactly one
+  // per run, with an id that carries no number — so it is named rather than numbered.
+  if (kind === "named") return phase === "followup" ? "Comparison question" : `Brand question ${n ?? "?"}`;
   if (phase === "followup") return `Follow-up question ${n ?? "?"}${suffix}`;
   return `Buyer question ${n ?? "?"}${suffix}`;
 }

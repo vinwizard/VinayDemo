@@ -5,9 +5,12 @@ from pathlib import Path
 
 from agents.ana import baseline_hash
 from labels import probe_names, source_names, spoken, with_ids
-from schemas import SCHEMA_VERSION, Run
+from schemas import SCHEMA_VERSION, Company, Run
 
-RUNS = Path(__file__).resolve().parent / "data" / "runs"
+DATA = Path(__file__).resolve().parent / "data"
+RUNS = DATA / "runs"
+COMPANIES = DATA / "companies"
+ID = re.compile(r"[0-9a-f]{6,32}")
 
 # QueryEvaluation.strength is 0/1/2 in the data and never on a page.
 STRENGTH_LABEL = {0: "absent", 1: "mentioned", 2: "recommended"}
@@ -54,9 +57,31 @@ def list_runs() -> list[Path]:
 
 
 def load_run(run_id: str) -> Run:
-    if not re.fullmatch(r"[0-9a-f]{6,32}", run_id):
+    if not ID.fullmatch(run_id):
         raise ValueError("bad run id")
     return from_json((RUNS / f"{run_id}.json").read_text())
+
+
+# Onboarded companies, stored exactly like runs: local JSON, no database. Same durability caveat —
+# see the README: a container filesystem is ephemeral, so these do not survive a redeploy.
+def save_company(company: Company) -> Path:
+    COMPANIES.mkdir(parents=True, exist_ok=True)
+    path = COMPANIES / f"{company.id}.json"
+    path.write_text(company.model_dump_json(indent=2))
+    return path
+
+
+def list_companies() -> list[Path]:
+    return sorted(COMPANIES.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+
+
+def load_company(company_id: str) -> Company:
+    if not ID.fullmatch(company_id):
+        raise ValueError("bad company id")
+    company = Company.model_validate_json((COMPANIES / f"{company_id}.json").read_text())
+    if company.schema_version != SCHEMA_VERSION:
+        raise ValueError(f"unsupported schema_version {company.schema_version}")
+    return company
 
 
 def pct(x):

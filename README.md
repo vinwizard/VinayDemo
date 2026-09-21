@@ -83,7 +83,7 @@ python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
 
 Open http://localhost:8501. No API keys, accounts, or internet needed. Stop the server with `Ctrl+C`.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 141 tests incl. one UI journey per
+Tests: `conda activate visexp && python -m pytest -q` (offline; 177 tests incl. one UI journey per
 scenario, the live adapter under an injected transport and the stream endpoint's setup-error path — no
 API key, no network).
 
@@ -129,7 +129,8 @@ Then repeat the create step above.
 | Notion profile evidence | **Genuine** Claude Code research snapshot, `data/research/notion_2026-09-18.json` (verbatim excerpts, 2026-09-18) |
 | Profound capability links | Official pages, checked the same night |
 | Live model calls | **Implemented** in `providers/live.py` (OpenAI Responses API + web search) — needs `OPENAI_API_KEY`; setup in [`WEB.md`](WEB.md) |
-| URL fetching for arbitrary companies | **Real** — `fetching.py` crawls up to 3 public pages (SSRF-safe) for the API's `/api/onboard`, which needs an OpenAI key. The Streamlit app still does not fetch: paste facts there |
+| URL fetching for arbitrary companies | **Real** — `fetching.py` crawls up to 6 public pages (SSRF-safe) for the API's `/api/onboard`, which needs an OpenAI key. The Streamlit app still does not fetch: paste facts there |
+| Measuring an onboarded company | **Live only.** A company crawled from a URL has no authored answers, so there is nothing to replay: it needs `OPENAI_API_KEY`. The two bundled scenarios still run offline with no key |
 
 ## Layout
 
@@ -138,12 +139,14 @@ app.py            Streamlit UI (setup → investigation → gap report)
 graph.py          LangGraph orchestrator: plan_baseline → validate_and_freeze → execute_or_replay → evaluate → choose_followup ⟲ → build_gap_report
 schemas.py        Pydantic contracts
 agents/           onboarding.py (Agent 1), ana.py (Agent 2), evaluation.py (Agent 3 + Profound mapping table)
-providers/        fixture.py (replay), imported.py (research snapshots), live.py (disabled)
+providers/        fixture.py (replay), company.py (an onboarded company), imported.py (research snapshots), live.py
 scoring.py        arithmetic only
-reports.py        JSON/Markdown export, import, data/runs persistence
+reports.py        JSON/Markdown export, import, data/runs and data/companies persistence
 ```
 
 Completed runs are saved to `data/runs/<id>.json` and can be reopened from the sidebar after a restart.
+Onboarded companies are saved the same way, to `data/companies/<id>.json`, and carry the same caveat:
+both are local JSON files, so neither survives a Cloud Run redeploy (see below).
 
 ## Deploying later (GCP Cloud Run)
 
@@ -156,6 +159,7 @@ gcloud run deploy visibility-explorer --source . --region us-central1 --allow-un
 ```
 
 `--source .` builds the included `Dockerfile` (listens on `$PORT`). Fixture mode needs no secrets.
-Caveats: Cloud Run disk and sessions are ephemeral, so `data/runs/` is **not** durable there — download JSON
-reports instead, or add storage later. Live mode would need server-side secrets (Secret Manager) and access
+Caveats: Cloud Run disk and sessions are ephemeral, so `data/runs/` and `data/companies/` are **not** durable
+there — download JSON reports instead, and expect an onboarded company to have to be onboarded again after a
+redeploy, or add storage later. Live mode would need server-side secrets (Secret Manager) and access
 control on paid runs before going public. Local Docker check: `docker build -t ve . && docker run -p 8080:8080 ve`.
