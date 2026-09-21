@@ -119,7 +119,9 @@ export const ZONE_LABEL: Record<Zone, string> = {
   landed: "landed",
   lost_claim: "lost claim",
   contested: "contested",
-  unstated_intent: "never stated",
+  // The zone fires below drift.CLAIM_THRESHOLD, a share of pages, so it covers "1 of 6" as well as
+  // "0 of 6". "never stated" beside a row reading "33% of pages (2 of 6)" contradicted itself.
+  unstated_intent: "understated",
   imposed: "imposed",
   unprioritised: "unprioritised",
 };
@@ -129,7 +131,7 @@ export const ZONE_MEANING: Record<Zone, string> = {
   landed: "you want it, and AI says it",
   lost_claim: "your site says it; AI does not repeat it",
   contested: "AI says the opposite of what you claim",
-  unstated_intent: "you want it, but your site never says it",
+  unstated_intent: "you want it, but too few of your pages say it",
   imposed: "AI says it; you never claimed it",
   unprioritised: "your site says it and AI repeats it, but you did not weight it",
 };
@@ -146,10 +148,11 @@ export const OWNER_TITLE: Record<Owner, string> = {
   none: "Aligned",
 };
 
-// Why each gap is whose problem. Mirrors drift.OWNER_TEXT.
+// Why each gap is whose problem. Mirrors drift.OWNER_TEXT, except messaging_gap: drift's "does not
+// clearly say it either" reads as absolute beside a nonzero page count, so the web says it relatively.
 export const OWNER_TEXT: Record<Owner, string> = {
   authority_gap: "You state this clearly and the models are not repeating it.",
-  messaging_gap: "AI does not say it because your own copy does not clearly say it either.",
+  messaging_gap: "AI does not say it, and neither do enough of your own pages.",
   contested_identity: "AI talks about this and says the opposite of what you claim.",
   imposed_identity: "AI asserts this about you without you claiming it.",
   unprioritised_claim: "You say this on your own site and AI repeats it, but you did not mark it as "

@@ -36,6 +36,17 @@ export function claimShare(pages: number, total: number, strength: number | null
   return strength == null ? null : `${Math.round(strength * 100)}% of pages`;
 }
 
+/**
+ * A model answer as plain text. Answers are Markdown written by an untrusted model, so the markup is
+ * stripped rather than rendered: nothing from an answer ever becomes HTML or a link. A link keeps its
+ * text, even when an excerpt cut it off before the closing parenthesis; list items keep a bullet.
+ */
+export const plain = (md: string) => md
+  .replace(/\[([^\]]*)\]\([^)\s]*\)?/g, "$1")
+  .replace(/^[ \t]*#{1,6}[ \t]+/gm, "")
+  .replace(/^([ \t]*)[-*+][ \t]+/gm, "$1• ")
+  .replace(/\*+|__|`+/g, "");
+
 /** `Probe.kind`: what the question does, not what the enum is called. */
 export const PROBE_KIND_LABEL: Record<string, string> = {
   named: "names your brand",

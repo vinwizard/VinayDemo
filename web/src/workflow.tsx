@@ -10,7 +10,7 @@ import type { CompanyDetail, CompanySummary, Run, StreamAnswer, StreamNode } fro
 import { getCompanies, getCompany, streamOnboard, streamRun } from "./api";
 import { ClaimsStep } from "./claims";
 import { Report } from "./components";
-import { PROVENANCE_LABEL, streamingProbeLabel } from "./labels";
+import { PROVENANCE_LABEL, plain, streamingProbeLabel } from "./labels";
 
 type StageState = "pending" | "active" | "done" | "skipped" | "failed";
 
@@ -46,8 +46,6 @@ const host = (url: string) => {
 };
 const day = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-/** Answers arrive as Markdown; an excerpt reads better without its asterisks and link syntax. */
-const plain = (md: string) => md.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_#`]+/g, "");
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 interface Progress {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { AttributeScore, DriftReport, Run, RunSummary, Zone } from "./api";
 import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_MEANING, ZONE_ORDER, ZONES } from "./api";
-import { PROVENANCE_LABEL, claimShare, probeLabels, provenanceLabel, runLabels, when } from "./labels";
+import { PROVENANCE_LABEL, claimShare, plain, probeLabels, provenanceLabel, runLabels, when } from "./labels";
 
 const ZONE_FILL: Record<Zone, string> = {
   landed: "var(--landed)",
@@ -147,7 +147,7 @@ function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
       {s.quotes.length > 0 && (
         <>
           <h4>Verbatim quotes</h4>
-          {s.quotes.map((q, i) => <p className="quote" key={i}>{q}</p>)}
+          {s.quotes.map((q, i) => <p className="quote" key={i}>{plain(q)}</p>)}
         </>
       )}
       {s.probe_ids.length > 0 && (
@@ -245,7 +245,7 @@ function GapCard({ s }: { s: AttributeScore }) {
         {" · "}AI echoed it in {s.echoes} of {s.n} brand answers
         {s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
       </p>
-      {s.quotes[0] && <p className="quote">{s.quotes[0]}</p>}
+      {s.quotes[0] && <p className="quote">{plain(s.quotes[0])}</p>}
       {s.owner === "authority_gap" && (
         <p className="muted" style={{ marginBottom: 0 }}>
           Relevant capability:{" "}
@@ -269,7 +269,7 @@ export function GapCards({ scores }: { scores: AttributeScore[] }) {
     .sort((a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.intended_weight ?? 0) - (a.intended_weight ?? 0))
     .slice(0, 4);
   if (!gaps.length) {
-    return <div className="card muted">Nothing to fix: no claim is lost, contested, never stated or imposed.</div>;
+    return <div className="card muted">Nothing to fix: no claim is lost, contested, understated or imposed.</div>;
   }
   return (
     <div className="gaps">
@@ -334,7 +334,7 @@ export function Competitors({ run }: { run: Run }) {
             Follow-up question, built from those names (exploratory — not counted in alignment)
           </h4>
           <strong>{comparison.text}</strong>
-          <p className="muted long-answer">{answer?.text ?? "no answer"}</p>
+          <p className="muted long-answer">{answer ? plain(answer.text) : "no answer"}</p>
         </>
       )}
     </div>
@@ -358,7 +358,7 @@ export function Evidence({ run }: { run: Run }) {
           <div className="card" key={p.id}>
             <div className="muted" title={p.id}>{names[p.id] ?? p.id}</div>
             <strong>{p.text}</strong>
-            <p className="muted" style={{ marginBottom: 0 }}>{byId[p.id]?.text ?? "no answer"}</p>
+            <p className="muted long-answer">{byId[p.id] ? plain(byId[p.id].text) : "no answer"}</p>
           </div>
         ))}
       </div>
