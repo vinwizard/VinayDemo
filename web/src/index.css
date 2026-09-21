@@ -308,3 +308,19 @@ tr.pick:hover { background: #f5f8fc; cursor: pointer; }
   .claim { grid-template-columns: 1fr; }
   .pages { columns: 1; }
 }
+
+/* ---------------------------------------------------------------- one-page exec summary (print only) */
+.exec-summary { display: none; }
+@media print {
+  @page { size: letter; margin: 14mm; }
+  body:has(> .exec-summary) { background: #fff; }
+  body:has(> .exec-summary) > :not(.exec-summary) { display: none !important; }
+  .exec-summary { display: flex; flex-direction: column; gap: 1.2rem; break-inside: avoid;
+                  -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .exec-summary h2 { margin: 0; font-size: 1.6rem; }
+  .exec-summary h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
+  .exec-summary .figure.potential .value { font-size: 3.6rem; }
+  .exec-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .exec-cols ol { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .6rem; }
+  .exec-foot { font-size: .8rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: .6rem; margin: 0; }
+}
