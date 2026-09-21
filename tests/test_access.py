@@ -78,7 +78,7 @@ def test_seeded_passes_come_from_the_tracked_file_with_labels_and_caps_only(env)
 def test_a_code_becomes_an_httponly_secure_session_and_the_meter_reads_it(env):
     c, code, r = with_pass()
     cookie = r.headers["set-cookie"].lower()
-    assert "httponly" in cookie and "secure" in cookie and "samesite=lax" in cookie
+    assert "httponly" in cookie and "secure" in cookie and "samesite=strict" in cookie
     assert code not in r.headers["set-cookie"] and code not in r.text   # the code is never echoed
     assert r.json()["pass"] == {"label": "person 1", "spent_usd": 0, "cap_usd": 5.0, "capped": False}
     assert c.get("/api/access").json()["pass"]["label"] == "person 1"
@@ -210,3 +210,11 @@ def test_a_visitor_without_a_pass_is_replay_only_with_zero_model_calls(env):
     assert c.patch(f"/api/companies/{CO}", json={"weights": {}}).status_code == 403
     kind, _ = events(c.get(f"/api/stream?company={main.SEED_COMPANY}&mode=live").text)[-1]
     assert kind == "done"                                                # the seed still replays
+
+
+def test_a_fresh_data_dir_gets_every_committed_company_and_run(env, tmp_path):
+    main.seed_data_dir()
+    for kind in ("companies", "runs"):
+        bundled = {p.name for p in (reports.BUNDLED / kind).glob("*.json")}
+        assert bundled and bundled <= {p.name for p in (tmp_path / kind).glob("*.json")}
+    assert main.load_run(main.SHOWCASE_RUN).id == main.SHOWCASE_RUN

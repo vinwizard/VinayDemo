@@ -674,7 +674,7 @@ def exchange(body: Exchange, response: Response):
         response.delete_cookie(access.PASS_COOKIE)
         raise HTTPException(403, cookie)
     response.set_cookie(access.PASS_COOKIE, cookie, max_age=90 * 86400, httponly=True, secure=True,
-                        samesite="lax")
+                        samesite="strict")
     return {"pass": access.status(p)}
 
 
@@ -688,13 +688,13 @@ def my_pass(request: Request, visit: bool = False):
 
 
 def seed_data_dir() -> None:
-    """DATA_DIR on a fresh disk starts empty: give it the committed seed company."""
-    src = reports.BUNDLED / "companies" / f"{SEED_COMPANY}.json"
-    dst = reports.COMPANIES / src.name
-    if src.exists() and not dst.exists():
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(src, dst)
-
+    """DATA_DIR on a fresh disk starts empty: give it every committed company and run."""
+    for dst_dir in (reports.COMPANIES, reports.RUNS):
+        for src in (reports.BUNDLED / dst_dir.name).glob("*.json"):
+            dst = dst_dir / src.name
+            if not dst.exists():
+                dst_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy(src, dst)
 
 seed_data_dir()
 seed_public_runs()
