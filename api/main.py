@@ -67,6 +67,10 @@ SEED_COMPANY = "5eed0001"
 # Notion sample instead. Deliberately not reachable from the UI — only from the server's environment
 # — and the run it produces is saved as a sample run and says so on every surface that shows it.
 OFFLINE_ENV = "VISEXP_OFFLINE_REPLAY"
+# The preloaded Profound tab: a real live run of tryprofound.com (and its onboarding), committed so
+# every clone and the public demo open it as a finished report. Never rewritten in place.
+SHOWCASE_COMPANY = "998420ffae"
+SHOWCASE_RUN = "8d1d78c3e6"
 OFFLINE_FIXED = "offline replay: the bundled sample's claims and weights are fixed"
 
 
@@ -94,7 +98,7 @@ def offline_seed(company_id: str) -> bool:
 def seed_public_runs() -> None:
     """A fresh public deploy has no saved runs (they are gitignored), so replay both bundled
     scenarios once — fixtures only, no model — and History and Compare have something to open."""
-    if not public_demo() or any(RUNS.glob("*.json")):
+    if not public_demo() or any(p.stem != SHOWCASE_RUN for p in RUNS.glob("*.json")):
         return
     for scenario in sorted(fixture.SCENARIOS):
         prov = fixture.FixtureProvider(scenario)
@@ -478,7 +482,9 @@ def rescore_run(run_id: str, req: RescoreRequest):
         graph.rescore(run, req.weights)
     except graph.ValidationError as e:
         raise HTTPException(409, str(e))
-    if not public_demo():   # public: arithmetic only, so allowed — but one visitor never rewrites the shared run
+    # public: arithmetic only, so allowed — but one visitor never rewrites the shared run; and the
+    # committed Profound run is never rewritten, so re-weighting it leaves the working tree clean
+    if not public_demo() and run.id != SHOWCASE_RUN:
         save_run(run)
     return run_payload(run)
 
@@ -575,6 +581,7 @@ def health():
     measured = live.model_name() if live.available() else None
     evaluator = evaluator_model.model_name() if live.available() else None
     return {"ok": True, "scenarios": sorted(fixture.SCENARIOS), "seed_company": SEED_COMPANY,
+            "showcase": {"company": SHOWCASE_COMPANY, "run": SHOWCASE_RUN},
             "live_available": live.available() and not public_demo(), "live_status": live.status(),
             "public_demo": public_demo(),
             "measured_model": measured, "evaluator_model": evaluator,

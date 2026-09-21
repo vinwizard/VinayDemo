@@ -5,6 +5,8 @@ __pycache__/
 .pytest_cache/
 data/runs/*.json
 !data/runs/.gitkeep
+# the preloaded Profound report: the owner's live run of tryprofound.com, committed so it ships
+!data/runs/8d1d78c3e6.json
 node_modules/
 web/dist/
 web/node_modules/
@@ -13,3 +15,5 @@ data/companies/*.json
 !data/companies/.gitkeep
 # the preloaded Notion company: a real onboarding of notion.com, committed so a fresh clone has it
 !data/companies/5eed0001.json
+# the preloaded Profound company: a real onboarding of tryprofound.com
+!data/companies/998420ffae.json

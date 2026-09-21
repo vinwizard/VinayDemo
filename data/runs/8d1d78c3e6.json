@@ -1,0 +1,2497 @@
+{
+  "id": "8d1d78c3e6",
+  "schema_version": 1,
+  "mode": "live_api",
+  "scenario": null,
+  "created_at": "2026-09-21T17:28:47",
+  "profile": {
+    "name": "Profound",
+    "domain": "tryprofound.com",
+    "owned_domains": [],
+    "aliases": [
+      "Profound",
+      "AI Marketer",
+      "Profound Agents"
+    ],
+    "branded_terms": [],
+    "customer_types": [
+      "marketing teams",
+      "enterprise companies",
+      "mid-market companies",
+      "startups",
+      "agencies"
+    ],
+    "capabilities": [],
+    "use_cases": [],
+    "positioning_points": [
+      {
+        "id": "pp1",
+        "text": "The AI marketing platform to win in ChatGPT Perplexity Claude Gemini Microsoft Copilot DeepSeek Google AI",
+        "evidence_ids": [
+          "pg1"
+        ],
+        "support": "sourced"
+      }
+    ],
+    "evidence": [
+      {
+        "id": "pg1",
+        "url": "https://www.tryprofound.com/",
+        "excerpt": "Skip to main content Platform Resources Solutions Customers Pricing Careers Log in Get a Demo Platform Monitor Answer Engine Insights Prompt Volumes Shopping Agent Analytics AI Marketer Agents Context Manager AI Marketer Resources Discover AEO Report Profound Index AEO Guide Events Webinars Research hub Blog Reports and guides Newsroom Marketing Engineer Marketing Engineer manifesto Profound Community Become a Marketing Engineer Podcast Marketing Engineer Job Board Get Started Profound University Agent templates Integrations Help Center Developer Docs Featured Zero Click World Tour Solutions For Teams AEO Teams Content Teams PR & Brand Teams Partners Agencies Profound Partners Become a Partner Customers Pricing Careers Log in Get a Demo Series D Profound raises a $180M in Series D to build your AI Marketer. See it live Profound raises a $180M in Series D to build your AI Marketer. See it live The AI marketing platform to win in ChatGPT Perplexity Claude Gemini Microsoft Copilot DeepSeek Google AI Overviews AI search platforms Multiply what you can accomplish with an AI Marketer trained on what consumers prompt, what agents cite, and the context only your teams have. Get a demo Get ",
+        "retrieved_at": null,
+        "source_type": "page_fetch"
+      },
+      {
+        "id": "pg2",
+        "url": "https://www.tryprofound.com/customers",
+        "excerpt": "Skip to main content Platform Resources Solutions Customers Pricing Careers Log in Get a Demo Platform Monitor Answer Engine Insights Prompt Volumes Shopping Agent Analytics AI Marketer Agents Context Manager AI Marketer Resources Discover AEO Report Profound Index AEO Guide Events Webinars Research hub Blog Reports and guides Newsroom Marketing Engineer Marketing Engineer manifesto Profound Community Become a Marketing Engineer Podcast Marketing Engineer Job Board Get Started Profound University Agent templates Integrations Help Center Developer Docs Featured Zero Click World Tour Solutions For Teams AEO Teams Content Teams PR & Brand Teams Partners Agencies Profound Partners Become a Partner Customers Pricing Careers Log in Get a Demo Series D Profound raises a $180M in Series D to build your AI Marketer. See it live Profound raises a $180M in Series D to build your AI Marketer. See it live Meet the visionary teams using Profound More than 25,000 marketers in 90+ countries do their best work in Profound. 50% increase in Plaid’s AI Search visibility while saving time with Profound Agents Read story 30% Time saved using Profound Agents Read story 100x Increase in monthly revenue fr",
+        "retrieved_at": null,
+        "source_type": "page_fetch"
+      },
+      {
+        "id": "pg3",
+        "url": "https://www.tryprofound.com/pricing",
+        "excerpt": "Skip to main content Platform Resources Solutions Customers Pricing Careers Log in Get a Demo Platform Monitor Answer Engine Insights Prompt Volumes Shopping Agent Analytics AI Marketer Agents Context Manager AI Marketer Resources Discover AEO Report Profound Index AEO Guide Events Webinars Research hub Blog Reports and guides Newsroom Marketing Engineer Marketing Engineer manifesto Profound Community Become a Marketing Engineer Podcast Marketing Engineer Job Board Get Started Profound University Agent templates Integrations Help Center Developer Docs Featured Zero Click World Tour Solutions For Teams AEO Teams Content Teams PR & Brand Teams Partners Agencies Profound Partners Become a Partner Customers Pricing Careers Log in Get a Demo Series D Profound raises a $180M in Series D to build your AI Marketer. See it live Profound raises a $180M in Series D to build your AI Marketer. See it live Meet your AI Marketer Research, write, report, and collaborate with a superintelligent teammate who knows your brand. For brands For agencies Trial Free For companies who want to trial Profound before getting a demo Limited AI Marketer credits 10 prompts run once ChatGPT only Get Started Enter",
+        "retrieved_at": null,
+        "source_type": "page_fetch"
+      },
+      {
+        "id": "pg4",
+        "url": "https://www.tryprofound.com/features/answer-engine-insights",
+        "excerpt": "Skip to main content Platform Resources Solutions Customers Pricing Careers Log in Get a Demo Platform Monitor Answer Engine Insights Prompt Volumes Shopping Agent Analytics AI Marketer Agents Context Manager AI Marketer Resources Discover AEO Report Profound Index AEO Guide Events Webinars Research hub Blog Reports and guides Newsroom Marketing Engineer Marketing Engineer manifesto Profound Community Become a Marketing Engineer Podcast Marketing Engineer Job Board Get Started Profound University Agent templates Integrations Help Center Developer Docs Featured Zero Click World Tour Solutions For Teams AEO Teams Content Teams PR & Brand Teams Partners Agencies Profound Partners Become a Partner Customers Pricing Careers Log in Get a Demo Series D Profound raises a $180M in Series D to build your AI Marketer. See it live Profound raises a $180M in Series D to build your AI Marketer. See it live Answer Engine Insights Answer Engine Insights Prompt Tracking Query Fanout Benchmarking Sentiment Tracking & Analysis Citation Tracking & Analysis FactCheck AEO Dashboards Answer Engine Insights Understand how AI is talking about your brand Track your AI visibility, see where and how AI mentio",
+        "retrieved_at": null,
+        "source_type": "page_fetch"
+      },
+      {
+        "id": "pg5",
+        "url": "https://www.tryprofound.com/features/prompt-volumes",
+        "excerpt": "Skip to main content Platform Resources Solutions Customers Pricing Careers Log in Get a Demo Platform Monitor Answer Engine Insights Prompt Volumes Shopping Agent Analytics AI Marketer Agents Context Manager AI Marketer Resources Discover AEO Report Profound Index AEO Guide Events Webinars Research hub Blog Reports and guides Newsroom Marketing Engineer Marketing Engineer manifesto Profound Community Become a Marketing Engineer Podcast Marketing Engineer Job Board Get Started Profound University Agent templates Integrations Help Center Developer Docs Featured Zero Click World Tour Solutions For Teams AEO Teams Content Teams PR & Brand Teams Partners Agencies Profound Partners Become a Partner Customers Pricing Careers Log in Get a Demo Series D Profound raises a $180M in Series D to build your AI Marketer. See it live Profound raises a $180M in Series D to build your AI Marketer. See it live Prompt Volumes Prompt Volumes Research Reports Introducing Prompt Volumes Uncover the keywords and topics driving AI conversations Prompt Volumes gives you the exact keyword volumes, topic trends, and intent signals driving conversations across AI platforms. Get a Demo Get Started The keyword ",
+        "retrieved_at": null,
+        "source_type": "page_fetch"
+      },
+      {
+        "id": "pg6",
+        "url": "https://www.tryprofound.com/features/shopping",
+        "excerpt": "Skip to main content Platform Resources Solutions Customers Pricing Careers Log in Get a Demo Platform Monitor Answer Engine Insights Prompt Volumes Shopping Agent Analytics AI Marketer Agents Context Manager AI Marketer Resources Discover AEO Report Profound Index AEO Guide Events Webinars Research hub Blog Reports and guides Newsroom Marketing Engineer Marketing Engineer manifesto Profound Community Become a Marketing Engineer Podcast Marketing Engineer Job Board Get Started Profound University Agent templates Integrations Help Center Developer Docs Featured Zero Click World Tour Solutions For Teams AEO Teams Content Teams PR & Brand Teams Partners Agencies Profound Partners Become a Partner Customers Pricing Careers Log in Get a Demo Series D Profound raises a $180M in Series D to build your AI Marketer. See it live Profound raises a $180M in Series D to build your AI Marketer. See it live Shopping Boost your product visibility in ChatGPT Shopping Discover how ChatGPT is recommending, describing, and placing your products. Use that data to rank higher in shopping results and turn AI-driven discovery into real sales. Get a Demo Get Started Shopping Visibility Track your baseline ",
+        "retrieved_at": null,
+        "source_type": "page_fetch"
+      }
+    ],
+    "warnings": [
+      "Claimed positioning only. Which of these you WANT to be known for, and how much each matters, is your input — it is not derivable from your own marketing copy."
+    ],
+    "approved": false,
+    "logo_url": "https://www.tryprofound.com/favicons/favicon-light.svg"
+  },
+  "topics": [
+    {
+      "id": "pos-ai_marketer",
+      "label": "AI marketing platform",
+      "kind": "buyer",
+      "buyer_need": "A buyer looking for: ai marketing platform",
+      "positioning_point_ids": [],
+      "fit": "strong",
+      "fit_evidence_ids": []
+    },
+    {
+      "id": "pos-insights_and_analytics",
+      "label": "AI-driven marketing insights and analytics",
+      "kind": "buyer",
+      "buyer_need": "A buyer looking for: ai-driven marketing insights and analytics",
+      "positioning_point_ids": [],
+      "fit": "strong",
+      "fit_evidence_ids": []
+    },
+    {
+      "id": "pos-shopping_visibility",
+      "label": "Product visibility in AI Shopping",
+      "kind": "buyer",
+      "buyer_need": "A buyer looking for: product visibility in ai shopping",
+      "positioning_point_ids": [],
+      "fit": "strong",
+      "fit_evidence_ids": []
+    },
+    {
+      "id": "pos-enterprise_security_and_governance",
+      "label": "Enterprise-grade security and governance",
+      "kind": "buyer",
+      "buyer_need": "A buyer looking for: enterprise-grade security and governance",
+      "positioning_point_ids": [],
+      "fit": "strong",
+      "fit_evidence_ids": []
+    },
+    {
+      "id": "perception",
+      "label": "Brand perception",
+      "kind": "perception",
+      "buyer_need": "How AI characterises the brand when asked about it directly",
+      "positioning_point_ids": [],
+      "fit": "strong",
+      "fit_evidence_ids": []
+    }
+  ],
+  "baseline_hash": "3b160c1b343a1729235c0850229e2b071f3ca937323ad3cbdff860956951167d",
+  "probes": [
+    {
+      "id": "ai_marketer-b1",
+      "topic_id": "pos-ai_marketer",
+      "text": "What AI marketing tools can draft and manage campaigns for a mid-sized marketing team?",
+      "kind": "blind",
+      "phase": "baseline",
+      "purpose": "Placebo: would a buyer wanting 'AI marketing platform' be shown this brand?",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "ai_marketer-b2",
+      "topic_id": "pos-ai_marketer",
+      "text": "How can I use AI to create and optimize marketing content accurately at scale?",
+      "kind": "blind",
+      "phase": "baseline",
+      "purpose": "Placebo: would a buyer wanting 'AI marketing platform' be shown this brand?",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "ai_marketer-b3",
+      "topic_id": "pos-ai_marketer",
+      "text": "Which platforms help marketing teams prioritize and automate marketing tasks with AI assistance?",
+      "kind": "blind",
+      "phase": "baseline",
+      "purpose": "Placebo: would a buyer wanting 'AI marketing platform' be shown this brand?",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "insights_and_analytics-b1",
+      "topic_id": "pos-insights_and_analytics",
+      "text": "Which marketing platforms offer AI-sourced traffic and sentiment analytics?",
+      "kind": "blind",
+      "phase": "baseline",
+      "purpose": "Placebo: would a buyer wanting 'AI-driven marketing insights and analytics' be shown this brand?",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "insights_and_analytics-b2",
+      "topic_id": "pos-insights_and_analytics",
+      "text": "How can I benchmark my AI brand visibility against competitors?",
+      "kind": "blind",
+      "phase": "baseline",
+      "purpose": "Placebo: would a buyer wanting 'AI-driven marketing insights and analytics' be shown this brand?",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "insights_and_analytics-b3",
+      "topic_id": "pos-insights_and_analytics",
+      "text": "What tools allow tracking and analysis of AI-driven customer insights?",
+      "kind": "blind",
+      "phase": "baseline",
+      "purpose": "Placebo: would a buyer wanting 'AI-driven marketing insights and analytics' be shown this brand?",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "shopping_visibility-b1",
+      "topic_id": "pos-shopping_visibility",
+      "text": "How can I track my products’ visibility in AI-powered shopping platforms?",
+      "kind": "blind",
+      "phase": "baseline",
+      "purpose": "Placebo: would a buyer wanting 'Product visibility in AI Shopping' be shown this brand?",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "shopping_visibility-b2",
+      "topic_id": "pos-shopping_visibility",
+      "text": "What AI tools help optimize product listings for better placement in AI shopping results?",
+      "kind": "blind",
+      "phase": "baseline",
+      "purpose": "Placebo: would a buyer wanting 'Product visibility in AI Shopping' be shown this brand?",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "shopping_visibility-b3",
+      "topic_id": "pos-shopping_visibility",
+      "text": "Which platforms provide insights into merchant checkout options in AI commerce?",
+      "kind": "blind",
+      "phase": "baseline",
+      "purpose": "Placebo: would a buyer wanting 'Product visibility in AI Shopping' be shown this brand?",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "enterprise_security_and_governance-b1",
+      "topic_id": "pos-enterprise_security_and_governance",
+      "text": "What AI marketing platforms provide enterprise-grade security and compliance?",
+      "kind": "blind",
+      "phase": "baseline",
+      "purpose": "Placebo: would a buyer wanting 'Enterprise-grade security and governance' be shown this brand?",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "enterprise_security_and_governance-b2",
+      "topic_id": "pos-enterprise_security_and_governance",
+      "text": "Which tools support single sign-on and role-based access management for marketing teams?",
+      "kind": "blind",
+      "phase": "baseline",
+      "purpose": "Placebo: would a buyer wanting 'Enterprise-grade security and governance' be shown this brand?",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "enterprise_security_and_governance-b3",
+      "topic_id": "pos-enterprise_security_and_governance",
+      "text": "How can I ensure data protection and governance in AI marketing software?",
+      "kind": "blind",
+      "phase": "baseline",
+      "purpose": "Placebo: would a buyer wanting 'Enterprise-grade security and governance' be shown this brand?",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "np-1",
+      "topic_id": "perception",
+      "text": "What is Profound, and who is it for?",
+      "kind": "named",
+      "phase": "baseline",
+      "purpose": "Measure how AI characterises the brand when asked about it directly.",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "np-2",
+      "topic_id": "perception",
+      "text": "How would you describe Profound to someone who has never used it?",
+      "kind": "named",
+      "phase": "baseline",
+      "purpose": "Measure how AI characterises the brand when asked about it directly.",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "np-3",
+      "topic_id": "perception",
+      "text": "What do people typically use Profound for day to day?",
+      "kind": "named",
+      "phase": "baseline",
+      "purpose": "Measure how AI characterises the brand when asked about it directly.",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "np-4",
+      "topic_id": "perception",
+      "text": "What are Profound's main strengths and weaknesses?",
+      "kind": "named",
+      "phase": "baseline",
+      "purpose": "Measure how AI characterises the brand when asked about it directly.",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "np-5",
+      "topic_id": "perception",
+      "text": "Would you recommend Profound to a 200-person company? Why or why not?",
+      "kind": "named",
+      "phase": "baseline",
+      "purpose": "Measure how AI characterises the brand when asked about it directly.",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "np-6",
+      "topic_id": "perception",
+      "text": "What has changed about Profound in the past year?",
+      "kind": "named",
+      "phase": "baseline",
+      "purpose": "Measure how AI characterises the brand when asked about it directly.",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "np-7",
+      "topic_id": "perception",
+      "text": "What kind of team gets the most value out of Profound?",
+      "kind": "named",
+      "phase": "baseline",
+      "purpose": "Measure how AI characterises the brand when asked about it directly.",
+      "parent_probe_ids": []
+    },
+    {
+      "id": "np-cmp",
+      "topic_id": "perception",
+      "text": "How does Profound compare to MarketMuse, HubSpot and Brevo?",
+      "kind": "named",
+      "phase": "followup",
+      "purpose": "Exploratory: how AI frames the brand against the competitors it named itself.",
+      "parent_probe_ids": [
+        "ai_marketer-b1",
+        "ai_marketer-b2",
+        "ai_marketer-b3",
+        "insights_and_analytics-b1",
+        "insights_and_analytics-b2",
+        "insights_and_analytics-b3"
+      ]
+    }
+  ],
+  "answers": [
+    {
+      "probe_id": "ai_marketer-b1",
+      "text": "For a mid-sized marketing team seeking AI-driven tools to draft and manage campaigns, several platforms offer comprehensive solutions:\n\n\n[Best Marketing Automation Platforms (2026) · TheMarketStack](https://www.themarketstack.com/resources/best-marketing-automation-platforms?utm_source=openai)\n**HubSpot**  \nAn all-in-one CRM platform with integrated AI features across marketing, sales, and service. HubSpot's AI tools assist in content creation, lead scoring, and campaign optimization, streamlining marketing efforts. ([braze.com](https://www.braze.com/resources/articles/ai-marketing-software?utm_source=openai))\n\n\n\n[Top Email Marketing Platforms Compared: Performance, Pricing, and Scalability 2026](https://www.boldinbox.com/blog/top-16-email-marketing-agencies-2026?utm_source=openai)\n**Brevo (formerly Sendinblue)**  \nA cost-effective, beginner-friendly email marketing platform tailored for small to medium-sized businesses. Brevo integrates email marketing, CRM, automation, and multi-channel outreach—including SMS, WhatsApp, web push, and live chat—into a single intuitive interface. It offers a generous free plan allowing up to 300 daily emails, supports unlimited contacts, and includes access to core features like a drag-and-drop editor, campaign analytics, and AI-powered tools such as Aura for content generation. ([techradar.com](https://www.techradar.com/pro/software-services/brevo-review?utm_source=openai))\n\n\n\n[Overview of the most important SEO tools - IONOS CA](https://www.ionos.ca/digitalguide/online-marketing/search-engine-marketing/the-most-important-seo-tools-at-a-glance/?utm_source=openai)\n**Semrush**  \nA comprehensive suite offering keyword research, site audits, on-page optimization, competitor analysis, and PPC insights. Semrush introduced 'Semrush One,' integrating traditional SEO tools with AI-driven visibility tracking across platforms such as ChatGPT, Google Gemini, and Perplexity. ([techradar.com](https://www.techradar.com/reviews/semrush?utm_source=openai))\n\n\n\n[MarketMuse Review: AI Content Planner in 2025?](https://www.fahimai.com/marketmuse?utm_source=openai)\n**MarketMuse**  \nAn AI-powered SEO optimization platform designed to enhance content quality and improve search engine rankings. It offers tools for topic modeling, personalized content evaluations, and keyword planning, streamlining the content creation process. ([techradar.com](https://www.techradar.com/pro/marketmuse-review?utm_source=openai))\n\n\n\n[Best Newsletter Platforms for Writers: Top 10 Tools for 2025](https://bestwriting.com/blog/best-newsletter-platforms-for-writers/?utm_source=openai)\n**MailerLite**  \nAn intuitive and budget-friendly email marketing platform designed for small businesses, freelancers, and creators. It offers a user-friendly drag-and-drop editor, automation workflows, landing pages, forms, and monetization tools like digital product sales and paid newsletters. Recent enhancements include an AI writing assistant, Smart Sending optimization, and integration with AI tools like ChatGPT. ([techradar.com](https://www.techradar.com/reviews/mailerlite?utm_source=openai))\n\n\nThese platforms provide a range of AI-driven features to assist mid-sized marketing teams in drafting and managing campaigns effectively.",
+      "citations": [
+        "https://www.themarketstack.com/resources/best-marketing-automation-platforms?utm_source=openai",
+        "https://www.braze.com/resources/articles/ai-marketing-software?utm_source=openai",
+        "https://www.boldinbox.com/blog/top-16-email-marketing-agencies-2026?utm_source=openai",
+        "https://www.techradar.com/pro/software-services/brevo-review?utm_source=openai",
+        "https://www.ionos.ca/digitalguide/online-marketing/search-engine-marketing/the-most-important-seo-tools-at-a-glance/?utm_source=openai",
+        "https://www.techradar.com/reviews/semrush?utm_source=openai",
+        "https://www.fahimai.com/marketmuse?utm_source=openai",
+        "https://www.techradar.com/pro/marketmuse-review?utm_source=openai",
+        "https://bestwriting.com/blog/best-newsletter-platforms-for-writers/?utm_source=openai",
+        "https://www.techradar.com/reviews/mailerlite?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:28:47+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "HubSpot",
+          "Brevo",
+          "Semrush",
+          "MarketMuse",
+          "MailerLite"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": []
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "ai_marketer-b2",
+      "text": "Leveraging AI to create and optimize marketing content at scale can significantly enhance efficiency, consistency, and personalization. Here's how you can effectively integrate AI into your marketing strategy:\n\n**1. Content Creation**\n\nAI-powered tools can generate high-quality content across various formats, including blog posts, social media updates, email campaigns, and more. These tools often come with templates and customization options to align with your brand's voice.\n\n- **Jasper.ai**: Offers over 50 templates for diverse marketing needs, ensuring brand consistency and efficient content generation. ([blog.hubspot.com](https://blog.hubspot.com/marketing/ai-marketing-tools?idev_id=141&utm_source=openai))\n\n- **Writesonic**: Provides AI-driven content creation with a focus on SEO optimization, helping your content rank better on search engines. ([en.wikipedia.org](https://en.wikipedia.org/wiki/Writesonic?utm_source=openai))\n\n**2. SEO Optimization**\n\nOptimizing content for search engines is crucial for visibility. AI tools can assist in keyword research, content analysis, and performance tracking.\n\n- **Clearscope**: An AI-driven SEO content optimization platform that offers real-time content grading and integration with tools like Google Docs and WordPress. ([techradar.com](https://www.techradar.com/pro/clearscope-review?utm_source=openai))\n\n- **MarketMuse**: Utilizes machine learning and natural language processing to provide tools for topic modeling, personalized content evaluations, and keyword planning. ([techradar.com](https://www.techradar.com/pro/marketmuse-review?utm_source=openai))\n\n**3. Personalization and Audience Targeting**\n\nAI can analyze customer data to create personalized content that resonates with your target audience, enhancing engagement and conversion rates.\n\n- **Persado**: Uses data and analytics to generate content that connects with customers, offering a knowledge base of over 1 million tagged and scored words, phrases, and images in 25 languages. ([xtremetechnologies.net](https://xtremetechnologies.net/blog/26-ai-marketing-tools-in-2023-free-paid?utm_source=openai))\n\n**4. Performance Analysis and Optimization**\n\nAI tools can monitor content performance, providing insights to refine strategies and improve outcomes.\n\n- **Screaming Frog SEO Spider**: A comprehensive website crawling and SEO auditing tool that identifies issues like broken links, redirects, and duplicate content, supporting deep site architecture analysis. ([techradar.com](https://www.techradar.com/reviews/seo-spider?utm_source=openai))\n\n**5. Workflow Automation**\n\nIntegrating AI into your marketing workflow can automate routine tasks, allowing your team to focus on strategic initiatives.\n\n- **Seventh Sense**: An AI platform that optimizes email marketing performance and engagement by analyzing customer behavior. ([practicalecommerce.com](https://www.practicalecommerce.com/21-ai-tools-for-marketers?utm_source=openai))\n\n**6. Content Ideation**\n\nAI can assist in brainstorming content ideas by analyzing trends and audience interests.\n\n- **Frase**: Helps in content ideation and creation by providing AI-generated content briefs and topic research. ([ai-choiceguide.com](https://ai-choiceguide.com/blog/best-ai-tools-for-marketing?utm_source=openai))\n\n**7. Image and Visual Content Creation**\n\nAI tools can generate images and visual content that complement your marketing materials.\n\n- **Neuroflash**: Offers AI image generation, SEO analysis, and AI chat services, assisting in creating high-quality visual content. ([en.wikipedia.org](https://en.wikipedia.org/wiki/Neuroflash?utm_source=openai))\n\n**Best Practices for Implementing AI in Marketing Content Creation**\n\n- **Define Clear Objectives**: Identify specific goals for using AI, such as increasing content output, improving SEO rankings, or enhancing personalization.\n\n- **Choose the Right Tools**: Select AI tools that align with your marketing needs and integrate well with your existing systems.\n\n- **Maintain Human Oversight**: While AI can automate many tasks, human review ensures content quality and alignment with brand values.\n\n- **Monitor and Iterate**: Regularly analyze the performance of AI-generated content and make adjustments to optimize results.\n\nBy strategically incorporating AI into your marketing processes, you can create and optimize content more efficiently, leading to enhanced engagement and better overall performance.",
+      "citations": [
+        "https://blog.hubspot.com/marketing/ai-marketing-tools?idev_id=141&utm_source=openai",
+        "https://en.wikipedia.org/wiki/Writesonic?utm_source=openai",
+        "https://www.techradar.com/pro/clearscope-review?utm_source=openai",
+        "https://www.techradar.com/pro/marketmuse-review?utm_source=openai",
+        "https://xtremetechnologies.net/blog/26-ai-marketing-tools-in-2023-free-paid?utm_source=openai",
+        "https://www.techradar.com/reviews/seo-spider?utm_source=openai",
+        "https://www.practicalecommerce.com/21-ai-tools-for-marketers?utm_source=openai",
+        "https://ai-choiceguide.com/blog/best-ai-tools-for-marketing?utm_source=openai",
+        "https://en.wikipedia.org/wiki/Neuroflash?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:28:47+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Jasper.ai",
+          "Writesonic",
+          "Clearscope",
+          "MarketMuse",
+          "Persado",
+          "Screaming Frog SEO Spider",
+          "Seventh Sense",
+          "Frase",
+          "Neuroflash"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": []
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "ai_marketer-b3",
+      "text": "Several AI-powered platforms are designed to help marketing teams automate and prioritize tasks effectively. Here are some notable options:\n\n\n[위시 | 기업정보(매출·투자·고용) - 혁신의숲(InnoForest)](https://www.innoforest.co.kr/company/CP00015690/%EC%9C%84%EC%8B%9C?utm_source=openai)\n**Awish**  \nAn AI orchestration platform that integrates with over 1,500 apps, allowing marketing teams to automate workflows, monitor outcomes, and ensure task accuracy. It offers templates tailored for various business functions and provides real-time monitoring to catch silent failures and suggest corrective actions. ([awish.ai](https://awish.ai/?utm_source=openai))\n\n\n\n[Automatically prioritize tasks using AI – ClickUp Help](https://help.clickup.com/hc/en-us/articles/38334064769687-Automatically-prioritize-tasks-using-AI?utm_source=openai)\n**Zapier's AI Task Prioritization**  \nThis feature automatically gathers tasks from chats, project tools, and personal lists, ranking them by urgency and impact. It continuously reevaluates priorities as statuses change, providing a dynamic, ordered to-do list to ensure focus on high-priority work. ([zapier.com](https://zapier.com/automation/task-automation/ai-task-prioritization?utm_source=openai))\n\n\n\n[Christian Lisko – Portfolio](https://www.christianlisko.com/projects/workstreams-ai?utm_source=openai)\n**Workstreams.ai**  \nTailored for marketing agencies, this platform offers AI-driven task management, content idea generation, and project planning. It provides shortcuts for idea generation, automates task assignments, and integrates with tools like Slack and Teams for seamless collaboration. ([workstreams.ai](https://www.workstreams.ai/solutions/marketing/marketing-agency/?utm_source=openai))\n\n\n\n[Transform Tasks Into Visual Workflows with AI - Complete Guide (2025) | Taskade Blog](https://www.taskade.com/blog/transform-your-tasks-into-visual-workflows-with-generative-ai?utm_source=openai)\n**Taskade**  \nAn AI-powered platform that automates marketing tasks such as cross-posting content, syncing leads to CRMs, nurturing subscribers, and tracking competitors. It offers 32 automations, including lead scoring and event-based triggered emails, to streamline marketing operations. ([taskade.com](https://www.taskade.com/automate/marketing?utm_source=openai))\n\n\n\n[MarketMuse Review: AI Content Planner in 2025?](https://www.fahimai.com/marketmuse?utm_source=openai)\n**MarketMuse**  \nAn AI-driven SEO optimization platform that assists in content planning, keyword research, and competitive analysis. It offers tools for topic modeling, personalized content evaluations, and keyword planning, helping marketers enhance content quality and improve search engine rankings. ([techradar.com](https://www.techradar.com/pro/marketmuse-review?utm_source=openai))\n\n\nThese platforms leverage AI to automate routine tasks, prioritize work based on urgency and impact, and provide insights to optimize marketing strategies.",
+      "citations": [
+        "https://www.innoforest.co.kr/company/CP00015690/%EC%9C%84%EC%8B%9C?utm_source=openai",
+        "https://awish.ai/?utm_source=openai",
+        "https://help.clickup.com/hc/en-us/articles/38334064769687-Automatically-prioritize-tasks-using-AI?utm_source=openai",
+        "https://zapier.com/automation/task-automation/ai-task-prioritization?utm_source=openai",
+        "https://www.christianlisko.com/projects/workstreams-ai?utm_source=openai",
+        "https://www.workstreams.ai/solutions/marketing/marketing-agency/?utm_source=openai",
+        "https://www.taskade.com/blog/transform-your-tasks-into-visual-workflows-with-generative-ai?utm_source=openai",
+        "https://www.taskade.com/automate/marketing?utm_source=openai",
+        "https://www.fahimai.com/marketmuse?utm_source=openai",
+        "https://www.techradar.com/pro/marketmuse-review?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:28:47+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Awish",
+          "Zapier's AI Task Prioritization",
+          "Workstreams.ai",
+          "Taskade",
+          "MarketMuse"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": []
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "insights_and_analytics-b1",
+      "text": "Several marketing platforms leverage AI to provide traffic and sentiment analytics, enabling businesses to gain deeper insights into customer behavior and market trends. Here are some notable options:\n\n\n[Omni Intelligence - App desktop untuk Mac, Windows (PC) - WebCatalog](https://webcatalog.io/apps/omni-intelligence?utm_source=openai)\n**Omnilytic**  \nAn AI-powered analytics platform designed for e-commerce, Omnilytic offers real-time traffic analytics, smart retargeting, and actionable insights. It tracks the entire customer journey, from ad impressions to final sales, and utilizes machine learning to surface hidden patterns and predict trends. Additionally, it provides automated bid management and multi-touch attribution models. ([omnilytic.io](https://omnilytic.io/?utm_source=openai))\n\n\n\n\n**Commenzo**  \nThis AI-powered marketing intelligence platform monitors social media channels like Reddit, LinkedIn, X (formerly Twitter), and Instagram in real time. Commenzo provides sentiment analysis, social listening, and AI chatbot insights, transforming raw social data into structured intelligence to inform marketing strategies. ([commenzo.com](https://www.commenzo.com/?utm_source=openai))\n\n\n\n\n**SentimentIQ**  \nSentimentIQ harnesses AI to analyze customer feedback from various channels, offering sentiment scores, trend detection, and real-time alerts. It helps businesses make data-driven decisions to boost customer satisfaction, prevent churn, and accelerate growth. ([sentimentiq.co](https://www.sentimentiq.co/?utm_source=openai))\n\n\n\n[Home | GDA](https://gdalc.gdacademy.co.za/?utm_source=openai)\n**FameSense**  \nFameSense provides AI-driven reputation intelligence by unifying social media analytics, sentiment analysis, review monitoring, news signals, and campaign tracking. It enables brands, municipalities, and service teams to act proactively before potential reputation risks escalate. ([famesense.ai](https://www.famesense.ai/?utm_source=openai))\n\n\n\n[424B4](https://investors.sprinklr.com/financial-information/all-sec-filings/content/0001193125-21-197574/d58050d424b4.htm?utm_source=openai)\n**SentimentBeam**  \nThis platform offers AI-powered sentiment analysis across social media platforms like Instagram, YouTube, and TikTok. SentimentBeam processes large volumes of comments to provide actionable insights, real-time alerts, and weekly AI-generated reports, helping businesses understand their audience's sentiments effectively. ([sentimentbeam.com](https://sentimentbeam.com/?utm_source=openai))\n\n\nThese platforms utilize AI technologies to enhance marketing efforts by providing comprehensive traffic and sentiment analytics, enabling businesses to make informed decisions and optimize their strategies.",
+      "citations": [
+        "https://webcatalog.io/apps/omni-intelligence?utm_source=openai",
+        "https://omnilytic.io/?utm_source=openai",
+        "https://www.commenzo.com/?utm_source=openai",
+        "https://www.sentimentiq.co/?utm_source=openai",
+        "https://gdalc.gdacademy.co.za/?utm_source=openai",
+        "https://www.famesense.ai/?utm_source=openai",
+        "https://investors.sprinklr.com/financial-information/all-sec-filings/content/0001193125-21-197574/d58050d424b4.htm?utm_source=openai",
+        "https://sentimentbeam.com/?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:28:56+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Omnilytic",
+          "Commenzo",
+          "SentimentIQ",
+          "FameSense",
+          "SentimentBeam"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": []
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "insights_and_analytics-b2",
+      "text": "Benchmarking your AI brand visibility against competitors is essential to understand your market position and identify areas for improvement. Here's a structured approach to achieve this:\n\n**1. Define Key Metrics:**\n   - **Mentions:** How often your brand is referenced across AI platforms.\n   - **Citations:** Instances where AI platforms reference your brand as a source.\n   - **Sentiment:** The tone (positive, neutral, negative) of AI-generated content mentioning your brand.\n   - **Share of Voice:** Your brand's presence compared to competitors in AI responses.\n\n**2. Utilize Specialized Tools:**\n   - **Winek.ai:** Offers a free analysis of your brand's visibility across six major AI engines, providing a Brand Visibility Score and a prioritized action plan. ([winek.ai](https://www.winek.ai/?utm_source=openai))\n   - **Ahrefs AI Visibility Index:** Allows you to benchmark your brand's visibility across multiple AI indexes, analyzing real user prompts to assess your brand's presence. ([ahrefs.com](https://ahrefs.com/ai-visibility-index?utm_source=openai))\n   - **Brand Auditor:** Tracks your brand's mentions, citations, and recommendations across AI platforms like ChatGPT, Gemini, Perplexity, and Google AI Mode, offering competitive insights. ([brandauditor.io](https://brandauditor.io/?utm_source=openai))\n   - **Beamtrace:** Provides tools to measure your brand's visibility in AI search, including visibility scores, trend analysis, and competitor comparisons. ([beamtrace.com](https://beamtrace.com/?utm_source=openai))\n   - **SilkGeo:** Delivers an AI Visibility Score based on multiple dimensions across major AI platforms, helping you understand how AI perceives your brand. ([silkgeo.com](https://silkgeo.com/?utm_source=openai))\n   - **Veezible:** Offers AI visibility analytics, tracking your brand's presence across major AI models and providing competitive insights. ([veezible.com](https://www.veezible.com/?utm_source=openai))\n\n**3. Analyze Competitor Performance:**\n   - Use the same tools to assess your competitors' AI visibility.\n   - Identify which competitors are mentioned more frequently and in what context.\n   - Compare sentiment and share of voice metrics to gauge overall brand perception.\n\n**4. Interpret Findings:**\n   - Determine areas where your brand excels and where it lags behind competitors.\n   - Identify specific AI platforms where your brand has low visibility.\n   - Understand the sentiment associated with your brand in AI responses.\n\n**5. Develop an Action Plan:**\n   - Enhance content quality and relevance to improve AI mentions.\n   - Optimize your online presence to increase citations.\n   - Address any negative sentiment by improving customer experience and engagement.\n   - Focus on platforms where your brand has low visibility to increase share of voice.\n\nRegularly monitoring these metrics will help you adapt your strategies to improve your AI brand visibility and stay competitive in the market.\n\nFor a more in-depth discussion on measuring AI visibility and benchmarking against competitors, you might find this video helpful:\n\n[How to Measure AI Visibility: Are You Getting Found by AI or Are Your Competitors?](https://www.youtube.com/watch?v=S0T1hRsWUCI&utm_source=openai)",
+      "citations": [
+        "https://www.winek.ai/?utm_source=openai",
+        "https://ahrefs.com/ai-visibility-index?utm_source=openai",
+        "https://brandauditor.io/?utm_source=openai",
+        "https://beamtrace.com/?utm_source=openai",
+        "https://silkgeo.com/?utm_source=openai",
+        "https://www.veezible.com/?utm_source=openai",
+        "https://www.youtube.com/watch?v=S0T1hRsWUCI&utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:28:56+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Winek.ai",
+          "Ahrefs AI Visibility Index",
+          "Brand Auditor",
+          "Beamtrace",
+          "SilkGeo",
+          "Veezible"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": [
+          {
+            "attribute_id": "ai_search_visibility",
+            "quote": "providing a Brand Visibility Score",
+            "polarity": "neutral"
+          }
+        ]
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "insights_and_analytics-b3",
+      "text": "To effectively track and analyze AI-driven customer insights, several tools offer advanced analytics and actionable recommendations:\n\n\n[Verint EDM for Webex Contact Center | Webex App Hub](https://apphub.webex.com/applications/verint-edm-for-webex-contact-center-verint?utm_source=openai)\n**Verint CX Analytics**  \nUtilizes AI to extract meaningful insights from customer interactions across all channels, enhancing revenue, reducing costs, and improving customer experience. ([verint.com](https://www.verint.com/analytics-insights/?utm_source=openai))\n\n\n\n[10 Best Customer Insights Software (2026) | AmplifAI](https://www.amplifai.com/blog/customer-insights-software?utm_source=openai)\n**AmplifAI**  \nAnalyzes 100% of customer interactions, categorizing contacts into multi-level reason trees to identify patterns and emerging trends, thereby improving customer satisfaction and resolution rates. ([amplifai.com](https://www.amplifai.com/solutions/customer-intelligence-software?utm_source=openai))\n\n\n\n[Machine Learning PlayGround using OpenAI | by Anshul Yadav | Medium](https://medium.com/%40workaholicanshul/machine-learning-playground-using-openai-9a7054bf0381?utm_source=openai)\n**Enterpret**  \nProvides AI-driven recommendations by analyzing feedback from over 50 sources, grounding them in unified data and business context to prioritize actions with real impact. ([enterpret.com](https://www.enterpret.com/guides/the-5-customer-insight-tools-with-ai-driven-recommendations?utm_source=openai))\n\n\n\n[Scoop — AI Performance Management for Distributed Businesses](https://www.scoopanalytics.com/?utm_source=openai)\n**Scoop Analytics**  \nEmploys AI to discover hidden customer segments with higher conversion rates, moving beyond basic demographics to uncover complex behavioral patterns. ([scoopanalytics.com](https://www.scoopanalytics.com/solutions/marketing/ai-segmentation?utm_source=openai))\n\n\n\n[Amplitude AI Agents - Agentic AI Data Analytics](https://amplitude.com/ai-agents?utm_source=openai)\n**Dupple**  \nOffers a comprehensive suite of AI tools for customer insights, including feedback analysis, segmentation, and predictive analytics, enabling businesses to make data-driven decisions. ([dupple.com](https://dupple.com/learn/best-ai-customer-insights-tools?utm_source=openai))\n\n\nThese tools leverage AI to transform raw customer data into actionable insights, facilitating improved decision-making and enhanced customer experiences.",
+      "citations": [
+        "https://apphub.webex.com/applications/verint-edm-for-webex-contact-center-verint?utm_source=openai",
+        "https://www.verint.com/analytics-insights/?utm_source=openai",
+        "https://www.amplifai.com/blog/customer-insights-software?utm_source=openai",
+        "https://www.amplifai.com/solutions/customer-intelligence-software?utm_source=openai",
+        "https://medium.com/%40workaholicanshul/machine-learning-playground-using-openai-9a7054bf0381?utm_source=openai",
+        "https://www.enterpret.com/guides/the-5-customer-insight-tools-with-ai-driven-recommendations?utm_source=openai",
+        "https://www.scoopanalytics.com/?utm_source=openai",
+        "https://www.scoopanalytics.com/solutions/marketing/ai-segmentation?utm_source=openai",
+        "https://amplitude.com/ai-agents?utm_source=openai",
+        "https://dupple.com/learn/best-ai-customer-insights-tools?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:04+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Verint CX Analytics",
+          "AmplifAI",
+          "Enterpret",
+          "Scoop Analytics",
+          "Dupple"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": []
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "shopping_visibility-b1",
+      "text": "To effectively monitor and enhance your products' visibility on AI-powered shopping platforms, consider utilizing specialized tools designed for this purpose. Here are some notable options:\n\n\n[شعار ريسبكت nel 2025](https://mx.pinterest.com/pin/998039967425547187/?utm_source=openai)\n**Ranketta**  \nOffers merchandising and analytics tailored for AI shopping, enabling you to track product visibility, address content gaps, and optimize your catalog for AI recommendations. ([ranketta.com](https://ranketta.com/?utm_source=openai))\n\n\n\n[AI Product Photography for Accessories: No Studio Needed](https://tryaistudio.app/blogs/ai-product-photography-for-accessories?utm_source=openai)\n**Studyo**  \nProvides AI visibility reports, showcasing how top brands perform in AI shopping, including rankings, sentiment analysis, and actionable recommendations. ([studyo.ai](https://www.studyo.ai/?utm_source=openai))\n\n\n\n[SLIM AI – Smart Lake Intelligence & Monitoring | Devpost](https://devpost.com/software/slim-ai-smart-lake-intelligence-monitoring?utm_source=openai)\n**Kabini.ai**  \nSpecializes in AI monitoring for Shopify stores, allowing you to track product rankings across various AI tools and offering insights to boost sales. ([kabini.ai](https://kabini.ai/?utm_source=openai))\n\n\n\n[連鎖門店多元巡檢方案](https://www.iplatform24.com/page/news/show.aspx?num=48&utm_source=openai)\n**ShopVisible**  \nFocuses on AI-powered optimization for Shopify, helping you get discovered on platforms like ChatGPT, Claude, and Perplexity through its Generative Engine Optimization (GEO) platform. ([shopvisible.ai](https://www.shopvisible.ai/?utm_source=openai))\n\n\n\n[pygpt-net · PyPI](https://pypi.org/project/pygpt-net/?utm_source=openai)\n**SeenByLLM**  \nEnables you to track how AI assistants describe your brand, providing insights into which products are recommended and where improvements are needed. ([seenbyllm.com](https://seenbyllm.com/?utm_source=openai))\n\n\nBy leveraging these tools, you can gain valuable insights into your products' performance on AI-driven shopping platforms and implement strategies to enhance their visibility and sales.",
+      "citations": [
+        "https://mx.pinterest.com/pin/998039967425547187/?utm_source=openai",
+        "https://ranketta.com/?utm_source=openai",
+        "https://tryaistudio.app/blogs/ai-product-photography-for-accessories?utm_source=openai",
+        "https://www.studyo.ai/?utm_source=openai",
+        "https://devpost.com/software/slim-ai-smart-lake-intelligence-monitoring?utm_source=openai",
+        "https://kabini.ai/?utm_source=openai",
+        "https://www.iplatform24.com/page/news/show.aspx?num=48&utm_source=openai",
+        "https://www.shopvisible.ai/?utm_source=openai",
+        "https://pypi.org/project/pygpt-net/?utm_source=openai",
+        "https://seenbyllm.com/?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:05+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Ranketta",
+          "Studyo",
+          "Kabini.ai",
+          "ShopVisible",
+          "SeenByLLM"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": []
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "shopping_visibility-b2",
+      "text": "Optimizing product listings is crucial for enhancing visibility and driving sales across various e-commerce platforms. Several AI-powered tools have been developed to assist sellers in this endeavor:\n\n\n[Shop LIFT's courses and products](https://www.liftps.com/lift-shop?utm_source=openai)\n**LiftMy.Shop**  \nOffers AI-driven audits for product listings, providing scores, actionable fixes, and competitor insights within 30 seconds. Supports platforms like Amazon, Shopify, Walmart, and eBay. ([liftmy.shop](https://liftmy.shop/?utm_source=openai))\n\n\n\n[Channel Pilot Pro - Easily bring your products to thousands of online channels | Shopify App Store](https://apps.shopify.com/channelpilot?utm_source=openai)\n**ChannelOpt**  \nAn AI-powered content optimization platform tailored for multiple marketplaces, including Amazon, Shopify, eBay, and Walmart. It generates unique titles, descriptions, and search terms optimized for each platform. ([channelopt.com](https://www.channelopt.com/?utm_source=openai))\n\n\n\n[Knowledge Community](https://support.mlslistings.com/s/article/How-to-add-a-Members-Only-Listing-under-a-Team?utm_source=openai)\n**OptimListing**  \nSpecializes in AI-driven optimization for Amazon, Shopify, Etsy, and eBay. It rewrites titles, descriptions, and tags to improve rankings and conversion rates. ([optimlisting.com](https://www.optimlisting.com/?utm_source=openai))\n\n\n\n[软件推荐-国内参数优化软件：1stOpt - First Optimizationg-CSDN博客](https://blog.csdn.net/weixin_33807284/article/details/93945579?utm_source=openai)\n**Optilist**  \nProvides AI-powered audits that identify SEO gaps and enhance product visuals, offering actionable tasks and downloadable images to improve listings. ([optilist.app](https://optilist.app/?utm_source=openai))\n\n\n\n\n**Cosmy**  \nFocuses on optimizing Amazon listings, offering insights into how Amazon's AI assistant interprets product content and providing recommendations for improvement. ([cosmy.ai](https://cosmy.ai/?utm_source=openai))\n\n\nThese tools leverage artificial intelligence to analyze and enhance product listings, aiming to improve their performance in search results and increase sales.",
+      "citations": [
+        "https://www.liftps.com/lift-shop?utm_source=openai",
+        "https://liftmy.shop/?utm_source=openai",
+        "https://apps.shopify.com/channelpilot?utm_source=openai",
+        "https://www.channelopt.com/?utm_source=openai",
+        "https://support.mlslistings.com/s/article/How-to-add-a-Members-Only-Listing-under-a-Team?utm_source=openai",
+        "https://www.optimlisting.com/?utm_source=openai",
+        "https://blog.csdn.net/weixin_33807284/article/details/93945579?utm_source=openai",
+        "https://optilist.app/?utm_source=openai",
+        "https://cosmy.ai/?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:13+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "LiftMy.Shop",
+          "ChannelOpt",
+          "OptimListing",
+          "Optilist",
+          "Cosmy"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": []
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "shopping_visibility-b3",
+      "text": "Several platforms offer insights into merchant checkout options within the realm of AI-driven commerce. Here are some notable examples:\n\n\n\n**Kindred**  \nKindred provides commerce infrastructure for AI and payments, connecting AI platforms, browsers, and apps to over 75,000 merchants worldwide. Their enterprise APIs facilitate seamless transactions, turning conversations into commerce. ([kindred.co](https://kindred.co/?utm_source=openai))\n\n\n\n[The 3-Step AI Reply Agent system: 15 extra demos with no effort](https://instantly.ai/blog/ai-reply-agent-for-sales-teams/?lng=en&utm_source=openai)\n**AutoTill**  \nAutoTill offers an AI sales agent that replaces traditional product browsing with conversational commerce. It interprets shopper intent, builds baskets, and completes checkouts within a single conversation, integrating with platforms like Shopify and WooCommerce. ([autotill.com](https://www.autotill.com/?utm_source=openai))\n\n\n\n[Mashgin | The World's Fastest AI Checkout](https://www.mashgin.com/?utm_source=openai)\n**ScaleQ**  \nScaleQ utilizes AI and machine learning to identify high-intent shoppers in real-time, guiding them through the checkout process to reduce abandonment rates. It operates on both regular and peak event checkouts, allowing for performance measurement before full activation. ([scaleq.ai](https://scaleq.ai/?utm_source=openai))\n\n\n\n[アメリカで「AIレジ」が普及　最短10秒で支払いを完了](https://www.fashionsnap.com/article/2025-01-25/ai-cash-register/?utm_source=openai)\n**Mashgin**  \nMashgin's AI-powered checkout system employs computer vision to instantly identify items without the need for scanning or barcodes. Customers can place items, pay, and go in approximately five seconds, enhancing the checkout experience. ([mashgin.com](https://www.mashgin.com/?utm_source=openai))\n\n\n\n[Freya's Mirror - AI Powered Virtual Try On](https://www.freyasmirror.ai/?utm_source=openai)\n**Freway**  \nFreway's autonomous checkout agent, Janine, engages buyers at checkout, answers their questions, and adapts the payment flow to close more sales. It is designed for both human buyers and AI buying agents, aiming to increase conversion rates and repeat purchases. ([freway.ai](https://www.freway.ai/?utm_source=openai))\n\n\nThese platforms leverage AI to enhance the merchant checkout process, offering various tools and integrations to improve transaction efficiency and customer experience.",
+      "citations": [
+        "https://kindred.co/?utm_source=openai",
+        "https://instantly.ai/blog/ai-reply-agent-for-sales-teams/?lng=en&utm_source=openai",
+        "https://www.autotill.com/?utm_source=openai",
+        "https://www.mashgin.com/?utm_source=openai",
+        "https://scaleq.ai/?utm_source=openai",
+        "https://www.fashionsnap.com/article/2025-01-25/ai-cash-register/?utm_source=openai",
+        "https://www.freyasmirror.ai/?utm_source=openai",
+        "https://www.freway.ai/?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:14+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Kindred",
+          "AutoTill",
+          "ScaleQ",
+          "Mashgin",
+          "Freway"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": []
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "enterprise_security_and_governance-b1",
+      "text": "Several AI marketing platforms offer enterprise-grade security and compliance features to meet the stringent requirements of large organizations. Here are some notable options:\n\n\n[Markey AI - Simplifica el Marketing Digital con Automatización de IA | Creati.ai](https://creati.ai/es/ai-tools/markey-ai/?utm_source=openai)\n**Markety AI**  \nAn enterprise AI marketing platform trusted by Fortune 500 companies, government agencies, and global brands. It offers HIPAA-ready contact-center automation, secure support automation at enterprise scale, and is SOC 2 compliant with end-to-end encryption. ([markety.ai](https://www.markety.ai/?utm_source=openai))\n\n\n\n[AI Tools for Marketing: The Essential Tools You Need](https://later.com/blog/ai-tools-for-marketers/?utm_source=openai)\n**Trapica**  \nProvides AI-powered marketing automation at scale for Fortune 500 companies and large organizations. Features include SOC 2 Type II compliant security with SSO/SAML integration, custom AI model training on proprietary data, and enterprise APIs with custom integrations. ([trapica.com](https://trapica.com/enterprise?utm_source=openai))\n\n\n\n[Agentic AI Platform Overview - Druid AI](https://www.druidai.com/platform/enterprise-agentic-platform?utm_source=openai)\n**Druid AI**  \nOffers enterprise-grade security for trusted AI agents at scale, including end-to-end encryption, strict role-based access control (RBAC), single sign-on (SSO), tenant isolation, and comprehensive auditing. It is compliant with CCPA, GDPR, HIPAA, SOC 2, ISO 27001, and EU AI Act readiness. ([druidai.com](https://www.druidai.com/platform/security?utm_source=openai))\n\n\n\n[20 Best Sales Enablement Tools, & Platforms | Mindtickle](https://www.mindtickle.com/blog/sales-enablement-tools/?utm_source=openai)\n**Highspot**  \nFeatures a secure, enterprise-grade AI engine called Nexus, which ensures that customer data remains private and controlled. Highspot is certified to meet global standards, including SOC 2 Type II, ISO 27001, ISO 27701, GDPR, and the EU AI Act. ([highspot.com](https://www.highspot.com/product/security/?utm_source=openai))\n\n\n\n[Tech stack of Luthor - Indie Hacker Stacks](https://indiehackerstacks.com/products/luthor?utm_source=openai)\n**Luthor AI**  \nProvides enterprise marketing compliance by automatically reviewing every asset against regulations and internal policies before publication. It offers continuous compliance across enterprise marketing and communications, ensuring that all content meets regulatory standards. ([luthor.ai](https://www.luthor.ai/?utm_source=openai))\n\n\nWhen selecting an AI marketing platform, it's crucial to assess your organization's specific security and compliance needs to ensure the chosen solution aligns with your requirements.",
+      "citations": [
+        "https://creati.ai/es/ai-tools/markey-ai/?utm_source=openai",
+        "https://www.markety.ai/?utm_source=openai",
+        "https://later.com/blog/ai-tools-for-marketers/?utm_source=openai",
+        "https://trapica.com/enterprise?utm_source=openai",
+        "https://www.druidai.com/platform/enterprise-agentic-platform?utm_source=openai",
+        "https://www.druidai.com/platform/security?utm_source=openai",
+        "https://www.mindtickle.com/blog/sales-enablement-tools/?utm_source=openai",
+        "https://www.highspot.com/product/security/?utm_source=openai",
+        "https://indiehackerstacks.com/products/luthor?utm_source=openai",
+        "https://www.luthor.ai/?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:14+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Markety AI",
+          "Trapica",
+          "Druid AI",
+          "Highspot",
+          "Luthor AI"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": []
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "enterprise_security_and_governance-b2",
+      "text": "Several tools offer Single Sign-On (SSO) and role-based access management tailored for marketing teams. Here are some notable options:\n\n\n[GitHub - TypiCMS/Base: Multilingual CMS built with Laravel.](https://github.com/TypiCMS/Base?utm_source=openai)\n**Type CMS**  \nProvides granular, secure access control with role-based permissions, team management, and authentication options including MFA, SSO, OTP, and more. ([typecms.com](https://www.typecms.com/platform/security?utm_source=openai))\n\n\n\n\n**Cohiva**  \nOffers a unified platform with SSO across all products, centralized billing, and team access management, integrating seamlessly with tools like Azure AD, Google, and Okta. ([central.cohiva.app](https://central.cohiva.app/?utm_source=openai))\n\n\n\n[Certify The Web - Documentation | Certify The Web Docs](https://docs.certifytheweb.com/?utm_source=openai)\n**Management Hub**  \nEnables centralized management of users, teams, roles, and applications with SSO and two-factor authentication, integrating with Google Workspace and supporting OAuth 2.0 and OpenID Connect. ([managementhub.us](https://www.managementhub.us/?utm_source=openai))\n\n\n\n[Manage Users](https://docs.clevertap.com/docs/manage-users?utm_source=openai)\n**ClickPattern**  \nFeatures multi-user management with role-based access controls, allowing assignment of Admin, Manager, or Viewer roles, and supports team collaboration with shared dashboards and reports. ([clickpattern.com](https://www.clickpattern.com/features/multi-user-management?utm_source=openai))\n\n\n\n[Minting a Counterparty Asset to Emblem Vault Curated Collections · GitHub](https://gist.github.com/davestaxcp/6a74ecfb159647ae59f2b47d786ba61e?utm_source=openai)\n**EmpireVault Hub**  \nProvides multi-tenant SaaS administration with SSO via WorkOS, supporting SAML or OIDC, and includes an immutable audit log covering over 350 event types. ([empirevault.com](https://www.empirevault.com/products/hub/?utm_source=openai))\n\n\nWhen selecting a tool, consider your team's specific needs, existing integrations, and the scalability of the solution to ensure it aligns with your marketing operations.",
+      "citations": [
+        "https://github.com/TypiCMS/Base?utm_source=openai",
+        "https://www.typecms.com/platform/security?utm_source=openai",
+        "https://central.cohiva.app/?utm_source=openai",
+        "https://docs.certifytheweb.com/?utm_source=openai",
+        "https://www.managementhub.us/?utm_source=openai",
+        "https://docs.clevertap.com/docs/manage-users?utm_source=openai",
+        "https://www.clickpattern.com/features/multi-user-management?utm_source=openai",
+        "https://gist.github.com/davestaxcp/6a74ecfb159647ae59f2b47d786ba61e?utm_source=openai",
+        "https://www.empirevault.com/products/hub/?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:20+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "Type CMS",
+          "Cohiva",
+          "Management Hub",
+          "ClickPattern",
+          "EmpireVault Hub"
+        ],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": []
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "enterprise_security_and_governance-b3",
+      "text": "Ensuring data protection and governance in AI marketing software is crucial to maintain compliance, protect customer privacy, and uphold brand integrity. Here are key strategies to implement:\n\n1. **Establish a Clear AI Governance Framework**: Define the scope and purpose of AI applications in marketing, specifying acceptable use cases and boundaries. This includes determining where AI will be applied—such as media, email, website personalization, content, CRM, and analytics—and identifying areas that are off-limits, like sensitive customer segments or high-risk decisions. ([chiefviews.com](https://chiefviews.com/ai-marketing-governance-framework/?utm_source=openai))\n\n2. **Implement Robust Data Governance Practices**: Classify and inventory all data sources used by AI tools, including CRM systems, customer data platforms (CDPs), analytics platforms, and third-party data. Ensure that data handling complies with privacy regulations and that sensitive information is appropriately protected. ([chiefviews.com](https://chiefviews.com/ai-marketing-governance-framework/?utm_source=openai))\n\n3. **Ensure Compliance with Regulations**: Stay informed about relevant data protection laws, such as the GDPR, HIPAA, and the EU AI Act. Implement measures to ensure that AI systems process data in accordance with these regulations, including data anonymization, encryption, and obtaining necessary consents. ([techtarget.com](https://www.techtarget.com/ai/tip/AI-governance-can-make-or-break-data-monetization?utm_source=openai))\n\n4. **Maintain Transparency and Explainability**: Develop AI models that are transparent and explainable to stakeholders. This includes providing clear documentation of how AI decisions are made and ensuring that AI systems can be audited for compliance and ethical considerations. ([techtarget.com](https://www.techtarget.com/ai/tip/8-agentic-AI-governance-strategies-A-complete-guide?utm_source=openai))\n\n5. **Monitor and Audit AI Systems Regularly**: Establish continuous monitoring and auditing processes to assess AI system performance, data quality, and adherence to governance policies. This helps in identifying and mitigating potential risks or biases in AI outputs. ([techtarget.com](https://www.techtarget.com/ai/tip/8-agentic-AI-governance-strategies-A-complete-guide?utm_source=openai))\n\n6. **Implement Data Security Measures**: Adopt data security protocols, such as encryption, access controls, and regular security assessments, to protect data from unauthorized access or breaches. ([techtarget.com](https://www.techtarget.com/ai/tip/AI-governance-can-make-or-break-data-monetization?utm_source=openai))\n\n7. **Provide Staff Training and Awareness**: Educate employees on data protection principles, ethical AI use, and the organization's governance policies to foster a culture of compliance and responsibility. ([techtarget.com](https://www.techtarget.com/ai/tip/8-agentic-AI-governance-strategies-A-complete-guide?utm_source=openai))\n\n8. **Establish Clear Decision Rights and Accountability**: Define who is responsible for approving AI models, tools, and outputs, and ensure that there is a clear chain of accountability for AI-driven decisions. ([pedowitzgroup.com](https://www.pedowitzgroup.com/how-do-i-create-an-ai-governance-framework-for-marketing?utm_source=openai))\n\nBy implementing these strategies, organizations can effectively govern their AI marketing software, ensuring data protection, regulatory compliance, and ethical use of AI technologies.",
+      "citations": [
+        "https://chiefviews.com/ai-marketing-governance-framework/?utm_source=openai",
+        "https://www.techtarget.com/ai/tip/AI-governance-can-make-or-break-data-monetization?utm_source=openai",
+        "https://www.techtarget.com/ai/tip/8-agentic-AI-governance-strategies-A-complete-guide?utm_source=openai",
+        "https://www.pedowitzgroup.com/how-do-i-create-an-ai-governance-framework-for-marketing?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:22+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [],
+        "evidence_quotes": [],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": []
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "np-1",
+      "text": "Profound is an enterprise-grade AI search visibility platform that enables marketing teams to monitor, analyze, and optimize how their brand is represented across various AI-powered answer engines, including ChatGPT, Perplexity, Claude, Gemini, and others. ([frenus.com](https://www.frenus.com/ecosystem/profound?utm_source=openai))\n\n**Key Features:**\n\n- **Answer Engine Insights:** Tracks brand citations, sentiment, and competitive presence across multiple AI platforms.\n- **Prompt Volumes:** Analyzes real user queries to align content strategies with actual buyer demand.\n- **Agent Analytics:** Provides data on AI crawlers' interactions with a company's website, offering insights into content ingestion for training and retrieval.\n- **Agents:** Deploys autonomous AI workers to generate and distribute content optimized for AI citation.\n\nProfound is tailored for enterprise marketing, content, and PR teams within B2B SaaS, financial services, retail, and consumer technology sectors. Notable clients include U.S. Bank, MongoDB, Chime, DocuSign, and Indeed. The platform is particularly beneficial for Account-Based Marketing (ABM) programs, where positive AI-generated citations are crucial for inclusion in buyer shortlists. ([frenus.com](https://www.frenus.com/ecosystem/profound?utm_source=openai))\n\nIn summary, Profound is designed for large organizations seeking to enhance their brand visibility and influence within AI-driven search environments.",
+      "citations": [
+        "https://www.frenus.com/ecosystem/profound?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:22+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [],
+        "evidence_quotes": [
+          "Profound is an enterprise-grade AI search visibility platform",
+          "Profound is tailored for enterprise marketing, content, and PR teams",
+          "The platform is particularly beneficial for Account-Based Marketing (ABM) programs, where positive AI-generated citations are crucial for inclusion in buyer shortlists."
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": [
+          {
+            "attribute_id": "ai_search_visibility",
+            "quote": "Tracks brand citations, sentiment, and competitive presence across multiple AI platforms.",
+            "polarity": "positive"
+          }
+        ]
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "np-2",
+      "text": "Profound is an AI visibility and optimization platform that helps businesses monitor and enhance their brand presence across AI-powered search engines like ChatGPT, Perplexity, Claude, Gemini, and Google AI Overviews. By tracking real-time mentions, analyzing sentiment, and providing actionable insights, Profound enables companies to ensure accurate and favorable representation in AI-generated responses. This approach is particularly important as consumer search behaviors shift from traditional web results to conversational AI responses. ([ai-market-watch.com](https://www.ai-market-watch.com/company/profound?utm_source=openai))\n\nFounded in 2024 by James Cadwallader and Dylan Babbs, Profound has rapidly expanded, raising over $155 million across multiple funding rounds, including a $96 million Series C led by Lightspeed Venture Partners in February 2026. ([tryprofound.com](https://www.tryprofound.com/ai-instructions?utm_source=openai)) With offices in New York City, San Francisco, London, and Buenos Aires, the company employs a team of over 100 professionals. ([ai-market-watch.com](https://www.ai-market-watch.com/company/profound?utm_source=openai))\n\nBy leveraging Profound's platform, businesses can effectively navigate the evolving landscape of AI-driven search, ensuring their brand maintains a strong and accurate presence in this emerging channel.",
+      "citations": [
+        "https://www.ai-market-watch.com/company/profound?utm_source=openai",
+        "https://www.tryprofound.com/ai-instructions?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:26+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [],
+        "evidence_quotes": [
+          "Profound is an AI visibility and optimization platform",
+          "ensuring their brand maintains a strong and accurate presence"
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": [
+          {
+            "attribute_id": "ai_search_visibility",
+            "quote": "helps businesses monitor and enhance their brand presence",
+            "polarity": "positive"
+          },
+          {
+            "attribute_id": "insights_and_analytics",
+            "quote": "providing actionable insights",
+            "polarity": "positive"
+          }
+        ]
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "np-3",
+      "text": "Profound is a comprehensive platform designed to enhance brand visibility and performance across various AI-powered search engines. Its primary applications include:\n\n1. **Prompt Tracking and Analysis**: Profound monitors how brands appear across major AI platforms, capturing responses directly from consumer interactions. This allows businesses to understand which prompts drive citations, identify target audiences, and make informed decisions to improve their AI presence. ([tryprofound.com](https://www.tryprofound.com/features/answer-engine-insights/prompt-tracking?utm_source=openai))\n\n2. **Answer Engine Insights**: The platform provides daily visibility into how a brand is represented across AI answer engines like ChatGPT, Perplexity, Google AI Overviews, Gemini, Microsoft Copilot, Claude, and Grok. This feature helps brands assess their performance and adjust strategies accordingly. ([tryprofound.com](https://www.tryprofound.com/ai-instructions?utm_source=openai))\n\n3. **Content Generation and Workflow Automation**: Profound's Agents feature enables businesses to generate new content, refresh existing pages, and launch automated outreach and reporting workflows. This streamlines content creation and distribution processes, enhancing efficiency. ([tryprofound.com](https://www.tryprofound.com/features/answer-engine-insights/prompt-tracking?utm_source=openai))\n\n4. **Competitive Intelligence**: By analyzing AI-generated answers and citation sources, Profound offers insights into competitors' performance, allowing brands to identify opportunities and refine their strategies. ([tryprofound.com](https://www.tryprofound.com/features/answer-engine-insights/prompt-tracking?utm_source=openai))\n\nIn summary, Profound is utilized daily by businesses to monitor and enhance their AI visibility, generate content, automate workflows, and gain competitive insights, thereby optimizing their overall digital presence.",
+      "citations": [
+        "https://www.tryprofound.com/features/answer-engine-insights/prompt-tracking?utm_source=openai",
+        "https://www.tryprofound.com/ai-instructions?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:29+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [],
+        "evidence_quotes": [
+          "Profound is a comprehensive platform",
+          "enhance brand visibility and performance",
+          "monitor and enhance their AI visibility"
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": [
+          {
+            "attribute_id": "ai_search_visibility",
+            "quote": "Profound monitors how brands appear across major AI platforms",
+            "polarity": "positive"
+          },
+          {
+            "attribute_id": "content_generation_and_workflow_automation",
+            "quote": "Profound's Agents feature enables businesses to generate new content",
+            "polarity": "positive"
+          },
+          {
+            "attribute_id": "competitive_intelligence",
+            "quote": "Profound offers insights into competitors' performance",
+            "polarity": "positive"
+          }
+        ]
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "np-4",
+      "text": "The term \"Profound\" can refer to various entities, such as a company, product, or concept. To provide an accurate assessment of its strengths and weaknesses, could you please specify which \"Profound\" you're referring to? For example, are you asking about:\n\n- A company named Profound?\n- A product or service called Profound?\n- A specific concept or idea described as profound?\n\nProviding more context will help me offer a detailed and relevant response.",
+      "citations": [],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:30+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [],
+        "evidence_quotes": [],
+        "on_topic": false,
+        "outdated_claim_quote": null,
+        "attributes": []
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "np-5",
+      "text": "Profound is an AI search visibility and optimization platform that helps enterprise brands track, analyze, and improve their presence in AI-generated answers across major large language model engines. ([ai-market-watch.com](https://www.ai-market-watch.com/company/profound?utm_source=openai)) Founded in 2024, the company has rapidly expanded, serving over 1,000 enterprise customers, including Comcast, The Estée Lauder Companies, and Walmart. ([techcrunch.com](https://techcrunch.com/2026/09/15/aeo-startup-profound-hits-unicorn-valuation-raises-180m-series-d-7-months-after-last-round/?utm_source=openai))\n\nGiven your company's size of 200 employees, Profound's solutions could be highly beneficial. Their platform offers real-time visibility analytics, competitive intelligence, and actionable insights across the entire GenAI ecosystem, enabling marketing teams to turn AI-driven discovery into a competitive advantage. ([linkedin.com](https://www.linkedin.com/company/tryprofound/?utm_source=openai))\n\nAdditionally, Profound has demonstrated significant growth, with a valuation of $1.8 billion as of September 2026, reflecting strong investor confidence and market demand for their services. ([tryprofound.com](https://www.tryprofound.com/newsroom/profound-raises-usd180m-series-d-at-usd1-8b-valuation-to-build-the-ai-platform-for-marketing-teams?utm_source=openai))\n\nConsidering your company's size and the increasing importance of AI in marketing, Profound's platform could provide valuable tools to enhance your brand's visibility and competitiveness in the evolving digital landscape.",
+      "citations": [
+        "https://www.ai-market-watch.com/company/profound?utm_source=openai",
+        "https://techcrunch.com/2026/09/15/aeo-startup-profound-hits-unicorn-valuation-raises-180m-series-d-7-months-after-last-round/?utm_source=openai",
+        "https://www.linkedin.com/company/tryprofound/?utm_source=openai",
+        "https://www.tryprofound.com/newsroom/profound-raises-usd180m-series-d-at-usd1-8b-valuation-to-build-the-ai-platform-for-marketing-teams?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:32+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [],
+        "evidence_quotes": [
+          "Profound's solutions could be highly beneficial.",
+          "Profound's platform could provide valuable tools to enhance your brand's visibility"
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": [
+          {
+            "attribute_id": "ai_search_visibility",
+            "quote": "AI search visibility and optimization platform that helps enterprise brands track",
+            "polarity": "positive"
+          },
+          {
+            "attribute_id": "insights_and_analytics",
+            "quote": "real-time visibility analytics, competitive intelligence, and actionable insights",
+            "polarity": "positive"
+          }
+        ]
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "np-6",
+      "text": "Over the past year, several significant developments have occurred across various sectors:\n\n**Health and Medicine:**\n- **Decline in COVID-19 Cases:** By December 2023, COVID-19 deaths in the U.S. had decreased to around 65,000, less than half the number from 2022. This decline was attributed to widespread access to updated vaccines and treatments. ([time.com](https://time.com/6550576/13-ways-the-world-got-better-in-2023/?utm_source=openai))\n- **Advancements in Medical Science:** Notable progress included successful trials of pig organs in humans, the first whole-eye transplant, and partial reversals of paralysis. ([time.com](https://time.com/6550576/13-ways-the-world-got-better-in-2023/?utm_source=openai))\n\n**Technology and Artificial Intelligence:**\n- **Mainstream Adoption of AI:** Artificial intelligence, particularly tools like ChatGPT, gained widespread prominence, sparking both excitement and concern among creative professionals and regulators. ([apnews.com](https://apnews.com/article/565ff5b817b5db0d4e74829ae3d68611?utm_source=openai))\n- **Regulation Efforts:** The European Union reached a landmark deal on AI regulation, though implementation is expected to take years. ([apnews.com](https://apnews.com/article/565ff5b817b5db0d4e74829ae3d68611?utm_source=openai))\n\n**Economy and Business:**\n- **Stock Market Performance:** The S&P 500 gained nearly 25% in 2023, surpassing analysts' expectations and indicating economic resilience. ([washingtonpost.com](https://www.washingtonpost.com/business/2023/12/29/stock-market-2023/?utm_source=openai))\n- **Housing Market Challenges:** The U.S. housing market faced difficulties due to soaring mortgage rates, leading to a 20% decline in home sales for the first ten months of 2023. ([apnews.com](https://apnews.com/article/bfead409df9b22fc9b688a48efc1010f?utm_source=openai))\n\n**Environment and Climate:**\n- **Climate Innovations:** Breakthroughs like long-duration iron-air batteries and commercial-scale carbon-based thermal batteries entered production, contributing to global efforts to combat climate change. ([time.com](https://time.com/6550576/13-ways-the-world-got-better-in-2023/?utm_source=openai))\n\n\n## Highlights:\n- [13 Ways the World Got Better in 2023](https://time.com/6550576/13-ways-the-world-got-better-in-2023/?utm_source=openai), Published on Tuesday, December 26\n- [2023: The year we played with artificial intelligence - and weren't sure what to do about it](https://apnews.com/article/565ff5b817b5db0d4e74829ae3d68611?utm_source=openai), Published on Thursday, December 14\n- [From AI and inflation to Elon Musk and Taylor Swift, the business stories that dominated 2023](https://apnews.com/article/bfead409df9b22fc9b688a48efc1010f?utm_source=openai), Published on Tuesday, December 19",
+      "citations": [
+        "https://time.com/6550576/13-ways-the-world-got-better-in-2023/?utm_source=openai",
+        "https://apnews.com/article/565ff5b817b5db0d4e74829ae3d68611?utm_source=openai",
+        "https://www.washingtonpost.com/business/2023/12/29/stock-market-2023/?utm_source=openai",
+        "https://apnews.com/article/bfead409df9b22fc9b688a48efc1010f?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:35+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": false,
+        "recommended": false,
+        "negative_mention": false,
+        "competitor_recommendations": [],
+        "evidence_quotes": [],
+        "on_topic": false,
+        "outdated_claim_quote": null,
+        "attributes": []
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "np-7",
+      "text": "Profound is an AI-powered platform designed to enhance brand visibility and performance across AI-driven search and answer engines. Teams that derive the most value from Profound typically include:\n\n- **Enterprise Marketing Teams**: These teams utilize Profound to monitor and optimize how their brand appears across various AI-powered platforms, such as ChatGPT, Perplexity, and Gemini. By analyzing citations, prompts, and AI traffic, they can improve their brand's presence and engagement in AI-generated content. ([tryprofound.com](https://www.tryprofound.com/ai-instructions?utm_source=openai))\n\n- **Content and SEO Teams**: Profound's tools assist in understanding audience-question research, AI-answer monitoring, and content optimization. Features like Prompt Volumes support demand research, while Answer Engine Insights measure visibility and share of voice, aiding in strategic content planning. ([xtrusio.com](https://xtrusio.com/blog/what-is-profound-ai-content-visibility?utm_source=openai))\n\n- **Product and Data Analytics Teams**: By integrating Profound's analytics, these teams can gain insights into user behavior and AI interactions, informing product development and data-driven decision-making. ([tryprofoundai.com](https://www.tryprofoundai.com/?utm_source=openai))\n\nIn summary, Profound is particularly beneficial for teams focused on enhancing brand visibility, optimizing content for AI platforms, and leveraging data analytics to inform strategic decisions.",
+      "citations": [
+        "https://www.tryprofound.com/ai-instructions?utm_source=openai",
+        "https://xtrusio.com/blog/what-is-profound-ai-content-visibility?utm_source=openai",
+        "https://www.tryprofoundai.com/?utm_source=openai"
+      ],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:35+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [],
+        "evidence_quotes": [
+          "Profound is an AI-powered platform",
+          "These teams utilize Profound to monitor",
+          "Profound's tools assist in understanding",
+          "By integrating Profound's analytics, these teams"
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": [
+          {
+            "attribute_id": "ai_search_visibility",
+            "quote": "monitor and optimize how their brand appears",
+            "polarity": "positive"
+          },
+          {
+            "attribute_id": "insights_and_analytics",
+            "quote": "gain insights into user behavior and AI interactions",
+            "polarity": "positive"
+          }
+        ]
+      },
+      "evaluator_model": "gpt-4o-mini"
+    },
+    {
+      "probe_id": "np-cmp",
+      "text": "Profound, MarketMuse, HubSpot, and Brevo are distinct platforms serving different aspects of digital marketing and customer relationship management. Here's a comparative overview:\n\n**Profound vs. MarketMuse:**\n\n- **Profound** is an AI-driven platform focusing on brand perception analysis, sentiment monitoring, and competitive narrative analysis. It offers deep insights into how AI systems describe a brand and its competitive positioning.\n\n- **MarketMuse** is an AI-powered content research and optimization platform designed to assist in content creation by providing insights into content gaps, keyword opportunities, and competitive analysis.\n\n**Key Differences:**\n\n- **Focus Area:** Profound emphasizes brand perception and competitive analysis, while MarketMuse concentrates on content optimization and strategy.\n\n- **Integration:** Profound offers API access for custom integrations with existing data infrastructures, making it suitable for enterprise teams with established systems. MarketMuse integrates with content management systems to enhance content creation processes.\n\n**HubSpot vs. Profound:**\n\n- **HubSpot** is a comprehensive CRM platform that includes marketing, sales, and service tools. Its AI-powered tools, like HubSpot AEO, are built into the HubSpot ecosystem, offering seamless integration with CRM records, campaign workflows, and content tools.\n\n- **Profound** provides in-depth analysis of brand perception and competitive positioning, offering API access for custom integrations and connecting with external CMS and marketing platforms.\n\n**Key Differences:**\n\n- **Integration:** HubSpot's AI tools are natively integrated into its platform, requiring no additional setup. Profound offers flexibility through API access but may require technical setup and ongoing maintenance.\n\n- **Use Cases:** HubSpot is ideal for teams needing quick execution of AI insights within a unified platform. Profound suits enterprises requiring deep analysis and custom integrations.\n\n**HubSpot vs. Brevo:**\n\n- **HubSpot** is an all-in-one CRM platform offering marketing, sales, and service tools, with advanced reporting, attribution, and enterprise features.\n\n- **Brevo** (formerly Sendinblue) is a cost-effective marketing platform focusing on email marketing, SMS campaigns, and basic CRM functionalities.\n\n**Key Differences:**\n\n- **Pricing:** Brevo offers more affordable plans, with its Business plan starting at $65/month, while HubSpot's Marketing Hub Professional starts at $800+/month.\n\n- **Features:** HubSpot provides a comprehensive suite with advanced features suitable for enterprises, whereas Brevo offers essential marketing tools suitable for small to medium-sized businesses.\n\n**Conclusion:**\n\n- **Profound** is best suited for enterprises seeking deep brand analysis and custom integrations.\n\n- **MarketMuse** is ideal for content teams focusing on content optimization and strategy.\n\n- **HubSpot** is suitable for businesses needing an integrated CRM with advanced marketing and sales tools.\n\n- **Brevo** is appropriate for small to medium-sized businesses seeking cost-effective marketing solutions.\n\nThe choice among these platforms depends on your specific business needs, budget, and the scale of your operations.",
+      "citations": [],
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "collected_at": "2026-09-21T21:29:41+00:00",
+      "provenance": "live_api",
+      "search_executed": true,
+      "status": "ok",
+      "error": null,
+      "fixture_labels": null,
+      "evaluator_labels": {
+        "mentioned": true,
+        "recommended": true,
+        "negative_mention": false,
+        "competitor_recommendations": [
+          "MarketMuse",
+          "HubSpot",
+          "Brevo"
+        ],
+        "evidence_quotes": [
+          "Profound is best suited for enterprises seeking deep brand analysis and custom integrations.",
+          "Profound emphasizes brand perception and competitive analysis"
+        ],
+        "on_topic": true,
+        "outdated_claim_quote": null,
+        "attributes": [
+          {
+            "attribute_id": "insights_and_analytics",
+            "quote": "profund analysis of brand perception and competitive positioning",
+            "polarity": "positive"
+          }
+        ]
+      },
+      "evaluator_model": "gpt-4o-mini"
+    }
+  ],
+  "evaluations": [
+    {
+      "probe_id": "ai_marketer-b1",
+      "valid": true,
+      "mentioned": false,
+      "recommended": false,
+      "negative_mention": false,
+      "competitor_recommendations": [
+        "HubSpot",
+        "Brevo",
+        "Semrush",
+        "MarketMuse",
+        "MailerLite"
+      ],
+      "evidence_quotes": [],
+      "owned_citation": false,
+      "strength": 0,
+      "explanation": "Target absent from answer body (scored: absent). Competitors recommended: HubSpot, Brevo, Semrush, MarketMuse, MailerLite.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "ai_marketer-b2",
+      "valid": true,
+      "mentioned": false,
+      "recommended": false,
+      "negative_mention": false,
+      "competitor_recommendations": [
+        "Jasper.ai",
+        "Writesonic",
+        "Clearscope",
+        "MarketMuse",
+        "Persado",
+        "Screaming Frog SEO Spider",
+        "Seventh Sense",
+        "Frase",
+        "Neuroflash"
+      ],
+      "evidence_quotes": [],
+      "owned_citation": false,
+      "strength": 0,
+      "explanation": "Target absent from answer body (scored: absent). Competitors recommended: Jasper.ai, Writesonic, Clearscope, MarketMuse, Persado, Screaming Frog SEO Spider, Seventh Sense, Frase, Neuroflash.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "ai_marketer-b3",
+      "valid": true,
+      "mentioned": false,
+      "recommended": false,
+      "negative_mention": false,
+      "competitor_recommendations": [
+        "Awish",
+        "Zapier's AI Task Prioritization",
+        "Workstreams.ai",
+        "Taskade",
+        "MarketMuse"
+      ],
+      "evidence_quotes": [],
+      "owned_citation": false,
+      "strength": 0,
+      "explanation": "Target absent from answer body (scored: absent). Competitors recommended: Awish, Zapier's AI Task Prioritization, Workstreams.ai, Taskade, MarketMuse.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "insights_and_analytics-b1",
+      "valid": true,
+      "mentioned": false,
+      "recommended": false,
+      "negative_mention": false,
+      "competitor_recommendations": [
+        "Omnilytic",
+        "Commenzo",
+        "SentimentIQ",
+        "FameSense",
+        "SentimentBeam"
+      ],
+      "evidence_quotes": [],
+      "owned_citation": false,
+      "strength": 0,
+      "explanation": "Target absent from answer body (scored: absent). Competitors recommended: Omnilytic, Commenzo, SentimentIQ, FameSense, SentimentBeam.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "insights_and_analytics-b2",
+      "valid": true,
+      "mentioned": false,
+      "recommended": false,
+      "negative_mention": false,
+      "competitor_recommendations": [
+        "Winek.ai",
+        "Ahrefs AI Visibility Index",
+        "Brand Auditor",
+        "Beamtrace",
+        "SilkGeo",
+        "Veezible"
+      ],
+      "evidence_quotes": [],
+      "owned_citation": false,
+      "strength": 0,
+      "explanation": "Target absent from answer body (scored: absent). Competitors recommended: Winek.ai, Ahrefs AI Visibility Index, Brand Auditor, Beamtrace, SilkGeo, Veezible.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "insights_and_analytics-b3",
+      "valid": true,
+      "mentioned": false,
+      "recommended": false,
+      "negative_mention": false,
+      "competitor_recommendations": [
+        "Verint CX Analytics",
+        "AmplifAI",
+        "Enterpret",
+        "Scoop Analytics",
+        "Dupple"
+      ],
+      "evidence_quotes": [],
+      "owned_citation": false,
+      "strength": 0,
+      "explanation": "Target absent from answer body (scored: absent). Competitors recommended: Verint CX Analytics, AmplifAI, Enterpret, Scoop Analytics, Dupple.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "shopping_visibility-b1",
+      "valid": true,
+      "mentioned": false,
+      "recommended": false,
+      "negative_mention": false,
+      "competitor_recommendations": [
+        "Ranketta",
+        "Studyo",
+        "Kabini.ai",
+        "ShopVisible",
+        "SeenByLLM"
+      ],
+      "evidence_quotes": [],
+      "owned_citation": false,
+      "strength": 0,
+      "explanation": "Target absent from answer body (scored: absent). Competitors recommended: Ranketta, Studyo, Kabini.ai, ShopVisible, SeenByLLM.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "shopping_visibility-b2",
+      "valid": true,
+      "mentioned": false,
+      "recommended": false,
+      "negative_mention": false,
+      "competitor_recommendations": [
+        "LiftMy.Shop",
+        "ChannelOpt",
+        "OptimListing",
+        "Optilist",
+        "Cosmy"
+      ],
+      "evidence_quotes": [],
+      "owned_citation": false,
+      "strength": 0,
+      "explanation": "Target absent from answer body (scored: absent). Competitors recommended: LiftMy.Shop, ChannelOpt, OptimListing, Optilist, Cosmy.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "shopping_visibility-b3",
+      "valid": true,
+      "mentioned": false,
+      "recommended": false,
+      "negative_mention": false,
+      "competitor_recommendations": [
+        "Kindred",
+        "AutoTill",
+        "ScaleQ",
+        "Mashgin",
+        "Freway"
+      ],
+      "evidence_quotes": [],
+      "owned_citation": false,
+      "strength": 0,
+      "explanation": "Target absent from answer body (scored: absent). Competitors recommended: Kindred, AutoTill, ScaleQ, Mashgin, Freway.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "enterprise_security_and_governance-b1",
+      "valid": true,
+      "mentioned": false,
+      "recommended": false,
+      "negative_mention": false,
+      "competitor_recommendations": [
+        "Markety AI",
+        "Trapica",
+        "Druid AI",
+        "Highspot",
+        "Luthor AI"
+      ],
+      "evidence_quotes": [],
+      "owned_citation": false,
+      "strength": 0,
+      "explanation": "Target absent from answer body (scored: absent). Competitors recommended: Markety AI, Trapica, Druid AI, Highspot, Luthor AI.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "enterprise_security_and_governance-b2",
+      "valid": true,
+      "mentioned": false,
+      "recommended": false,
+      "negative_mention": false,
+      "competitor_recommendations": [
+        "Type CMS",
+        "Cohiva",
+        "Management Hub",
+        "ClickPattern",
+        "EmpireVault Hub"
+      ],
+      "evidence_quotes": [],
+      "owned_citation": false,
+      "strength": 0,
+      "explanation": "Target absent from answer body (scored: absent). Competitors recommended: Type CMS, Cohiva, Management Hub, ClickPattern, EmpireVault Hub.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "enterprise_security_and_governance-b3",
+      "valid": true,
+      "mentioned": false,
+      "recommended": false,
+      "negative_mention": false,
+      "competitor_recommendations": [],
+      "evidence_quotes": [],
+      "owned_citation": false,
+      "strength": 0,
+      "explanation": "Target absent from answer body (scored: absent).",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "np-1",
+      "valid": true,
+      "mentioned": true,
+      "recommended": true,
+      "negative_mention": false,
+      "competitor_recommendations": [],
+      "evidence_quotes": [
+        "Profound is an enterprise-grade AI search visibility platform",
+        "Profound is tailored for enterprise marketing, content, and PR teams",
+        "The platform is particularly beneficial for Account-Based Marketing (ABM) programs, where positive AI-generated citations are crucial for inclusion in buyer shortlists."
+      ],
+      "owned_citation": false,
+      "strength": 2,
+      "explanation": "Target positively recommended (scored: recommended).",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "np-2",
+      "valid": true,
+      "mentioned": true,
+      "recommended": true,
+      "negative_mention": false,
+      "competitor_recommendations": [],
+      "evidence_quotes": [
+        "Profound is an AI visibility and optimization platform",
+        "ensuring their brand maintains a strong and accurate presence"
+      ],
+      "owned_citation": true,
+      "strength": 2,
+      "explanation": "Target positively recommended (scored: recommended). Owned domain cited.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "np-3",
+      "valid": true,
+      "mentioned": true,
+      "recommended": true,
+      "negative_mention": false,
+      "competitor_recommendations": [],
+      "evidence_quotes": [
+        "Profound is a comprehensive platform",
+        "enhance brand visibility and performance",
+        "monitor and enhance their AI visibility"
+      ],
+      "owned_citation": true,
+      "strength": 2,
+      "explanation": "Target positively recommended (scored: recommended). Owned domain cited.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "np-4",
+      "valid": false,
+      "mentioned": false,
+      "recommended": false,
+      "negative_mention": false,
+      "competitor_recommendations": [],
+      "evidence_quotes": [],
+      "owned_citation": false,
+      "strength": null,
+      "explanation": "Needs review: evidence failed validation; excluded from scores.",
+      "warnings": [
+        "Label says mentioned=False but answer body says True.",
+        "Off-topic answer."
+      ],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "np-5",
+      "valid": true,
+      "mentioned": true,
+      "recommended": true,
+      "negative_mention": false,
+      "competitor_recommendations": [],
+      "evidence_quotes": [
+        "Profound's solutions could be highly beneficial.",
+        "Profound's platform could provide valuable tools to enhance your brand's visibility"
+      ],
+      "owned_citation": true,
+      "strength": 2,
+      "explanation": "Target positively recommended (scored: recommended). Owned domain cited.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "np-6",
+      "valid": false,
+      "mentioned": false,
+      "recommended": false,
+      "negative_mention": false,
+      "competitor_recommendations": [],
+      "evidence_quotes": [],
+      "owned_citation": false,
+      "strength": null,
+      "explanation": "Needs review: evidence failed validation; excluded from scores.",
+      "warnings": [
+        "Off-topic answer."
+      ],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "np-7",
+      "valid": true,
+      "mentioned": true,
+      "recommended": true,
+      "negative_mention": false,
+      "competitor_recommendations": [],
+      "evidence_quotes": [
+        "Profound is an AI-powered platform",
+        "These teams utilize Profound to monitor",
+        "Profound's tools assist in understanding",
+        "By integrating Profound's analytics, these teams"
+      ],
+      "owned_citation": true,
+      "strength": 2,
+      "explanation": "Target positively recommended (scored: recommended). Owned domain cited.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    },
+    {
+      "probe_id": "np-cmp",
+      "valid": true,
+      "mentioned": true,
+      "recommended": true,
+      "negative_mention": false,
+      "competitor_recommendations": [
+        "MarketMuse",
+        "HubSpot",
+        "Brevo"
+      ],
+      "evidence_quotes": [
+        "Profound is best suited for enterprises seeking deep brand analysis and custom integrations.",
+        "Profound emphasizes brand perception and competitive analysis"
+      ],
+      "owned_citation": false,
+      "strength": 2,
+      "explanation": "Target positively recommended (scored: recommended). Competitors recommended: MarketMuse, HubSpot, Brevo.",
+      "warnings": [],
+      "evaluator": "simulated (fixture labels + deterministic validation)"
+    }
+  ],
+  "topic_evaluations": [
+    {
+      "topic_id": "pos-ai_marketer",
+      "phase": "baseline",
+      "provenance": "live_api",
+      "n": 3,
+      "excluded": 0,
+      "excluded_reasons": [],
+      "mentions": 0,
+      "recommendations": 0,
+      "owned_citations": 0,
+      "competitor_answers": 3,
+      "mention_rate": 0.0,
+      "recommendation_rate": 0.0,
+      "citation_rate": 0.0,
+      "visibility_score": 0.0,
+      "competitor_rate": 1.0,
+      "gap_priority": 100.0,
+      "status": "candidate gap",
+      "top_competitors": [
+        "MarketMuse",
+        "HubSpot",
+        "Brevo",
+        "Semrush"
+      ],
+      "limitations": [
+        "Small sample: at most three baseline questions per topic."
+      ]
+    },
+    {
+      "topic_id": "pos-insights_and_analytics",
+      "phase": "baseline",
+      "provenance": "live_api",
+      "n": 3,
+      "excluded": 0,
+      "excluded_reasons": [],
+      "mentions": 0,
+      "recommendations": 0,
+      "owned_citations": 0,
+      "competitor_answers": 3,
+      "mention_rate": 0.0,
+      "recommendation_rate": 0.0,
+      "citation_rate": 0.0,
+      "visibility_score": 0.0,
+      "competitor_rate": 1.0,
+      "gap_priority": 100.0,
+      "status": "candidate gap",
+      "top_competitors": [
+        "Omnilytic",
+        "Commenzo",
+        "SentimentIQ",
+        "FameSense"
+      ],
+      "limitations": [
+        "Small sample: at most three baseline questions per topic."
+      ]
+    },
+    {
+      "topic_id": "pos-shopping_visibility",
+      "phase": "baseline",
+      "provenance": "live_api",
+      "n": 3,
+      "excluded": 0,
+      "excluded_reasons": [],
+      "mentions": 0,
+      "recommendations": 0,
+      "owned_citations": 0,
+      "competitor_answers": 3,
+      "mention_rate": 0.0,
+      "recommendation_rate": 0.0,
+      "citation_rate": 0.0,
+      "visibility_score": 0.0,
+      "competitor_rate": 1.0,
+      "gap_priority": 100.0,
+      "status": "candidate gap",
+      "top_competitors": [
+        "Ranketta",
+        "Studyo",
+        "Kabini.ai",
+        "ShopVisible"
+      ],
+      "limitations": [
+        "Small sample: at most three baseline questions per topic."
+      ]
+    },
+    {
+      "topic_id": "pos-enterprise_security_and_governance",
+      "phase": "baseline",
+      "provenance": "live_api",
+      "n": 3,
+      "excluded": 0,
+      "excluded_reasons": [],
+      "mentions": 0,
+      "recommendations": 0,
+      "owned_citations": 0,
+      "competitor_answers": 2,
+      "mention_rate": 0.0,
+      "recommendation_rate": 0.0,
+      "citation_rate": 0.0,
+      "visibility_score": 0.0,
+      "competitor_rate": 0.667,
+      "gap_priority": 66.7,
+      "status": "candidate gap",
+      "top_competitors": [
+        "Markety AI",
+        "Trapica",
+        "Druid AI",
+        "Highspot"
+      ],
+      "limitations": [
+        "Small sample: at most three baseline questions per topic."
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "selected_topics": [
+        "pos-ai_marketer",
+        "pos-insights_and_analytics"
+      ],
+      "new_probes": [
+        {
+          "id": "np-cmp",
+          "topic_id": "perception",
+          "text": "How does Profound compare to MarketMuse, HubSpot and Brevo?",
+          "kind": "named",
+          "phase": "followup",
+          "purpose": "Exploratory: how AI frames the brand against the competitors it named itself.",
+          "parent_probe_ids": [
+            "ai_marketer-b1",
+            "ai_marketer-b2",
+            "ai_marketer-b3",
+            "insights_and_analytics-b1",
+            "insights_and_analytics-b2",
+            "insights_and_analytics-b3"
+          ]
+        }
+      ],
+      "rationale": "AI marketing platform — not recommended in any of 3 answers; asking more questions to test whether the absence persists under differently framed buyer questions, prompted by 3 answers that did not recommend the brand | AI-driven marketing insights and analytics — not recommended in any of 3 answers; asking more questions to test whether the absence persists under differently framed buyer questions, prompted by 3 answers that did not recommend the brand",
+      "evidence_probe_ids": [
+        "ai_marketer-b1",
+        "ai_marketer-b2",
+        "ai_marketer-b3",
+        "insights_and_analytics-b1",
+        "insights_and_analytics-b2",
+        "insights_and_analytics-b3"
+      ],
+      "policy": "simulated AnA policy (deterministic)"
+    }
+  ],
+  "findings": [
+    {
+      "topic_id": "pos-ai_marketer",
+      "observation": "Not recommended in any of 3 baseline answers while competitors were (MarketMuse, HubSpot, Brevo, Semrush).",
+      "evidence_ids": [
+        "ai_marketer-b1",
+        "ai_marketer-b2",
+        "ai_marketer-b3"
+      ],
+      "fit_evidence_ids": [],
+      "interpretation": "Candidate gap in a strong-fit topic (heuristic investigation priority 100).",
+      "suggested_action": "Track a wider fixed prompt set over time to assess whether the gap persists.",
+      "profound_capability": "Answer Engine Insights / competitive benchmarking",
+      "capability_url": "https://www.tryprofound.com/features/answer-engine-insights",
+      "limitations": [
+        "Small sample: at most three baseline questions per topic.",
+        "Citations alone do not prove why a model chose a brand.",
+        "Absence alone is not proof of opportunity or market demand."
+      ],
+      "provenance": "live_api",
+      "gap_priority": 100.0,
+      "exploratory_note": null
+    },
+    {
+      "topic_id": "pos-ai_marketer",
+      "observation": "No owned-domain citations across 3 baseline answers.",
+      "evidence_ids": [
+        "ai_marketer-b1",
+        "ai_marketer-b2",
+        "ai_marketer-b3"
+      ],
+      "fit_evidence_ids": [],
+      "interpretation": "Possible owned-content gap for these questions.",
+      "suggested_action": "Review owned pages and propose an evidence-backed brief for the uncovered questions.",
+      "profound_capability": "Content briefs, FAQ generation and content optimization Agents",
+      "capability_url": "https://www.tryprofound.com/features/agents",
+      "limitations": [
+        "Small sample: at most three baseline questions per topic.",
+        "Citations alone do not prove why a model chose a brand.",
+        "Absence alone is not proof of opportunity or market demand.",
+        "Content gap NOT confirmed: the company's relevant pages were not examined."
+      ],
+      "provenance": "live_api",
+      "gap_priority": 100.0,
+      "exploratory_note": null
+    },
+    {
+      "topic_id": "pos-insights_and_analytics",
+      "observation": "Not recommended in any of 3 baseline answers while competitors were (Omnilytic, Commenzo, SentimentIQ, FameSense).",
+      "evidence_ids": [
+        "insights_and_analytics-b1",
+        "insights_and_analytics-b2",
+        "insights_and_analytics-b3"
+      ],
+      "fit_evidence_ids": [],
+      "interpretation": "Candidate gap in a strong-fit topic (heuristic investigation priority 100).",
+      "suggested_action": "Track a wider fixed prompt set over time to assess whether the gap persists.",
+      "profound_capability": "Answer Engine Insights / competitive benchmarking",
+      "capability_url": "https://www.tryprofound.com/features/answer-engine-insights",
+      "limitations": [
+        "Small sample: at most three baseline questions per topic.",
+        "Citations alone do not prove why a model chose a brand.",
+        "Absence alone is not proof of opportunity or market demand."
+      ],
+      "provenance": "live_api",
+      "gap_priority": 100.0,
+      "exploratory_note": null
+    },
+    {
+      "topic_id": "pos-insights_and_analytics",
+      "observation": "No owned-domain citations across 3 baseline answers.",
+      "evidence_ids": [
+        "insights_and_analytics-b1",
+        "insights_and_analytics-b2",
+        "insights_and_analytics-b3"
+      ],
+      "fit_evidence_ids": [],
+      "interpretation": "Possible owned-content gap for these questions.",
+      "suggested_action": "Review owned pages and propose an evidence-backed brief for the uncovered questions.",
+      "profound_capability": "Content briefs, FAQ generation and content optimization Agents",
+      "capability_url": "https://www.tryprofound.com/features/agents",
+      "limitations": [
+        "Small sample: at most three baseline questions per topic.",
+        "Citations alone do not prove why a model chose a brand.",
+        "Absence alone is not proof of opportunity or market demand.",
+        "Content gap NOT confirmed: the company's relevant pages were not examined."
+      ],
+      "provenance": "live_api",
+      "gap_priority": 100.0,
+      "exploratory_note": null
+    },
+    {
+      "topic_id": "pos-shopping_visibility",
+      "observation": "Not recommended in any of 3 baseline answers while competitors were (Ranketta, Studyo, Kabini.ai, ShopVisible).",
+      "evidence_ids": [
+        "shopping_visibility-b1",
+        "shopping_visibility-b2",
+        "shopping_visibility-b3"
+      ],
+      "fit_evidence_ids": [],
+      "interpretation": "Candidate gap in a strong-fit topic (heuristic investigation priority 100).",
+      "suggested_action": "Track a wider fixed prompt set over time to assess whether the gap persists.",
+      "profound_capability": "Answer Engine Insights / competitive benchmarking",
+      "capability_url": "https://www.tryprofound.com/features/answer-engine-insights",
+      "limitations": [
+        "Small sample: at most three baseline questions per topic.",
+        "Citations alone do not prove why a model chose a brand.",
+        "Absence alone is not proof of opportunity or market demand."
+      ],
+      "provenance": "live_api",
+      "gap_priority": 100.0,
+      "exploratory_note": null
+    },
+    {
+      "topic_id": "pos-shopping_visibility",
+      "observation": "No owned-domain citations across 3 baseline answers.",
+      "evidence_ids": [
+        "shopping_visibility-b1",
+        "shopping_visibility-b2",
+        "shopping_visibility-b3"
+      ],
+      "fit_evidence_ids": [],
+      "interpretation": "Possible owned-content gap for these questions.",
+      "suggested_action": "Review owned pages and propose an evidence-backed brief for the uncovered questions.",
+      "profound_capability": "Content briefs, FAQ generation and content optimization Agents",
+      "capability_url": "https://www.tryprofound.com/features/agents",
+      "limitations": [
+        "Small sample: at most three baseline questions per topic.",
+        "Citations alone do not prove why a model chose a brand.",
+        "Absence alone is not proof of opportunity or market demand.",
+        "Content gap NOT confirmed: the company's relevant pages were not examined."
+      ],
+      "provenance": "live_api",
+      "gap_priority": 100.0,
+      "exploratory_note": null
+    },
+    {
+      "topic_id": "pos-enterprise_security_and_governance",
+      "observation": "Not recommended in any of 3 baseline answers while competitors were (Markety AI, Trapica, Druid AI, Highspot).",
+      "evidence_ids": [
+        "enterprise_security_and_governance-b1",
+        "enterprise_security_and_governance-b2",
+        "enterprise_security_and_governance-b3"
+      ],
+      "fit_evidence_ids": [],
+      "interpretation": "Candidate gap in a strong-fit topic (heuristic investigation priority 66.7).",
+      "suggested_action": "Track a wider fixed prompt set over time to assess whether the gap persists.",
+      "profound_capability": "Answer Engine Insights / competitive benchmarking",
+      "capability_url": "https://www.tryprofound.com/features/answer-engine-insights",
+      "limitations": [
+        "Small sample: at most three baseline questions per topic.",
+        "Citations alone do not prove why a model chose a brand.",
+        "Absence alone is not proof of opportunity or market demand."
+      ],
+      "provenance": "live_api",
+      "gap_priority": 66.7,
+      "exploratory_note": null
+    },
+    {
+      "topic_id": "pos-enterprise_security_and_governance",
+      "observation": "No owned-domain citations across 3 baseline answers.",
+      "evidence_ids": [
+        "enterprise_security_and_governance-b1",
+        "enterprise_security_and_governance-b2",
+        "enterprise_security_and_governance-b3"
+      ],
+      "fit_evidence_ids": [],
+      "interpretation": "Possible owned-content gap for these questions.",
+      "suggested_action": "Review owned pages and propose an evidence-backed brief for the uncovered questions.",
+      "profound_capability": "Content briefs, FAQ generation and content optimization Agents",
+      "capability_url": "https://www.tryprofound.com/features/agents",
+      "limitations": [
+        "Small sample: at most three baseline questions per topic.",
+        "Citations alone do not prove why a model chose a brand.",
+        "Absence alone is not proof of opportunity or market demand.",
+        "Content gap NOT confirmed: the company's relevant pages were not examined."
+      ],
+      "provenance": "live_api",
+      "gap_priority": 66.7,
+      "exploratory_note": null
+    }
+  ],
+  "attributes": [
+    {
+      "id": "ai_marketer",
+      "label": "AI marketing platform",
+      "description": "Profound is an AI marketing platform that identifies marketing work worth doing, drafts content, stages edits for approval, and manages marketing campaigns using AI trained on consumer prompts, citations, and company context.",
+      "aliases": [
+        "AI-powered marketing assistant",
+        "AI marketing automation"
+      ],
+      "intended_weight": 1.0,
+      "claim_evidence_ids": [
+        "pg1",
+        "pg3"
+      ],
+      "added_by_user": false,
+      "discovered": false,
+      "claim_quotes": [
+        "Your AI Marketer makes it possible It identifies the work worth doing, drafts it, and pings you for approval.",
+        "Meet your AI Marketer Research, write, report, and collaborate with a superintelligent teammate who knows your brand."
+      ],
+      "claim_pages": 2,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "What AI marketing tools can draft and manage campaigns for a mid-sized marketing team?",
+        "How can I use AI to create and optimize marketing content accurately at scale?",
+        "Which platforms help marketing teams prioritize and automate marketing tasks with AI assistance?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "ai_search_visibility",
+      "label": "AI search visibility tracking",
+      "description": "Profound tracks and measures how often a brand appears in AI answer engines, including visibility scores, citation analysis, sentiment, and competitive benchmarking across multiple AI platforms.",
+      "aliases": [
+        "AI brand presence monitoring",
+        "AI citation analysis"
+      ],
+      "intended_weight": 0.8,
+      "claim_evidence_ids": [
+        "pg1",
+        "pg4"
+      ],
+      "added_by_user": false,
+      "discovered": false,
+      "claim_quotes": [
+        "Find the pages we are losing in AI answers and rewrite them.",
+        "Track your AI visibility, see where and how AI mentions your brand, and uncover insights to enhance your presence."
+      ],
+      "claim_pages": 2,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "What tools can monitor my brand's visibility in AI-powered answer engines?",
+        "How can I measure and improve my company's presence in AI search results?",
+        "Which platforms provide citation and sentiment analysis of AI-generated brand mentions?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "factcheck_and_accuracy",
+      "label": "Fact checking AI-generated content",
+      "description": "Profound identifies inaccuracies in AI-generated brand mentions, traces erroneous claims back to sources, and drafts personalized corrections to maintain brand accuracy across AI answer engines.",
+      "aliases": [
+        "AI brand fact checking",
+        "Correcting AI misinformation"
+      ],
+      "intended_weight": 0.8,
+      "claim_evidence_ids": [
+        "pg1"
+      ],
+      "added_by_user": false,
+      "discovered": false,
+      "claim_quotes": [
+        "Traces inaccurate claims back to the publishers repeating them, drafts a personalized correction for each one, and tracks which ones actually updated."
+      ],
+      "claim_pages": 1,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "What solutions can identify and correct false information about my brand in AI search results?",
+        "How can I ensure accuracy of AI-generated mentions about my products or services?",
+        "Are there tools for monitoring and managing misinformation in AI-powered marketing channels?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "insights_and_analytics",
+      "label": "AI-driven marketing insights and analytics",
+      "description": "Profound provides dashboards and analytics for AI-sourced traffic, prompt volumes, brand sentiment, citation authority, and competitive benchmarking to inform marketing strategy.",
+      "aliases": [
+        "AI marketing analytics",
+        "Marketing performance dashboards"
+      ],
+      "intended_weight": 1.0,
+      "claim_evidence_ids": [
+        "pg1",
+        "pg4"
+      ],
+      "added_by_user": false,
+      "discovered": false,
+      "claim_quotes": [
+        "Prove impact on AI-driven traffic Understand how bots view, cite, and refer to your pages. See Agent Analytics",
+        "Analyze how AI describes your brand. Identify key themes, topics, and recurring narratives."
+      ],
+      "claim_pages": 2,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "Which marketing platforms offer AI-sourced traffic and sentiment analytics?",
+        "How can I benchmark my AI brand visibility against competitors?",
+        "What tools allow tracking and analysis of AI-driven customer insights?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "shopping_visibility",
+      "label": "Product visibility in AI Shopping",
+      "description": "Profound measures and analyzes product placements, descriptions, and merchant relationships in ChatGPT Shopping and other AI-driven commerce channels to optimize product discovery and sales.",
+      "aliases": [
+        "AI-driven product discovery",
+        "ChatGPT shopping analytics"
+      ],
+      "intended_weight": 1.0,
+      "claim_evidence_ids": [
+        "pg6"
+      ],
+      "added_by_user": false,
+      "discovered": false,
+      "claim_quotes": [
+        "Profound highlights the specific actions you can take to improve product placement and drive more conversions from ChatGPT Shopping."
+      ],
+      "claim_pages": 1,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "How can I track my products’ visibility in AI-powered shopping platforms?",
+        "What AI tools help optimize product listings for better placement in AI shopping results?",
+        "Which platforms provide insights into merchant checkout options in AI commerce?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "enterprise_security_and_governance",
+      "label": "Enterprise-grade security and governance",
+      "description": "Profound is SOC 2 Type II compliant, supports SSO with SAML/OIDC, offers role-based access controls, and provides secure data backups meeting enterprise security requirements.",
+      "aliases": [
+        "Enterprise security compliance",
+        "Secure AI marketing platform"
+      ],
+      "intended_weight": 1.0,
+      "claim_evidence_ids": [
+        "pg1",
+        "pg4"
+      ],
+      "added_by_user": false,
+      "discovered": false,
+      "claim_quotes": [
+        "RBAC, SCIM, SOC 2 An AI platform that supports your unique governance.",
+        "Profound is SOC 2 Type II compliant, demonstrating our commitment to robust security and data protection."
+      ],
+      "claim_pages": 2,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "What AI marketing platforms provide enterprise-grade security and compliance?",
+        "Which tools support single sign-on and role-based access management for marketing teams?",
+        "How can I ensure data protection and governance in AI marketing software?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "emergent_streamlined_content_processes",
+      "label": "Streamlined content processes",
+      "description": "Profound's Agents feature enables businesses to generate new content, refresh existing pages, and launch automated outreach and reporting workflows.",
+      "aliases": [],
+      "intended_weight": null,
+      "claim_evidence_ids": [],
+      "added_by_user": false,
+      "discovered": true,
+      "claim_quotes": [],
+      "claim_pages": 0,
+      "claim_pages_total": 0,
+      "buyer_questions": [],
+      "note": null
+    }
+  ],
+  "attribute_scores": [
+    {
+      "attribute_id": "ai_marketer",
+      "label": "AI marketing platform",
+      "discovered": false,
+      "intended_weight": 1.0,
+      "claim_strength": 0.333,
+      "claim_pages": 2,
+      "claim_pages_total": 6,
+      "n": 5,
+      "echoes": 0,
+      "echo_rate": 0.0,
+      "negative_echoes": 0,
+      "mention_rate": 0.0,
+      "negative_rate": 0.0,
+      "zone": "unstated_intent",
+      "owner": "messaging_gap",
+      "quotes": [],
+      "probe_ids": [],
+      "limitations": [],
+      "na_reasons": {}
+    },
+    {
+      "attribute_id": "ai_search_visibility",
+      "label": "AI search visibility tracking",
+      "discovered": false,
+      "intended_weight": 0.8,
+      "claim_strength": 0.333,
+      "claim_pages": 2,
+      "claim_pages_total": 6,
+      "n": 5,
+      "echoes": 5,
+      "echo_rate": 1.0,
+      "negative_echoes": 0,
+      "mention_rate": 1.0,
+      "negative_rate": 0.0,
+      "zone": "landed",
+      "owner": "none",
+      "quotes": [
+        "Tracks brand citations, sentiment, and competitive presence across multiple AI platforms.",
+        "helps businesses monitor and enhance their brand presence",
+        "Profound monitors how brands appear across major AI platforms"
+      ],
+      "probe_ids": [
+        "np-1",
+        "np-2",
+        "np-3",
+        "np-5",
+        "np-7"
+      ],
+      "limitations": [],
+      "na_reasons": {}
+    },
+    {
+      "attribute_id": "factcheck_and_accuracy",
+      "label": "Fact checking AI-generated content",
+      "discovered": false,
+      "intended_weight": 0.8,
+      "claim_strength": 0.167,
+      "claim_pages": 1,
+      "claim_pages_total": 6,
+      "n": 5,
+      "echoes": 0,
+      "echo_rate": 0.0,
+      "negative_echoes": 0,
+      "mention_rate": 0.0,
+      "negative_rate": 0.0,
+      "zone": "unstated_intent",
+      "owner": "messaging_gap",
+      "quotes": [],
+      "probe_ids": [],
+      "limitations": [],
+      "na_reasons": {}
+    },
+    {
+      "attribute_id": "insights_and_analytics",
+      "label": "AI-driven marketing insights and analytics",
+      "discovered": false,
+      "intended_weight": 1.0,
+      "claim_strength": 0.333,
+      "claim_pages": 2,
+      "claim_pages_total": 6,
+      "n": 5,
+      "echoes": 3,
+      "echo_rate": 0.6,
+      "negative_echoes": 0,
+      "mention_rate": 0.6,
+      "negative_rate": 0.0,
+      "zone": "landed",
+      "owner": "none",
+      "quotes": [
+        "providing actionable insights",
+        "real-time visibility analytics, competitive intelligence, and actionable insights",
+        "gain insights into user behavior and AI interactions"
+      ],
+      "probe_ids": [
+        "np-2",
+        "np-5",
+        "np-7"
+      ],
+      "limitations": [],
+      "na_reasons": {}
+    },
+    {
+      "attribute_id": "shopping_visibility",
+      "label": "Product visibility in AI Shopping",
+      "discovered": false,
+      "intended_weight": 1.0,
+      "claim_strength": 0.167,
+      "claim_pages": 1,
+      "claim_pages_total": 6,
+      "n": 5,
+      "echoes": 0,
+      "echo_rate": 0.0,
+      "negative_echoes": 0,
+      "mention_rate": 0.0,
+      "negative_rate": 0.0,
+      "zone": "unstated_intent",
+      "owner": "messaging_gap",
+      "quotes": [],
+      "probe_ids": [],
+      "limitations": [],
+      "na_reasons": {}
+    },
+    {
+      "attribute_id": "enterprise_security_and_governance",
+      "label": "Enterprise-grade security and governance",
+      "discovered": false,
+      "intended_weight": 1.0,
+      "claim_strength": 0.333,
+      "claim_pages": 2,
+      "claim_pages_total": 6,
+      "n": 5,
+      "echoes": 0,
+      "echo_rate": 0.0,
+      "negative_echoes": 0,
+      "mention_rate": 0.0,
+      "negative_rate": 0.0,
+      "zone": "unstated_intent",
+      "owner": "messaging_gap",
+      "quotes": [],
+      "probe_ids": [],
+      "limitations": [],
+      "na_reasons": {}
+    },
+    {
+      "attribute_id": "emergent_streamlined_content_processes",
+      "label": "Streamlined content processes",
+      "discovered": true,
+      "intended_weight": null,
+      "claim_strength": null,
+      "claim_pages": 0,
+      "claim_pages_total": 0,
+      "n": 5,
+      "echoes": 2,
+      "echo_rate": 0.4,
+      "negative_echoes": 0,
+      "mention_rate": 0.4,
+      "negative_rate": 0.0,
+      "zone": "imposed",
+      "owner": "imposed_identity",
+      "quotes": [
+        "Profound's Agents feature enables businesses to generate new content, refresh existing pages, and launch automated outreach and reporting workflows.",
+        "optimizing content for AI platforms"
+      ],
+      "probe_ids": [
+        "np-3",
+        "np-7"
+      ],
+      "limitations": [
+        "Discovered from the answers: neither you nor your site supplied this. A model proposed it after reading all 5 answers together; it is kept because 2 of them say it in words quoted verbatim."
+      ],
+      "na_reasons": {
+        "claim_strength": "Found in the answers, not on the site: no page was checked for it."
+      }
+    }
+  ],
+  "observations": {
+    "np-1": [
+      {
+        "attribute_id": "ai_search_visibility",
+        "quote": "Tracks brand citations, sentiment, and competitive presence across multiple AI platforms.",
+        "polarity": "positive"
+      }
+    ],
+    "np-2": [
+      {
+        "attribute_id": "ai_search_visibility",
+        "quote": "helps businesses monitor and enhance their brand presence",
+        "polarity": "positive"
+      },
+      {
+        "attribute_id": "insights_and_analytics",
+        "quote": "providing actionable insights",
+        "polarity": "positive"
+      }
+    ],
+    "np-3": [
+      {
+        "attribute_id": "ai_search_visibility",
+        "quote": "Profound monitors how brands appear across major AI platforms",
+        "polarity": "positive"
+      },
+      {
+        "attribute_id": "emergent_streamlined_content_processes",
+        "quote": "Profound's Agents feature enables businesses to generate new content, refresh existing pages, and launch automated outreach and reporting workflows.",
+        "polarity": "positive"
+      }
+    ],
+    "np-4": [],
+    "np-5": [
+      {
+        "attribute_id": "ai_search_visibility",
+        "quote": "AI search visibility and optimization platform that helps enterprise brands track",
+        "polarity": "positive"
+      },
+      {
+        "attribute_id": "insights_and_analytics",
+        "quote": "real-time visibility analytics, competitive intelligence, and actionable insights",
+        "polarity": "positive"
+      }
+    ],
+    "np-6": [],
+    "np-7": [
+      {
+        "attribute_id": "ai_search_visibility",
+        "quote": "monitor and optimize how their brand appears",
+        "polarity": "positive"
+      },
+      {
+        "attribute_id": "insights_and_analytics",
+        "quote": "gain insights into user behavior and AI interactions",
+        "polarity": "positive"
+      },
+      {
+        "attribute_id": "emergent_streamlined_content_processes",
+        "quote": "optimizing content for AI platforms",
+        "polarity": "positive"
+      }
+    ],
+    "np-cmp": []
+  },
+  "drift_notes": [
+    "Dropped unverifiable observation — Brand question 3: Unknown attribute id 'content_generation_and_workflow_automation': dropped.",
+    "Dropped unverifiable observation — Brand question 3: Unknown attribute id 'competitive_intelligence': dropped.",
+    "Dropped unverifiable observation — Comparison question: Attribute insights_and_analytics: quote not verbatim in the answer; dropped.",
+    "Discovery — 'Actionable insights': same attribute as one already measured (shares 'insight' with 'AI-driven marketing insights and analytics').",
+    "Discovery — 'Daily visibility': same attribute as one already measured (shares 'visibilit' with 'AI search visibility tracking').",
+    "Discovery — 'Enterprise marketing tool': raised with a verbatim quote in 1 eligible answer(s), needs 2. Rejected evidence: np-7: quote not verbatim in the answer ('Teams that derive the most value from Profound typically include: Enterprise Marketing Teams')."
+  ],
+  "drift": {
+    "provenance": "live_api",
+    "lens": "intent",
+    "claim_echo": 32.0,
+    "n_named": 5,
+    "n_blind": 12,
+    "named_asked": 7,
+    "excluded_named": 2,
+    "excluded_reasons": [
+      "Brand question 4: needs review",
+      "Brand question 6: needs review"
+    ],
+    "alignment": 25.0,
+    "visibility": 0.0,
+    "landed": [
+      "AI search visibility tracking",
+      "AI-driven marketing insights and analytics"
+    ],
+    "lost_claims": [],
+    "contested": [],
+    "imposed": [
+      "Streamlined content processes"
+    ],
+    "unstated_intent": [
+      "AI marketing platform",
+      "Fact checking AI-generated content",
+      "Product visibility in AI Shopping",
+      "Enterprise-grade security and governance"
+    ],
+    "unprioritised": [],
+    "scores": [
+      {
+        "attribute_id": "ai_marketer",
+        "label": "AI marketing platform",
+        "discovered": false,
+        "intended_weight": 1.0,
+        "claim_strength": 0.333,
+        "claim_pages": 2,
+        "claim_pages_total": 6,
+        "n": 5,
+        "echoes": 0,
+        "echo_rate": 0.0,
+        "negative_echoes": 0,
+        "mention_rate": 0.0,
+        "negative_rate": 0.0,
+        "zone": "unstated_intent",
+        "owner": "messaging_gap",
+        "quotes": [],
+        "probe_ids": [],
+        "limitations": [],
+        "na_reasons": {}
+      },
+      {
+        "attribute_id": "ai_search_visibility",
+        "label": "AI search visibility tracking",
+        "discovered": false,
+        "intended_weight": 0.8,
+        "claim_strength": 0.333,
+        "claim_pages": 2,
+        "claim_pages_total": 6,
+        "n": 5,
+        "echoes": 5,
+        "echo_rate": 1.0,
+        "negative_echoes": 0,
+        "mention_rate": 1.0,
+        "negative_rate": 0.0,
+        "zone": "landed",
+        "owner": "none",
+        "quotes": [
+          "Tracks brand citations, sentiment, and competitive presence across multiple AI platforms.",
+          "helps businesses monitor and enhance their brand presence",
+          "Profound monitors how brands appear across major AI platforms"
+        ],
+        "probe_ids": [
+          "np-1",
+          "np-2",
+          "np-3",
+          "np-5",
+          "np-7"
+        ],
+        "limitations": [],
+        "na_reasons": {}
+      },
+      {
+        "attribute_id": "factcheck_and_accuracy",
+        "label": "Fact checking AI-generated content",
+        "discovered": false,
+        "intended_weight": 0.8,
+        "claim_strength": 0.167,
+        "claim_pages": 1,
+        "claim_pages_total": 6,
+        "n": 5,
+        "echoes": 0,
+        "echo_rate": 0.0,
+        "negative_echoes": 0,
+        "mention_rate": 0.0,
+        "negative_rate": 0.0,
+        "zone": "unstated_intent",
+        "owner": "messaging_gap",
+        "quotes": [],
+        "probe_ids": [],
+        "limitations": [],
+        "na_reasons": {}
+      },
+      {
+        "attribute_id": "insights_and_analytics",
+        "label": "AI-driven marketing insights and analytics",
+        "discovered": false,
+        "intended_weight": 1.0,
+        "claim_strength": 0.333,
+        "claim_pages": 2,
+        "claim_pages_total": 6,
+        "n": 5,
+        "echoes": 3,
+        "echo_rate": 0.6,
+        "negative_echoes": 0,
+        "mention_rate": 0.6,
+        "negative_rate": 0.0,
+        "zone": "landed",
+        "owner": "none",
+        "quotes": [
+          "providing actionable insights",
+          "real-time visibility analytics, competitive intelligence, and actionable insights",
+          "gain insights into user behavior and AI interactions"
+        ],
+        "probe_ids": [
+          "np-2",
+          "np-5",
+          "np-7"
+        ],
+        "limitations": [],
+        "na_reasons": {}
+      },
+      {
+        "attribute_id": "shopping_visibility",
+        "label": "Product visibility in AI Shopping",
+        "discovered": false,
+        "intended_weight": 1.0,
+        "claim_strength": 0.167,
+        "claim_pages": 1,
+        "claim_pages_total": 6,
+        "n": 5,
+        "echoes": 0,
+        "echo_rate": 0.0,
+        "negative_echoes": 0,
+        "mention_rate": 0.0,
+        "negative_rate": 0.0,
+        "zone": "unstated_intent",
+        "owner": "messaging_gap",
+        "quotes": [],
+        "probe_ids": [],
+        "limitations": [],
+        "na_reasons": {}
+      },
+      {
+        "attribute_id": "enterprise_security_and_governance",
+        "label": "Enterprise-grade security and governance",
+        "discovered": false,
+        "intended_weight": 1.0,
+        "claim_strength": 0.333,
+        "claim_pages": 2,
+        "claim_pages_total": 6,
+        "n": 5,
+        "echoes": 0,
+        "echo_rate": 0.0,
+        "negative_echoes": 0,
+        "mention_rate": 0.0,
+        "negative_rate": 0.0,
+        "zone": "unstated_intent",
+        "owner": "messaging_gap",
+        "quotes": [],
+        "probe_ids": [],
+        "limitations": [],
+        "na_reasons": {}
+      },
+      {
+        "attribute_id": "emergent_streamlined_content_processes",
+        "label": "Streamlined content processes",
+        "discovered": true,
+        "intended_weight": null,
+        "claim_strength": null,
+        "claim_pages": 0,
+        "claim_pages_total": 0,
+        "n": 5,
+        "echoes": 2,
+        "echo_rate": 0.4,
+        "negative_echoes": 0,
+        "mention_rate": 0.4,
+        "negative_rate": 0.0,
+        "zone": "imposed",
+        "owner": "imposed_identity",
+        "quotes": [
+          "Profound's Agents feature enables businesses to generate new content, refresh existing pages, and launch automated outreach and reporting workflows.",
+          "optimizing content for AI platforms"
+        ],
+        "probe_ids": [
+          "np-3",
+          "np-7"
+        ],
+        "limitations": [
+          "Discovered from the answers: neither you nor your site supplied this. A model proposed it after reading all 5 answers together; it is kept because 2 of them say it in words quoted verbatim."
+        ],
+        "na_reasons": {
+          "claim_strength": "Found in the answers, not on the site: no page was checked for it."
+        }
+      }
+    ],
+    "limitations": [
+      "2 of 7 brand answers were excluded, so alignment rests on 5. Excluded answers cannot count against the brand, which biases the score upward: Brand question 4: needs review; Brand question 6: needs review",
+      "Small sample: alignment rests on a handful of brand-question answers.",
+      "An echo is an association in the answer text, not proof of why the model said it.",
+      "Dropped unverifiable observation — Brand question 3: Unknown attribute id 'content_generation_and_workflow_automation': dropped.",
+      "Dropped unverifiable observation — Brand question 3: Unknown attribute id 'competitive_intelligence': dropped.",
+      "Dropped unverifiable observation — Comparison question: Attribute insights_and_analytics: quote not verbatim in the answer; dropped.",
+      "Discovery — 'Actionable insights': same attribute as one already measured (shares 'insight' with 'AI-driven marketing insights and analytics').",
+      "Discovery — 'Daily visibility': same attribute as one already measured (shares 'visibilit' with 'AI search visibility tracking').",
+      "Discovery — 'Enterprise marketing tool': raised with a verbatim quote in 1 eligible answer(s), needs 2. Rejected evidence: np-7: quote not verbatim in the answer ('Teams that derive the most value from Profound typically include: Enterprise Marketing Teams')."
+    ],
+    "na_reasons": {}
+  },
+  "win_back": [],
+  "win_back_notes": [
+    "AI marketing platform: the copy it would replace is not on https://www.tryprofound.com/ ('It identifies the work worth doing, drafts it, and pings you for approval.')",
+    "Fact checking AI-generated content: the copy it would replace is not on https://www.tryprofound.com/features/answer-engine-insights ('Traces inaccurate claims back to the publishers repeating them, drafts a personalized correction for each one, and tracks which ones actually updated.')",
+    "Product visibility in AI Shopping: the copy it would replace is not on https://www.tryprofound.com/features/shopping ('Profound highlights the specific actions you can take to improve product placement and drive more conversions from ChatGPT Shopping.')",
+    "Enterprise-grade security and governance: the copy it would replace is not on https://www.tryprofound.com/ ('RBAC, SCIM, SOC 2 An AI platform that supports your unique governance.')",
+    "No verified action for: AI marketing platform, Fact checking AI-generated content, Product visibility in AI Shopping, Enterprise-grade security and governance."
+  ],
+  "log": [
+    "Question planner prepared 5 topics, 12 buyer questions, 7 brand questions and 6 attributes.",
+    "Baseline validated (buyer questions leak no brand, brand questions leak no attribute) and frozen with fingerprint 3b160c1b343a.",
+    "Collected 19 baseline answers from openai (gpt-4o-mini) (0 failed).",
+    "Evaluated 19 answers (2 need review / failed).",
+    "Competitors discovered, not asked for: MarketMuse, HubSpot, Brevo.",
+    "Follow-up decision: AI marketing platform — not recommended in any of 3 answers; asking more questions to test whether the absence persists under differently framed buyer questions, prompted by 3 answers that did not recommend the brand | AI-driven marketing insights and analytics — not recommended in any of 3 answers; asking more questions to test whether the absence persists under differently framed buyer questions, prompted by 3 answers that did not recommend the brand",
+    "Collected 1 follow-up answers from openai (gpt-4o-mini) (0 failed).",
+    "Evaluated 1 answers (0 need review / failed).",
+    "Discovery read 5 brand answers together: 4 proposed, 1 kept (Streamlined content processes).",
+    "Drift measured over 5 brand answers: claim echo 32.0, alignment 25.0 (0 lost, 1 imposed, 3 observation(s) dropped).",
+    "Action plan: 0 fix(es) kept, 5 note(s) on what was dropped.",
+    "Gap report built: 8 findings."
+  ],
+  "status": "complete"
+}

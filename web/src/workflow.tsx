@@ -10,7 +10,7 @@ import type { CompanyDetail, CompanySummary, Run, StreamAnswer, StreamNode } fro
 import { getCompanies, getCompany, streamOnboard, streamRun } from "./api";
 import { ClaimsStep } from "./claims";
 import { Logo, Report } from "./components";
-import { PROVENANCE_LABEL, headline, plain, potentialText, streamingProbeLabel } from "./labels";
+import { PROVENANCE_LABEL, day, headline, plain, potentialText, streamingProbeLabel } from "./labels";
 
 type StageState = "pending" | "active" | "done" | "skipped" | "failed";
 
@@ -44,8 +44,6 @@ function Stage({ n, title, state, summary, children, last }: {
 const host = (url: string) => {
   try { return new URL(url.includes("://") ? url : `https://${url}`).host; } catch { return url; }
 };
-const day = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 interface Progress {
