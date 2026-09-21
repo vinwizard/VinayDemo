@@ -653,7 +653,7 @@ function WinBack({ run }: { run: Run }) {
       {unplanned.length > 0 && (
         <p className="muted" style={{ margin: 0 }}>
           No fix yet for {unplanned.map((s) => s.label).join(", ")}
-          {run.win_back ? " — it has no verified action (see below), or became a target when the run was re-scored." : " — this run was saved before the action plan existed."}
+          {(run.win_back_notes ?? []).length > 0 ? " — it has no verified action (see below), or became a target when the run was re-scored." : " — no verified action was proposed for it."}
         </p>
       )}
       {(run.win_back_notes ?? []).length > 0 && (

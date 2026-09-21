@@ -75,3 +75,16 @@ def test_live_path_uses_the_evaluator_and_a_failed_call_is_stated():
     run.win_back, run.win_back_notes = [], []
     win_back.plan(run, type("P", (), {"win_back": lambda self, prompt: bad.win_back(prompt)})())
     assert run.win_back == [] and "failed" in run.win_back_notes[0]
+
+
+def test_malformed_field_types_are_dropped_not_crashing():
+    run = run_for("A")
+    kept, dropped = win_back.validate([
+        good(attribute_id=["ai_native"]),
+        good(page_url={"u": 1}),
+        good(question_ids="mtg-3"),
+        good(question_ids=3),
+    ], run)
+    assert kept == []
+    text = " | ".join(dropped)
+    assert text.count("must be text") == 2 and text.count("must be a list") == 2

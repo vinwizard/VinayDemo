@@ -95,9 +95,13 @@ def validate(raw, run: Run) -> tuple[list[WinBackAction], list[str]]:
         a = raw_action if isinstance(raw_action, dict) else {}
         aid, url, copy = a.get("attribute_id"), a.get("page_url"), a.get("current_copy")
         rewrite = a.get("rewrite").strip() if real(a.get("rewrite")) else ""
-        s = by_target.get(aid)
+        s = by_target.get(aid) if isinstance(aid, str) else None
         label = s.label if s else repr(aid)
-        if not s:
+        if not isinstance(aid, str) or not isinstance(url, str):
+            dropped.append(f"{label}: attribute_id and page_url must be text")
+        elif not isinstance(a.get("question_ids") or [], list):
+            dropped.append(f"{label}: question_ids must be a list")
+        elif not s:
             dropped.append(f"{label}: not a claim to win back or amplify in this run")
         elif aid in kept:
             dropped.append(f"{label}: a second action for the same claim")
