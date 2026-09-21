@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { AttributeScore, DriftReport, Run, RunSummary, Zone } from "./api";
+import type { Answer, AttributeScore, DriftReport, QueryEvaluation, Run, RunSummary, Zone } from "./api";
 import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_MEANING, ZONE_ORDER, ZONES } from "./api";
 import { PROVENANCE_LABEL, claimShare, plain, probeLabels, provenanceLabel, runLabels, when } from "./labels";
 
@@ -278,53 +278,108 @@ export function GapCards({ scores }: { scores: AttributeScore[] }) {
   );
 }
 
+/** Mirrors scoring.eligible: only an answer that counts toward the scores can name anything here. */
+const counts = (a: Answer, e: QueryEvaluation) =>
+  a.status === "ok" && e.valid && a.provenance !== "web_research_snapshot"
+  && !(a.provenance === "live_api" && !a.search_executed);
+
 /**
- * Who AI offered instead, and what it said when asked to compare.
+ * The stretch of an answer around the first mention of a name, as plain text, so the reader can see
+ * how it came up: a recommendation, a passing example, or only a citation's hostname. Falls back to
+ * the raw text when stripping the Markdown removed the only mention (a name inside a link's URL).
+ */
+function mention(text: string, name: string): [string, string, string] | null {
+  for (const flat of [plain(text), text].map((t) => t.replace(/\s+/g, " "))) {
+    const i = flat.toLowerCase().indexOf(name.toLowerCase());
+    if (i < 0) continue;
+    const j = i + name.length;
+    const from = i > 90 ? flat.indexOf(" ", i - 90) + 1 : 0;
+    const to = flat.length - j > 140 ? Math.max(j, flat.lastIndexOf(" ", j + 140)) : flat.length;
+    return [(from ? "…" : "") + flat.slice(from, i), flat.slice(i, j), flat.slice(j, to) + (to < flat.length ? "…" : "")];
+  }
+  return null;
+}
+
+/**
+ * Every product named in a buyer answer, beside the line that names it, and what AI said when asked
+ * to compare.
  *
- * In a live run nobody supplied these names: a buyer question describes what the company does
- * without naming it, so every brand in the answer is one the model chose. In replay they are
- * authored fixture labels and the panel says so — a sentence asserting measured behaviour is
- * believed over the banner at the top of the page, and this product's whole claim is that it never
- * presents authored evidence as measured evidence.
+ * A name here is only what the evidence supports: the model named it in an answer to a question that
+ * never named the company. Many such names are obscure products a search happened to surface, or a
+ * citation's hostname, so the panel neither calls them competitors nor claims they were recommended
+ * — the line is shown so the reader judges each one. It ranks only when a name genuinely repeats
+ * across answers; when each appears once, any order would just be the first answer's order.
+ *
+ * In replay the names are authored fixture labels and the panel says so — a sentence asserting
+ * measured behaviour is believed over the banner at the top of the page, and this product's whole
+ * claim is that it never presents authored evidence as measured evidence.
  */
 export function Competitors({ run }: { run: Run }) {
   const replay = run.mode !== "live_api";
-  const byTopic = new Map(run.topics.map((t) => [t.id, t.label]));
-  const rows = run.topic_evaluations
-    .filter((te) => te.phase === "baseline" && te.top_competitors.length > 0)
-    .map((te) => ({ topic: byTopic.get(te.topic_id) ?? te.topic_id, names: te.top_competitors }));
+  const topicOf = new Map(run.topics.map((t) => [t.id, t.label]));
+  const answers = new Map(run.answers.map((a) => [a.probe_id, a]));
+  const evals = new Map(run.evaluations.map((e) => [e.probe_id, e]));
+  const named = new Map<string, { name: string; count: number; topic: string;
+                                   where: [string, string, string] | null }>();
+  for (const p of run.probes.filter((x) => x.kind === "blind" && x.phase === "baseline")) {
+    const a = answers.get(p.id), e = evals.get(p.id);
+    if (!a || !e || !counts(a, e)) continue;
+    for (const name of new Set(e.competitor_recommendations)) {
+      const row = named.get(name.toLowerCase());
+      if (row) row.count += 1;
+      else named.set(name.toLowerCase(), { name, count: 1, topic: topicOf.get(p.topic_id) ?? p.topic_id,
+                                           where: mention(a.text, name) });
+    }
+  }
+  const repeats = [...named.values()].some((r) => r.count > 1);
+  // A stable sort: names seen once keep the order they appeared in.
+  const rows = [...named.values()].sort((x, y) => (repeats ? y.count - x.count : 0));
   const comparison = run.probes.find((p) => p.kind === "named" && p.phase === "followup");
-  const answer = comparison && run.answers.find((a) => a.probe_id === comparison.id);
+  const answer = comparison && answers.get(comparison.id);
   // "Nobody was named" and "nobody was asked" are different findings. With no weighted claim there
-  // are no buyer questions at all, and an empty competitor set then means silence, not absence.
+  // are no buyer questions at all, and an empty set then means silence, not absence.
   const askedBuyerQuestions = run.probes.some((p) => p.kind === "blind" && p.phase === "baseline");
   if (!rows.length) {
     return (
       <div className="card muted">
         {!askedBuyerQuestions
-          ? "No buyer question was asked — nothing is weighted as intended — so the buyer axis was not measured and no competitor could be discovered."
+          ? "No buyer question was asked — nothing is weighted as intended — so the buyer axis was not measured and no other product could be named."
           : replay
             ? "This sample scenario names no competitor in its authored buyer answers. Replay never asks the comparison question either: that round exists only in a live run."
-            : "No competitor was named in any buyer answer, so there was nothing to compare against and no comparison question was asked."}
+            : "No other product was named in any buyer answer that counts toward the scores, so there was nothing to compare against and no comparison question was asked."}
       </div>
     );
   }
   return (
     <div className="card">
-      <h3>Who AI named instead</h3>
+      <h3>Named in buyer answers</h3>
       <p className="muted" style={{ margin: ".3rem 0 .6rem" }}>
         {replay
           ? "Authored sample data, not a measurement: no model volunteered these names. A live run"
             + " puts here the brands the model itself offered when a buyer described what you do"
             + " without naming you, and only a live run asks the comparison question below."
-          : "Discovered, not asked for: these are the brands the model volunteered when a buyer"
-            + " described what you do without naming you."}
+          : `Every product the model named when a buyer asked about what ${run.profile.name} does`
+            + " without naming it. Being named is not being recommended, or being a competitor:"
+            + " each sits beside the part of the answer that names it, so judge it yourself."}
+        {" "}
+        {repeats
+          ? "Sorted by how many answers named it; the rest were named once, in the order they appeared."
+          : "Each was named in one answer only, so this is the order they appeared, not a ranking."}
       </p>
-      <table>
-        <thead><tr><th>Buyer topic</th><th>Recommended instead</th></tr></thead>
+      <table className="named">
+        <thead>
+          <tr><th>Product</th>{repeats && <th>Answers</th>}<th>Buyer topic</th><th>Where the answer names it</th></tr>
+        </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.topic}><td>{r.topic}</td><td>{r.names.join(", ")}</td></tr>
+            <tr key={r.name}>
+              <td><strong>{r.name}</strong></td>
+              {repeats && <td>{r.count}</td>}
+              <td className="muted">{r.topic}</td>
+              <td className="muted">
+                {r.where ? <>{r.where[0]}<strong>{r.where[1]}</strong>{r.where[2]}</> : "—"}
+              </td>
+            </tr>
           ))}
         </tbody>
       </table>

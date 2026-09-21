@@ -339,17 +339,17 @@ export function CompanyWorkflow({ companyId, preloaded, onRunSaved }: {
         )}
       </Stage>
 
-      <Stage n={6} title="Follow up on who AI named instead" state={s6}
+      <Stage n={6} title="Follow up on products AI named" state={s6}
              summary={s6 === "skipped"
                ? (p.node?.competitors.length ? "Skipped" : "Skipped — no buyer answer named another product")
                : decided ? `${plural(planned?.followup ?? 0, "follow-up question")}${
                    p.node?.competitors.length ? ` · AI named ${p.node.competitors.join(", ")}` : ""}`
-               : "If AI recommends someone else, ask it to compare"}>
+               : "If a buyer answer names other products, ask AI to compare them"}>
         {decided && (s6 === "active" || s6 === "done") && (
           <div className="stack">
             {p.node?.competitors.length ? (
               <p className="muted" style={{ margin: 0 }}>
-                {replay ? "In the sample answers, AI" : "When a buyer described what you do, AI"} recommended{" "}
+                {replay ? "Named in the sample buyer answers:" : "Named in the buyer answers:"}{" "}
                 <strong>{p.node.competitors.join(", ")}</strong>.
                 {!replay && ` So we asked it to compare them with ${brandName}. Exploratory — not counted in alignment.`}
               </p>

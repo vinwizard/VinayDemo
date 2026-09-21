@@ -117,7 +117,7 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
 - **Onboard your own company** — one workflow on one screen, seven stages that complete in order:
   read their site (the pages fetched), extract what they claim (claims kept, each with its verbatim
   quote and page count), choose what you want to be known for (the zero-floor intent sliders and the
-  add-your-own row), ask buyer questions, ask brand questions, follow up on who AI named instead, and
+  add-your-own row), ask buyer questions, ask brand questions, follow up on products AI named, and
   score. Each stage is driven by the stream's events, shows what it actually did, and lists every
   answer as it arrives; a finished stage folds to a one-line summary. The report appears beneath
   the stages when scoring finishes. Previously onboarded companies can be reopened from step 1
@@ -125,7 +125,8 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   live, with the model, or the SYNTHETIC DEMO banner for a replayed run), then positioning alignment
   and buyer visibility side by side, a legend counting each zone with what it means, the
   claim-vs-echo drift map with an Evidence disclosure per claim, "whose problem is each gap" cards,
-  "who AI named instead" (competitors discovered from the blind answers, plus the round-two
+  "named in buyer answers" (every product named in a buyer answer that counts toward the scores,
+  beside the part of the answer that names it, ranked only when a name repeats across answers, plus the round-two
   comparison question built from those names), and the evidence, limitations and log behind a
   disclosure. **Unprioritised** is the zone for a claim the company's own pages state and AI repeats,
   but which the customer never weighted — the default state of every onboarded attribute until a

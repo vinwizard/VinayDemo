@@ -75,6 +75,12 @@ export interface Answer {
   search_executed: boolean | null;
 }
 
+export interface QueryEvaluation {
+  probe_id: string;
+  valid: boolean;
+  competitor_recommendations: string[];
+}
+
 export interface TopicEvaluation {
   topic_id: string;
   phase: string;
@@ -93,6 +99,7 @@ export interface Run {
   topics: Topic[];
   probes: Probe[];
   answers: Answer[];
+  evaluations: QueryEvaluation[];
   topic_evaluations: TopicEvaluation[];
   attribute_scores: AttributeScore[];
   drift: DriftReport | null;
