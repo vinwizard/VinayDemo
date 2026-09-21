@@ -199,6 +199,7 @@ export function Report({ run, onRescored, weightNote }: {
             <GapCards scores={run.attribute_scores} />
           </section>
           <div className="blocks">
+            <WinBack run={run} />
             <BuyerQuestions run={run} />
             <BrandQuestions run={run} />
             <ShareOfVoice run={run} />
@@ -791,6 +792,77 @@ function BuyerQuestions({ run }: { run: Run }) {
         <>
           <h4>Follow-up questions (exploratory — not counted in the scores)</h4>
           <div className="questions">{follow.map(card)}</div>
+        </>
+      )}
+    </Block>
+  );
+}
+
+/**
+ * How to win it back: per claim to win back or amplify, the page to change, a suggested rewrite and
+ * the buyer questions it should help with. The server kept only actions whose page was read and
+ * whose questions were asked; a claim that became a target by re-scoring has no action yet.
+ */
+function WinBack({ run }: { run: Run }) {
+  const targets = run.attribute_scores.filter((s) => !s.discovered && (s.zone === "lost_claim" || s.zone === "unstated_intent"));
+  if (!targets.length) return null;
+  const replay = run.mode !== "live_api";
+  const names = probeLabels(run.probes, run.topics);
+  const probes = new Map(run.probes.map((p) => [p.id, p]));
+  const zones = new Map(targets.map((s) => [s.attribute_id, s.zone]));
+  const actions = (run.win_back ?? []).filter((a) => zones.has(a.attribute_id));
+  const planned = new Set(actions.map((a) => a.attribute_id));
+  const unplanned = targets.filter((s) => !planned.has(s.attribute_id));
+  const questions = new Set(actions.flatMap((a) => a.question_ids)).size;
+  return (
+    <Block title="How to win it back"
+           found={actions.length ? `${plural(actions.length, "fix", "fixes")} · ${plural(questions, "buyer question")} to win`
+             : "no verified fix"}>
+      <p className="muted" style={{ margin: 0 }}>
+        For each claim to win back or amplify: the page of yours to change, a suggested rewrite, and
+        the buyer questions that did not recommend {run.profile.name} which it should help with. A
+        draft — check every statement against the product before publishing, then measure again.
+        It changes no number above.
+      </p>
+      <div className="questions">
+        {actions.map((a) => (
+          <div className="question" key={a.attribute_id}>
+            <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+              <strong>{a.label}</strong>
+              <span className={`pill ${zones.get(a.attribute_id)}`}>{ZONE_LABEL[zones.get(a.attribute_id)!]}</span>
+            </div>
+            <span className="muted">
+              Page to change: <a href={a.page_url} target="_blank" rel="noreferrer">{a.page_url}</a>
+              {a.current_copy ? " · replace:" : " · add new copy"}
+            </span>
+            {a.current_copy && <p className="quote">{a.current_copy}</p>}
+            <p style={{ margin: 0 }}>
+              {replay && <span className="tag sample">sample</span>}{" "}
+              <strong>Suggested rewrite:</strong> {a.rewrite}
+            </p>
+            {a.question_ids.length ? (
+              <ul style={{ margin: 0 }}>
+                {a.question_ids.map((q) => (
+                  <li key={q}><span className="muted" title={q}>{names[q] ?? q}:</span> {probes.get(q)?.text}</li>
+                ))}
+              </ul>
+            ) : (
+              <span className="muted">No buyer question in this run asks for this — add one to the next run to measure it.</span>
+            )}
+            {a.why && <span className="muted">{a.why}</span>}
+          </div>
+        ))}
+      </div>
+      {unplanned.length > 0 && (
+        <p className="muted" style={{ margin: 0 }}>
+          No fix yet for {unplanned.map((s) => s.label).join(", ")}
+          {(run.win_back_notes ?? []).length > 0 ? " — it has no verified action (see below), or became a target when the run was re-scored." : " — no verified action was proposed for it."}
+        </p>
+      )}
+      {(run.win_back_notes ?? []).length > 0 && (
+        <>
+          <h4>Dropped as unverifiable</h4>
+          <ul>{run.win_back_notes!.map((n, i) => <li key={i} className="log">{n}</li>)}</ul>
         </>
       )}
     </Block>

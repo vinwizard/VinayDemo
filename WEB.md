@@ -63,7 +63,7 @@ mode switch in the page: every measurement it starts is live.
 
 A live run asks every brand and buyer question once to the measured model with web search, and has
 the evaluator grade each answer — two calls per question — plus one round-two comparison question
-when a buyer answer names a competitor. Without a key, live mode
+when a buyer answer names a competitor, and one evaluator call at the end for the action plan. Without a key, live mode
 **errors** rather than falling back to fixtures — a fixture result under a live label would be a
 fabricated measurement.
 
@@ -146,6 +146,16 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   the round-two comparison question), **where AI gets its opinion** (every site cited in a counted
   buyer or brand answer, ranked by answers citing it; a third-party site cited in two or more is
   flagged as a target) and **discovered identities**. Every n/a shows the server's reason from `na_reasons`. Two lenses: with
+  and collapsible blocks whose headers state what each found: **how to win it back** (per claim to
+  win back or amplify, the page of theirs to change, a suggested rewrite and the buyer questions that
+  did not recommend them which it should help with — one evaluator-model call at the end of a live
+  run over the saved answers and pages, authored and labelled sample in replay; `agents/win_back.py`
+  drops any action whose page was not read, whose replaced copy is not verbatim on it, whose rewrite
+  is marketing language, or whose question was not asked, and says why; it moves no number),
+  **buyer questions** ("12 asked ·
+  named you in 8"), **brand questions**, **who AI named instead** (every product named in a buyer
+  answer that counts, beside the line that names it, plus the round-two comparison question) and
+  **discovered identities**. Every n/a shows the server's reason from `na_reasons`. Two lenses: with
   no weight set the report reads through the **claim lens** — buyer questions go to the claims
   stated on the most pages, **claim echo** (of what the site claims, weighted by pages stating it,
   how much AI repeats supportively) is the headline, and alignment is absent with its reason in

@@ -6,7 +6,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 
 import drift
-from agents import ana, evaluation
+from agents import ana, evaluation, win_back
 from labels import probe_name
 from schemas import Run
 from scoring import score_topic, visibility_score
@@ -262,6 +262,11 @@ def build_gap_report(s: State):
     if ana.baseline_hash(run.probes) != run.baseline_hash:
         raise ValidationError("baseline changed after freeze")
     run.findings = evaluation.build_findings(run.topics, run.topic_evaluations, run.evaluations, run.probes)
+    # After every score exists, over saved answers and pages only: it reads the zones, never moves them.
+    win_back.plan(run, s["provider"])
+    if run.win_back or run.win_back_notes:
+        run.log.append(f"Action plan: {len(run.win_back)} fix(es) kept, "
+                       f"{len(run.win_back_notes)} note(s) on what was dropped.")
     run.status = "complete"
     run.log.append(f"Gap report built: {len(run.findings)} findings.")
     return {"run": run}

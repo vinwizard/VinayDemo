@@ -76,6 +76,10 @@ class FixtureProvider:
     def followup_bank(self) -> dict[str, list[dict]]:
         return self.data["followup_bank"]
 
+    def win_back(self, prompt: str):
+        """The authored action plan. Like `answer`, it ignores what a model would be sent."""
+        return self.data.get("win_back")
+
     def answer(self, probe: Probe) -> Answer:
         """Only the probe id is used to look up the answer; a live provider would receive only probe.text."""
         CALLS["answer"] += 1

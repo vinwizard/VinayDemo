@@ -103,6 +103,20 @@ export interface TopicEvaluation {
   top_competitors: string[];
 }
 
+/** How to win it back: one verified fix per claim to win back or amplify. Moves no number. */
+export interface WinBackAction {
+  attribute_id: string;
+  label: string;
+  zone: Zone;
+  page_url: string;
+  /** Verbatim on that page; null means add new copy. */
+  current_copy: string | null;
+  rewrite: string;
+  question_ids: string[];
+  why: string;
+  provenance: string;
+}
+
 export interface Run {
   id: string;
   created_at: string;
@@ -118,6 +132,9 @@ export interface Run {
   attributes?: ClaimedAttribute[];
   attribute_scores: AttributeScore[];
   drift: DriftReport | null;
+  /** Absent on runs saved before the action plan existed. */
+  win_back?: WinBackAction[];
+  win_back_notes?: string[];
   log: string[];
   insights?: Insights;  // derived by the API from the saved answers; absent on a run read raw
 }

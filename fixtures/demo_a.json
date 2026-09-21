@@ -1416,5 +1416,38 @@
     ]
    }
   }
+ ],
+ "win_back": [
+  {
+   "attribute_id": "ai_native",
+   "page_url": "https://example.com/demo-source-claim-1",
+   "current_copy": null,
+   "rewrite": "Notion AI is part of every workspace: it drafts and edits inside your pages, summarises meeting notes, and answers questions from your team's own docs with links to the pages it read. No separate add-on to buy.",
+   "question_ids": [
+    "mtg-3",
+    "mtg-1"
+   ],
+   "why": "Neither meeting question recommended Notion; stating that AI summarises notes inside the workspace gives answers a reason to name Notion."
+  },
+  {
+   "attribute_id": "replaces_stack",
+   "page_url": "https://example.com/demo-source-claim-2",
+   "current_copy": null,
+   "rewrite": "One Notion workspace holds your docs, task tracker and team wiki, so a team can cancel three or four single-purpose subscriptions. Tasks live beside the briefs and specs they belong to.",
+   "question_ids": [
+    "pt-3",
+    "pt-2",
+    "pt-1"
+   ],
+   "why": "Every project-tracking question went to a standalone tracker; saying tasks and docs share one workspace answers the docs-and-tasks question outright."
+  },
+  {
+   "attribute_id": "enterprise",
+   "page_url": "https://example.com/demo-source-claim-2",
+   "current_copy": null,
+   "rewrite": "For company-wide rollout, Notion supports SAML single sign-on, audit logging, granular page and workspace permissions, and admin controls for IT.",
+   "question_ids": [],
+   "why": "The site states these controls on only one page, so answers have almost nothing to repeat."
+  }
  ]
 }

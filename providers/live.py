@@ -193,6 +193,11 @@ class LiveProvider:
             return None
         return self.evaluator.discover(self._profile, attributes, answers)
 
+    def win_back(self, prompt: str):
+        """Raw action-plan proposals from the evaluator model, or None when there is none."""
+        ask = getattr(self.evaluator, "win_back", None)  # a stub evaluator may not offer it
+        return ask(prompt) if ask else None
+
     def answer(self, probe: Probe) -> Answer:
         self.calls += 1
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
