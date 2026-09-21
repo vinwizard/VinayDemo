@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import type { Answer, AttributeScore, DriftReport, Probe, QueryEvaluation, Run, RunSummary, Zone } from "./api";
 import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_ORDER, ZONES, rescoreRun } from "./api";
@@ -178,7 +179,10 @@ export function Report({ run, onRescored, weightNote }: {
           <Logo name={run.profile.name} url={run.profile.logo_url} />
           <h2>{run.profile.name} — report</h2>
         </div>
-        <span className="muted" title={run.id}>{when(run.created_at)}</span>
+        <div className="row">
+          <span className="muted" title={run.id}>{when(run.created_at)}</span>
+          {d && <PrintSummary run={run} />}
+        </div>
       </div>
       <RunSource run={run} />
       {d ? (
@@ -195,6 +199,7 @@ export function Report({ run, onRescored, weightNote }: {
             <GapCards scores={run.attribute_scores} />
           </section>
           <div className="blocks">
+            <WinBack run={run} />
             <BuyerQuestions run={run} />
             <BrandQuestions run={run} />
             <Competitors run={run} />
@@ -206,6 +211,95 @@ export function Report({ run, onRescored, weightNote }: {
         <div className="callout">This run finished without a drift report.</div>
       )}
     </article>
+  );
+}
+
+/** Top 3 landed claims, most-endorsed first: what AI already says for you. */
+const topWins = (scores: AttributeScore[]) => scores
+  .filter((s) => s.zone === "landed")
+  .sort((a, b) => (b.echo_rate ?? 0) - (a.echo_rate ?? 0))
+  .slice(0, 3);
+
+/** Top 3 open claims, in the same order as "Where the upside is". */
+const topFixes = (scores: AttributeScore[]) => scores
+  .filter((s) => GAP_ZONES.includes(s.zone))
+  .sort((a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.intended_weight ?? 0) - (a.intended_weight ?? 0))
+  .slice(0, 3);
+
+/**
+ * "Download summary (PDF)": mounts a one-page summary on <body> and opens the browser's print
+ * dialog, where "Save as PDF" makes the file. Print CSS shows only the summary; on screen it never
+ * renders, so there is no second copy of the report to keep in sync.
+ */
+function PrintSummary({ run }: { run: Run }) {
+  const [printing, setPrinting] = useState(false);
+  useEffect(() => {
+    if (!printing) return;
+    const done = () => setPrinting(false);
+    window.addEventListener("afterprint", done);
+    window.print();
+    return () => window.removeEventListener("afterprint", done);
+  }, [printing]);
+  return (
+    <>
+      <button className="ghost" onClick={() => setPrinting(true)}>Download summary (PDF)</button>
+      {printing && createPortal(<ExecSummary run={run} />, document.body)}
+    </>
+  );
+}
+
+/** The one-page summary itself: logo, the potential with the real score beneath, 3 wins, 3 fixes. */
+function ExecSummary({ run }: { run: Run }) {
+  const d = run.drift!;
+  const h = headline(d);
+  const wins = topWins(run.attribute_scores);
+  const fixes = topFixes(run.attribute_scores);
+  const live = run.mode === "live_api";
+  return (
+    <section className="exec-summary">
+      <div className="row">
+        <Logo name={run.profile.name} url={run.profile.logo_url} size={48} />
+        <div>
+          <h2>{run.profile.name}</h2>
+          <div className="muted">How AI answer engines describe {run.profile.name} — executive summary</div>
+        </div>
+      </div>
+      <div className="figure potential">
+        <div className="label">{h.label}</div>
+        <div className="value">
+          {h.potential == null ? "n/a" : `${h.potential}%`}
+          {h.potential != null && <small> untapped potential</small>}
+        </div>
+        <div className="today">{h.today ?? d.na_reasons?.[h.field]}</div>
+      </div>
+      <div className="exec-cols">
+        <div>
+          <h3>Top wins — AI already says it</h3>
+          {wins.length ? (
+            <ol>{wins.map((s) => (
+              <li key={s.attribute_id}><strong>{s.label}</strong><div className="muted">{aiShare(s)}</div></li>
+            ))}</ol>
+          ) : <p className="muted">No claim has landed yet.</p>}
+        </div>
+        <div>
+          <h3>Top fixes — where the upside is</h3>
+          {fixes.length ? (
+            <ol>{fixes.map((s) => (
+              <li key={s.attribute_id}>
+                <strong>{s.label}</strong> <span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span>
+                <div className="muted">{ZONE_MEANING[s.zone]}</div>
+              </li>
+            ))}</ol>
+          ) : <p className="muted">No open opportunity: every claim has landed or is unweighted.</p>}
+        </div>
+      </div>
+      <p className="exec-foot">
+        Source: <strong>{live ? PROVENANCE_LABEL.live_api : "SYNTHETIC SAMPLE — authored answers, not measured"}</strong>
+        {" "}· run {when(run.created_at)} · {d.n_named} brand and {d.n_blind} buyer answers
+        · printed {new Date().toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+        <br />Independent portfolio demo — not a Profound product or integration.
+      </p>
+    </section>
   );
 }
 
@@ -594,6 +688,77 @@ function BuyerQuestions({ run }: { run: Run }) {
         <>
           <h4>Follow-up questions (exploratory — not counted in the scores)</h4>
           <div className="questions">{follow.map(card)}</div>
+        </>
+      )}
+    </Block>
+  );
+}
+
+/**
+ * How to win it back: per claim to win back or amplify, the page to change, a suggested rewrite and
+ * the buyer questions it should help with. The server kept only actions whose page was read and
+ * whose questions were asked; a claim that became a target by re-scoring has no action yet.
+ */
+function WinBack({ run }: { run: Run }) {
+  const targets = run.attribute_scores.filter((s) => !s.discovered && (s.zone === "lost_claim" || s.zone === "unstated_intent"));
+  if (!targets.length) return null;
+  const replay = run.mode !== "live_api";
+  const names = probeLabels(run.probes, run.topics);
+  const probes = new Map(run.probes.map((p) => [p.id, p]));
+  const zones = new Map(targets.map((s) => [s.attribute_id, s.zone]));
+  const actions = (run.win_back ?? []).filter((a) => zones.has(a.attribute_id));
+  const planned = new Set(actions.map((a) => a.attribute_id));
+  const unplanned = targets.filter((s) => !planned.has(s.attribute_id));
+  const questions = new Set(actions.flatMap((a) => a.question_ids)).size;
+  return (
+    <Block title="How to win it back"
+           found={actions.length ? `${plural(actions.length, "fix", "fixes")} · ${plural(questions, "buyer question")} to win`
+             : "no verified fix"}>
+      <p className="muted" style={{ margin: 0 }}>
+        For each claim to win back or amplify: the page of yours to change, a suggested rewrite, and
+        the buyer questions that did not recommend {run.profile.name} which it should help with. A
+        draft — check every statement against the product before publishing, then measure again.
+        It changes no number above.
+      </p>
+      <div className="questions">
+        {actions.map((a) => (
+          <div className="question" key={a.attribute_id}>
+            <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+              <strong>{a.label}</strong>
+              <span className={`pill ${zones.get(a.attribute_id)}`}>{ZONE_LABEL[zones.get(a.attribute_id)!]}</span>
+            </div>
+            <span className="muted">
+              Page to change: <a href={a.page_url} target="_blank" rel="noreferrer">{a.page_url}</a>
+              {a.current_copy ? " · replace:" : " · add new copy"}
+            </span>
+            {a.current_copy && <p className="quote">{a.current_copy}</p>}
+            <p style={{ margin: 0 }}>
+              {replay && <span className="tag sample">sample</span>}{" "}
+              <strong>Suggested rewrite:</strong> {a.rewrite}
+            </p>
+            {a.question_ids.length ? (
+              <ul style={{ margin: 0 }}>
+                {a.question_ids.map((q) => (
+                  <li key={q}><span className="muted" title={q}>{names[q] ?? q}:</span> {probes.get(q)?.text}</li>
+                ))}
+              </ul>
+            ) : (
+              <span className="muted">No buyer question in this run asks for this — add one to the next run to measure it.</span>
+            )}
+            {a.why && <span className="muted">{a.why}</span>}
+          </div>
+        ))}
+      </div>
+      {unplanned.length > 0 && (
+        <p className="muted" style={{ margin: 0 }}>
+          No fix yet for {unplanned.map((s) => s.label).join(", ")}
+          {(run.win_back_notes ?? []).length > 0 ? " — it has no verified action (see below), or became a target when the run was re-scored." : " — no verified action was proposed for it."}
+        </p>
+      )}
+      {(run.win_back_notes ?? []).length > 0 && (
+        <>
+          <h4>Dropped as unverifiable</h4>
+          <ul>{run.win_back_notes!.map((n, i) => <li key={i} className="log">{n}</li>)}</ul>
         </>
       )}
     </Block>

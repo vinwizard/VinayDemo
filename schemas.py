@@ -277,6 +277,23 @@ class ClaimCheck(BaseModel):
     notes: list[str] = []    # plain sentences: why quotes were removed or the claim left out
 
 
+class WinBackAction(BaseModel):
+    """One fix for a claim to win back or amplify: a page the run read, and buyer questions it asked.
+
+    Proposed by a model (or authored, in replay) and kept only after agents/win_back.py checked
+    every reference. A suggestion for the company's copy, never a measurement: it moves no number.
+    """
+    attribute_id: str
+    label: str
+    zone: Zone
+    page_url: str                       # one of the pages actually read
+    current_copy: Optional[str] = None  # verbatim on that page; None = add new copy
+    rewrite: str
+    question_ids: list[str] = []        # baseline buyer questions that did not recommend the company
+    why: str = ""
+    provenance: Provenance
+
+
 class Company(BaseModel):
     """One onboarded company: what its own pages claim, plus what the customer says they intend.
 
@@ -316,5 +333,7 @@ class Run(BaseModel):
     observations: Optional[dict[str, list[AttributeObservation]]] = None  # None: saved before re-scoring
     drift_notes: list[str] = []  # limitations measure_drift adds beyond the report's own
     drift: Optional[DriftReport] = None
+    win_back: list[WinBackAction] = []  # how to win it back; additive, never feeds a score
+    win_back_notes: list[str] = []      # why a proposed action was dropped, or none was proposed
     log: list[str] = []
     status: str = "planned"
