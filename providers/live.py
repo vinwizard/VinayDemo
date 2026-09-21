@@ -51,27 +51,57 @@ def available() -> bool:
     return bool(os.environ.get(KEY_ENV))
 
 
-class ModelUnsupported(RuntimeError):
+class PreflightFailed(RuntimeError):
+    """A preflight refusal whose message is safe to show the user: it never carries the provider's
+    response body, which can quote part of the key back."""
+
+
+class ModelUnsupported(PreflightFailed):
+    """Strictly the 400 a model returns when it will not take the web_search tool."""
+
+
+class CredentialRejected(PreflightFailed):
     pass
 
 
+class AccessDenied(PreflightFailed):
+    pass
+
+
+def safe_error(e: Exception) -> str:
+    """Exception type and HTTP status only. str(e) is the provider's raw body and is never used."""
+    status = getattr(e, "status_code", None)
+    return f"{type(e).__name__} (HTTP {status})" if status else type(e).__name__
+
+
 def preflight(model: Optional[str] = None, transport: Optional[Callable] = None) -> None:
-    """One trivial call before a run, so an unusable model fails once with a clear message.
+    """One trivial call before a run, so an unusable setup fails once with a clear message.
 
     Without this, a model that cannot take the web_search tool produces N identical 400s — one per
-    probe — and the report is an unreadable wall of the same error.
+    probe — and the report is an unreadable wall of the same error. Failures are classified on the
+    HTTP status and error code, never the message text: OpenAI's 401 body also says
+    "invalid_request_error", and its 403 region block also says "not supported".
     """
     model = model or model_name()
     try:
         (transport or default_transport)([{"role": "user", "content": "hi"}], model, 30)
     except Exception as e:
-        msg = str(e)
-        if "not supported" in msg or "invalid_request_error" in msg:
+        status, code = getattr(e, "status_code", None), getattr(e, "code", None)
+        if status == 401 or code == "invalid_api_key":
+            raise CredentialRejected(
+                f"OpenAI refused your API key ({safe_error(e)}). Check that {KEY_ENV} is correct "
+                f"and has not been revoked.") from e
+        if status == 403:
+            raise AccessDenied(
+                f"OpenAI refused the request ({safe_error(e)}). This is an account-level refusal — "
+                f"most often OpenAI not serving your country or region, or your project lacking "
+                f"access to model {model!r} — not a problem with the model or the key's format.") from e
+        if status == 400:
             raise ModelUnsupported(
                 f"Model {model!r} cannot be used: it does not accept the Responses API web_search "
                 f"tool. Set LIVE_MODEL to one that does (gpt-4o-mini, gpt-4.1-mini, gpt-4o, "
                 f"gpt-5-mini, gpt-5.5). Note the *-search-preview models are Chat Completions only. "
-                f"Original error: {msg[:200]}") from e
+                f"({safe_error(e)})") from e
         raise
 
 
@@ -167,7 +197,7 @@ class LiveProvider:
                                   LIMITS["per_call_timeout_s"])
         except Exception as e:                      # surfaced as a failed answer, never swallowed
             kind = "timeout" if "timeout" in type(e).__name__.lower() else "error"
-            return Answer(**base, text="", status=kind, error=f"{type(e).__name__}: {e}",
+            return Answer(**base, text="", status=kind, error=safe_error(e),
                           search_executed=False)
         text, citations, searched = parse_response(raw)
         if not text:

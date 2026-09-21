@@ -1,12 +1,11 @@
 # What these checks cover: the Python engine tests under tests/, the web
 # TypeScript types (tsc -b) and the web lint (oxlint).
-# What they do NOT cover: api/main.py has a single test, over the /api/stream
-# setup-error path; the rest of the HTTP server — SSE framing for a real run, the
-# worker-thread queue — is untested, so a green tick says little about it. There is
-# also no web test runner, so no web/src behaviour — including the stream client
+# What they do NOT cover: the API is exercised by calling its stream generator directly
+# (tests/test_api_stream.py runs each bundled scenario end to end through it), not over
+# HTTP, so SSE framing on the wire and the other endpoints' HTTP behaviour are untested.
+# There is also no web test runner, so no web/src behaviour — including the stream client
 # in web/src/api.ts — is executed by CI; it is only typechecked and linted.
-# Live-mode error classification is known-unreliable and is being fixed under a
-# separate task; nothing here verifies the live path.
+# The live path is tested only under an injected transport; no real provider is called.
 name: CI
 
 on:

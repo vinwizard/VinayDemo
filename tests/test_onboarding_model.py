@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from agents.onboarding_model import OnboardingAgent, build_attributes, parse
+from agents.onboarding_model import OnboardingAgent, _useful_description, build_attributes, parse
 
 PAGES = [
     ("https://example.com/",
@@ -138,3 +138,10 @@ def test_unlabelled_attribute_is_dropped():
     attrs, warnings = build_attributes(raw, PAGES)
     assert [a.id for a in attrs] == ["enterprise_ready"]
     assert any("no label" in w for w in warnings)
+
+
+def test_description_restating_a_hyphenated_label_is_rejected():
+    assert not _useful_description("Real-time collaboration", "Real-time collaboration, done in real-time.")
+    assert not _useful_description("All-in-one workspace", "An all-in-one workspace for teams.")
+    assert _useful_description("Real-time collaboration",
+                               "Several people edit the same page and see each other's cursors live.")

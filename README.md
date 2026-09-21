@@ -70,22 +70,30 @@ conda activate visexp
 python -m pip install -r requirements.txt
 ```
 
-Conda supplies the Python interpreter; the four project pins in `requirements.txt` are installed with `pip`
+Conda supplies the Python interpreter; the project pins in `requirements.txt` are installed with `pip`
 inside the env, which keeps the versions identical to the ones that passed the acceptance checks.
 
 ### Every time — run the app
 
+The product is the React app in `web/` over the FastAPI server in `api/`: two processes, both in the
+`visexp` env. From the repo root:
+
 ```bash
-cd ~/Projects/VinayDemo
-conda activate visexp
-python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
+~/miniconda3/envs/visexp/bin/python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
-Open http://localhost:8501. No API keys, accounts, or internet needed. Stop the server with `Ctrl+C`.
+and in a second terminal:
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 177 tests incl. one UI journey per
-scenario, the live adapter under an injected transport and the stream endpoint's setup-error path — no
-API key, no network).
+```bash
+cd web && export PATH="$HOME/miniconda3/envs/visexp/bin:$PATH" && npm install && npm run dev
+```
+
+Open http://localhost:5173. The two bundled scenarios need no API keys, accounts, or internet. Stop
+either process with `Ctrl+C`. [`WEB.md`](WEB.md) has the details, live mode and the API reference.
+
+Tests: `conda activate visexp && python -m pytest -q` (offline; 180 tests incl. one journey per
+bundled scenario end to end through the `/api/stream` event stream, the live adapter under an injected
+transport — including how it classifies a refused key or a region block — no API key, no network).
 
 CI runs those tests plus the web typecheck (`npx tsc -b`) and lint (`npx oxlint`) on every pull request.
 `.github/workflows/ci.yml` states what a green tick does and does not cover.
@@ -94,22 +102,14 @@ CI runs those tests plus the web typecheck (`npx tsc -b`) and lint (`npx oxlint`
 
 `conda activate` is a shell function from `~/.zshrc`, so it only exists in an **interactive** shell.
 It works in a fresh Terminal tab and fails in scripts, non-interactive shells and some embedded
-terminals. Either run `source ~/.zshrc` first, or skip it entirely by calling the env directly:
-
-```bash
-cd ~/Projects/VinayDemo && ~/miniconda3/envs/visexp/bin/python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
-```
+terminals. Either run `source ~/.zshrc` first, or skip it entirely by calling the env's Python by
+absolute path, as the API command above already does.
 
 For anything needing `npm`, export the env onto PATH instead (npm's shebang has to find `node`):
 
 ```bash
 export PATH="$HOME/miniconda3/envs/visexp/bin:$PATH"
 ```
-
-### Web frontend
-
-A React + FastAPI frontend with live OpenAI measurement lives on the `worktree-web-frontend` branch.
-See [`WEB.md`](WEB.md). The Streamlit app here remains the offline demo of record.
 
 ### Rebuilding the environment from scratch
 
@@ -129,13 +129,14 @@ Then repeat the create step above.
 | Notion profile evidence | **Genuine** Claude Code research snapshot, `data/research/notion_2026-09-18.json` (verbatim excerpts, 2026-09-18) |
 | Profound capability links | Official pages, checked the same night |
 | Live model calls | **Implemented** in `providers/live.py` (OpenAI Responses API + web search) — needs `OPENAI_API_KEY`; setup in [`WEB.md`](WEB.md) |
-| URL fetching for arbitrary companies | **Real** — `fetching.py` crawls up to 6 public pages (SSRF-safe) for the API's `/api/onboard`, which needs an OpenAI key. The Streamlit app still does not fetch: paste facts there |
+| URL fetching for arbitrary companies | **Real** — `fetching.py` crawls up to 6 public pages (SSRF-safe) for the API's `/api/onboard`, which needs an OpenAI key |
 | Measuring an onboarded company | **Live only.** A company crawled from a URL has no authored answers, so there is nothing to replay: it needs `OPENAI_API_KEY`. The two bundled scenarios still run offline with no key |
 
 ## Layout
 
 ```
-app.py            Streamlit UI (setup → investigation → gap report)
+web/              React frontend (the product UI)
+api/main.py       FastAPI server over the engine; streams each run as server-sent events
 graph.py          LangGraph orchestrator: plan_baseline → validate_and_freeze → execute_or_replay → evaluate → choose_followup ⟲ → build_gap_report
 schemas.py        Pydantic contracts
 agents/           onboarding.py (Agent 1), ana.py (Agent 2), evaluation.py (Agent 3 + Profound mapping table)
@@ -144,7 +145,7 @@ scoring.py        arithmetic only
 reports.py        JSON/Markdown export, import, data/runs and data/companies persistence
 ```
 
-Completed runs are saved to `data/runs/<id>.json` and can be reopened from the sidebar after a restart.
+Completed runs are saved to `data/runs/<id>.json` and can be reopened from the History view after a restart.
 Onboarded companies are saved the same way, to `data/companies/<id>.json`, and carry the same caveat:
 both are local JSON files, so neither survives a Cloud Run redeploy (see below).
 
@@ -158,8 +159,10 @@ gcloud config set project YOUR_PROJECT
 gcloud run deploy visibility-explorer --source . --region us-central1 --allow-unauthenticated
 ```
 
-`--source .` builds the included `Dockerfile` (listens on `$PORT`). Fixture mode needs no secrets.
+`--source .` builds the included `Dockerfile`, which serves the **API only** on `$PORT`: the React app
+has no production build wiring yet (see [`WEB.md`](WEB.md)), so there is no deployable UI until it does.
+Fixture mode needs no secrets.
 Caveats: Cloud Run disk and sessions are ephemeral, so `data/runs/` and `data/companies/` are **not** durable
 there — download JSON reports instead, and expect an onboarded company to have to be onboarded again after a
 redeploy, or add storage later. Live mode would need server-side secrets (Secret Manager) and access
-control on paid runs before going public. Local Docker check: `docker build -t ve . && docker run -p 8080:8080 ve`.
+control on paid runs before going public. Local Docker check: `docker build -t ve . && docker run -p 8080:8080 ve`, then `curl localhost:8080/api/health`.
