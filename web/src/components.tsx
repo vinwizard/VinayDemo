@@ -33,7 +33,7 @@ export function Metrics({ d, brand }: { d: DriftReport; brand: string }) {
             <div className="label">Claim echo</div>
             <div className="value">{pctText(d.claim_echo)}</div>
             <p>
-              Weighted by how often your site states each claim: how often AI’s answers about {brand}
+              Weighted by how often your site states each claim: how often AI’s answers about {brand}{" "}
               repeat what the site says, supportively.
               {d.claim_echo == null && d.na_reasons?.claim_echo && ` ${d.na_reasons.claim_echo}`}
             </p>
