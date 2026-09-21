@@ -13,6 +13,7 @@ const ZONE_FILL: Record<Zone, string> = {
 };
 
 const pct = (x: number | null) => (x == null ? 0 : Math.round(x * 100));
+const endorsed = (s: AttributeScore) => Math.round((s.echo_rate ?? 0) * s.n);
 
 const ZONE_COUNT: Record<Zone, (d: DriftReport) => number> = {
   landed: (d) => d.landed.length,
@@ -141,7 +142,7 @@ function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
         <dt>How much of your site says it</dt>
         <dd>{share ? `states it on ${share}` : "no page data"}</dd>
         <dt>How often AI says it</dt>
-        <dd>{s.echoes} of {s.n} eligible answers{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}</dd>
+        <dd>mentioned in {s.echoes} of {s.n} eligible answers · {endorsed(s)} endorsed{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}</dd>
         {s.intended_weight != null && <><dt>Intent weight</dt><dd>{s.intended_weight}</dd></>}
       </dl>
       {s.quotes.length > 0 && (
@@ -219,7 +220,7 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
               <div className="bar neg" style={{ width: `${pct(s.negative_rate)}%` }} />
             </div>
             <div className="muted">
-              {s.echoes}/{s.n} answers{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
+              {s.echoes}/{s.n} mentioned · {endorsed(s)} endorsed{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
             </div>
           </div>
           <div><span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span></div>
@@ -244,10 +245,13 @@ function GapCard({ s }: { s: AttributeScore }) {
         <span className={`pill ${s.zone}`}>{OWNER_TITLE[s.owner]}</span>
       </div>
       <p style={{ margin: ".4rem 0 0" }}>{OWNER_TEXT[s.owner]}</p>
+      {s.limitations.filter((l) => l.includes("does not endorse it")).map((l, i) => (
+        <p className="warn" key={i} style={{ margin: ".3rem 0 0" }}>{l}</p>
+      ))}
       {s.discovered && <p className="muted" style={{ margin: ".3rem 0 0" }}>Discovered from the answers.</p>}
       <p className="muted" style={{ margin: ".3rem 0 0" }}>
         {share ? `${share} state it` : "no page data"}
-        {" · "}AI echoed it in {s.echoes} of {s.n} brand answers
+        {" · "}AI mentioned it in {s.echoes} of {s.n} brand answers · {endorsed(s)} endorsed
         {s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
       </p>
       {s.quotes[0] && <p className="quote">{plain(s.quotes[0])}</p>}
