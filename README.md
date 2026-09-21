@@ -28,7 +28,9 @@ The ids and these code names stay internal; on screen they are *buyer questions*
 (see the wording rules in [`WEB.md`](WEB.md)).
 
 A named probe that contains the attribute it measures invites the model to agree, so `ana.attribute_leaks`
-rejects it. This is as load-bearing as the brand-leak rule on blind probes.
+rejects it. This is as load-bearing as the brand-leak rule on blind probes. A blind probe addressed to
+the vendor ("your platform", "this product") is rejected the same way by `ana.vendor_address`: a buyer
+who has never heard of the brand asks about a need and a kind of product, not about the vendor.
 
 Independent portfolio demo — not a Profound product or integration. Spec: [`agents.md`](agents.md).
 Architecture of the original visibility engine still applies: [`CHECKPOINT.md`](CHECKPOINT.md).
@@ -38,7 +40,8 @@ Presenter script: [`DEMO.md`](DEMO.md).
 > bundled Notion scenarios — reachable from the page only through the `VISEXP_OFFLINE_REPLAY=1` server
 > fallback — are authored fixtures: answers, attribute observations and page-level claim counts. No
 > chatbot was measured for them, and every run from them is labelled a replay. Every quote is verified
-> verbatim against the answer it came from, and unverifiable observations are dropped rather than repaired.
+> verbatim against the answer it came from (a mention's quote ignoring only markdown emphasis and
+> case), and unverifiable observations are dropped rather than repaired.
 
 ## Run it (macOS, Miniconda)
 
@@ -95,7 +98,7 @@ demo with no key or internet, start the API with `VISEXP_OFFLINE_REPLAY=1` and t
 company replays the bundled Notion sample, labelled as such. Stop either process with `Ctrl+C`.
 [`WEB.md`](WEB.md) has the details, live mode and the API reference.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 220 tests incl. one journey per
+Tests: `conda activate visexp && python -m pytest -q` (offline; 233 tests incl. one journey per
 bundled scenario end to end through the `/api/stream` event stream, the live adapter under an injected
 transport — including how it classifies a refused key or a region block — no API key, no network).
 
