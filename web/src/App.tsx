@@ -20,6 +20,7 @@ export default function App() {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [progress, setProgress] = useState({ done: 0, expected: 0 });
   const [error, setError] = useState<string | null>(null);
+  const [companyRun, setCompanyRun] = useState<CompanyDetail | null>(null);
   const [cmpA, setCmpA] = useState(""), [cmpB, setCmpB] = useState("");
   const [pairA, setPairA] = useState<Run | null>(null), [pairB, setPairB] = useState<Run | null>(null);
   const closer = useRef<(() => void) | null>(null);
@@ -53,9 +54,12 @@ export default function App() {
     });
   };
 
-  const measure = () => startRun({ scenario }, mode);
-  // An onboarded company has no authored answers, so it is always a live measurement.
-  const measureCompany = (c: CompanyDetail) => { setTab("measure"); startRun({ company: c.id }, "live"); };
+  const measure = () => { setCompanyRun(null); startRun({ scenario }, mode); };
+  // An onboarded company has no authored answers, so it is always a live measurement — and the
+  // banner has to say so, or real paid calls stream in under the synthetic-demo label.
+  const measureCompany = (c: CompanyDetail) => {
+    setCompanyRun(c); setMode("live"); setTab("measure"); startRun({ company: c.id }, "live");
+  };
 
   const openRun = (id: string) => { getRun(id).then((r) => { setRun(r); setTab("report"); }).catch((e) => setError(String(e))); };
 
@@ -129,7 +133,17 @@ export default function App() {
                 </button>
               </div>
             </div>
-            {sc && (
+            {companyRun ? (
+              <>
+                <h3 style={{ marginTop: "1.1rem" }}>
+                  Measuring {companyRun.profile.name} — onboarded from {companyRun.profile.domain}
+                </h3>
+                <p className="muted" style={{ marginBottom: 0 }}>
+                  A real company has no authored answers, so this is always a live measurement. The
+                  scenario above belongs to the bundled demos and is not part of this run.
+                </p>
+              </>
+            ) : sc && (
               <>
                 <h3 style={{ marginTop: "1.1rem" }}>{sc.company} wants to be known for</h3>
                 <div className="stack" style={{ marginTop: ".5rem" }}>

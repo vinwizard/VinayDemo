@@ -121,5 +121,9 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
   matches the label unnormalized, so a label containing a hyphen, digit or ampersand ("AI-native
   workspace") can never be found and the restatement check degrades to a bare word count; filed as a
   separate follow-up
+- The zone matrix has no case for an attribute the company's own pages claim but the customer has
+  not weighted: such an attribute currently classifies as "imposed" — AI asserting it without you
+  claiming it — directly beside the company's own validated quote stating it. Naming that case is a
+  product decision and is pending
 - Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)
 - No production build wiring — Vite dev server only, so nothing is deployable from here yet

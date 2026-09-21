@@ -23,12 +23,13 @@ def probe_name(probe: Probe) -> str:
     """`np-4` -> "Brand question 4", `kb-2` -> "Buyer question 2", `kb-f1` -> "Follow-up question 1".
 
     The number comes from the id, not from a list position, so the same question is called the same
-    thing on every screen and in every rerender.
+    thing on every screen and in every rerender. The adaptive comparison question is the one probe
+    that is not an nth of anything — there is exactly one per run — so it is named, not numbered.
     """
     m = re.search(r"(\d+)$", probe.id)
     n = m.group(1) if m else "?"
     if probe.kind == "named":
-        return f"Brand question {n}"
+        return "Comparison question" if probe.phase == "followup" else f"Brand question {n}"
     if probe.phase == "followup":
         return f"Follow-up question {n}"
     return f"Buyer question {n}"

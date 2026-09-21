@@ -179,8 +179,13 @@ def measure_drift(s: State):
     if dropped:
         run.drift.limitations += [f"Dropped unverifiable observation — {d}" for d in dropped]
     if run.mode == "live_api" and not ana.discovered_competitors(run.topic_evaluations):
-        run.drift.limitations.append("No competitor was named in any baseline answer, so no "
-                                     "comparison question was asked.")
+        # "Nobody was named" and "nobody was asked" are different findings: with no weighted claim
+        # there are no buyer questions, so an empty competitor set is silence, not an absence.
+        run.drift.limitations.append(
+            "No competitor was named in any baseline answer, so no comparison question was asked."
+            if blind else
+            "No buyer question was asked — no claim is weighted as intended — so the buyer axis was "
+            "not measured and no competitor could be discovered.")
     run.log.append(f"Drift measured over {run.drift.n_named} brand answers: alignment "
                    f"{run.drift.alignment if run.drift.alignment is not None else 'n/a'} "
                    f"({len(run.drift.lost_claims)} lost, {len(run.drift.imposed)} imposed, "

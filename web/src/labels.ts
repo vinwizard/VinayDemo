@@ -55,7 +55,9 @@ export function probeLabels(probes: Probe[], topics: Topic[] = []): Record<strin
 export function streamingProbeLabel(probeId: string, kind: string, phase: string, topic?: string | null) {
   const n = idNumber(probeId);
   const suffix = topic ? ` — ${topic}` : "";
-  if (kind === "named") return `Brand question ${n ?? "?"}`;
+  // The adaptive comparison question is the one probe that is not an nth of anything — exactly one
+  // per run, with an id that carries no number — so it is named rather than numbered.
+  if (kind === "named") return phase === "followup" ? "Comparison question" : `Brand question ${n ?? "?"}`;
   if (phase === "followup") return `Follow-up question ${n ?? "?"}${suffix}`;
   return `Buyer question ${n ?? "?"}${suffix}`;
 }

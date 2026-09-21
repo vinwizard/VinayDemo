@@ -131,6 +131,7 @@ tr.pick:hover { background: #f5f8fc; cursor: pointer; }
 .bubble ul { margin: 0 0 .5rem; padding-left: 1.1rem; }
 .bubble .quote { margin: .3rem 0; }
 .bubble .warn { color: var(--lost); }
+.warn { color: var(--lost); }
 
 .desc { margin: .1rem 0 .15rem; line-height: 1.45; max-width: 46ch; }
 

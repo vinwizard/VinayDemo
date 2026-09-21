@@ -24,4 +24,4 @@ class CompanyProvider:
         return list(self.company.attributes)
 
     def named_probes(self) -> list[Probe]:
-        return named_probes_for(self.company.profile)
+        return named_probes_for(self.company.profile, self.company.attributes)

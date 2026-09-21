@@ -3,13 +3,17 @@
 A company used to BE a fixture filename. These checks pin the properties that let an arbitrary
 company be measured without letting it quietly inherit the demo's data or the demo's numbers.
 """
+import json
+
 import pytest
 from fastapi import HTTPException
 
 import api.main as main
+import drift
+import fetching
 import graph
 import reports
-from agents import ana, onboarding
+from agents import ana, onboarding, onboarding_model
 from providers import fixture
 from providers.company import CompanyProvider
 from schemas import Attribute, Company, CompanyProfile, TopicEvaluation
@@ -187,3 +191,99 @@ def test_no_competitor_named_means_no_comparison_question_and_a_stated_limitatio
     run = live_run([], "Several tools could work here.")
     assert not [p for p in run.probes if p.id == ana.COMPARISON_PROBE_ID]
     assert any("no comparison question was asked" in l for l in run.drift.limitations)
+
+
+# ---------------------------------------------------------------- planning budgets
+def weighted(n):
+    return [Attribute(id=f"a{i}", label=f"Claim {i}", intended_weight=0.5,
+                      buyer_questions=[f"Which tool number {i} option {j} suits a small team?"
+                                       for j in (1, 2, 3)])
+            for i in range(1, n + 1)]
+
+
+def test_weighting_more_claims_than_there_are_topics_still_plans_a_valid_run():
+    """Truncating to MAX_TOPICS must drop the questions too, or every probe of the 5th claim is an
+    orphan and `validate_and_freeze` kills the run with an unreadable id-shaped error."""
+    attrs = weighted(6)
+    topics, probes = ana.blind_probes_from_attributes(attrs, PROFILE)
+    assert len(topics) == ana.MAX_TOPICS
+    assert {p.topic_id for p in probes} == {t.id for t in topics}
+    assert len(probes) == ana.MAX_TOPICS * ana.PER_TOPIC <= graph.MAX_BASELINE
+    assert ana.validate_probes(probes, topics, PROFILE) == []
+
+
+def test_a_brand_question_colliding_with_an_attribute_is_dropped_at_onboarding(store):
+    """'What kind of TEAM…' against the alias 'team' used to pass onboarding and then abort every
+    later run in validate_and_freeze, with no way to repair the saved company from the UI."""
+    attrs = [Attribute(id="collab", label="Built for collaboration", aliases=["team", "people"])]
+    probes = onboarding.named_probes_for(PROFILE, attrs)
+    assert probes and len(probes) < len(onboarding.NAMED_TEMPLATES)
+    assert ana.validate_named_probes(probes, attrs) == []
+    # and the company a run is built from carries the same, already-vetted set
+    reports.save_company(mk_company(attrs=attrs))
+    assert [p.id for p in CompanyProvider(reports.load_company("abc123")).named_probes()] \
+        == [p.id for p in probes]
+
+
+def test_onboard_vetting_drops_brand_leaking_buyer_questions_and_says_so():
+    attrs = [Attribute(id="fast", label="Fast to set up",
+                       buyer_questions=["Which tool sets up fastest?", "Is Acme quick to set up?"])]
+    warnings = main.vet_questions(PROFILE, attrs)
+    assert attrs[0].buyer_questions == ["Which tool sets up fastest?"]
+    assert any("named you" in w and "Fast to set up" in w for w in warnings)
+
+
+def test_onboard_vetting_says_how_many_brand_questions_are_left():
+    attrs = [Attribute(id=f"a{i}", label=f"Claim {i}",
+                       aliases=["describe", "use", "strengths", "recommend", "changed", "team"])
+             for i in range(1, 3)]
+    warnings = main.vet_questions(PROFILE, attrs)
+    assert any("brand question(s) remain" in w for w in warnings)
+
+
+# ---------------------------------------------------------------- added claims
+def test_an_added_claim_is_intended_by_construction_and_survives_into_the_report(store):
+    reports.save_company(mk_company(pages=["p1", "p2"]))
+    out = main.patch_company("abc123", main.CompanyPatch(added=[main.AddedAttribute(label="Secure by default")]))
+    added = next(a for a in out["attributes"] if a["label"] == "Secure by default")
+    assert added["intended_weight"] == 0.5
+    company = reports.load_company("abc123")
+    attr = next(a for a in company.attributes if a.id == "secure_by_default")
+    assert attr.intended and drift.relevant(attr, None)
+
+
+def test_an_added_claim_gets_buyer_questions_from_the_same_model_interface(store, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(onboarding_model, "default_transport",
+                        lambda *_: '{"buyer_questions": ["What keeps customer data safe?", '
+                                   '"Is Acme secure?"]}')
+    reports.save_company(mk_company())
+    out = main.patch_company("abc123", main.CompanyPatch(added=[main.AddedAttribute(label="Secure by default")]))
+    added = next(a for a in out["attributes"] if a["label"] == "Secure by default")
+    # the brand-leaking one is refused, not rewritten, and the refusal is visible
+    assert added["buyer_questions"] == ["What keeps customer data safe?"]
+    assert any("named you" in w for w in out["warnings"])
+
+
+def test_an_added_claim_without_a_key_is_still_added_and_the_omission_is_stated(store, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    reports.save_company(mk_company())
+    out = main.patch_company("abc123", main.CompanyPatch(added=[main.AddedAttribute(label="Secure by default")]))
+    added = next(a for a in out["attributes"] if a["label"] == "Secure by default")
+    assert added["buyer_questions"] == []
+    assert any("brand axis only" in w for w in out["warnings"])
+
+
+# ---------------------------------------------------------------- thin sites
+def test_a_thin_site_is_saved_with_a_warning_rather_than_refused(store, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(fetching, "fetch_site",
+                        lambda url, max_pages: [("https://acme.example/", "we set up in minutes")])
+    monkeypatch.setattr(onboarding_model, "default_transport", lambda *_: json.dumps(
+        {"name": "Acme", "one_liner": "Acme sets up fast.", "attributes": [
+            {"id": "fast", "label": "Fast to set up", "description": "New accounts are usable in "
+             "minutes without a migration project.", "claim_quotes": ["we set up in minutes"],
+             "buyer_questions": ["Which tool sets up fastest?"]}]}))
+    out = main.onboard(url="https://acme.example/", name="Acme")
+    assert reports.load_company(out["id"]).id == out["id"]   # the paid crawl is not discarded
+    assert any("too little for a reliable claim percentage" in w for w in out["warnings"])

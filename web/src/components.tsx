@@ -57,7 +57,7 @@ function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
       <dl>
         <dt>Zone</dt><dd>{ZONE_LABEL[s.zone]} — {OWNER_TITLE[s.owner]}</dd>
         <dt>How much of your site says it</dt>
-        <dd>{s.claim_strength == null ? "no page data" : `states it on ${statedOn(s.claim_pages, s.claim_pages_total)}`}</dd>
+        <dd>{s.claim_pages_total ? `states it on ${statedOn(s.claim_pages, s.claim_pages_total)}` : "no page data"}</dd>
         <dt>How often AI says it</dt>
         <dd>{s.echoes} of {s.n} eligible answers{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}</dd>
         {s.intended_weight != null && <><dt>Intent weight</dt><dd>{s.intended_weight}</dd></>}
@@ -159,7 +159,7 @@ export function GapCards({ scores }: { scores: AttributeScore[] }) {
           </div>
           <p style={{ margin: ".4rem 0 0" }}>{OWNER_TEXT[s.owner]}</p>
           <p className="muted" style={{ margin: ".3rem 0 0" }}>
-            {s.claim_strength == null ? "no page data" : `${statedOn(s.claim_pages, s.claim_pages_total)} state it`}
+            {s.claim_pages_total ? `${statedOn(s.claim_pages, s.claim_pages_total)} state it` : "no page data"}
             {" · "}AI echoed it in {s.echoes} of {s.n} brand answers
             {s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
           </p>
@@ -197,11 +197,15 @@ export function Competitors({ run }: { run: Run }) {
     .map((te) => ({ topic: byTopic.get(te.topic_id) ?? te.topic_id, names: te.top_competitors }));
   const comparison = run.probes.find((p) => p.kind === "named" && p.phase === "followup");
   const answer = comparison && run.answers.find((a) => a.probe_id === comparison.id);
+  // "Nobody was named" and "nobody was asked" are different findings. With no weighted claim there
+  // are no buyer questions at all, and an empty competitor set then means silence, not absence.
+  const askedBuyerQuestions = run.probes.some((p) => p.kind === "blind" && p.phase === "baseline");
   if (!rows.length) {
     return (
       <div className="card muted">
-        No competitor was named in any buyer answer, so there was nothing to compare against and no
-        comparison question was asked.
+        {askedBuyerQuestions
+          ? "No competitor was named in any buyer answer, so there was nothing to compare against and no comparison question was asked."
+          : "No buyer question was asked — nothing is weighted as intended — so the buyer axis was not measured and no competitor could be discovered."}
       </div>
     );
   }

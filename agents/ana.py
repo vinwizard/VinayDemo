@@ -79,7 +79,11 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
             topics.append(topic)
     if dropped:
         raise ValueError("buyer questions leak the brand and were not rewritten: " + "; ".join(dropped))
-    return topics[:MAX_TOPICS], probes
+    # Truncation drops topics, so it must drop their questions too: a probe whose topic no longer
+    # exists fails validation and kills the whole run.
+    topics = topics[:MAX_TOPICS]
+    kept_topics = {t.id for t in topics}
+    return topics, [p for p in probes if p.topic_id in kept_topics]
 
 
 def validate_named_probes(probes: list[Probe], attributes: list[Attribute]) -> list[str]:

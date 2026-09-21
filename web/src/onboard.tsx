@@ -8,6 +8,14 @@ import { statedOn } from "./labels";
 
 interface Added { label: string; description: string; weight: number }
 
+// A claim typed into "add something your copy never states" is intended by construction — typing it
+// IS the expression of intent — so it starts weighted rather than at the resting zero that leaves an
+// extracted claim unintended and drops it out of the report entirely. Mirrors api.AddedAttribute.
+const ADDED_DEFAULT_WEIGHT = 0.5;
+
+/** Mirrors ana.MAX_TOPICS: the buyer axis is capped at four topics of three questions. */
+const MAX_BUYER_TOPICS = 4;
+
 function Slider({ value, onChange, id }: { value: number; onChange: (v: number) => void; id: string }) {
   return (
     <div className="row" style={{ gap: ".5rem" }}>
@@ -33,7 +41,7 @@ export function Onboard({ liveAvailable, busy, onMeasure }: {
   const [company, setCompany] = useState<CompanyDetail | null>(null);
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [saved, setSaved] = useState(false);
-  const [draft, setDraft] = useState<Added>({ label: "", description: "", weight: 0 });
+  const [draft, setDraft] = useState<Added>({ label: "", description: "", weight: ADDED_DEFAULT_WEIGHT });
   const [known, setKnown] = useState<CompanySummary[]>([]);
 
   const refresh = () => { getCompanies().then(setKnown).catch(() => {}); };
@@ -67,7 +75,7 @@ export function Onboard({ liveAvailable, busy, onMeasure }: {
       : [];
     patchCompany(company.id, { weights, added })
       .then((c) => {
-        load(c); setSaved(true); setDraft({ label: "", description: "", weight: 0 }); refresh();
+        load(c); setSaved(true); setDraft({ label: "", description: "", weight: ADDED_DEFAULT_WEIGHT }); refresh();
         if (thenMeasure) onMeasure(c);
       })
       .catch((e: Error) => setError(e.message))
@@ -127,13 +135,23 @@ export function Onboard({ liveAvailable, busy, onMeasure }: {
               Move a slider for each claim you actually want to be known for. A slider left at zero
               stays at zero: we never guess an intention you did not state.
             </p>
+            {intended > MAX_BUYER_TOPICS && (
+              <p className="warn">
+                Only the first {MAX_BUYER_TOPICS} weighted claims get buyer questions, so {intended - MAX_BUYER_TOPICS}{" "}
+                of your {intended} will be measured on the brand axis alone.
+              </p>
+            )}
             <div className="stack" style={{ marginTop: ".7rem" }}>
               {company.attributes.map((a) => (
                 <div key={a.id} className="claim">
                   <div>
                     <div><strong>{a.label}</strong></div>
                     {a.description && <div className="desc">{a.description}</div>}
-                    <div className="muted">stated on {statedOn(a.claim_pages, a.claim_pages_total)}</div>
+                    <div className="muted">
+                      {a.claim_pages_total
+                        ? `stated on ${statedOn(a.claim_pages, a.claim_pages_total)}`
+                        : "no page data"}
+                    </div>
                     {a.claim_quotes[0] && <p className="quote">{a.claim_quotes[0]}</p>}
                     {a.claim_quotes.length === 0 && (
                       <p className="muted" style={{ marginBottom: 0 }}>{a.note ?? "No quote on their site states this."}</p>
@@ -144,19 +162,23 @@ export function Onboard({ liveAvailable, busy, onMeasure }: {
                 </div>
               ))}
             </div>
-            {company.warnings.length > 0 && (
-              <>
-                <h4 className="muted" style={{ marginTop: "1rem" }}>What we dropped and why</h4>
-                <ul className="muted">{company.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
-              </>
-            )}
           </div>
+
+          {company.warnings.length > 0 && (
+            <div className="card" style={{ borderColor: "var(--lost)" }}>
+              <h3 className="warn">Read this before you trust a number</h3>
+              <ul className="muted" style={{ marginBottom: 0 }}>
+                {company.warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            </div>
+          )}
 
           <div className="card">
             <h3>Add something your copy never states</h3>
             <p className="muted" style={{ marginTop: ".3rem" }}>
               A claim you want to be known for but do not make anywhere on those pages. It gets zero
-              of {company.pages.length} pages, which is the finding, not missing data.
+              of {company.pages.length} pages, which is the finding, not missing data. Adding it is
+              itself the intent, so it starts weighted — drag the slider if it matters more or less.
             </p>
             <div className="row" style={{ flexWrap: "wrap", marginTop: ".5rem" }}>
               <input aria-label="Attribute" placeholder="e.g. Secure by default" value={draft.label}

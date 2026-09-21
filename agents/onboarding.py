@@ -7,7 +7,8 @@ import hashlib
 import json
 import re
 
-from schemas import CompanyProfile, Evidence, PositioningPoint, Probe
+from agents.ana import attribute_leaks
+from schemas import Attribute, CompanyProfile, Evidence, PositioningPoint, Probe
 
 MAX_POINTS = 8
 
@@ -27,16 +28,22 @@ NAMED_TEMPLATES = [
 NAMED_PURPOSE = "Measure how AI characterises the brand when asked about it directly."
 
 
-def named_probes_for(profile: CompanyProfile) -> list[Probe]:
+def named_probes_for(profile: CompanyProfile, attributes: list[Attribute] = ()) -> list[Probe]:
     """The perception axis for any company, templated on its name alone.
 
     There is deliberately no "how does {brand} compare to X?" question here: naming a competitor
     up front would put the answer in the model's mouth. Competitors are discovered from the blind
     answers instead, and the comparison is asked in the adaptive round (ana.comparison_probe).
+
+    A template whose ordinary English collides with a measured claim ("What kind of TEAM…" against
+    the alias "team") is dropped here rather than rewritten, so the collision costs one question at
+    onboarding instead of failing validation and killing every later run. Ids come from the template
+    position, so np-3 is the same question whether or not np-7 survived.
     """
-    return [Probe(id=f"np-{i}", topic_id="perception", text=t.format(brand=profile.name),
-                  kind="named", phase="baseline", purpose=NAMED_PURPOSE)
-            for i, t in enumerate(NAMED_TEMPLATES, start=1)]
+    probes = [Probe(id=f"np-{i}", topic_id="perception", text=t.format(brand=profile.name),
+                    kind="named", phase="baseline", purpose=NAMED_PURPOSE)
+              for i, t in enumerate(NAMED_TEMPLATES, start=1)]
+    return [p for p in probes if not attribute_leaks(p.text, list(attributes))]
 
 
 def structural_fingerprint(p: CompanyProfile) -> str:

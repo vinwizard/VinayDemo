@@ -19,8 +19,11 @@ from pydantic import BaseModel, Field
 
 import fetching
 import graph
+from agents.ana import brand_leaks
 from agents.evaluator_model import ModelEvaluator
-from agents.onboarding_model import MIN_CLAIMS, OnboardingAgent
+from agents.onboarding import NAMED_TEMPLATES, named_probes_for
+from agents.onboarding_model import MIN_CLAIMS, OnboardingAgent, buyer_questions_for
+from drift import MIN_NAMED
 from config import load_env, redacted_status
 from providers import fixture, live
 from providers.company import CompanyProvider
@@ -194,6 +197,36 @@ def get_run(run_id: str):
 CRAWL_PAGES = 6
 
 
+def vet_questions(profile, attributes: list[Attribute]) -> list[str]:
+    """Run both leak validators BEFORE the company is persisted, and say what they cost.
+
+    Every question here is model-generated text that gets saved verbatim, so a collision saved
+    unchecked makes the company permanently unmeasurable: the same validators run again inside
+    `validate_and_freeze` and abort the run. A contaminated question is dropped, never rewritten —
+    we refuse to ask it, we do not quietly repair it.
+    """
+    warnings = []
+    for a in attributes:
+        kept = [q for q in a.buyer_questions if not brand_leaks(q, profile)]
+        for q in a.buyer_questions:
+            if leaks := brand_leaks(q, profile):
+                warnings.append(f"“{a.label}”: a buyer question named you ({', '.join(leaks)}) and was "
+                                "dropped — a question that names you cannot test whether a buyer finds you.")
+        a.buyer_questions = kept
+        if not kept:
+            warnings.append(f"“{a.label}”: no buyer question survived, so this claim is measured on "
+                            "the brand axis only.")
+    named = named_probes_for(profile, attributes)
+    if lost := len(NAMED_TEMPLATES) - len(named):
+        warnings.append(f"{lost} of {len(NAMED_TEMPLATES)} brand questions dropped: their ordinary wording "
+                        "collides with a claim being measured, and an answer echoing the question back "
+                        "would measure the question, not the model.")
+    if len(named) < MIN_NAMED:
+        warnings.append(f"Only {len(named)} brand question(s) remain; perception needs at least "
+                        f"{MIN_NAMED}, so no alignment score will be produced.")
+    return warnings
+
+
 def company_payload(c: Company) -> dict:
     p = c.profile
     return dict(
@@ -236,10 +269,12 @@ def onboard(url: str, name: str = ""):
     except ValueError as e:
         raise HTTPException(502, f"Extraction failed: {e}")
     if len(attrs) < MIN_CLAIMS:
-        # Better to say the site is too thin than to publish a percentage resting on one sentence.
-        raise HTTPException(422, f"Only {len(attrs)} claim(s) on {domain} survived quote validation "
-                                 f"across {len(pages)} page(s); {MIN_CLAIMS} is the minimum. There is "
-                                 "not enough stated positioning here to measure drift against.")
+        # The company is saved either way — discarding a paid crawl to refuse a thin site is the
+        # wrong trade. Withhold confidence in the numbers, not the company.
+        warnings.insert(0, f"Only {len(attrs)} claim(s) on {domain} survived quote validation across "
+                           f"{len(pages)} page(s), below the {MIN_CLAIMS} this needs. The site states too "
+                           "little for a reliable claim percentage — read every page share with care.")
+    warnings += vet_questions(profile, attrs)
     company = Company(id=uuid.uuid4().hex[:10], profile=profile, attributes=attrs,
                       pages=[u for u, _ in pages], warnings=warnings)
     save_company(company)
@@ -247,15 +282,48 @@ def onboard(url: str, name: str = ""):
 
 
 class AddedAttribute(BaseModel):
-    """Something the customer wants to be known for that their own copy never states."""
+    """Something the customer wants to be known for that their own copy never states.
+
+    Unlike an extracted claim, this one is intended by construction: typing it into "add something
+    your copy never states" IS the expression of intent, so its weight starts at the midpoint rather
+    than at the resting zero that leaves an extracted claim unintended.
+    """
     label: str = Field(min_length=2, max_length=80)
     description: Optional[str] = Field(default=None, max_length=400)
-    intended_weight: float = Field(default=0.0, ge=0, le=1)
+    intended_weight: float = Field(default=0.5, ge=0, le=1)
 
 
 class CompanyPatch(BaseModel):
     weights: dict[str, float] = {}
     added: list[AddedAttribute] = []
+
+
+def added_buyer_questions(profile, raw: AddedAttribute) -> tuple[list[str], list[str]]:
+    """-> (questions, warnings). An added claim needs the placebo test most of all.
+
+    It is a claim their own copy never makes, so "would a buyer looking for this find them?" is the
+    whole question. There is no page text to draw the questions from, so the onboarding model writes
+    them — and they go through `brand_leaks` exactly like the extracted ones. With no key the claim
+    is still added, measured on the brand axis alone, and the omission is stated.
+    """
+    if not live.available():
+        return [], [f"“{raw.label}”: no buyer questions were generated ({live.KEY_ENV} is not set), "
+                    "so this claim is measured on the brand axis only."]
+    try:
+        generated = buyer_questions_for(raw.label, raw.description)
+    except Exception as e:
+        traceback.print_exc()
+        return [], [f"“{raw.label}”: buyer-question generation failed ({type(e).__name__}), so this "
+                    "claim is measured on the brand axis only."]
+    kept = [q for q in generated if not brand_leaks(q, profile)]
+    warnings = []
+    if dropped := len(generated) - len(kept):
+        warnings.append(f"“{raw.label}”: {dropped} generated buyer question(s) named you and were "
+                        "dropped — a question that names you cannot test whether a buyer finds you.")
+    if not kept:
+        warnings.append(f"“{raw.label}”: no buyer question survived, so this claim is measured on "
+                        "the brand axis only.")
+    return kept, warnings
 
 
 @app.get("/api/companies")
@@ -289,9 +357,10 @@ def get_company(company_id: str):
 def patch_company(company_id: str, patch: CompanyPatch):
     """The customer's own input: how much each claim matters, plus claims their copy never makes.
 
-    Intent is never derived and never defaulted. A slider left at its resting zero leaves the
-    attribute unintended, so an untouched form cannot invent an aspiration the customer never
-    expressed.
+    For a claim extracted from their own pages, intent is never derived and never defaulted: a
+    slider left at its resting zero leaves the attribute unintended, so an untouched form cannot
+    invent an aspiration the customer never expressed. An ADDED claim is the opposite case — nothing
+    but the customer's own intent puts it here — so it arrives already weighted.
     """
     c = _company(company_id)
     by_id = {a.id: a for a in c.attributes}
@@ -307,11 +376,15 @@ def patch_company(company_id: str, patch: CompanyPatch):
             if aid not in by_id:
                 break
             aid = f"{base}_{n}"
+        questions, warns = added_buyer_questions(c.profile, raw)
+        c.warnings += warns
         attr = Attribute(id=aid, label=raw.label.strip(), description=raw.description,
                          intended_weight=round(raw.intended_weight, 2) or None,
                          # zero pages state it — that is the finding, not missing data
                          claim_pages=0, claim_pages_total=len(c.pages),
-                         note="Added by you. Your own pages never state it, so AI has nothing to repeat.")
+                         buyer_questions=questions,
+                         note="Added by you, so it is marked as intended — adding it is the intent. "
+                              "Your own pages never state it, so AI has nothing to repeat.")
         by_id[aid] = attr
         c.attributes.append(attr)
     save_company(c)
