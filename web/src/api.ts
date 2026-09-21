@@ -115,6 +115,7 @@ export interface Run {
   answers: Answer[];
   evaluations: QueryEvaluation[];
   topic_evaluations: TopicEvaluation[];
+  attributes?: ClaimedAttribute[];
   attribute_scores: AttributeScore[];
   drift: DriftReport | null;
   log: string[];

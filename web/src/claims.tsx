@@ -12,7 +12,7 @@ interface Added { label: string; description: string; weight: number }
 // drop it out of the report unseen. Changing your mind is the Remove button, not a slider position.
 // Mirrors api.ADDED_MIN_WEIGHT / AddedAttribute.
 const ADDED_DEFAULT_WEIGHT = 0.5;
-const ADDED_MIN_WEIGHT = 0.1;
+export const ADDED_MIN_WEIGHT = 0.1;
 
 /** Mirrors ana.MAX_TOPICS: the buyer axis is capped at four topics of three questions. */
 const MAX_BUYER_TOPICS = 4;

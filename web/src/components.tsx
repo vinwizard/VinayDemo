@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import type { Answer, AttributeScore, DriftReport, Probe, QueryEvaluation, Run, RunSummary, Zone } from "./api";
 import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_ORDER, ZONES, rescoreRun } from "./api";
-import { Slider } from "./claims";
+import { ADDED_MIN_WEIGHT, Slider } from "./claims";
 import {
   PROVENANCE_LABEL, ZONE_LABEL, ZONE_MEANING, claimShare, headline, plain, potentialText, probeLabels,
   provenanceLabel, runLabels, when,
@@ -209,6 +209,7 @@ export function Report({ run, onRescored }: { run: Run; onRescored?: (r: Run) =>
  */
 function Weights({ run, onRescored }: { run: Run; onRescored: (r: Run) => void }) {
   const claims = run.attribute_scores.filter((s) => !s.discovered);
+  const added = new Set((run.attributes ?? []).filter((a) => a.added_by_user).map((a) => a.id));
   const [w, setW] = useState<Record<string, number>>(
     () => Object.fromEntries(claims.map((s) => [s.attribute_id, s.intended_weight ?? 0])));
   const [busy, setBusy] = useState(false);
@@ -232,6 +233,7 @@ function Weights({ run, onRescored }: { run: Run; onRescored: (r: Run) => void }
           <div className="weight-row" key={s.attribute_id}>
             <span>{s.label}</span>
             <Slider id={`rw-${run.id}-${s.attribute_id}`} label={`Intent for ${s.label}`}
+                    min={added.has(s.attribute_id) ? ADDED_MIN_WEIGHT : 0}
                     value={w[s.attribute_id] ?? 0} disabled={busy}
                     onChange={(v) => setW((x) => ({ ...x, [s.attribute_id]: v }))} />
           </div>
@@ -597,6 +599,11 @@ function BrandQuestions({ run }: { run: Run }) {
   const replay = run.mode !== "live_api";
   const names = probeLabels(run.probes, run.topics);
   const answers = new Map(run.answers.map((a) => [a.probe_id, a]));
+  const evals = new Map(run.evaluations.map((e) => [e.probe_id, e]));
+  const excluded = (id: string) => {
+    const a = answers.get(id), e = evals.get(id);
+    return !a || !e || !counts(a, e);
+  };
   const raised = new Map<string, AttributeScore[]>();
   for (const s of run.attribute_scores) {
     for (const id of s.probe_ids) raised.set(id, [...(raised.get(id) ?? []), s]);
@@ -615,8 +622,8 @@ function BrandQuestions({ run }: { run: Run }) {
       <div className="questions">
         {named.map((p) => (
           <QuestionCard key={p.id} p={p} name={names[p.id] ?? p.id} answer={answers.get(p.id)} replay={replay}
-                        verdict={answers.get(p.id)?.status !== "ok"
-                          ? <span className="tag warn">no answer — excluded</span> : undefined}
+                        verdict={excluded(p.id)
+                          ? <span className="tag warn">excluded from scores</span> : undefined}
                         tags={(raised.get(p.id) ?? []).map((s) => (
                           <span key={s.attribute_id} className={`pill ${s.zone}`}>{s.label}</span>
                         ))} />
