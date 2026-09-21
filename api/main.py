@@ -8,20 +8,23 @@ import json
 import os
 import queue
 import re
+import shutil
 import threading
 import traceback
 import uuid
 from pathlib import Path
 from typing import Iterator, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+import access
 import fetching
 import graph
+import reports
 from insights import insights
 from agents.ana import brand_leaks, discovered_competitors, vendor_address
 from agents.evaluator_model import ModelEvaluator
@@ -31,6 +34,7 @@ from drift import MIN_NAMED
 from config import load_env, redacted_status
 from providers import fixture, live
 from providers.company import CompanyProvider
+from api import admin
 from reports import RUNS, list_companies, load_company, load_run, save_company, save_run
 from schemas import Attribute, Company
 
@@ -77,18 +81,42 @@ OFFLINE_FIXED = "offline replay: the bundled sample's claims and weights are fix
 # The hosted demo (render.yaml): anyone with the link can open it, so nothing may reach a model or
 # spend the owner's key. Implies the offline replay, and refuses every path that would call a model
 # or change a saved company — even when a key happens to be configured.
-PUBLIC_ENV = "VISEXP_PUBLIC_DEMO"
+# A pass (access.py) lifts that for its holder only: they can onboard and measure live, charged to
+# their pass, and see the shared demo items plus their own.
+PUBLIC_ENV = access.PUBLIC_ENV
 PUBLIC_REFUSED = ("This is the public demo: it replays the saved sample only, so {what} is switched "
                   "off here. Run it locally with your own key to measure a real company.")
+public_demo = access.public_demo
+Holder = Optional[dict]   # the pass behind the request's session cookie, if any
 
 
-def public_demo() -> bool:
-    return bool(os.environ.get(PUBLIC_ENV))
+def holder_of(request: Optional[Request]) -> Holder:
+    """None off HTTP: the engine's tests call these endpoint functions directly."""
+    if request is None:
+        return None
+    return access.holder(request.cookies.get(access.PASS_COOKIE))
 
 
-def refuse_in_public(what: str) -> None:
-    if public_demo():
+def pass_id(holder: Holder) -> Optional[str]:
+    return holder["id"] if holder else None
+
+
+def refuse_in_public(what: str, holder: Holder = None) -> None:
+    """Public demo without a pass: refused. With a pass: refused up front once it is capped or
+    revoked, rather than after a crawl that cannot be paid for."""
+    if public_demo() and holder is None:
         raise HTTPException(403, PUBLIC_REFUSED.format(what=what))
+    if holder:
+        try:
+            access.check(holder["id"])
+        except access.Refused as e:
+            raise HTTPException(403, e.message)
+
+
+def refuse_unowned(company_id: str, holder: Holder) -> None:
+    """On the public demo a pass edits only its own companies, never a shared one."""
+    if public_demo() and access.owner("company", company_id) != pass_id(holder):
+        raise HTTPException(403, "Only companies you onboarded with this pass can be edited.")
 
 
 def offline_seed(company_id: str) -> bool:
@@ -113,7 +141,8 @@ def replay_company() -> Company:
                              "read of the site."])
 
 
-def build_provider(mode: str, scenario: Optional[str] = None, company_id: Optional[str] = None):
+def build_provider(mode: str, scenario: Optional[str] = None, company_id: Optional[str] = None,
+                   holder: Holder = None):
     """-> (provider, profile, expected_answers, run_mode). Either a bundled scenario or a saved company.
 
     Live mode needs a key; it never falls back silently to fixtures, because a fixture result
@@ -123,6 +152,8 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
     if company_id and offline_seed(company_id):
         company_id, scenario, mode = None, "A", "demo"
     if company_id:
+        if not access.visible("company", company_id, pass_id(holder)):
+            raise HTTPException(404, f"No onboarded company {company_id!r}")
         try:
             base = CompanyProvider(load_company(company_id))
         except (FileNotFoundError, ValueError):
@@ -134,7 +165,7 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
         if mode != "live":
             return (base, base.profile,
                     len(base.named_probes()) + graph.MAX_BASELINE + graph.MAX_FOLLOWUP, "demo_replay")
-    refuse_in_public("measuring with a live model")
+    refuse_in_public("measuring with a live model", holder)
     profile = base.profile
     if not live.available():
         raise HTTPException(400, f"Live mode needs {live.KEY_ENV}. {live.status()}")
@@ -144,7 +175,10 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
                                  "there is nothing to measure yet. Add a claim you want to be known "
                                  "for, or onboard again from a page that states its positioning.")
     try:
-        live.preflight()   # one trivial call: an unusable model fails once, not 20 times
+        with access.spending(pass_id(holder)):
+            live.preflight()   # one trivial call: an unusable model fails once, not 20 times
+    except access.Refused as e:
+        raise HTTPException(403, e.message)
     except live.PreflightFailed as e:   # its message is safe to show: no provider body, no key
         raise HTTPException(400, str(e))
     prov = live.LiveProvider(base.attributes(), base.named_probes(), profile=profile,
@@ -167,13 +201,14 @@ def progress(run) -> dict:
                 competitors=discovered_competitors(run.topic_evaluations))
 
 
-def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = None) -> Iterator[str]:
+def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = None,
+               holder: Holder = None) -> Iterator[str]:
     """Executes one run on a worker thread, yielding SSE as the graph progresses."""
     if not company_id and scenario not in fixture.SCENARIOS:
         yield sse("error", {"message": f"unknown scenario {scenario!r}"})
         return
     try:
-        prov, profile, expected, run_mode = build_provider(mode, scenario, company_id)
+        prov, profile, expected, run_mode = build_provider(mode, scenario, company_id, holder)
     except HTTPException as e:
         yield sse("error", {"message": str(e.detail)})
         return
@@ -203,6 +238,7 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
     prov.answer = counting_answer
 
     def work():
+        access.SPENDER.set(pass_id(holder))   # this thread's model calls are charged to the pass
         try:
             run = graph.new_run(profile, prov, mode=run_mode)
             for node, run in graph.stream(run, prov):
@@ -212,7 +248,15 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
                                     log=run.log[-1] if run.log else "", **progress(run))))
             if not public_demo():
                 save_run(run)
+            elif holder and run.mode == "live_api":   # a pass's replay of the seed is not its run
+                save_run(run)
+                access.own("run", run.id, holder["id"], profile.name)
+                access.log(holder["id"], f"measured {profile.name}")
             q.put(("done", dict(run_id=run.id, run=run_payload(run))))
+        except access.Refused as e:                  # capped mid-run: stopped, nothing saved
+            if holder:
+                access.log(holder["id"], "stopped at its cap")
+            q.put(("error", dict(message=e.message)))
         except Exception as e:                       # surfaced, never swallowed; detail stays on the console
             traceback.print_exc()
             q.put(("error", dict(message=f"Run failed after it started: {type(e).__name__}")))
@@ -228,16 +272,19 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
 
 
 @app.get("/api/stream")
-def stream(scenario: str = "A", mode: str = "demo", company: Optional[str] = None):
-    return StreamingResponse(run_events(scenario, mode, company), media_type="text/event-stream",
+def stream(scenario: str = "A", mode: str = "demo", company: Optional[str] = None, request: Request = None):
+    return StreamingResponse(run_events(scenario, mode, company, holder_of(request)),
+                             media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.get("/api/runs")
-def list_all():
+def list_all(request: Request = None):
     """Run history: newest first, with enough detail to pick one for comparison."""
-    out = []
+    out, pid = [], pass_id(holder_of(request))
     for p in sorted(RUNS.glob("*.json")):
+        if not access.visible("run", p.stem, pid):
+            continue
         try:
             r = load_run(p.stem)
         except Exception:
@@ -261,7 +308,9 @@ def list_all():
 
 
 @app.get("/api/runs/{run_id}")
-def get_run(run_id: str):
+def get_run(run_id: str, request: Request = None):
+    if not access.visible("run", run_id, pass_id(holder_of(request))):
+        raise HTTPException(404, f"run {run_id} not found")
     try:
         return run_payload(load_run(run_id))
     except (FileNotFoundError, ValueError):
@@ -333,7 +382,7 @@ def company_payload(c: Company) -> dict:
         warnings=c.warnings, checks=[k.model_dump() for k in c.checks], replay=offline_seed(c.id))
 
 
-def onboard_steps(url: str, name: str) -> Iterator[tuple[str, dict]]:
+def onboard_steps(url: str, name: str, holder: Holder = None) -> Iterator[tuple[str, dict]]:
     """Agent 1: crawl a company's own pages, extract the CLAIMED layer, and save the company.
 
     Yields ("pages", fetched URLs) once the crawl lands, then ("company", payload). The payload has
@@ -341,7 +390,7 @@ def onboard_steps(url: str, name: str) -> Iterator[tuple[str, dict]]:
     quotes. Intent weights are deliberately absent — what a company wants to be known for is the
     customer's input, arrives only through PATCH, and is not derivable from their own marketing copy.
     """
-    refuse_in_public("onboarding a new company")
+    refuse_in_public("onboarding a new company", holder)
     if not live.available():
         raise HTTPException(400, f"Onboarding needs {live.KEY_ENV} for the extraction model.")
     try:
@@ -353,7 +402,10 @@ def onboard_steps(url: str, name: str) -> Iterator[tuple[str, dict]]:
     yield "pages", {"pages": [u for u, _ in pages]}
     domain = fetching.validate(url)[1].removeprefix("www.")
     try:
-        profile, attrs, warnings, checks = OnboardingAgent().run(name, domain, pages)
+        with access.spending(pass_id(holder)):
+            profile, attrs, warnings, checks = OnboardingAgent().run(name, domain, pages)
+    except access.Refused as e:                     # capped mid-extraction: nothing is saved
+        raise HTTPException(403, e.message)
     except ValueError as e:
         raise HTTPException(502, f"Extraction failed: {e}")
     profile.logo_url = logo
@@ -367,18 +419,21 @@ def onboard_steps(url: str, name: str) -> Iterator[tuple[str, dict]]:
     company = Company(id=uuid.uuid4().hex[:10], profile=profile, attributes=attrs,
                       pages=[u for u, _ in pages], warnings=warnings, checks=checks)
     save_company(company)
+    if holder:
+        access.own("company", company.id, holder["id"], profile.name)
+        access.log(holder["id"], f"onboarded {domain}")
     yield "company", company_payload(company)
 
 
 @app.get("/api/onboard")
-def onboard(url: str, name: str = ""):
-    return dict(onboard_steps(url, name))["company"]
+def onboard(url: str, name: str = "", request: Request = None):
+    return dict(onboard_steps(url, name, holder_of(request)))["company"]
 
 
-def onboard_events(url: str, name: str) -> Iterator[str]:
+def onboard_events(url: str, name: str, holder: Holder = None) -> Iterator[str]:
     """The same onboarding as SSE, so the browser can show the crawl finish before extraction does."""
     try:
-        for kind, payload in onboard_steps(url, name):
+        for kind, payload in onboard_steps(url, name, holder):
             yield sse(kind, payload)
     except HTTPException as e:
         yield sse("error", {"message": str(e.detail)})
@@ -388,8 +443,8 @@ def onboard_events(url: str, name: str) -> Iterator[str]:
 
 
 @app.get("/api/onboard/stream")
-def onboard_stream(url: str, name: str = ""):
-    return StreamingResponse(onboard_events(url, name), media_type="text/event-stream",
+def onboard_stream(url: str, name: str = "", request: Request = None):
+    return StreamingResponse(onboard_events(url, name, holder_of(request)), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
@@ -466,13 +521,16 @@ class RescoreRequest(BaseModel):
 
 
 @app.post("/api/runs/{run_id}/rescore")
-def rescore_run(run_id: str, req: RescoreRequest):
+def rescore_run(run_id: str, req: RescoreRequest, request: Request = None):
     """Lens 2 after the fact: intent weights on a finished run, re-scored from its saved answers.
 
     No provider is built and no model is asked — the weights only change arithmetic. Weights not
     named keep their value, and a weight of 0 unweights a claim; with none left the run reads
     through the claim lens again. The run is saved in place.
     """
+    pid = pass_id(holder_of(request))
+    if not access.visible("run", run_id, pid):
+        raise HTTPException(404, f"run {run_id} not found")
     try:
         run = load_run(run_id)
     except (FileNotFoundError, ValueError):
@@ -482,17 +540,19 @@ def rescore_run(run_id: str, req: RescoreRequest):
         graph.rescore(run, req.weights)
     except graph.ValidationError as e:
         raise HTTPException(409, str(e))
-    # public: arithmetic only, so allowed — but one visitor never rewrites the shared run; and the
-    # committed Profound run is never rewritten, so re-weighting it leaves the working tree clean
-    if not public_demo() and run.id != SHOWCASE_RUN:
+    # public: arithmetic only, so allowed — but one visitor never rewrites a shared run, only a pass its own;
+    # and the committed Profound run is never rewritten, so re-weighting it leaves the working tree clean
+    if run.id != SHOWCASE_RUN and (not public_demo() or (pid and access.owner("run", run_id) == pid)):
         save_run(run)
     return run_payload(run)
 
 
 @app.get("/api/companies")
-def companies():
-    out = []
+def companies(request: Request = None):
+    out, pid = [], pass_id(holder_of(request))
     for path in list_companies():
+        if not access.visible("company", path.stem, pid):
+            continue
         try:
             c = _company(path.stem)
         except Exception:
@@ -514,12 +574,14 @@ def _company(company_id: str) -> Company:
 
 
 @app.get("/api/companies/{company_id}")
-def get_company(company_id: str):
+def get_company(company_id: str, request: Request = None):
+    if not access.visible("company", company_id, pass_id(holder_of(request))):
+        raise HTTPException(404, f"No onboarded company {company_id!r}")
     return company_payload(_company(company_id))
 
 
 @app.patch("/api/companies/{company_id}")
-def patch_company(company_id: str, patch: CompanyPatch):
+def patch_company(company_id: str, patch: CompanyPatch, request: Request = None):
     """The customer's own input: how much each claim matters, plus claims their copy never makes.
 
     For a claim extracted from their own pages, intent is never derived and never defaulted: a
@@ -527,9 +589,11 @@ def patch_company(company_id: str, patch: CompanyPatch):
     invent an aspiration the customer never expressed. An ADDED claim is the opposite case — nothing
     but the customer's own intent puts it here — so it arrives already weighted.
     """
-    refuse_in_public("editing a company")
+    holder = holder_of(request)
+    refuse_in_public("editing a company", holder)
     if offline_seed(company_id):
         raise HTTPException(400, OFFLINE_FIXED)
+    refuse_unowned(company_id, holder)
     c = _company(company_id)
     check_weights(c.attributes, patch.weights)
     by_id = {a.id: a for a in c.attributes}
@@ -541,7 +605,11 @@ def patch_company(company_id: str, patch: CompanyPatch):
             if aid not in by_id:
                 break
             aid = f"{base}_{n}"
-        questions, warns = added_buyer_questions(c, raw)
+        try:
+            with access.spending(pass_id(holder)):
+                questions, warns = added_buyer_questions(c, raw)
+        except access.Refused as e:                 # nothing saved: the edit is all or nothing
+            raise HTTPException(403, e.message)
         c.warnings += warns
         attr = Attribute(id=aid, label=raw.label.strip(), description=raw.description,
                          intended_weight=round(raw.intended_weight, 2), added_by_user=True,
@@ -557,11 +625,13 @@ def patch_company(company_id: str, patch: CompanyPatch):
 
 
 @app.delete("/api/companies/{company_id}/attributes/{attribute_id}")
-def delete_attribute(company_id: str, attribute_id: str):
+def delete_attribute(company_id: str, attribute_id: str, request: Request = None):
     """Remove a claim the customer typed. Only theirs: an extracted claim is evidence, not an opinion."""
-    refuse_in_public("editing a company")
+    holder = holder_of(request)
+    refuse_in_public("editing a company", holder)
     if offline_seed(company_id):
         raise HTTPException(400, OFFLINE_FIXED)
+    refuse_unowned(company_id, holder)
     c = _company(company_id)
     attr = next((a for a in c.attributes if a.id == attribute_id), None)
     if attr is None:
@@ -575,21 +645,66 @@ def delete_attribute(company_id: str, attribute_id: str):
 
 
 @app.get("/api/health")
-def health():
+def health(request: Request = None):
     """Reports whether live mode is usable — never the key itself."""
     from agents import evaluator_model
     measured = live.model_name() if live.available() else None
     evaluator = evaluator_model.model_name() if live.available() else None
     return {"ok": True, "scenarios": sorted(fixture.SCENARIOS), "seed_company": SEED_COMPANY,
             "showcase": {"company": SHOWCASE_COMPANY, "run": SHOWCASE_RUN},
-            "live_available": live.available() and not public_demo(), "live_status": live.status(),
+            "live_available": live.available() and (not public_demo() or bool(holder_of(request))),
+            "live_status": live.status(),
             "public_demo": public_demo(),
             "measured_model": measured, "evaluator_model": evaluator,
             # a model grading its own output has a self-preference bias worth surfacing
             "same_model_warning": bool(measured and evaluator and measured == evaluator)}
 
 
+class Exchange(BaseModel):
+    code: str = Field(min_length=1, max_length=200)
+
+
+@app.post("/api/access/exchange")
+def exchange(body: Exchange, response: Response):
+    """A personal link's code -> a signed session cookie. The code is never stored or echoed."""
+    if not access.configured():
+        raise HTTPException(503, "Passes are not set up on this server.")
+    p, cookie = access.exchange(body.code)
+    if p is None:
+        response.delete_cookie(access.PASS_COOKIE)
+        raise HTTPException(403, cookie)
+    response.set_cookie(access.PASS_COOKIE, cookie, max_age=90 * 86400, httponly=True, secure=True,
+                        samesite="strict")
+    return {"pass": access.status(p)}
+
+
+@app.get("/api/access")
+def my_pass(request: Request, visit: bool = False):
+    """The meter. `visit` marks a page load in the visit log; the meter's own refreshes do not."""
+    p = holder_of(request)
+    if p and visit:
+        access.log(p["id"], "visited")
+    return {"pass": access.status(p) if p else None}
+
+
+def seed_data_dir() -> None:
+    """Committed companies and runs are the source of truth: DATA_DIR gets a fresh copy of each."""
+    for dst_dir in (reports.COMPANIES, reports.RUNS):
+        src_dir = reports.BUNDLED / dst_dir.name
+        if dst_dir.resolve() == src_dir.resolve():
+            continue
+        for src in src_dir.glob("*.json"):
+            dst = dst_dir / src.name
+            if not dst.exists() or dst.read_bytes() != src.read_bytes():
+                dst_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy(src, dst)
+
+
+seed_data_dir()
 seed_public_runs()
+if access.configured():
+    access.seed_passes()
+app.include_router(admin.router)
 
 # Production: serve the built web app from the same origin (render.yaml builds it with VITE_API="").
 # Mounted last so every /api route above wins.

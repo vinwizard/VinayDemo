@@ -1,0 +1,7 @@
+[
+  {"id": "person-1", "label": "person 1", "cap_usd": 5},
+  {"id": "person-2", "label": "person 2", "cap_usd": 5},
+  {"id": "person-3", "label": "person 3", "cap_usd": 5},
+  {"id": "person-4", "label": "person 4", "cap_usd": 5},
+  {"id": "person-5", "label": "person 5", "cap_usd": 5}
+]

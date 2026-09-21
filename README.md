@@ -153,42 +153,71 @@ Then repeat the create step above.
 ```
 web/              React frontend (the product UI)
 api/main.py       FastAPI server over the engine; streams each run as server-sent events
+api/admin.py      /admin: access passes for the hosted demo (see "Deploy to Render")
+access.py         access passes, sessions, and the metered gateway every OpenAI call goes through
 graph.py          LangGraph orchestrator: plan_baseline → validate_and_freeze → execute_or_replay → evaluate → choose_followup ⟲ → build_gap_report
 schemas.py        Pydantic contracts
 agents/           onboarding.py (Agent 1), ana.py (Agent 2), evaluation.py (Agent 3 + Profound mapping table)
 providers/        fixture.py (replay), company.py (an onboarded company), imported.py (research snapshots), live.py
 scoring.py        arithmetic only
-reports.py        JSON/Markdown export, import, data/runs and data/companies persistence
+reports.py        JSON/Markdown export, import, data/runs and data/companies persistence (under DATA_DIR if set)
 ```
 
 Completed runs are saved to `data/runs/<id>.json` and can be reopened from the History view after a restart.
 Onboarded companies are saved the same way, to `data/companies/<id>.json`, and carry the same caveat:
 both are local JSON files, so neither survives a Cloud Run redeploy (see below).
 
-## Deploy to Render (public replay link)
+## Deploy to Render (public replay link, live passes)
 
-[`render.yaml`](render.yaml) deploys the app as one free web service: the `Dockerfile` builds the web
-app and FastAPI serves it with the API on the same origin. It sets `VISEXP_PUBLIC_DEMO=1`, so the link
-replays the saved Notion sample and opens the committed Profound live run — no API key, no model calls,
-no cost. Live runs, onboarding and
-company edits are refused with a message saying so, even if a key were configured. A visitor's replay
-is shown to them but never saved, so its report offers no re-scoring; the saved example reports in
-History can be re-scored, and that is not saved either, so one visitor cannot change what the next one
-sees. The two bundled scenarios are replayed once at startup so History and Compare are not empty.
+[`render.yaml`](render.yaml) deploys the app as one paid web service with a persistent disk: the
+`Dockerfile` builds the web app and FastAPI serves it with the API on the same origin. It sets
+`VISEXP_PUBLIC_DEMO=1`, so a visitor **without a pass** gets the saved Notion replay and the committed
+Profound live run only — no model calls, no cost. Live runs, onboarding and company edits are refused
+with a message saying so. A visitor's replay is shown to them but never saved, so its report offers no
+re-scoring; the saved example reports in History can be re-scored, and that is not saved either, so
+one visitor cannot change what the next one sees. The two bundled scenarios are replayed once at
+startup so History and Compare are not empty.
+
+**Access passes** let chosen people run it live on your OpenAI key. Each pass has a name, a dollar
+cap and a personal link, `<site>/?pass=<code>`. Opening the link signs the browser in (an HttpOnly
+session cookie; the code leaves the address bar), after which the holder can onboard and measure
+companies live, sees a meter such as "$1.40 of $5.00 used", and sees the saved demo reports plus their
+own runs and companies — nobody else's. Every OpenAI call is checked against the cap before it is
+made and charged afterwards from the usage OpenAI reports, at the dated per-model prices in
+[`access.py`](access.py); a call whose usage or model price is unknown is charged a deliberately high
+estimate, never zero. A run or onboarding that reaches the cap stops with a message and saves nothing.
+
+- **Admin**: `<site>/admin`, behind `ADMIN_PASSWORD`. It lists every pass — spent against cap, runs and
+  companies, first and last visit — and a log of recent visits (pass name, event, time; no IP
+  address). Create a pass with a name and cap, **Generate link** (shown once; copy it then),
+  **Regenerate link** (the old link and every session opened with it stop working), **Set cap** to top
+  up, **Revoke** to switch a pass off.
+- **Names**: [`passes.json`](passes.json) seeds `person 1` … `person 5` at $5 each. Edit a `label` there
+  and redeploy to rename someone; keep the `id`. A file's cap applies only when its pass is first
+  created — after that the admin page owns the cap. Codes are never in the repo, only their hashes on
+  the disk.
 
 1. Sign in at [render.com](https://render.com) with GitHub.
-2. **New → Blueprint**.
-3. Pick this repository (grant Render access to it if it is not listed).
-4. **Apply**. The first build takes a few minutes; the service URL appears on its page.
+2. **New → Blueprint**, pick this repository (grant Render access to it if it is not listed).
+3. Render asks for the secrets `render.yaml` leaves blank: `OPENAI_API_KEY` and `ADMIN_PASSWORD` (a
+   long one). `SESSION_SECRET` is generated for you; changing it signs every pass holder and the admin
+   out. **Apply**; the first build takes a few minutes.
+4. The Blueprint attaches a 1 GB persistent disk at `/var/data` and sets `DATA_DIR=/var/data`, so
+   passes, spend, the visit log, runs and companies survive a redeploy. A disk needs a paid instance
+   (`plan: starter`), and a service with a disk cannot scale past one instance, which is what the pass
+   database expects.
+5. Open `<site>/admin`, sign in, and **Generate link** for each person.
 
-Free-tier caveat: the service sleeps after about 15 minutes without traffic, and the next visit waits
-roughly a minute while it wakes. Open the link yourself shortly before sharing it or recording.
+Use a **separate OpenAI key for this demo**, in its own OpenAI project with a monthly budget set, as
+a backstop: the caps here are enforced by this app, and a budget on the key holds even if something
+here were wrong. Up to three calls of one run are in flight at once, so a pass can end a few cents
+over its cap.
 
 Check the production build locally first:
 
 ```bash
 (cd web && npm ci && VITE_API= npm run build)
-VISEXP_PUBLIC_DEMO=1 python -m uvicorn api.main:app --port 8000
+VISEXP_PUBLIC_DEMO=1 SESSION_SECRET=dev ADMIN_PASSWORD=dev DATA_DIR=/tmp/vd python -m uvicorn api.main:app --port 8000
 curl localhost:8000/ && curl localhost:8000/api/companies
 ```
 

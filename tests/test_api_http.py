@@ -34,6 +34,7 @@ def client(tmp_path, monkeypatch):
     runs.mkdir()
     seed = json.loads((reports.COMPANIES / f"{main.SEED_COMPANY}.json").read_text())
     (companies / f"{CO}.json").write_text(json.dumps(seed | {"id": CO}))
+    monkeypatch.setattr(reports, "DATA", tmp_path)            # the access database, on the public demo
     monkeypatch.setattr(reports, "COMPANIES", companies)
     monkeypatch.setattr(reports, "RUNS", runs)
     monkeypatch.setattr(main, "RUNS", runs)          # list_all globs its own imported name

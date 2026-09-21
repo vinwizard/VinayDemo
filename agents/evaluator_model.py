@@ -99,9 +99,8 @@ def build_prompt(probe: Probe, answer: Answer, attributes: list[Attribute],
 
 
 def default_transport(prompt: str, model: str, timeout: int) -> str:
-    from openai import OpenAI  # lazy: the offline demo must not need the SDK
-    client = OpenAI(api_key=os.environ[KEY_ENV], timeout=timeout)
-    r = client.responses.create(model=model, input=prompt)
+    import access  # metered: refused at a pass's cap, charged to it after
+    r = access.openai_response(timeout, model=model, input=prompt)
     return getattr(r, "output_text", None) or _text_from(r)
 
 
