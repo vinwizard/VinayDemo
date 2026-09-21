@@ -82,9 +82,10 @@ VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -m uvicorn api.main:app -
 | `GET /api/stream?scenario=A` or `?company=<id>` | SSE: `node`, `answer`, `done`, `error` events while the graph runs. A company is always `mode=live` |
 | `GET /api/runs` | run history, newest first |
 | `GET /api/runs/{id}` | one full run, including the drift report |
-| `GET /api/onboard?url=&name=` | Agent 1: crawl up to 6 of a company's own pages, extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. Needs the same key as live mode. Refuses with 422 when fewer than three claims survive quote validation, rather than scoring a site that states almost nothing |
+| `GET /api/onboard?url=&name=` | Agent 1: crawl up to 6 of a company's own pages, extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. Needs the same key as live mode. A company is always saved, never refused: a site where fewer than three claims survive quote validation carries a prominent warning that it states too little for a reliable claim percentage, and the existing insufficient-evidence rules withhold the scores rather than the company |
 | `GET /api/companies` · `GET /api/companies/{id}` | onboarded companies, newest first, and one in full |
-| `PATCH /api/companies/{id}` | the customer's own input: `{weights: {id: 0..1}, added: [{label, description, intended_weight}]}`. Intent arrives only here — never derived from their copy, and a weight of 0 leaves the attribute unintended |
+| `PATCH /api/companies/{id}` | the customer's own input: `{weights: {id: 0..1}, added: [{label, description, intended_weight}]}`. Intent arrives only here — never derived from their copy, and a weight of 0 leaves an extracted attribute unintended. An **added** claim is intended by construction, so its weight cannot go below 0.1 |
+| `DELETE /api/companies/{id}/attributes/{attr}` | removes a claim the customer added. Refuses for a claim extracted from their own pages: that one is evidence, and excluding it from scoring is what its zero slider is for |
 
 Comparison is done client-side from two `GET /api/runs/{id}` responses — no extra endpoint.
 
@@ -92,7 +93,7 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
 
 - **Measure** — pick a scenario, see intended attributes and how much of their own copy states each, run it, watch the live feed and progress bar
 - **Onboard a company** — name, website, "Read their site": the claims it found as full statements with their supporting quote and the page count beside every percentage, an intent slider per claim starting at zero, and a row to add a claim their copy never states. Measuring from here is live-only and the screen says so
-- **Report** — alignment headline, five zone counters (landed, lost claim, contested, never stated, imposed), the claim-vs-echo drift map, "whose problem is each gap" cards, "who AI named instead" (competitors discovered from the blind answers, plus the round-two comparison question built from those names), evidence behind a disclosure
+- **Report** — alignment headline, six zone counters (landed, lost claim, contested, never stated, imposed, unprioritised), the claim-vs-echo drift map, "whose problem is each gap" cards, "who AI named instead" (competitors discovered from the blind answers, plus the round-two comparison question built from those names), evidence behind a disclosure. **Unprioritised** is the zone for a claim the company's own pages state and AI repeats, but which the customer never weighted — the default state of every onboarded attribute until a slider moves, and the one case where "imposed" would otherwise accuse AI of asserting something the company demonstrably claims
 - **History** — every saved run from `data/runs/`, click to open
 - **Compare** — two runs side by side with the alignment delta and per-attribute zone changes (`lost claim → landed`)
 
@@ -121,9 +122,5 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
   matches the label unnormalized, so a label containing a hyphen, digit or ampersand ("AI-native
   workspace") can never be found and the restatement check degrades to a bare word count; filed as a
   separate follow-up
-- The zone matrix has no case for an attribute the company's own pages claim but the customer has
-  not weighted: such an attribute currently classifies as "imposed" — AI asserting it without you
-  claiming it — directly beside the company's own validated quote stating it. Naming that case is a
-  product decision and is pending
 - Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)
 - No production build wiring — Vite dev server only, so nothing is deployable from here yet

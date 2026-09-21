@@ -287,3 +287,52 @@ def test_a_thin_site_is_saved_with_a_warning_rather_than_refused(store, monkeypa
     out = main.onboard(url="https://acme.example/", name="Acme")
     assert reports.load_company(out["id"]).id == out["id"]   # the paid crawl is not discarded
     assert any("too little for a reliable claim percentage" in w for w in out["warnings"])
+
+
+def test_a_repeated_buyer_question_is_dropped_before_the_company_is_saved():
+    """Two claims sharing one generic question used to pass onboarding and then abort every run in
+    validate_and_freeze with 'duplicates an earlier question'."""
+    shared = "What is the best project management tool for a small team?"
+    attrs = [Attribute(id="project_tracking", label="Project tracking", intended_weight=0.5,
+                       buyer_questions=[shared, "Which tool tracks work across teams?"]),
+             Attribute(id="task_management", label="Task management", intended_weight=0.5,
+                       buyer_questions=[shared.upper(), "Which tool keeps a backlog tidy?"])]
+    warnings = main.vet_questions(PROFILE, attrs)
+    assert attrs[1].buyer_questions == ["Which tool keeps a backlog tidy?"]
+    assert any("repeated one already asked" in w and "Task management" in w for w in warnings)
+    topics, probes = ana.blind_probes_from_attributes(attrs, PROFILE)
+    assert ana.validate_probes(probes, topics, PROFILE) == []
+
+
+def test_a_claim_the_customer_added_cannot_be_weighted_away(store):
+    reports.save_company(mk_company())
+    out = main.patch_company("abc123", main.CompanyPatch(added=[main.AddedAttribute(label="Secure by default")]))
+    assert next(a for a in out["attributes"] if a["id"] == "secure_by_default")["added_by_user"] is True
+    with pytest.raises(HTTPException) as e:
+        main.patch_company("abc123", main.CompanyPatch(weights={"secure_by_default": 0.0}))
+    assert e.value.status_code == 400 and "Delete it instead" in e.value.detail
+    assert reports.load_company("abc123").attributes[-1].intended
+
+
+def test_removing_an_added_claim_is_an_explicit_delete_and_extracted_claims_are_not_deletable(store):
+    reports.save_company(mk_company())
+    main.patch_company("abc123", main.CompanyPatch(added=[main.AddedAttribute(label="Secure by default")]))
+    with pytest.raises(HTTPException) as e:
+        main.delete_attribute("abc123", "fast")
+    assert e.value.status_code == 400
+    out = main.delete_attribute("abc123", "secure_by_default")
+    assert [a["id"] for a in out["attributes"]] == ["fast"]
+    assert [a.id for a in reports.load_company("abc123").attributes] == ["fast"]
+
+
+# ---------------------------------------------------------------- zones
+def test_a_claim_the_company_states_but_never_weighted_is_unprioritised_not_imposed():
+    """The default state of every onboarded attribute until a slider moves. Calling it 'imposed'
+    tells the company AI asserts something they never claimed, beside their own validated quote."""
+    claimed = Attribute(id="fast", label="Fast to set up", claim_evidence_ids=["pg1"],
+                        claim_quotes=["set up in minutes"], claim_pages=3, claim_pages_total=4)
+    assert claimed.claimed and not claimed.intended
+    assert drift.classify(claimed, 0.75, drift.claim_strength(claimed)) == ("unprioritised", "unprioritised_claim")
+    # an attribute no page states keeps the original meaning of imposed
+    never = Attribute(id="pricey", label="Expensive", claim_pages=0, claim_pages_total=4)
+    assert drift.classify(never, 0.75, drift.claim_strength(never)) == ("imposed", "imposed_identity")

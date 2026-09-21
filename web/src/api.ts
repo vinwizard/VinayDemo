@@ -1,8 +1,9 @@
 // Typed client for the Python engine's HTTP API. Mirrors schemas.py — keep in sync.
 export const API = "http://127.0.0.1:8000";
 
-export type Zone = "landed" | "lost_claim" | "contested" | "unstated_intent" | "imposed";
-export type Owner = "authority_gap" | "messaging_gap" | "contested_identity" | "imposed_identity" | "none";
+export type Zone = "landed" | "lost_claim" | "contested" | "unstated_intent" | "imposed" | "unprioritised";
+export type Owner = "authority_gap" | "messaging_gap" | "contested_identity" | "imposed_identity"
+  | "unprioritised_claim" | "none";
 
 export interface AttributeScore {
   attribute_id: string;
@@ -39,6 +40,7 @@ export interface DriftReport {
   contested: string[];
   imposed: string[];
   unstated_intent: string[];
+  unprioritised: string[];
   scores: AttributeScore[];
   limitations: string[];
 }
@@ -105,6 +107,7 @@ export interface RunSummary {
   contested: number;
   unstated: number;
   imposed: number;
+  unprioritised: number;
 }
 
 export interface Scenario {
@@ -123,6 +126,7 @@ export const ZONE_LABEL: Record<Zone, string> = {
   contested: "contested",
   unstated_intent: "never stated",
   imposed: "imposed",
+  unprioritised: "unprioritised",
 };
 
 export const OWNER_TITLE: Record<Owner, string> = {
@@ -130,6 +134,7 @@ export const OWNER_TITLE: Record<Owner, string> = {
   messaging_gap: "Messaging gap",
   contested_identity: "Contested",
   imposed_identity: "Imposed identity",
+  unprioritised_claim: "Unprioritised",
   none: "Aligned",
 };
 
@@ -139,6 +144,8 @@ export const OWNER_TEXT: Record<Owner, string> = {
   messaging_gap: "AI does not say it because your own copy does not clearly say it either.",
   contested_identity: "AI talks about this and says the opposite of what you claim.",
   imposed_identity: "AI asserts this about you without you claiming it.",
+  unprioritised_claim: "You say this on your own site and AI repeats it, but you did not mark it as "
+    + "something you want to be known for.",
   none: "Intended positioning is reflected in AI answers.",
 };
 
@@ -147,7 +154,8 @@ export const ZONE_ORDER: Record<Zone, number> = {
   lost_claim: 1,
   unstated_intent: 2,
   imposed: 3,
-  landed: 4,
+  unprioritised: 4,   // your own claim, echoed but unweighted: worth seeing, not a gap to fix
+  landed: 5,
 };
 
 /** FastAPI puts the readable reason in `detail`; the bare status line is useless to a reader. */
@@ -170,6 +178,7 @@ export interface ClaimedAttribute {
   claim_pages_total: number;
   buyer_questions: string[];
   intended_weight: number | null;
+  added_by_user: boolean;
   note: string | null;
 }
 
@@ -190,6 +199,10 @@ export interface CompanySummary {
 }
 
 export const getCompanies = () => json<CompanySummary[]>("/api/companies");
+
+/** Removes a claim the customer typed. Extracted claims are evidence and cannot be deleted. */
+export const deleteAttribute = (companyId: string, attributeId: string) =>
+  json<CompanyDetail>(`/api/companies/${companyId}/attributes/${attributeId}`, { method: "DELETE" });
 export const getCompany = (id: string) => json<CompanyDetail>(`/api/companies/${id}`);
 
 /** Crawls the company's own site and saves what survived quote validation. Needs an API key. */

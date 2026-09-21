@@ -70,7 +70,7 @@ export default function App() {
 
   const sc = scenarios.find((s) => s.id === scenario);
   const runNames = runLabels(runs);
-  const pctDone = progress.expected ? (progress.done / progress.expected) * 100 : 0;
+  const pctDone = progress.expected ? Math.min(100, (progress.done / progress.expected) * 100) : 0;
 
   return (
     <div className="shell">

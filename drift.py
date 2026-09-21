@@ -26,6 +26,8 @@ OWNER_TEXT = {
     "messaging_gap": "AI does not say it because your own copy does not clearly say it either.",
     "contested_identity": "AI talks about this and says the opposite of what you claim.",
     "imposed_identity": "AI asserts this about you without you claiming it.",
+    "unprioritised_claim": "You say this on your own site and AI repeats it, but you did not mark it "
+                           "as something you want to be known for.",
     "none": "Intended positioning is reflected in AI answers.",
 }
 
@@ -60,6 +62,7 @@ def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float],
     echoed = echo_rate is not None and echo_rate >= ECHO_THRESHOLD
     stated = cs is not None and cs >= CLAIM_THRESHOLD
     contested = negative_rate is not None and negative_rate >= CONTESTED_MIN
+    claimed = bool(a.claim_evidence_ids) or (cs is not None and cs > 0)
     if a.intended and echoed:
         return "landed", "none"
     if a.intended and contested:
@@ -68,6 +71,12 @@ def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float],
         return "lost_claim", "authority_gap"
     if a.intended:
         return "unstated_intent", "messaging_gap"
+    # Claimed but never weighted. This never arose in the fixtures — every unintended fixture
+    # attribute has claim_pages=0 — yet it is the DEFAULT state of every onboarded attribute until
+    # the customer moves a slider, and without this case the company is told "AI asserts this about
+    # you without you claiming it" with its own validated quote sitting in the same record.
+    if claimed and echoed:
+        return "unprioritised", "unprioritised_claim"
     return "imposed", "imposed_identity"
 
 
@@ -171,4 +180,5 @@ def build_report(scores: list[AttributeScore], provenance: str, n_blind: int,
         alignment=alignment(scores) if n >= MIN_NAMED else None,
         visibility=visibility, scores=scores, limitations=limits,
         landed=by("landed"), lost_claims=by("lost_claim"), contested=by("contested"),
-        imposed=by("imposed"), unstated_intent=by("unstated_intent"))
+        imposed=by("imposed"), unstated_intent=by("unstated_intent"),
+        unprioritised=by("unprioritised"))

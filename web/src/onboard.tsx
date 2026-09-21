@@ -3,23 +3,27 @@
 // while with nothing in the browser ever calling it.
 import { useEffect, useState } from "react";
 import type { CompanyDetail, CompanySummary } from "./api";
-import { getCompanies, getCompany, onboard, patchCompany } from "./api";
+import { deleteAttribute, getCompanies, getCompany, onboard, patchCompany } from "./api";
 import { statedOn } from "./labels";
 
 interface Added { label: string; description: string; weight: number }
 
 // A claim typed into "add something your copy never states" is intended by construction — typing it
-// IS the expression of intent — so it starts weighted rather than at the resting zero that leaves an
-// extracted claim unintended and drops it out of the report entirely. Mirrors api.AddedAttribute.
+// IS the expression of intent — so it starts weighted and cannot be dragged to the zero that would
+// drop it out of the report unseen. Changing your mind is the Remove button, not a slider position.
+// Mirrors api.ADDED_MIN_WEIGHT / AddedAttribute.
 const ADDED_DEFAULT_WEIGHT = 0.5;
+const ADDED_MIN_WEIGHT = 0.1;
 
 /** Mirrors ana.MAX_TOPICS: the buyer axis is capped at four topics of three questions. */
 const MAX_BUYER_TOPICS = 4;
 
-function Slider({ value, onChange, id }: { value: number; onChange: (v: number) => void; id: string }) {
+function Slider({ value, onChange, id, min = 0 }: {
+  value: number; onChange: (v: number) => void; id: string; min?: number;
+}) {
   return (
     <div className="row" style={{ gap: ".5rem" }}>
-      <input id={id} type="range" min={0} max={1} step={0.1} value={value}
+      <input id={id} type="range" min={min} max={1} step={0.1} value={value}
              onChange={(e) => onChange(Number(e.target.value))} />
       <span className="muted" style={{ width: "5.5rem" }}>
         {value === 0 ? "not intended" : `intent ${value.toFixed(1)}`}
@@ -78,6 +82,16 @@ export function Onboard({ liveAvailable, busy, onMeasure }: {
         load(c); setSaved(true); setDraft({ label: "", description: "", weight: ADDED_DEFAULT_WEIGHT }); refresh();
         if (thenMeasure) onMeasure(c);
       })
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setSaving(false));
+  };
+
+  /** A claim the customer typed leaves by an explicit deletion, never by being weighted to nothing. */
+  const remove = (attributeId: string) => {
+    if (!company) return;
+    setSaving(true); setError(null);
+    deleteAttribute(company.id, attributeId)
+      .then((c) => { load(c); refresh(); })
       .catch((e: Error) => setError(e.message))
       .finally(() => setSaving(false));
   };
@@ -157,8 +171,15 @@ export function Onboard({ liveAvailable, busy, onMeasure }: {
                       <p className="muted" style={{ marginBottom: 0 }}>{a.note ?? "No quote on their site states this."}</p>
                     )}
                   </div>
-                  <Slider id={`w-${a.id}`} value={weights[a.id] ?? 0}
-                          onChange={(v) => { setWeights((w) => ({ ...w, [a.id]: v })); setSaved(false); }} />
+                  <div className="stack" style={{ gap: ".3rem" }}>
+                    <Slider id={`w-${a.id}`} value={weights[a.id] ?? 0}
+                            min={a.added_by_user ? ADDED_MIN_WEIGHT : 0}
+                            onChange={(v) => { setWeights((w) => ({ ...w, [a.id]: v })); setSaved(false); }} />
+                    {a.added_by_user && (
+                      <button className="linky" disabled={saving}
+                              onClick={() => remove(a.id)}>Remove this claim</button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -178,7 +199,8 @@ export function Onboard({ liveAvailable, busy, onMeasure }: {
             <p className="muted" style={{ marginTop: ".3rem" }}>
               A claim you want to be known for but do not make anywhere on those pages. It gets zero
               of {company.pages.length} pages, which is the finding, not missing data. Adding it is
-              itself the intent, so it starts weighted — drag the slider if it matters more or less.
+              itself the intent, so it starts weighted and cannot be weighted away — drag the slider
+              if it matters more or less, or remove it from its row above if you change your mind.
             </p>
             <div className="row" style={{ flexWrap: "wrap", marginTop: ".5rem" }}>
               <input aria-label="Attribute" placeholder="e.g. Secure by default" value={draft.label}
@@ -186,7 +208,8 @@ export function Onboard({ liveAvailable, busy, onMeasure }: {
               <input aria-label="What it means" placeholder="What that means, in one sentence"
                      value={draft.description} style={{ minWidth: "20rem" }}
                      onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} />
-              <Slider id="w-new" value={draft.weight} onChange={(v) => setDraft((d) => ({ ...d, weight: v }))} />
+              <Slider id="w-new" min={ADDED_MIN_WEIGHT} value={draft.weight}
+                      onChange={(v) => setDraft((d) => ({ ...d, weight: v }))} />
             </div>
           </div>
 

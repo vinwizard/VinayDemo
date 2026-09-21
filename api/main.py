@@ -99,7 +99,9 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
     # a live run is both axes now: count the blind probes its own plan will produce, or the progress
     # bar reads "20/8"
     _, blind = prov.plan(profile)
-    return prov, profile, len(blind) + len(base.named_probes()), "live_api"
+    # +1 for the round-two comparison question: it is appended by `choose_followup` long after this
+    # count is taken, and without its slot the feed reads "9/8" and the progress bar overruns.
+    return prov, profile, len(blind) + len(base.named_probes()) + 1, "live_api"
 
 
 def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = None) -> Iterator[str]:
@@ -182,7 +184,8 @@ def list_all():
                         lost=len(d.lost_claims) if d else 0,
                         contested=len(d.contested) if d else 0,
                         unstated=len(d.unstated_intent) if d else 0,
-                        imposed=len(d.imposed) if d else 0))
+                        imposed=len(d.imposed) if d else 0,
+                        unprioritised=len(d.unprioritised) if d else 0))
     return sorted(out, key=lambda r: r["created_at"], reverse=True)
 
 
@@ -202,16 +205,24 @@ def vet_questions(profile, attributes: list[Attribute]) -> list[str]:
 
     Every question here is model-generated text that gets saved verbatim, so a collision saved
     unchecked makes the company permanently unmeasurable: the same validators run again inside
-    `validate_and_freeze` and abort the run. A contaminated question is dropped, never rewritten —
-    we refuse to ask it, we do not quietly repair it.
+    `validate_and_freeze` and abort the run. That is true of all three of its checks — a leaked
+    brand name, a leaked attribute, and a question repeated across two attributes, which is ordinary
+    output when one response writes three questions each for eight claims. A contaminated question
+    is dropped, never rewritten — we refuse to ask it, we do not quietly repair it.
     """
-    warnings = []
+    warnings, asked = [], set()
     for a in attributes:
-        kept = [q for q in a.buyer_questions if not brand_leaks(q, profile)]
+        kept = []
         for q in a.buyer_questions:
             if leaks := brand_leaks(q, profile):
                 warnings.append(f"“{a.label}”: a buyer question named you ({', '.join(leaks)}) and was "
                                 "dropped — a question that names you cannot test whether a buyer finds you.")
+            elif q.strip().lower() in asked:
+                warnings.append(f"“{a.label}”: a buyer question repeated one already asked for an "
+                                "earlier claim and was dropped — one question cannot measure two claims.")
+            else:
+                asked.add(q.strip().lower())
+                kept.append(q)
         a.buyer_questions = kept
         if not kept:
             warnings.append(f"“{a.label}”: no buyer question survived, so this claim is measured on "
@@ -241,7 +252,7 @@ def company_payload(c: Company) -> dict:
                          claim_quotes=a.claim_quotes, claim_pages=a.claim_pages,
                          claim_pages_total=a.claim_pages_total,
                          buyer_questions=a.buyer_questions, intended_weight=a.intended_weight,
-                         note=a.note)
+                         added_by_user=a.added_by_user, note=a.note)
                     for a in c.attributes],
         warnings=c.warnings)
 
@@ -281,16 +292,20 @@ def onboard(url: str, name: str = ""):
     return company_payload(company)
 
 
+ADDED_MIN_WEIGHT = 0.1
+
+
 class AddedAttribute(BaseModel):
     """Something the customer wants to be known for that their own copy never states.
 
     Unlike an extracted claim, this one is intended by construction: typing it into "add something
-    your copy never states" IS the expression of intent, so its weight starts at the midpoint rather
-    than at the resting zero that leaves an extracted claim unintended.
+    your copy never states" IS the expression of intent, so its weight starts at the midpoint and
+    can never reach the zero that would drop it out of the report unseen. Changing your mind is a
+    deletion, not a slider position — see `delete_attribute`.
     """
     label: str = Field(min_length=2, max_length=80)
     description: Optional[str] = Field(default=None, max_length=400)
-    intended_weight: float = Field(default=0.5, ge=0, le=1)
+    intended_weight: float = Field(default=0.5, ge=ADDED_MIN_WEIGHT, le=1)
 
 
 class CompanyPatch(BaseModel):
@@ -298,7 +313,7 @@ class CompanyPatch(BaseModel):
     added: list[AddedAttribute] = []
 
 
-def added_buyer_questions(profile, raw: AddedAttribute) -> tuple[list[str], list[str]]:
+def added_buyer_questions(company: Company, raw: AddedAttribute) -> tuple[list[str], list[str]]:
     """-> (questions, warnings). An added claim needs the placebo test most of all.
 
     It is a claim their own copy never makes, so "would a buyer looking for this find them?" is the
@@ -309,17 +324,23 @@ def added_buyer_questions(profile, raw: AddedAttribute) -> tuple[list[str], list
     if not live.available():
         return [], [f"“{raw.label}”: no buyer questions were generated ({live.KEY_ENV} is not set), "
                     "so this claim is measured on the brand axis only."]
+    asked = {q.strip().lower() for a in company.attributes for q in a.buyer_questions}
     try:
         generated = buyer_questions_for(raw.label, raw.description)
     except Exception as e:
         traceback.print_exc()
         return [], [f"“{raw.label}”: buyer-question generation failed ({type(e).__name__}), so this "
                     "claim is measured on the brand axis only."]
-    kept = [q for q in generated if not brand_leaks(q, profile)]
+    kept = []
+    for q in generated:
+        if brand_leaks(q, company.profile) or q.strip().lower() in asked:
+            continue
+        asked.add(q.strip().lower())
+        kept.append(q)
     warnings = []
     if dropped := len(generated) - len(kept):
-        warnings.append(f"“{raw.label}”: {dropped} generated buyer question(s) named you and were "
-                        "dropped — a question that names you cannot test whether a buyer finds you.")
+        warnings.append(f"“{raw.label}”: {dropped} generated buyer question(s) named you or repeated "
+                        "one already asked, and were dropped.")
     if not kept:
         warnings.append(f"“{raw.label}”: no buyer question survived, so this claim is measured on "
                         "the brand axis only.")
@@ -369,6 +390,10 @@ def patch_company(company_id: str, patch: CompanyPatch):
             raise HTTPException(400, f"unknown attribute {aid!r}")
         if not 0 <= weight <= 1:
             raise HTTPException(400, f"weight for {aid!r} must be between 0 and 1")
+        if by_id[aid].added_by_user and weight < ADDED_MIN_WEIGHT:
+            raise HTTPException(400, f"{by_id[aid].label!r} is a claim you added, so it is intended by "
+                                     f"construction and cannot drop below {ADDED_MIN_WEIGHT}. Delete it "
+                                     "instead if you no longer want it measured.")
         by_id[aid].intended_weight = round(weight, 2) or None
     for raw in patch.added:
         aid = base = re.sub(r"[^a-z0-9]+", "_", raw.label.lower()).strip("_") or "added"
@@ -376,10 +401,10 @@ def patch_company(company_id: str, patch: CompanyPatch):
             if aid not in by_id:
                 break
             aid = f"{base}_{n}"
-        questions, warns = added_buyer_questions(c.profile, raw)
+        questions, warns = added_buyer_questions(c, raw)
         c.warnings += warns
         attr = Attribute(id=aid, label=raw.label.strip(), description=raw.description,
-                         intended_weight=round(raw.intended_weight, 2) or None,
+                         intended_weight=round(raw.intended_weight, 2), added_by_user=True,
                          # zero pages state it — that is the finding, not missing data
                          claim_pages=0, claim_pages_total=len(c.pages),
                          buyer_questions=questions,
@@ -387,6 +412,21 @@ def patch_company(company_id: str, patch: CompanyPatch):
                               "Your own pages never state it, so AI has nothing to repeat.")
         by_id[aid] = attr
         c.attributes.append(attr)
+    save_company(c)
+    return company_payload(c)
+
+
+@app.delete("/api/companies/{company_id}/attributes/{attribute_id}")
+def delete_attribute(company_id: str, attribute_id: str):
+    """Remove a claim the customer typed. Only theirs: an extracted claim is evidence, not an opinion."""
+    c = _company(company_id)
+    attr = next((a for a in c.attributes if a.id == attribute_id), None)
+    if attr is None:
+        raise HTTPException(404, f"unknown attribute {attribute_id!r}")
+    if not attr.added_by_user:
+        raise HTTPException(400, f"{attr.label!r} was extracted from the company's own pages, not added "
+                                 "by you. Leave its intent slider at zero to exclude it from scoring.")
+    c.attributes = [a for a in c.attributes if a.id != attribute_id]
     save_company(c)
     return company_payload(c)
 

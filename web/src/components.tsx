@@ -9,6 +9,7 @@ const ZONE_FILL: Record<string, string> = {
   contested: "var(--contested)",
   unstated_intent: "var(--unstated)",
   imposed: "var(--imposed)",
+  unprioritised: "var(--unprioritised)",
 };
 
 const pct = (x: number | null) => (x == null ? 0 : Math.round(x * 100));
@@ -26,6 +27,7 @@ export function Metrics({ d }: { d: DriftReport }) {
         <div className="metric"><div className="label">Contested</div><div className="value">{d.contested?.length ?? 0}</div></div>
         <div className="metric"><div className="label">Never stated</div><div className="value">{d.unstated_intent.length}</div></div>
         <div className="metric"><div className="label">Imposed</div><div className="value">{d.imposed.length}</div></div>
+        <div className="metric"><div className="label">Unprioritised</div><div className="value">{d.unprioritised?.length ?? 0}</div></div>
       </div>
       <p className="muted" style={{ marginTop: ".4rem" }}>
         {d.n_named} brand questions answered drive perception · {d.n_blind} buyer questions answered
@@ -117,7 +119,11 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
             <div className="bar-track">
               <div className="bar" style={{ width: `${pct(s.claim_strength)}%`, background: "#8c959f" }} />
             </div>
-            <div className="muted">{statedOn(s.claim_pages, s.claim_pages_total)}</div>
+            <div className="muted">
+              {s.claim_pages_total
+                ? statedOn(s.claim_pages, s.claim_pages_total)
+                : s.claim_strength == null ? "no page data" : `${pct(s.claim_strength)}% of pages`}
+            </div>
           </div>
           <div>
             {/* Width is how OFTEN AI raises it; the red segment is how much of that was criticism.

@@ -27,6 +27,7 @@ st.markdown("""
 .z-lost {background:#fdecec; border-color:#f1b0b0; color:#8a1c1c;}
 .z-unstated {background:#fff4e5; border-color:#f3c98b; color:#7a4b00;}
 .z-imposed {background:#eef2ff; border-color:#c3cdfa; color:#2e3a8c;}
+.z-unprioritised {background:#e4f5f8; border-color:#9fd0da; color:#0b5563;}
 .z-contested {background:#fbe9f0; border-color:#f0aac4; color:#8a1c4b;}
 .bar {height:15px; border-radius:3px;}
 .attr {font-size:.93rem; color:#24292f; padding-top:.1rem;}
@@ -42,12 +43,12 @@ SS.setdefault("run_requested", False)
 SS.setdefault("notice", None)
 
 ZONE_CLS = {"landed": "z-landed", "lost_claim": "z-lost", "unstated_intent": "z-unstated",
-            "imposed": "z-imposed", "contested": "z-contested"}
+            "imposed": "z-imposed", "contested": "z-contested", "unprioritised": "z-unprioritised"}
 ZONE_LABEL = {"landed": "landed", "lost_claim": "lost claim", "unstated_intent": "never stated",
-              "imposed": "imposed", "contested": "contested"}
+              "imposed": "imposed", "contested": "contested", "unprioritised": "unprioritised"}
 OWNER_TITLE = {"authority_gap": "Authority gap", "messaging_gap": "Messaging gap",
                "imposed_identity": "Imposed identity", "contested_identity": "Contested identity",
-               "none": "Aligned"}
+               "unprioritised_claim": "Unprioritised", "none": "Aligned"}
 
 
 def esc(t):
@@ -187,7 +188,8 @@ h = st.columns([2.4, 1.6, 1.6, 1.2])
 h[1].markdown("<span class='muted'>What you claim</span>", unsafe_allow_html=True)
 h[2].markdown("<span class='muted'>What AI says</span>", unsafe_allow_html=True)
 
-ORDER = {"contested": 0, "lost_claim": 1, "unstated_intent": 2, "imposed": 3, "landed": 4}
+ORDER = {"contested": 0, "lost_claim": 1, "unstated_intent": 2, "imposed": 3, "unprioritised": 4,
+         "landed": 5}
 for s in sorted(run.attribute_scores, key=lambda x: (ORDER[x.zone], -(x.echo_rate or 0))):
     c = st.columns([2.4, 1.6, 1.6, 1.2])
     c[0].markdown(f"<div class='attr'>{esc(s.label)}</div>"
@@ -196,7 +198,7 @@ for s in sorted(run.attribute_scores, key=lambda x: (ORDER[x.zone], -(x.echo_rat
     cw = int((s.claim_strength or 0) * 100)
     ew = int((s.echo_rate or 0) * 100)
     fill = {"landed": "#2da44e", "lost_claim": "#cf222e", "unstated_intent": "#bf8700",
-            "imposed": "#4c5fd7", "contested": "#bf3989"}[s.zone]
+            "imposed": "#4c5fd7", "contested": "#bf3989", "unprioritised": "#0f7b8a"}[s.zone]
     c[1].markdown(f"<div class='bar' style='width:{cw}%;background:#8c959f'></div>"
                   f"<span class='muted'>{cw}% of pages</span>", unsafe_allow_html=True)
     c[2].markdown(f"<div class='bar' style='width:{ew}%;background:{fill}'></div>"

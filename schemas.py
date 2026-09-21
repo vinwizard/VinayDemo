@@ -60,6 +60,7 @@ class Attribute(BaseModel):
     aliases: list[str] = []  # phrasings that count as an echo of this attribute
     intended_weight: Optional[float] = None  # set only when the customer named it
     claim_evidence_ids: list[str] = []       # set only when their own copy states it
+    added_by_user: bool = False              # typed in by the customer, not extracted from a page
     claim_quotes: list[str] = []             # verbatim site copy stating it, per page
     claim_pages: int = 0                     # DERIVED: pages whose text contains a validated quote
     claim_pages_total: int = 0               # DERIVED: pages actually fetched
@@ -198,8 +199,9 @@ class GapFinding(BaseModel):
     exploratory_note: Optional[str] = None
 
 
-Zone = Literal["landed", "lost_claim", "contested", "imposed", "unstated_intent"]
-Owner = Literal["authority_gap", "messaging_gap", "contested_identity", "imposed_identity", "none"]
+Zone = Literal["landed", "lost_claim", "contested", "imposed", "unstated_intent", "unprioritised"]
+Owner = Literal["authority_gap", "messaging_gap", "contested_identity", "imposed_identity",
+                "unprioritised_claim", "none"]
 
 
 class AttributeScore(BaseModel):
@@ -241,6 +243,7 @@ class DriftReport(BaseModel):
     contested: list[str] = []
     imposed: list[str] = []
     unstated_intent: list[str] = []
+    unprioritised: list[str] = []
     scores: list[AttributeScore] = []
     limitations: list[str] = []
 

@@ -10,6 +10,7 @@
   --unstated: #bf8700;
   --imposed: #4c5fd7;
   --contested: #b5651d;
+  --unprioritised: #0f7b8a;
   --radius: 10px;
   color-scheme: light;
 }
@@ -84,6 +85,7 @@ select, button.ghost {
 .pill.unstated_intent { background: #fff4e5; border-color: #f3c98b; color: #7a4b00; }
 .pill.imposed { background: #eef1ff; border-color: #c3cdfa; color: #2e3a8c; }
 .pill.contested { background: #fdf0e6; border-color: #e8bd93; color: #8a4513; }
+.pill.unprioritised { background: #e4f5f8; border-color: #9fd0da; color: #0b5563; }
 
 .quote { border-left: 3px solid #b9c1cc; padding-left: .65rem; color: #2b3542; font-style: italic; font-size: .88rem; margin: .5rem 0 0; }
 
