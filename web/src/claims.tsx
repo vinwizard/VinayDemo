@@ -116,14 +116,22 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
               <div className="claim-label">{a.label}</div>
               {a.description && <div className="desc">{a.description}</div>}
               <div className="muted">
-                {a.claim_pages_total
+                {company.replay
+                  ? `bundled sample: stated on ${statedOn(a.claim_pages, a.claim_pages_total)} in the sample — authored, not read from a site`
+                  : a.claim_pages_total
                   ? `stated on ${statedOn(a.claim_pages, a.claim_pages_total)}`
                   : "no page data"}
                 {a.added_by_user && " · added by you"}
               </div>
-              {a.claim_quotes[0] && <p className="quote">{a.claim_quotes[0]}</p>}
+              {a.claim_quotes[0] && (
+                <p className="quote">
+                  {company.replay && <span className="tag sample">sample</span>} {a.claim_quotes[0]}
+                </p>
+              )}
               {a.claim_quotes.length === 0 && (
-                <p className="muted" style={{ margin: ".3rem 0 0" }}>{a.note ?? "No quote on their site states this."}</p>
+                <p className="muted" style={{ margin: ".3rem 0 0" }}>
+                  {company.replay && <span className="tag sample">sample</span>} {a.note ?? "No quote on their site states this."}
+                </p>
               )}
             </div>
             <div className="stack" style={{ gap: ".3rem", alignItems: "flex-end" }}>
