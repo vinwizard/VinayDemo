@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { AttributeScore, DriftReport, Run, RunSummary } from "./api";
 import { OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_ORDER } from "./api";
-import { probeLabels, provenanceLabel, runLabels, statedOn } from "./labels";
+import { claimShare, probeLabels, provenanceLabel, runLabels } from "./labels";
 
 const ZONE_FILL: Record<string, string> = {
   landed: "var(--landed)",
@@ -52,6 +52,7 @@ export function Metrics({ d }: { d: DriftReport }) {
 function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
   const probeText = new Map((run?.probes ?? []).map((p) => [p.id, p.text]));
   const names = probeLabels(run?.probes ?? [], run?.topics ?? []);
+  const share = claimShare(s.claim_pages, s.claim_pages_total, s.claim_strength);
   return (
     <div className="bubble" role="region" aria-label={`Evidence for ${s.label}`}>
       <h4>Evidence · {s.label}</h4>
@@ -59,7 +60,7 @@ function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
       <dl>
         <dt>Zone</dt><dd>{ZONE_LABEL[s.zone]} — {OWNER_TITLE[s.owner]}</dd>
         <dt>How much of your site says it</dt>
-        <dd>{s.claim_pages_total ? `states it on ${statedOn(s.claim_pages, s.claim_pages_total)}` : "no page data"}</dd>
+        <dd>{share ? `states it on ${share}` : "no page data"}</dd>
         <dt>How often AI says it</dt>
         <dd>{s.echoes} of {s.n} eligible answers{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}</dd>
         {s.intended_weight != null && <><dt>Intent weight</dt><dd>{s.intended_weight}</dd></>}
@@ -120,9 +121,7 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
               <div className="bar" style={{ width: `${pct(s.claim_strength)}%`, background: "#8c959f" }} />
             </div>
             <div className="muted">
-              {s.claim_pages_total
-                ? statedOn(s.claim_pages, s.claim_pages_total)
-                : s.claim_strength == null ? "no page data" : `${pct(s.claim_strength)}% of pages`}
+              {claimShare(s.claim_pages, s.claim_pages_total, s.claim_strength) ?? "no page data"}
             </div>
           </div>
           <div>
@@ -149,6 +148,38 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
   );
 }
 
+function GapCard({ s }: { s: AttributeScore }) {
+  const share = claimShare(s.claim_pages, s.claim_pages_total, s.claim_strength);
+  return (
+    <div className="card">
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <h3>{s.label}</h3>
+        <span className={`pill ${s.zone}`}>{OWNER_TITLE[s.owner]}</span>
+      </div>
+      <p style={{ margin: ".4rem 0 0" }}>{OWNER_TEXT[s.owner]}</p>
+      <p className="muted" style={{ margin: ".3rem 0 0" }}>
+        {share ? `${share} state it` : "no page data"}
+        {" · "}AI echoed it in {s.echoes} of {s.n} brand answers
+        {s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
+      </p>
+      {s.quotes[0] && <p className="quote">{s.quotes[0]}</p>}
+      {s.owner === "authority_gap" && (
+        <p className="muted" style={{ marginBottom: 0 }}>
+          Relevant capability:{" "}
+          <a href="https://www.tryprofound.com/features/answer-engine-insights" target="_blank" rel="noreferrer">
+            Answer Engine Insights / citation analysis
+          </a>
+        </p>
+      )}
+      {s.owner === "messaging_gap" && (
+        <p className="muted" style={{ marginBottom: 0 }}>
+          Not an AI problem: your own copy does not state this clearly enough to be repeated.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function GapCards({ scores }: { scores: AttributeScore[] }) {
   const gaps = scores
     .filter((s) => s.zone !== "landed")
@@ -157,34 +188,7 @@ export function GapCards({ scores }: { scores: AttributeScore[] }) {
   if (!gaps.length) return null;
   return (
     <div className="stack">
-      {gaps.map((s) => (
-        <div className="card" key={s.attribute_id}>
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h3>{s.label}</h3>
-            <span className={`pill ${s.zone}`}>{OWNER_TITLE[s.owner]}</span>
-          </div>
-          <p style={{ margin: ".4rem 0 0" }}>{OWNER_TEXT[s.owner]}</p>
-          <p className="muted" style={{ margin: ".3rem 0 0" }}>
-            {s.claim_pages_total ? `${statedOn(s.claim_pages, s.claim_pages_total)} state it` : "no page data"}
-            {" · "}AI echoed it in {s.echoes} of {s.n} brand answers
-            {s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
-          </p>
-          {s.quotes[0] && <p className="quote">{s.quotes[0]}</p>}
-          {s.owner === "authority_gap" && (
-            <p className="muted" style={{ marginBottom: 0 }}>
-              Relevant capability:{" "}
-              <a href="https://www.tryprofound.com/features/answer-engine-insights" target="_blank" rel="noreferrer">
-                Answer Engine Insights / citation analysis
-              </a>
-            </p>
-          )}
-          {s.owner === "messaging_gap" && (
-            <p className="muted" style={{ marginBottom: 0 }}>
-              Not an AI problem: your own copy does not state this clearly enough to be repeated.
-            </p>
-          )}
-        </div>
-      ))}
+      {gaps.map((s) => <GapCard key={s.attribute_id} s={s} />)}
     </div>
   );
 }

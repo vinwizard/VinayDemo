@@ -110,6 +110,9 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
 
 ## Not done yet
 
+- The onboard screen does not show the brand questions it will ask. Showing them would fit this
+  product's habit of showing its work, and is worth doing deliberately rather than as a payload
+  field nothing renders — `agents.onboarding.named_probes_for` already produces them
 - No tests for the React app; the API has one, over the stream endpoint's setup-error path (`tests/test_api_stream.py`)
 - Streamlit `app.py` still prints raw probe and node ids; it is scheduled for deletion rather than relabelling
 - Report-surface attribute descriptions still render nothing: `AttributeScore` carries no

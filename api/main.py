@@ -99,9 +99,10 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
     # a live run is both axes now: count the blind probes its own plan will produce, or the progress
     # bar reads "20/8"
     _, blind = prov.plan(profile)
-    # +1 for the round-two comparison question: it is appended by `choose_followup` long after this
-    # count is taken, and without its slot the feed reads "9/8" and the progress bar overruns.
-    return prov, profile, len(blind) + len(base.named_probes()) + 1, "live_api"
+    # The round-two comparison question is not counted: it is appended only when a baseline answer
+    # names a competitor, so reserving a slot for it strands a finished run at "7/8". The overrun in
+    # the other direction is held by the clamp in the progress bar.
+    return prov, profile, len(blind) + len(base.named_probes()), "live_api"
 
 
 def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = None) -> Iterator[str]:
@@ -247,7 +248,6 @@ def company_payload(c: Company) -> dict:
                      one_liner=p.positioning_points[0].text if p.positioning_points else None,
                      warnings=p.warnings),
         pages=c.pages,
-        named_probes=[pr.text for pr in CompanyProvider(c).named_probes()],
         attributes=[dict(id=a.id, label=a.label, description=a.description, aliases=a.aliases,
                          claim_quotes=a.claim_quotes, claim_pages=a.claim_pages,
                          claim_pages_total=a.claim_pages_total,

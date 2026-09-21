@@ -25,6 +25,17 @@ export function statedOn(pages: number, total: number): string {
   return `${Math.round((pages / total) * 100)}% of pages (${pages} of ${total})`;
 }
 
+/**
+ * How much of the site states an attribute, or null when nothing is known. Every report surface
+ * goes through here so two halves of one row cannot disagree: a run saved before the counts existed
+ * has claim_strength but no claim_pages, and "no page data" is false for it — that strength was
+ * itself derived from page counts, it just cannot show them.
+ */
+export function claimShare(pages: number, total: number, strength: number | null): string | null {
+  if (total) return statedOn(pages, total);
+  return strength == null ? null : `${Math.round(strength * 100)}% of pages`;
+}
+
 /** `Probe.kind`: what the question does, not what the enum is called. */
 export const PROBE_KIND_LABEL: Record<string, string> = {
   named: "names your brand",

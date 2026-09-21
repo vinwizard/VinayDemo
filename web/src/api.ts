@@ -188,7 +188,6 @@ export interface CompanyDetail {
   profile: { name: string; domain: string; aliases: string[]; customer_types: string[];
              one_liner: string | null; warnings: string[] };
   pages: string[];
-  named_probes: string[];
   attributes: ClaimedAttribute[];
   warnings: string[];
 }

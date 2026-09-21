@@ -73,9 +73,12 @@ def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float],
         return "unstated_intent", "messaging_gap"
     # Claimed but never weighted. This never arose in the fixtures — every unintended fixture
     # attribute has claim_pages=0 — yet it is the DEFAULT state of every onboarded attribute until
-    # the customer moves a slider, and without this case the company is told "AI asserts this about
-    # you without you claiming it" with its own validated quote sitting in the same record.
-    if claimed and echoed:
+    # the customer moves a slider. `imposed` means AI asserts something the company never claimed
+    # ANYWHERE, so a claim their own site makes with a validated quote behind it can never be
+    # imposed, whatever the echo rate: keying this on the echo too would leave the ordinary
+    # [IMPOSED_MIN, ECHO_THRESHOLD) band reading "AI asserts this about you without you claiming it"
+    # beside that row's own "50% of pages (3 of 6)".
+    if claimed:
         return "unprioritised", "unprioritised_claim"
     return "imposed", "imposed_identity"
 

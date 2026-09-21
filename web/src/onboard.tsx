@@ -18,6 +18,14 @@ const ADDED_MIN_WEIGHT = 0.1;
 /** Mirrors ana.MAX_TOPICS: the buyer axis is capped at four topics of three questions. */
 const MAX_BUYER_TOPICS = 4;
 
+/**
+ * One control, two floors, and the floor encodes WHO AUTHORED the claim — it is not cosmetic.
+ * An extracted claim keeps min 0 and its "not intended" label: the crawler found it, the company
+ * never asserted it to us, and zero honestly means "I do not want to be known for this". A claim
+ * the customer typed starts at ADDED_DEFAULT_WEIGHT and cannot go below ADDED_MIN_WEIGHT, because
+ * typing it was itself the intent; it leaves by the Remove button, which is visible and deliberate,
+ * never by a drag to zero that silently deletes the row from the report.
+ */
 function Slider({ value, onChange, id, min = 0 }: {
   value: number; onChange: (v: number) => void; id: string; min?: number;
 }) {

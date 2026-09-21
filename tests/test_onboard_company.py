@@ -7,6 +7,7 @@ import json
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 import api.main as main
 import drift
@@ -336,3 +337,23 @@ def test_a_claim_the_company_states_but_never_weighted_is_unprioritised_not_impo
     # an attribute no page states keeps the original meaning of imposed
     never = Attribute(id="pricey", label="Expensive", claim_pages=0, claim_pages_total=4)
     assert drift.classify(never, 0.75, drift.claim_strength(never)) == ("imposed", "imposed_identity")
+
+
+def test_a_claim_mentioned_too_little_to_count_as_echoed_is_still_never_imposed():
+    """The ordinary band: mentioned in 2 of 7 answers, above IMPOSED_MIN and below ECHO_THRESHOLD.
+    Gating the zone on the echo left this reading 'AI asserts this about you without you claiming
+    it' next to that same row's '50% of pages (3 of 6)'."""
+    claimed = Attribute(id="fast", label="Fast to set up", claim_evidence_ids=["pg1", "pg3", "pg5"],
+                        claim_quotes=["set up in minutes"], claim_pages=3, claim_pages_total=6)
+    echo_rate = 2 / 7
+    assert drift.IMPOSED_MIN <= echo_rate < drift.ECHO_THRESHOLD
+    assert drift.relevant(claimed, echo_rate)
+    assert drift.classify(claimed, echo_rate, drift.claim_strength(claimed)) \
+        == ("unprioritised", "unprioritised_claim")
+
+
+def test_an_added_claim_cannot_be_created_unintended():
+    """The floor lives on the contract, not only on the slider: a client posting 0 is refused."""
+    with pytest.raises(ValidationError):
+        main.AddedAttribute(label="Secure by default", intended_weight=0.0)
+    assert main.AddedAttribute(label="Secure by default").intended_weight == 0.5
