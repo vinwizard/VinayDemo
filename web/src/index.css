@@ -308,3 +308,13 @@ tr.pick:hover { background: #f5f8fc; cursor: pointer; }
   .claim { grid-template-columns: 1fr; }
   .pages { columns: 1; }
 }
+
+/* ---------------------------------------------------------------- share of voice */
+.sov { display: flex; flex-direction: column; gap: .45rem; }
+.sov-row { display: grid; grid-template-columns: minmax(6rem, 10rem) 1fr 3.5rem; align-items: center; gap: .7rem; }
+.sov-name { font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sov-name.brand { font-weight: 600; }
+.sov-track { height: .7rem; background: var(--bg); border-radius: 4px; }
+.sov-bar { display: block; height: 100%; min-width: 2px; background: #aab4c0; border-radius: 0 4px 4px 0; }
+.sov-bar.brand { background: var(--accent); }
+.sov-count { font-size: .85rem; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }

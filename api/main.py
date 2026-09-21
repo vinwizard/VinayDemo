@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 import fetching
 import graph
+from insights import insights
 from agents.ana import brand_leaks, discovered_competitors, vendor_address
 from agents.evaluator_model import ModelEvaluator
 from agents.onboarding import NAMED_TEMPLATES, named_probes_for
@@ -35,6 +36,11 @@ _LOADED = load_env()
 print(f"[config] {redacted_status(_LOADED)}")  # names only; a key value is never printed
 
 app = FastAPI(title="Positioning Drift API")
+
+
+def run_payload(run) -> dict:
+    """The run as the browser reads it, plus the panels derived from its saved answers."""
+    return {**json.loads(run.model_dump_json()), "insights": insights(run)}
 
 # Any loopback port, because Vite silently moves to 5174/5175 when 5173 is taken and a pinned
 # origin then fails as an opaque "TypeError: Failed to fetch" in the browser.
@@ -171,7 +177,7 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
                 q.put(("node", dict(node=node, stage=stage, agent=agent,
                                     log=run.log[-1] if run.log else "", **progress(run))))
             save_run(run)
-            q.put(("done", dict(run_id=run.id, run=json.loads(run.model_dump_json()))))
+            q.put(("done", dict(run_id=run.id, run=run_payload(run))))
         except Exception as e:                       # surfaced, never swallowed; detail stays on the console
             traceback.print_exc()
             q.put(("error", dict(message=f"Run failed after it started: {type(e).__name__}")))
@@ -222,7 +228,7 @@ def list_all():
 @app.get("/api/runs/{run_id}")
 def get_run(run_id: str):
     try:
-        return json.loads(load_run(run_id).model_dump_json())
+        return run_payload(load_run(run_id))
     except (FileNotFoundError, ValueError):
         raise HTTPException(404, f"run {run_id} not found")
 
@@ -441,7 +447,7 @@ def rescore_run(run_id: str, req: RescoreRequest):
     except graph.ValidationError as e:
         raise HTTPException(409, str(e))
     save_run(run)
-    return json.loads(run.model_dump_json())
+    return run_payload(run)
 
 
 @app.get("/api/companies")
