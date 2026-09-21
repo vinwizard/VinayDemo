@@ -88,6 +88,7 @@ def test_a_run_streamed_over_http_is_listed_and_reopens(client):
         evs = sse_events(r.read().decode())
     assert evs[-1][0] == "done"
     run = evs[-1][1]["run"]
+    assert run["insights"] == client.get(f"/api/runs/{run['id']}").json()["insights"]
 
     listed = client.get("/api/runs")
     assert listed.status_code == 200
@@ -330,6 +331,7 @@ def test_public_demo_rescore_is_not_saved(public):
     claim = before["attributes"][0]["id"]
     r = public.post(f"/api/runs/{run_id}/rescore", json={"weights": {claim: 0.5}})
     assert r.status_code == 200 and r.json() != before
+    assert r.json()["insights"] == before["insights"]
     assert public.get(f"/api/runs/{run_id}").json() == before
 
 
