@@ -162,18 +162,7 @@ def measure_drift(s: State):
             obs, warns = evaluation.extract_attributes(answers[pr.id], run.attributes)
             observations[pr.id] = obs
             dropped += [f"{probe_name(pr)}: {w}" for w in warns]
-    blind = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
-    ev = {e.probe_id: e for e in run.evaluations}
-    strengths = [ev[p.id].strength for p in blind
-                 if p.id in ev and ev[p.id].valid and ev[p.id].strength is not None]
-    # provenance is read off the answers that actually fed the perception layer — never hardcoded,
-    # or a live run would publish its drift report under a synthetic label (and vice versa)
-    named_provenance = {answers[p.id].provenance for p in run.probes
-                        if p.kind == "named" and p.id in answers}
-    if len(named_provenance) > 1:
-        raise ValidationError(f"named answers mix provenance types: {sorted(named_provenance)}")
-    provenance = named_provenance.pop() if named_provenance else "synthetic"
-    kept, excluded, asked = drift.named_eligibility(run.probes, run.answers, run.evaluations)
+    kept, _, _ = drift.named_eligibility(run.probes, run.answers, run.evaluations)
     # Emergent attributes: one discovery call over every eligible brand answer at once, because
     # repetition across answers is the signal. Only a provider with a model offers it, so the
     # authored fixtures — whose unclaimed attributes are hand-written — never run it.
@@ -193,27 +182,79 @@ def measure_drift(s: State):
             run.log.append(f"Discovery read {len(kept)} brand answers together: {len(proposals)} "
                            f"proposed, {len(discovered)} kept"
                            + (f" ({', '.join(a.label for a in discovered)})." if discovered else "."))
-    run.attribute_scores = drift.score_attributes(run.attributes, run.probes, run.answers,
-                                                  run.evaluations, observations)
-    run.drift = drift.build_report(run.attribute_scores, provenance, n_blind=len(strengths),
-                                   visibility=visibility_score(strengths),
-                                   asked=asked, excluded_reasons=excluded)
-    if dropped:
-        run.drift.limitations += [f"Dropped unverifiable observation — {d}" for d in dropped]
-    run.drift.limitations += [f"Discovery — {n}" for n in notes]
+    run.observations = observations
+    run.drift_notes = [f"Dropped unverifiable observation — {d}" for d in dropped]
+    run.drift_notes += [f"Discovery — {n}" for n in notes]
     if run.mode == "live_api" and not ana.discovered_competitors(run.topic_evaluations):
-        # "Nobody was named" and "nobody was asked" are different findings: with no weighted claim
-        # there are no buyer questions, so an empty competitor set is silence, not an absence.
-        run.drift.limitations.append(
+        # "Nobody was named" and "nobody was asked" are different findings: with no claim that has
+        # buyer questions there are none to ask, so an empty competitor set is silence, not absence.
+        run.drift_notes.append(
             "No competitor was named in any baseline answer, so no comparison question was asked."
-            if blind else
-            "No buyer question was asked — no claim is weighted as intended — so the buyer axis was "
+            if any(p.kind == "blind" for p in run.probes) else
+            "No buyer question was asked — no claim has a buyer question — so the buyer axis was "
             "not measured and no competitor could be discovered.")
-    run.log.append(f"Drift measured over {run.drift.n_named} brand answers: alignment "
+    score_drift(run)
+    run.log.append(f"Drift measured over {run.drift.n_named} brand answers: claim echo "
+                   f"{run.drift.claim_echo if run.drift.claim_echo is not None else 'n/a'}, alignment "
                    f"{run.drift.alignment if run.drift.alignment is not None else 'n/a'} "
                    f"({len(run.drift.lost_claims)} lost, {len(run.drift.imposed)} imposed, "
                    f"{len(dropped)} observation(s) dropped).")
     return {"run": run}
+
+
+def score_drift(run: Run) -> None:
+    """Everything in the drift report that is arithmetic over saved state: no provider, no model.
+
+    measure_drift calls it once the observations exist; `rescore` calls it again after the customer
+    sets intent weights on a finished run, which is why nothing here may ask anything.
+    """
+    answers = {a.probe_id: a for a in run.answers}
+    blind = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
+    ev = {e.probe_id: e for e in run.evaluations}
+    strengths = [ev[p.id].strength for p in blind
+                 if p.id in ev and ev[p.id].valid and ev[p.id].strength is not None]
+    # provenance is read off the answers that actually fed the perception layer — never hardcoded,
+    # or a live run would publish its drift report under a synthetic label (and vice versa)
+    named_provenance = {answers[p.id].provenance for p in run.probes
+                        if p.kind == "named" and p.id in answers}
+    if len(named_provenance) > 1:
+        raise ValidationError(f"named answers mix provenance types: {sorted(named_provenance)}")
+    provenance = named_provenance.pop() if named_provenance else "synthetic"
+    kept, excluded, asked = drift.named_eligibility(run.probes, run.answers, run.evaluations)
+    run.attribute_scores = drift.score_attributes(run.attributes, run.probes, run.answers,
+                                                  run.evaluations, run.observations)
+    lens = "intent" if any(a.intended for a in run.attributes) else "claim"
+    run.drift = drift.build_report(run.attribute_scores, provenance, n_blind=len(strengths),
+                                   visibility=visibility_score(strengths),
+                                   asked=asked, excluded_reasons=excluded,
+                                   echo=drift.claim_echo(run.attributes, kept, run.observations),
+                                   lens=lens)
+    if run.drift.visibility is None and not blind:
+        run.drift.na_reasons["visibility"] = ("No buyer question was asked: no claim had a buyer "
+                                              "question, so visibility is not measured.")
+    run.drift.limitations += run.drift_notes
+
+
+def rescore(run: Run, weights: dict[str, float]) -> Run:
+    """Lens 2 applied after the run: set intent weights, re-score the saved answers. No model calls.
+
+    Only the weights move. The questions were planned when the run was measured and are not
+    re-asked, so zones and alignment change and the buyer axis does not.
+    """
+    if run.status != "complete":
+        raise ValidationError("only a finished run can be re-scored")
+    if run.observations is None:
+        raise ValidationError("this run was saved before re-scoring existed; measure again to set weights")
+    by_id = {a.id: a for a in run.attributes}
+    for aid, w in weights.items():
+        by_id[aid].intended_weight = round(w, 2) or None
+    score_drift(run)
+    run.drift.limitations.append("Re-scored after the run with intent weights: the questions were "
+                                 "planned when it was measured and were not re-asked.")
+    run.log.append("Re-scored with intent weights on the saved answers; no model was asked. "
+                   f"Lens: {run.drift.lens}, alignment "
+                   f"{run.drift.alignment if run.drift.alignment is not None else 'n/a'}.")
+    return run
 
 
 def build_gap_report(s: State):

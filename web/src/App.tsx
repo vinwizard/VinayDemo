@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Health, Run, RunSummary } from "./api";
 import { API, getHealth, getRun, getRuns } from "./api";
 import { Compare, History, Report } from "./components";
-import { runLabels } from "./labels";
+import { headline, pctText, runLabels } from "./labels";
 import { CompanyWorkflow } from "./workflow";
 
 type Tab = "preloaded" | "onboard" | "history" | "compare";
@@ -85,7 +85,7 @@ export default function App() {
               <option value="">choose…</option>
               {runs.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {runNames[r.id]?.full ?? r.id} · {r.alignment}%
+                  {runNames[r.id]?.full ?? r.id} · {headline(r).label} {pctText(headline(r).value)}
                 </option>
               ))}
             </select>
@@ -94,7 +94,7 @@ export default function App() {
               <option value="">choose…</option>
               {runs.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {runNames[r.id]?.full ?? r.id} · {r.alignment}%
+                  {runNames[r.id]?.full ?? r.id} · {headline(r).label} {pctText(headline(r).value)}
                 </option>
               ))}
             </select>
