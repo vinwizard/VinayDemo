@@ -30,6 +30,15 @@ def test_a_characterisation_two_answers_make_becomes_an_emergent_attribute():
     assert not new[0].intended and not new[0].claimed
     assert sorted(obs) == ["np-1", "np-2"] and not dropped
     assert all(o.attribute_id == new[0].id and o.polarity == "negative" for o in obs["np-1"] + obs["np-2"])
+    assert obs["np-1"][0].quote == "Notion is powerful but Clunky on mobile"
+
+
+def test_an_evidence_entry_citing_a_non_string_answer_is_rejected_not_fatal():
+    raw = proposal("Clunky on mobile", ("np-1", "Clunky on mobile"))
+    raw["evidence"] += [dict(answer=["np-1"], quote="Clunky on mobile"), dict(answer={"x": 1}, quote="Clunky")]
+    new, obs, dropped = discover(raw)
+    assert not new and not obs
+    assert "cites ['np-1'], not an eligible brand answer" in dropped[0] and "cites {'x': 1}" in dropped[0]
 
 
 def test_a_single_mention_is_noise_and_is_dropped():

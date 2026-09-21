@@ -236,7 +236,7 @@ def discover_attributes(proposals, answers: dict[str, Answer], attributes: list[
         label, found, bad = label.strip(), {}, []
         for e in raw.get("evidence") if isinstance(raw.get("evidence"), list) else []:
             pid, quote = (e.get("answer"), e.get("quote")) if isinstance(e, dict) else (None, None)
-            if pid not in answers:
+            if not isinstance(pid, str) or pid not in answers:
                 bad.append(f"cites {pid!r}, not an eligible brand answer")
             elif not real(quote) or not quoted_in(quote, answers[pid].text):
                 bad.append(f"{pid}: quote not verbatim in the answer ({quote!r})")
@@ -244,7 +244,9 @@ def discover_attributes(proposals, answers: dict[str, Answer], attributes: list[
                 bad.append(f"{pid}: quote is from a citation, not the answer ({quote!r})")
             elif pid not in found:  # one observation per answer: support counts answers
                 polarity = e.get("polarity") if e.get("polarity") in ("positive", "neutral", "negative") else "neutral"
-                found[pid] = AttributeObservation(attribute_id="", quote=quote, polarity=polarity)
+                said = re.search(re.escape(EMPHASIS.sub("", quote)), EMPHASIS.sub("", answers[pid].text), re.IGNORECASE)
+                found[pid] = AttributeObservation(attribute_id="", quote=said.group(0) if said else quote,
+                                                  polarity=polarity)
         candidates.append((label, raw.get("description"), found, bad))
 
     # Everything already counted: each attribute's phrasings, and its quotes per answer.
