@@ -1,7 +1,10 @@
 # DEMO.md — two-minute presenter script
 
-Setup beforehand: `conda activate visexp && python -m streamlit run app.py --server.port 8501`,
-open http://localhost:8501, leave Scenario A selected. Everything is synthetic; say so once, up front.
+Setup beforehand: start the API and the React app as in [`README.md`](README.md), open
+http://localhost:5173 and leave the first bundled scenario (Notion, scenario A) selected.
+Everything is synthetic; say so once, up front.
+
+The UI is being reworked, so this script says what to show and say, not which button to press.
 
 **0:00 — the question (15s)**
 
@@ -10,26 +13,27 @@ open http://localhost:8501, leave Scenario A selected. Everything is synthetic; 
 
 **0:15 — what Notion wants to own (15s)**
 
-Point at the four intended attributes on the setup screen. Note the third column: how much of their own
-site actually states each one. Enterprise-ready is at 12% — they told us they want it, their copy barely says it.
+Point at Notion's intended attributes before anything runs, and at how much of their own site actually
+states each one. Enterprise-ready is at 12% — they told us they want it, their copy barely says it.
 
 **0:30 — run it (10s)**
 
-Click **Measure drift**. Call out the stages as they stream: the named probes are answered, attribute
-observations are extracted and validated, then classified. Real graph transitions, fixture-backed nodes.
+Start the measurement. Call out the live feed as it streams: each brand and buyer question is answered
+one by one, the observations are extracted and validated, then classified. Real graph transitions,
+fixture-backed nodes.
 
 **0:40 — the number (20s)**
 
 > "Alignment 21%. Of everything Notion wants to be known for, AI echoes about a fifth of it."
 
-One landed, two lost claims, one never stated, three imposed.
+Walk the zone counts on the report: what landed, what was lost, what they never stated, what AI imposed.
 
 **1:00 — the drift map (30s)**
 
-Grey bars are what they claim, coloured bars are what AI says. The asymmetry is the product:
+Each attribute shows what they claim beside what AI says. The asymmetry is the product:
 
-- Long grey, no colour → they say it, AI ignores it
-- No grey, long colour → AI says it, they never claimed it
+- Strong claim, no echo → they say it, AI ignores it
+- No claim, strong echo → AI says it, they never claimed it
 
 > "Notion wants to be an AI-native workspace that replaces your tool stack. AI thinks it is a pretty
 > note-taking app that is hard to learn."
@@ -45,13 +49,15 @@ This is the part a forward-deployed engineer gets paid for:
 
 **1:50 — prove it is not a slideshow (10s)**
 
-Switch to **Scenario B**, click Measure drift. Alignment moves to 31% and "connected docs and databases"
+Switch to the second scenario and run it. Alignment moves to 31% and "connected docs and databases"
 flips from landed to lost. Different fixture data, different diagnosis — the policy reads the evidence.
+If there is time, put the two runs side by side in the comparison view to show the per-attribute moves.
 
 **Close**
 
-Open **How do you know?** — every named question asked, every answer, the limitations, the full workflow
-log. Nothing on the screen is unsourced.
+Open the evidence behind the report — every question asked, every answer, the limitations, the
+workflow log. Nothing on the screen is unsourced.
 
 **If asked what is real:** the workflow, the validation, the arithmetic and the routing are real code.
-The answers are authored fixtures. No model was called; there are no API keys in this build.
+The answers in both scenarios are authored fixtures; no model was called for them. Live measurement
+against a real model exists and needs an `OPENAI_API_KEY` — see [`WEB.md`](WEB.md).

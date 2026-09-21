@@ -131,8 +131,9 @@ def _useful_description(label: str, description: str) -> bool:
     """Rejects a description that just restates the label — the exact problem being fixed."""
     if not description or len(description.split()) < 5:
         return False
-    stripped = re.sub(r"[^a-z ]", "", description.lower()).replace(label.lower(), "").strip()
-    return len(stripped.split()) >= 4
+    # the label is normalised exactly like the description, or "real-time" never matches "realtime"
+    words = lambda t: " ".join(re.sub(r"[^a-z ]", "", t.lower()).split())
+    return len(words(description).replace(words(label), "").split()) >= 4
 
 
 def build_attributes(data: dict, pages: list[tuple[str, str]]) -> tuple[list[Attribute], list[str]]:

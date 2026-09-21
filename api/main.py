@@ -105,7 +105,7 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
                                  "for, or onboard again from a page that states its positioning.")
     try:
         live.preflight()   # one trivial call: an unusable model fails once, not 20 times
-    except live.ModelUnsupported as e:
+    except live.PreflightFailed as e:   # its message is safe to show: no provider body, no key
         raise HTTPException(400, str(e))
     prov = live.LiveProvider(base.attributes(), base.named_probes(), profile=profile,
                              evaluator=ModelEvaluator())

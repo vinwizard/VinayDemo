@@ -1,8 +1,7 @@
 # Web frontend (React + FastAPI)
 
-Replaces the Streamlit UI. The Python engine — `graph.py`, `drift.py`, `agents/`, `scoring.py` and
-the fixtures — is imported, not reimplemented. `app.py` still runs today, but it is
-scheduled for removal in a filed follow-up task.
+The product UI. It replaced a Streamlit app, since deleted. The Python engine — `graph.py`,
+`drift.py`, `agents/`, `scoring.py` and the fixtures — is imported, not reimplemented.
 
 ## Why not Streamlit
 
@@ -21,13 +20,13 @@ Two processes. Both commands work in **any** shell, interactive or not.
 Terminal 1 — the API, from the repo root:
 
 ```bash
-cd ~/Projects/VinayDemo/.claude/worktrees/web-frontend && ~/miniconda3/envs/visexp/bin/python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+cd ~/Projects/VinayDemo && ~/miniconda3/envs/visexp/bin/python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
 Terminal 2 — the frontend:
 
 ```bash
-cd ~/Projects/VinayDemo/.claude/worktrees/web-frontend/web && export PATH="$HOME/miniconda3/envs/visexp/bin:$PATH" && npm run dev
+cd ~/Projects/VinayDemo/web && export PATH="$HOME/miniconda3/envs/visexp/bin:$PATH" && npm run dev
 ```
 
 Open **http://localhost:5173** — not `127.0.0.1:5173`. Vite binds IPv6 localhost and the numeric
@@ -67,6 +66,13 @@ the evaluator grade each answer — two calls per question — plus one round-tw
 when a buyer answer names a competitor. Without a key, live mode
 **errors** rather than falling back to fixtures — a fixture result under a live label would be a
 fabricated measurement.
+
+Before a live run the API makes one trivial preflight call, so a broken setup fails once with one
+message rather than once per question. It is classified on the HTTP status, never the error text: a
+401 means OpenAI refused the key, a 403 is an account-level refusal (most often OpenAI not serving
+your region), and only a 400 means the model will not take the web_search tool and `LIVE_MODEL` needs
+changing. The message names the error type and status only — the provider's response body is never
+shown, because a 401 body quotes part of the key back.
 
 Set `EVALUATOR_MODEL` to a different model from `LIVE_MODEL` once it works: a model grading its own
 output has a self-preference bias.
@@ -152,22 +158,16 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
 
 ## Not done yet
 
-- The claims step does not list the brand questions before a run; they appear, with their answers,
-  as the run asks them. Listing them up front would need them in the company payload —
-  `agents.onboarding.named_probes_for` already produces them
-- No tests for the React app. The API's are over the stream endpoint's setup-error path
-  (`tests/test_api_stream.py`), and the preloaded company, the offline fallback, the stream's stage
-  counts and the onboarding stream's event order (`tests/test_api_seed.py`)
-- Streamlit `app.py` still prints raw probe and node ids; it is scheduled for deletion rather than relabelling
+- The onboard screen does not show the brand questions it will ask. Showing them would fit this
+  product's habit of showing its work, and is worth doing deliberately rather than as a payload
+  field nothing renders — `agents.onboarding.named_probes_for` already produces them
+- No tests for the React app itself. `tests/test_api_stream.py` runs each bundled scenario end to end
+  through the event stream the app consumes, which is the journey coverage the repository has
 - Report-surface attribute descriptions still render nothing: `AttributeScore` carries no
   `description` field. The onboarding task added `claim_pages`/`claim_pages_total` there but left
   this one open
 - Emergent attribute discovery from answers (an attribute nobody declared) is still not implemented;
   filed as `vd-discover`
 - `/api/onboard` and `PATCH /api/companies/{id}` are unauthenticated, like the rest of the API
-- `_useful_description` in `agents/onboarding_model.py` strips the description to `[a-z ]` but
-  matches the label unnormalized, so a label containing a hyphen, digit or ampersand ("AI-native
-  workspace") can never be found and the restatement check degrades to a bare word count; filed as a
-  separate follow-up
 - Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)
 - No production build wiring — Vite dev server only, so nothing is deployable from here yet

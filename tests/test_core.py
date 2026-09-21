@@ -10,7 +10,7 @@ import graph
 from agents import ana, evaluation, onboarding
 from providers import fixture, imported, live
 from reports import from_json, load_run, save_run, to_json, to_markdown
-from schemas import Answer, Probe, Topic
+from schemas import Answer, CompanyProfile, PositioningPoint, Probe, Topic
 from scoring import domain_matches, score_topic, visibility_score
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -59,7 +59,7 @@ def test_both_scenarios_complete_offline(runs):
 def test_three_agent_roles_in_workflow():
     agents = {a for _, a in graph.STAGES.values()}
     assert {"Agent 2 · Question planner", "Agent 3 · Answer evaluation", "Orchestrator"} <= agents
-    assert hasattr(onboarding, "profile_from_user_input")  # Agent 1 (shown as the Onboarding stage in the UI)
+    assert hasattr(onboarding, "named_probes_for")  # Agent 1 (shown as the Onboarding stage in the UI)
 
 
 def test_adaptive_selection_depends_on_results(runs):
@@ -282,7 +282,8 @@ def test_export_import_roundtrip(runs, tmp_path, monkeypatch):
 
 # --- arbitrary companies ------------------------------------------------------------
 def test_arbitrary_company_never_gets_bundled_report():
-    p = onboarding.profile_from_user_input("Acme Wiki", "https://acme.example", "Acme makes wikis.", ["Team wikis"])
+    p = CompanyProfile(name="Acme Wiki", domain="acme.example", aliases=["Acme Wiki"],
+                       positioning_points=[PositioningPoint(id="pp1", text="Team wikis")])
     with pytest.raises(fixture.ReplayUnavailable):
         fixture.FixtureProvider("A").plan(p)
     with pytest.raises(fixture.ReplayUnavailable):
@@ -291,12 +292,11 @@ def test_arbitrary_company_never_gets_bundled_report():
 
 def test_renamed_or_structurally_edited_notion_rejected():
     renamed = PROFILE.model_copy(update={"name": "Acme"})
-    edited = onboarding.edit_point(PROFILE, "pp1", "Something different")
+    edited = PROFILE.model_copy(deep=True)
+    edited.positioning_points[0].text = "Something different"
     for p in (renamed, edited):
         with pytest.raises(fixture.ReplayUnavailable):
             fixture.FixtureProvider("B").check_profile(p)
-    pp1 = next(pp for pp in edited.positioning_points if pp.id == "pp1")
-    assert pp1.evidence_ids == [] and pp1.support == "user_provided"  # old evidence dropped
 
 
 # --- secrets -------------------------------------------------------------------------
