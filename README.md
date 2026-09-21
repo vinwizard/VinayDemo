@@ -34,9 +34,11 @@ Independent portfolio demo — not a Profound product or integration. Spec: [`ag
 Architecture of the original visibility engine still applies: [`CHECKPOINT.md`](CHECKPOINT.md).
 Presenter script: [`DEMO.md`](DEMO.md).
 
-> **Default mode is a synthetic demo.** Answers, attribute observations and page-level claim counts are
-> authored fixtures. No chatbot was measured. Every quote is verified verbatim against the answer it
-> came from, and unverifiable observations are dropped rather than repaired.
+> **The page measures live; the bundled samples are synthetic.** The page has no demo mode. The two
+> bundled Notion scenarios — reachable from the page only through the `VISEXP_OFFLINE_REPLAY=1` server
+> fallback — are authored fixtures: answers, attribute observations and page-level claim counts. No
+> chatbot was measured for them, and every run from them is labelled a replay. Every quote is verified
+> verbatim against the answer it came from, and unverifiable observations are dropped rather than repaired.
 
 ## Run it (macOS, Miniconda)
 
@@ -88,10 +90,12 @@ and in a second terminal:
 cd web && export PATH="$HOME/miniconda3/envs/visexp/bin:$PATH" && npm install && npm run dev
 ```
 
-Open http://localhost:5173. The two bundled scenarios need no API keys, accounts, or internet. Stop
-either process with `Ctrl+C`. [`WEB.md`](WEB.md) has the details, live mode and the API reference.
+Open http://localhost:5173. The page measures live only, so it needs an OpenAI key in `.env`; for a
+demo with no key or internet, start the API with `VISEXP_OFFLINE_REPLAY=1` and the preloaded Notion
+company replays the bundled Notion sample, labelled as such. Stop either process with `Ctrl+C`.
+[`WEB.md`](WEB.md) has the details, live mode and the API reference.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 213 tests incl. one journey per
+Tests: `conda activate visexp && python -m pytest -q` (offline; 220 tests incl. one journey per
 bundled scenario end to end through the `/api/stream` event stream, the live adapter under an injected
 transport — including how it classifies a refused key or a region block — no API key, no network).
 

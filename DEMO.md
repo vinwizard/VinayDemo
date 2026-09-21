@@ -1,10 +1,17 @@
 # DEMO.md — two-minute presenter script
 
-Setup beforehand: start the API and the React app as in [`README.md`](README.md), open
-http://localhost:5173 and leave the first bundled scenario (Notion, scenario A) selected.
-Everything is synthetic; say so once, up front.
+Setup beforehand: start the API with `VISEXP_OFFLINE_REPLAY=1` and the React app as in
+[`README.md`](README.md), and open http://localhost:5173 on the Notion tab. With that variable the
+Notion run replays the first bundled scenario (Notion, scenario A), and the numbers below are its.
+Everything is synthetic; say so once, up front. Without the variable the same tab measures live, and
+the numbers will differ.
 
-The UI is being reworked, so this script says what to show and say, not which button to press.
+The page does not offer the second scenario, so run it once from the API before the demo; it lands
+in History:
+
+```bash
+curl -sN 'http://127.0.0.1:8000/api/stream?scenario=B&mode=demo' > /dev/null
+```
 
 **0:00 — the question (15s)**
 
@@ -18,7 +25,7 @@ states each one. Enterprise-ready is at 12% — they told us they want it, their
 
 **0:30 — run it (10s)**
 
-Start the measurement. Call out the live feed as it streams: each brand and buyer question is answered
+Start the measurement. Call out the stages as they complete: each brand and buyer question is answered
 one by one, the observations are extracted and validated, then classified. Real graph transitions,
 fixture-backed nodes.
 
@@ -49,7 +56,7 @@ This is the part a forward-deployed engineer gets paid for:
 
 **1:50 — prove it is not a slideshow (10s)**
 
-Switch to the second scenario and run it. Alignment moves to 31% and "connected docs and databases"
+Open the second scenario's run from History. Alignment moves to 31% and "connected docs and databases"
 flips from landed to lost. Different fixture data, different diagnosis — the policy reads the evidence.
 If there is time, put the two runs side by side in the comparison view to show the per-attribute moves.
 
