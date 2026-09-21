@@ -75,6 +75,7 @@ def share_of_voice(run: Run) -> dict:
     return dict(questions=len(rows), brand=run.profile.name,
                 brand_recommended=sum(e.recommended for _, e in rows),
                 rivals=[dict(name=spelled[k], count=c) for k, c in rivals.most_common(RIVALS)],
+                tied_top=sum(c == max(rivals.values()) for c in rivals.values()) if rivals else 0,
                 reason=reason)
 
 

@@ -130,7 +130,7 @@ export interface Insights {
   };
   voice: {
     questions: number; brand: string; brand_recommended: number; reason: string | null;
-    rivals: { name: string; count: number }[];
+    rivals: { name: string; count: number }[]; tied_top: number;
   };
 }
 

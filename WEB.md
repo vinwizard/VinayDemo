@@ -140,7 +140,8 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   the claim-vs-echo drift map with an Evidence disclosure per claim, "where the upside is" cards,
   and four collapsible blocks whose headers state what each found: **buyer questions** ("12 asked ·
   named you in 8"), **brand questions**, **share of voice** (answers recommending the brand beside
-  the three most-recommended competitors, on the buyer questions that count), **who AI named
+  the three most-recommended competitors, on the buyer questions that count; a tie for first beyond
+  those three is counted in the headline, "A, B, C and 2 others 3 each"), **who AI named
   instead** (every product named in a buyer answer that counts, beside the line that names it, plus
   the round-two comparison question), **where AI gets its opinion** (every site cited in a counted
   buyer or brand answer, ranked by answers citing it; a third-party site cited in two or more is

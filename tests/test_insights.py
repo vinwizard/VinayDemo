@@ -34,6 +34,14 @@ def test_share_of_voice_counts_brand_recommendations_like_competitors():
     assert share_of_voice(run)["brand_recommended"] == 0
 
 
+def test_share_of_voice_counts_a_tie_for_first_beyond_the_rivals_shown():
+    run = run_scenario("A")
+    for e in run.evaluations:
+        e.competitor_recommendations = ["A", "B", "C", "D"]
+    v = share_of_voice(run)
+    assert len(v["rivals"]) == 3 and v["tied_top"] == 4
+
+
 def test_empty_panels_say_why():
     run = run_scenario("A")
     for e in run.evaluations:

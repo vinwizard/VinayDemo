@@ -644,8 +644,9 @@ function ShareOfVoice({ run }: { run: Run }) {
     );
   }
   const top = v.rivals.filter((r) => r.count === v.rivals[0].count);
-  const rivalText = top.length > 1
-    ? `${listed(top.map((r) => r.name))} ${v.rivals[0].count} each`
+  const others = v.tied_top - top.length;
+  const rivalText = v.tied_top > 1
+    ? `${listed([...top.map((r) => r.name), ...(others ? [plural(others, "other")] : [])])} ${v.rivals[0].count} each`
     : `${top[0].name} ${plural(top[0].count, "time")}`;
   const bars = [{ name: v.brand, count: v.brand_recommended, brand: true },
                 ...v.rivals.map((r) => ({ ...r, brand: false }))];
