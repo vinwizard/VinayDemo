@@ -172,8 +172,9 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
                                     log=run.log[-1] if run.log else "", **progress(run))))
             save_run(run)
             q.put(("done", dict(run_id=run.id, run=json.loads(run.model_dump_json()))))
-        except Exception as e:                       # surfaced, never swallowed
-            q.put(("error", dict(message=f"{type(e).__name__}: {e}")))
+        except Exception as e:                       # surfaced, never swallowed; detail stays on the console
+            traceback.print_exc()
+            q.put(("error", dict(message=f"Run failed after it started: {type(e).__name__}")))
         finally:
             q.put((None, None))
 
@@ -218,7 +219,7 @@ def list_all():
 def get_run(run_id: str):
     try:
         return json.loads(load_run(run_id).model_dump_json())
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError):
         raise HTTPException(404, f"run {run_id} not found")
 
 
