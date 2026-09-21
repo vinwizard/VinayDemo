@@ -141,9 +141,8 @@ def parse_response(response) -> tuple[str, list[str], bool]:
 
 
 def default_transport(messages: list[dict], model: str, timeout: int):
-    from openai import OpenAI  # imported lazily: the offline demo must not need the SDK
-    client = OpenAI(api_key=os.environ[KEY_ENV], timeout=timeout)
-    return client.responses.create(model=model, tools=[{"type": "web_search"}], input=messages)
+    import access  # metered: refused at a pass's cap, charged to it after
+    return access.openai_response(timeout, model=model, tools=[{"type": "web_search"}], input=messages)
 
 
 class LiveProvider:

@@ -293,6 +293,19 @@ export interface Health {
 }
 
 export const getHealth = () => json<Health>("/api/health");
+
+/** An access pass on the hosted demo: live runs on the owner's key, up to a dollar cap. */
+export interface PassStatus { label: string; spent_usd: number; cap_usd: number; capped: boolean }
+
+/** Trades a personal link's code for an HttpOnly session cookie. Throws the server's plain message. */
+export const exchangePass = (code: string) => json<{ pass: PassStatus }>("/api/access/exchange", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ code }),
+});
+/** The meter. `visit` records a page load in the owner's visit log. */
+export const getPass = (visit = false) =>
+  json<{ pass: PassStatus | null }>(`/api/access${visit ? "?visit=1" : ""}`);
 export const getRuns = () => json<RunSummary[]>("/api/runs");
 export const getRun = (id: string) => json<Run>(`/api/runs/${id}`);
 

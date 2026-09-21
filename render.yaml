@@ -1,11 +1,25 @@
-# Render Blueprint: one free web service running the saved replay only. See "Deploy to Render" in README.md.
+# Render Blueprint: one paid web service with a persistent disk. See "Deploy to Render" in README.md.
 services:
   - type: web
     name: positioning-drift-demo
     runtime: docker
-    plan: free
+    plan: starter          # a persistent disk needs a paid instance
     healthCheckPath: /api/health
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
-      # Public link: replay only. Live runs, onboarding and edits are refused; no key is ever read.
+      # Without a pass: replay only, and no model is ever called. A pass lifts that for its holder.
       - key: VISEXP_PUBLIC_DEMO
         value: "1"
+      # Runs, companies and the pass database (passes, spend ledger, visit log) live on the disk.
+      - key: DATA_DIR
+        value: /var/data
+      # Secrets: set in the Render dashboard, never committed.
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true

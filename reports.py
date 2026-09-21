@@ -1,4 +1,5 @@
 """Exports, persistence and import. Every export carries the mode label."""
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -7,7 +8,9 @@ from agents.ana import baseline_hash
 from labels import probe_names, source_names, spoken, with_ids
 from schemas import SCHEMA_VERSION, Company, Run
 
-DATA = Path(__file__).resolve().parent / "data"
+BUNDLED = Path(__file__).resolve().parent / "data"
+# DATA_DIR moves runs, companies and the access database onto a persistent disk (README, Render).
+DATA = Path(os.environ.get("DATA_DIR") or BUNDLED)
 RUNS = DATA / "runs"
 COMPANIES = DATA / "companies"
 ID = re.compile(r"[0-9a-f]{6,32}")
@@ -63,7 +66,8 @@ def load_run(run_id: str) -> Run:
 
 
 # Onboarded companies, stored exactly like runs: local JSON, no database. Same durability caveat —
-# see the README: a container filesystem is ephemeral, so these do not survive a redeploy.
+# see the README: a container filesystem is ephemeral, so these survive a redeploy only under a
+# DATA_DIR on a persistent disk.
 def save_company(company: Company) -> Path:
     COMPANIES.mkdir(parents=True, exist_ok=True)
     path = COMPANIES / f"{company.id}.json"

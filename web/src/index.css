@@ -91,6 +91,10 @@ input:focus-visible, button:focus-visible, select:focus-visible { outline: 2px s
 .callout h4 { margin-bottom: .3rem; }
 .callout ul { margin: 0; padding-left: 1.1rem; }
 .callout.error { border-color: #f1b0b0; background: #fdf3f3; color: #8a1c1c; }
+.callout.meter { display: flex; flex-direction: column; gap: .4rem; }
+.meter-track { height: .45rem; background: var(--bg); border-radius: 4px; overflow: hidden; }
+.meter-track > div { height: 100%; background: var(--accent); }
+.callout.meter.warn-box .meter-track > div { background: var(--lost); }
 .callout.warn-box { border-color: #f1b0b0; background: #fffafa; }
 .callout.warn-box h4 { color: var(--lost); }
 .callout.warn-box ul { color: var(--muted); font-size: .85rem; }

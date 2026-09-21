@@ -1,11 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
-import type { CompanyDetail, Health, Run, RunSummary } from "./api";
-import { API, getCompany, getHealth, getRun, getRuns } from "./api";
+import type { CompanyDetail, Health, PassStatus, Run, RunSummary } from "./api";
+import { API, exchangePass, getCompany, getHealth, getPass, getRun, getRuns } from "./api";
 import { Compare, History, Logo, Report } from "./components";
 import { day, headline, potentialText, runLabels } from "./labels";
 import { CompanyWorkflow } from "./workflow";
 
 type Tab = "preloaded" | "showcase" | "onboard" | "history" | "compare";
+
+// A personal link (?pass=…) is read once and leaves the address bar before anything renders, so the
+// code is not left in history or passed on by copying the URL. The effect below trades it for an
+// HttpOnly session cookie.
+const PASS_CODE = (() => {
+  const url = new URL(window.location.href);
+  const code = url.searchParams.get("pass");
+  if (code) {
+    url.searchParams.delete("pass");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }
+  return code;
+})();
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("preloaded");
@@ -13,24 +26,42 @@ export default function App() {
   const [seed, setSeed] = useState<CompanyDetail["profile"] | null>(null);
   const [showcase, setShowcase] = useState<Run | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pass, setPass] = useState<PassStatus | null>(null);
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [opened, setOpened] = useState<Run | null>(null);
   const [cmpA, setCmpA] = useState(""), [cmpB, setCmpB] = useState("");
   const [pairA, setPairA] = useState<Run | null>(null), [pairB, setPairB] = useState<Run | null>(null);
 
-  const refreshRuns = useCallback(() => { getRuns().then(setRuns).catch(() => {}); }, []);
+  const refreshRuns = useCallback(() => {
+    getRuns().then(setRuns).catch(() => {});
+    getPass().then((p) => setPass(p.pass)).catch(() => {});
+  }, []);
 
   useEffect(() => {
-    getHealth().then((h) => {
+    // Everything else waits for the session: runs and companies are listed per pass.
+    const signIn = PASS_CODE
+      ? exchangePass(PASS_CODE).then((r) => r.pass).catch((e: Error) => { setError(e.message); return null; })
+      : getPass(true).then((r) => r.pass).catch(() => null);
+    signIn.then((p) => {
+      setPass(p);
+      refreshRuns();
+      return getHealth();
+    }).then((h) => {
       setHealth(h);
       getCompany(h.seed_company).then((c) => setSeed(c.profile)).catch(() => {});
       getRun(h.showcase.run).then(setShowcase).catch(() => {});
     })
       .catch(() => setError(`Could not reach the API at ${API}. Start it first — see WEB.md.`));
-    refreshRuns();
   }, [refreshRuns]);
 
   const openRun = (id: string) => { getRun(id).then(setOpened).catch((e) => setError(String(e))); };
+
+  // The meter moves while a run is spending, so it is re-read while a pass is open.
+  useEffect(() => {
+    if (!pass) return;
+    const t = window.setInterval(() => getPass().then((p) => setPass(p.pass)).catch(() => {}), 10000);
+    return () => window.clearInterval(t);
+  }, [pass]);
 
   useEffect(() => {
     if (cmpA) getRun(cmpA).then(setPairA).catch(() => setPairA(null));
@@ -41,7 +72,7 @@ export default function App() {
   const tabs: [Tab, string][] = [
     ["preloaded", seed?.name ?? "Notion"], ["showcase", showcase?.profile.name ?? "Profound"],
     ["onboard", "Onboard your own company"], ["history", "History"], ["compare", "Compare"],
-  ].filter(([t]) => !(health?.public_demo && t === "onboard") && (t !== "showcase" || showcase)) as [Tab, string][];
+  ].filter(([t]) => !(health?.public_demo && !pass && t === "onboard") && (t !== "showcase" || showcase)) as [Tab, string][];
 
   return (
     <div className="shell">
@@ -62,7 +93,23 @@ export default function App() {
         </nav>
       </header>
 
-      {health?.public_demo && (
+      {pass && (
+        <div className={`callout meter${pass.capped ? " warn-box" : ""}`} role="status">
+          <div className="row" style={{ justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+            <span>Live pass for <strong>{pass.label}</strong></span>
+            <strong>${pass.spent_usd.toFixed(2)} of ${pass.cap_usd.toFixed(2)} used</strong>
+          </div>
+          <div className="meter-track" aria-hidden="true">
+            <div style={{ width: `${Math.min(100, (100 * pass.spent_usd) / (pass.cap_usd || 1))}%` }} />
+          </div>
+          <span className="muted">
+            {pass.capped
+              ? "This pass has reached its limit. The saved reports stay open; ask whoever sent you the link for a top-up."
+              : "Onboard a company and measure it live on real models. Your runs are visible only to you."}
+          </span>
+        </div>
+      )}
+      {health?.public_demo && !pass && (
         <div className="callout warn-box">
           <strong>Public demo — saved runs only.</strong> Apart from the {showcase?.profile.name ?? "Profound"} report,
           a real live run saved earlier, every answer here is a bundled sample, and no AI model is called. Onboarding and live runs need your own key:
@@ -93,7 +140,7 @@ export default function App() {
             Put <code>OPENAI_API_KEY</code> in <code>.env</code> and restart the API.
           </div>
         )}
-        <CompanyWorkflow onRunSaved={refreshRuns} />
+        {health && <CompanyWorkflow onRunSaved={refreshRuns} />}
       </div>
 
       {tab === "history" && (opened ? (

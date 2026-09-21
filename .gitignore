@@ -17,3 +17,4 @@ data/companies/*.json
 !data/companies/5eed0001.json
 # the preloaded Profound company: a real onboarding of tryprofound.com
 !data/companies/998420ffae.json
+data/access.db*

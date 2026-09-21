@@ -1,4 +1,5 @@
 """Orchestrator: ordinary code owning LangGraph state, routing, budgets and validation."""
+import contextvars
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypedDict
@@ -81,11 +82,14 @@ def execute_or_replay(s: State):
     done = {a.probe_id for a in run.answers}
     todo = [p for p in run.probes if p.id not in done]
     # Live answers are two slow calls each (measured + evaluator). Serially that is ~8 minutes for a
-    # 12-probe run; ThreadPoolExecutor.map preserves order so results stay deterministic.
+    # 12-probe run; results are collected in submission order so they stay deterministic.
     workers = min(getattr(s["provider"], "concurrency", 1), len(todo)) if todo else 1
     if workers > 1:
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            run.answers += list(pool.map(s["provider"].answer, todo))
+            # each answer runs in a copy of this thread's context, so the pass paying for it
+            # (access.SPENDER) reaches the pool threads
+            run.answers += [f.result() for f in [pool.submit(contextvars.copy_context().run,
+                                                             s["provider"].answer, p) for p in todo]]
     else:
         run.answers += [s["provider"].answer(p) for p in todo]
     phase = ("follow-up" if todo[0].phase == "followup" else todo[0].phase) if todo else "?"
