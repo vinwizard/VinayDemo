@@ -1,13 +1,15 @@
 # What these checks cover: the Python engine tests under tests/, the web
-# TypeScript types (tsc -b) and the web lint (oxlint).
-# What they do NOT cover: api/main.py is exercised by calling its stream generators directly
-# (tests/test_api_stream.py runs each bundled scenario end to end through it and its setup-error
-# path; tests/test_api_seed.py the preloaded company's offline replay and the onboarding stream's
-# event order), not over HTTP, so SSE framing on the wire, a live run's worker-thread queue and the
-# other endpoints' HTTP behaviour are untested.
-# There is also no web test runner, so no web/src behaviour — including the stream client
-# in web/src/api.ts — is executed by CI; it is only typechecked and linted.
-# The live path is tested only under an injected transport; no real provider is called.
+# TypeScript types (tsc -b) and the web lint (oxlint). api/main.py is tested over HTTP through
+# fastapi's TestClient (tests/test_api_http.py): health, runs and companies (status codes and JSON),
+# a bundled run streamed as SSE on the wire and reopened, the intent rules on PATCH /api/companies/{id}, and
+# a sentinel key that must appear in no response body or header. tests/test_api_stream.py and
+# tests/test_api_seed.py drive the stream generators directly; /api/onboard and
+# /api/onboard/stream are covered only that way, not over HTTP.
+# What they do NOT cover: TestClient is in-process, so a real uvicorn server, proxy buffering and
+# the CORS policy are untested. There is no web test runner, so no web/src behaviour — including
+# the stream client in web/src/api.ts — is executed by CI; it is only typechecked and linted.
+# Live model behaviour is not tested and must not be: CI has no key, the live path runs only
+# under an injected transport, and no real provider is ever called.
 name: CI
 
 on:

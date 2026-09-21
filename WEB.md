@@ -164,7 +164,8 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
 - No tests for the React app itself. `tests/test_api_stream.py` runs each bundled scenario end to end
   through the event stream the app consumes, which is the journey coverage the repository has;
   `tests/test_api_seed.py` covers the preloaded company, its offline fallback and the onboarding
-  stream's event order
+  stream's event order; `tests/test_api_http.py` covers the API over HTTP (health, runs, companies,
+  the PATCH intent rules, and that the key appears in no response)
 - Report-surface attribute descriptions still render nothing: `AttributeScore` carries no
   `description` field. The onboarding task added `claim_pages`/`claim_pages_total` there but left
   this one open
