@@ -83,7 +83,7 @@ def test_timeout_becomes_a_failed_answer_not_a_zero():
         raise Timeout("took too long")
 
     a = provider(transport=boom).answer(PROBE)
-    assert a.status == "timeout" and a.text == "" and "took too long" in a.error
+    assert a.status == "timeout" and a.text == "" and a.error == "APITimeoutError"
 
 
 def test_empty_response_is_an_error_not_an_absence():
@@ -194,14 +194,65 @@ def test_fixture_answers_never_claim_search_executed():
 
 
 # --- preflight: an unusable model must fail once, with a usable message ------
+class StatusError(Exception):
+    """Shaped like openai.APIStatusError: the body is the message, status and code are attributes."""
+    def __init__(self, status_code, body, code=None):
+        super().__init__(body)
+        self.status_code, self.code = status_code, code
+
+
+KEY_FRAGMENT = "sk-proj-****abcd"
+# OpenAI's real 401 body for a bad key: its type is invalid_request_error and it quotes the key.
+BAD_KEY = StatusError(401, "Error code: 401 - {'error': {'message': 'Incorrect API key provided: "
+                      f"{KEY_FRAGMENT}.', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}}}",
+                      code="invalid_api_key")
+REGION = StatusError(403, "Error code: 403 - {'error': {'code': 'unsupported_country_region_territory', "
+                     "'message': 'Country, region, or territory not supported', "
+                     "'type': 'request_forbidden'}}", code="unsupported_country_region_territory")
+
+
+def raising(exc):
+    def boom(*_):
+        raise exc
+    return boom
+
+
 def test_preflight_rejects_a_model_that_cannot_take_the_tool():
     """Regression: gpt-4o-mini-search-preview 400s on the Responses API, producing 20 identical
     errors and an unreadable report. Preflight turns that into one clear message."""
-    def boom(*_):
-        raise RuntimeError("Error code: 400 - {'error': {'message': \"The requested model "
-                           "'gpt-4o-mini-search-preview' is not supported with the Responses API.\"}}")
+    exc = StatusError(400, "Error code: 400 - {'error': {'message': \"The requested model "
+                      "'gpt-4o-mini-search-preview' is not supported with the Responses API.\"}}")
     with pytest.raises(live.ModelUnsupported, match="does not accept the Responses API"):
-        live.preflight("gpt-4o-mini-search-preview", transport=boom)
+        live.preflight("gpt-4o-mini-search-preview", transport=raising(exc))
+
+
+def test_preflight_bad_key_is_a_credential_error_not_an_unsupported_model():
+    with pytest.raises(live.PreflightFailed) as info:
+        live.preflight("gpt-4o-mini", transport=raising(BAD_KEY))
+    assert type(info.value) is live.CredentialRejected
+    assert "refused your API key" in str(info.value)
+    assert "does not accept" not in str(info.value) and "LIVE_MODEL" not in str(info.value)
+
+
+def test_preflight_invalid_api_key_code_alone_is_a_credential_error():
+    with pytest.raises(live.CredentialRejected):
+        live.preflight("gpt-4o-mini", transport=raising(StatusError(None, "bad", code="invalid_api_key")))
+
+
+def test_preflight_region_block_is_not_an_unsupported_model():
+    with pytest.raises(live.PreflightFailed) as info:
+        live.preflight("gpt-4o-mini", transport=raising(REGION))
+    assert type(info.value) is live.AccessDenied
+    assert "region" in str(info.value) and "does not accept" not in str(info.value)
+
+
+@pytest.mark.parametrize("exc", [BAD_KEY, REGION])
+def test_no_payload_carries_the_provider_body_or_a_key_fragment(exc):
+    with pytest.raises(live.PreflightFailed) as info:
+        live.preflight("gpt-4o-mini", transport=raising(exc))
+    a = provider(transport=raising(exc)).answer(PROBE)
+    for text in (str(info.value), a.error, a.model_dump_json()):
+        assert KEY_FRAGMENT not in text and "abcd" not in text and "Error code" not in text
 
 
 def test_preflight_passes_a_working_model():
