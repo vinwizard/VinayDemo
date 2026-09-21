@@ -532,7 +532,7 @@ const listed = (xs: string[]) => xs.length < 2 ? xs.join("") : `${xs.slice(0, -1
 
 const SAMPLE_NOTE = "Authored sample data, not a measurement: a live run fills this from the model's own answers.";
 
-/** Brand vs the most-named competitors, on the buyer questions that count. One bar per name. */
+/** Brand vs the most-recommended competitors, on the buyer questions that count. One bar per name. */
 function ShareOfVoice({ run }: { run: Run }) {
   const v = run.insights?.voice;
   const title = "Share of voice on buyer questions";
@@ -548,19 +548,20 @@ function ShareOfVoice({ run }: { run: Run }) {
   const rivalText = top.length > 1
     ? `${listed(top.map((r) => r.name))} ${v.rivals[0].count} each`
     : `${top[0].name} ${plural(top[0].count, "time")}`;
-  const bars = [{ name: v.brand, count: v.brand_count, brand: true },
+  const bars = [{ name: v.brand, count: v.brand_recommended, brand: true },
                 ...v.rivals.map((r) => ({ ...r, brand: false }))];
   return (
     <Block title={title}
-           found={`On ${v.questions} buyer questions, ${v.brand} is named ${plural(v.brand_count, "time")} and ${rivalText}`}>
+           found={`On ${v.questions} buyer questions, AI recommended ${v.brand} ${plural(v.brand_recommended, "time")} and ${rivalText}`}>
       <p className="muted" style={{ margin: 0 }}>
         {run.mode !== "live_api" && <>{SAMPLE_NOTE} </>}
-        How many of the {v.questions} buyer questions that count name each product in the answer. None
-        of those questions named {v.brand}; a name counts once per answer, however often it repeats.
+        How many of the {v.questions} buyer questions that count got an answer recommending each product. None
+        of those questions named {v.brand}; a mention without a recommendation does not count, and a product
+        counts once per answer, however often it repeats.
       </p>
-      <div className="sov" role="list" aria-label={`Answers naming each product, out of ${v.questions}`}>
+      <div className="sov" role="list" aria-label={`Answers recommending each product, out of ${v.questions}`}>
         {bars.map((b) => (
-          <div key={b.name} role="listitem" className="sov-row" title={`${b.name}: named in ${b.count} of ${v.questions} answers`}>
+          <div key={b.name} role="listitem" className="sov-row" title={`${b.name}: recommended in ${b.count} of ${v.questions} answers`}>
             <span className={b.brand ? "sov-name brand" : "sov-name"}>{b.name}</span>
             <span className="sov-track">
               <span className={b.brand ? "sov-bar brand" : "sov-bar"} style={{ width: `${(100 * b.count) / v.questions}%` }} />

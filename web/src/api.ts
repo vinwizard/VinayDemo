@@ -129,7 +129,7 @@ export interface Insights {
     sources: { domain: string; answers: number; buyer: number; brand: number; owned: boolean; target: boolean }[];
   };
   voice: {
-    questions: number; brand: string; brand_count: number; reason: string | null;
+    questions: number; brand: string; brand_recommended: number; reason: string | null;
     rivals: { name: string; count: number }[];
   };
 }

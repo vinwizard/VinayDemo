@@ -59,7 +59,7 @@ def cited_sources(run: Run) -> dict:
 
 
 def share_of_voice(run: Run) -> dict:
-    """On the counted buyer questions: answers naming the brand vs answers naming each competitor."""
+    """On the counted buyer questions: answers recommending the brand vs answers recommending each competitor."""
     rows = list(_counted(run, "blind"))
     rivals: Counter = Counter()
     spelled: dict[str, str] = {}
@@ -71,9 +71,9 @@ def share_of_voice(run: Run) -> dict:
     if not rows:
         reason = "No buyer question produced an answer that counts, so there is no voice to share."
     elif not rivals:
-        reason = f"No competitor was named in any of the {len(rows)} buyer answers that count."
+        reason = f"No competitor was recommended in any of the {len(rows)} buyer answers that count."
     return dict(questions=len(rows), brand=run.profile.name,
-                brand_count=sum(e.mentioned for _, e in rows),
+                brand_recommended=sum(e.recommended for _, e in rows),
                 rivals=[dict(name=spelled[k], count=c) for k, c in rivals.most_common(RIVALS)],
                 reason=reason)
 

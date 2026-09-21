@@ -22,9 +22,16 @@ def test_sources_rank_owned_and_third_party_separately():
 
 def test_share_of_voice_counts_answers_not_mentions():
     v = share_of_voice(run_scenario("A"))
-    assert (v["questions"], v["brand"], v["brand_count"]) == (12, "Notion", 8)
+    assert (v["questions"], v["brand"], v["brand_recommended"]) == (12, "Notion", 6)
     assert v["rivals"] and all(0 < r["count"] <= 12 for r in v["rivals"])
     assert v["reason"] is None
+
+
+def test_share_of_voice_counts_brand_recommendations_like_competitors():
+    run = run_scenario("A")
+    for e in run.evaluations:
+        e.mentioned, e.recommended = True, False  # named everywhere, recommended nowhere
+    assert share_of_voice(run)["brand_recommended"] == 0
 
 
 def test_empty_panels_say_why():
