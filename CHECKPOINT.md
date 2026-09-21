@@ -1,5 +1,7 @@
 # CHECKPOINT
 
+> Historical log: the Streamlit UI sections and screenshots below predate the deletion of `app.py`; [README.md](README.md) and [WEB.md](WEB.md) own how to run the current React app.
+
 ## Milestone 1 — environment (done)
 - Added `CLAUDE.md` containing `@agents.md`. Existing `README.md` (one line) and `agents.md` preserved.
 - Miniconda env `visexp` on Python 3.12 (conda-forge channel only; system python is 3.9). Pinned via pip inside the env: streamlit 1.64.0, langgraph 1.2.11, pydantic 2.13.5, pytest 9.1.1.
