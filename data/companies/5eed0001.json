@@ -78,7 +78,8 @@
     "warnings": [
       "Claimed positioning only. Which of these you WANT to be known for, and how much each matters, is your input \u2014 it is not derivable from your own marketing copy."
     ],
-    "approved": false
+    "approved": false,
+    "logo_url": "https://www.notion.com/front-static/logo-ios.png"
   },
   "attributes": [
     {

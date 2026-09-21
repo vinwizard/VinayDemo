@@ -66,7 +66,8 @@ def test_onboarding_streams_the_crawl_before_the_extraction(monkeypatch, tmp_pat
     monkeypatch.setattr(reports, "COMPANIES", tmp_path)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(fetching, "fetch_site",
-                        lambda url, max_pages: [("https://acme.example/", "we set up in minutes")])
+                        lambda url, max_pages: ([("https://acme.example/", "we set up in minutes")],
+                                               "https://acme.example/icon.png"))
     monkeypatch.setattr(onboarding_model, "default_transport", lambda *_: json.dumps(
         {"name": "Acme", "attributes": [{"id": "fast", "label": "Fast to set up",
                                          "description": "Acme accounts are usable in minutes "

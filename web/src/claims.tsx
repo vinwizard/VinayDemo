@@ -27,7 +27,7 @@ const EMPTY_DRAFT: Added = { label: "", description: "", weight: ADDED_DEFAULT_W
  * typing it was itself the intent; it leaves by the Remove button, which is visible and deliberate,
  * never by a drag to zero that silently deletes the row from the report.
  */
-function Slider({ value, onChange, id, label, min = 0, disabled }: {
+export function Slider({ value, onChange, id, label, min = 0, disabled }: {
   value: number; onChange: (v: number) => void; id: string; label: string; min?: number;
   disabled?: boolean;
 }) {
