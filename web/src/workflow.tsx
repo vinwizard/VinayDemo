@@ -97,9 +97,10 @@ const PageList = ({ pages }: { pages: string[] }) => (
 
 type Onboarding = { phase: "idle" | "reading" | "extracting" | "failed"; pages: string[]; error?: string };
 
-export function CompanyWorkflow({ companyId, preloaded, onRunSaved }: {
+export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }: {
   companyId?: string;           // preloaded: the company already exists and stages 1–2 are done
   preloaded?: boolean;
+  publicDemo?: boolean;         // replays are not saved, so there is nothing to re-score
   onRunSaved: () => void;
 }) {
   const [company, setCompany] = useState<CompanyDetail | null>(null);
@@ -378,7 +379,8 @@ export function CompanyWorkflow({ companyId, preloaded, onRunSaved }: {
 
       {p.run && (
         <div ref={reportRef} className="report-wrap">
-          <Report run={p.run} onRescored={(r) => { setP((x) => ({ ...x, run: r })); onRunSaved(); }} />
+          <Report run={p.run} onRescored={(r) => { setP((x) => ({ ...x, run: r })); onRunSaved(); }}
+                  weightNote={publicDemo ? "Weighting is available on the saved example reports in History." : undefined} />
         </div>
       )}
     </div>

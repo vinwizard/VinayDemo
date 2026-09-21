@@ -320,6 +320,7 @@ def test_public_demo_replay_is_not_saved(public):
     events = sse_events(public.get(f"/api/stream?company={main.SEED_COMPANY}&mode=live").text)
     assert events[-1][0] == "done" and events[-1][1]["run"]["id"] == events[-1][1]["run_id"]
     assert public.get("/api/runs").json() == before
+    assert public.post(f"/api/runs/{events[-1][1]['run_id']}/rescore", json={"weights": {}}).status_code == 404
 
 
 def test_public_demo_rescore_is_not_saved(public):

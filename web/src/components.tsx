@@ -162,8 +162,13 @@ function RunSource({ run }: { run: Run }) {
 /**
  * One run, top to bottom: where it came from, the upside, claim by claim, then each kind of question
  * in its own block. `onRescored` enables the optional weights step; without it the report is read-only.
+ * `weightNote` replaces the weights step with one plain line.
  */
-export function Report({ run, onRescored }: { run: Run; onRescored?: (r: Run) => void }) {
+export function Report({ run, onRescored, weightNote }: {
+  run: Run;
+  onRescored?: (r: Run) => void;
+  weightNote?: string;
+}) {
   const d = run.drift;
   const claims = run.attribute_scores.filter((s) => !s.discovered);
   return (
@@ -179,7 +184,8 @@ export function Report({ run, onRescored }: { run: Run; onRescored?: (r: Run) =>
       {d ? (
         <>
           <Metrics d={d} brand={run.profile.name} />
-          {onRescored && <Weights key={run.id} run={run} onRescored={onRescored} />}
+          {weightNote ? <p className="muted">{weightNote}</p>
+            : onRescored && <Weights key={run.id} run={run} onRescored={onRescored} />}
           <section>
             <h3>Claim by claim: what your site says, and what AI says</h3>
             <DriftMap scores={claims} run={run} />

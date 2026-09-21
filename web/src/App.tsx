@@ -70,7 +70,8 @@ export default function App() {
 
       {/* Both company tabs stay mounted, so a measurement keeps streaming while you look elsewhere. */}
       <div hidden={tab !== "preloaded"}>
-        {health && <CompanyWorkflow companyId={health.seed_company} preloaded onRunSaved={refreshRuns} />}
+        {health && <CompanyWorkflow companyId={health.seed_company} preloaded publicDemo={health.public_demo}
+                                     onRunSaved={refreshRuns} />}
       </div>
       <div hidden={tab !== "onboard"}>
         {health && !health.live_available && (
