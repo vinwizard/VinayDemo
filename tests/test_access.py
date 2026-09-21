@@ -200,13 +200,16 @@ def test_a_run_that_hits_the_cap_stops_with_a_message_and_saves_nothing(env, mon
     assert c.get("/api/access").json()["pass"]["capped"] is True
     kind, data = events(c.get(f"/api/stream?company={CO}&mode=live").text)[-1]
     assert kind == "error" and "limit" in data["message"]                # refused before preflight
+    assert access.CONTACT_DEFAULT in data["message"]                     # and says who raises it
 
 
 def test_a_visitor_without_a_pass_is_replay_only_with_zero_model_calls(env):
     c = browser()
     kind, data = events(c.get(f"/api/stream?company={CO}&mode=live").text)[-1]
     assert kind == "error" and "public demo" in data["message"]
-    assert c.get("/api/onboard?url=https://example.com").status_code == 403
+    assert access.CONTACT_DEFAULT in data["message"]                     # invited to ask for a pass
+    refused = c.get("/api/onboard?url=https://example.com")
+    assert refused.status_code == 403 and access.CONTACT_DEFAULT in refused.json()["detail"]
     assert c.patch(f"/api/companies/{CO}", json={"weights": {}}).status_code == 403
     kind, _ = events(c.get(f"/api/stream?company={main.SEED_COMPANY}&mode=live").text)[-1]
     assert kind == "done"                                                # the seed still replays
@@ -221,3 +224,11 @@ def test_a_fresh_data_dir_gets_every_committed_company_and_run(env, tmp_path):
         bundled = {p.name for p in (reports.BUNDLED / kind).glob("*.json")}
         assert bundled and bundled <= {p.name for p in (tmp_path / kind).glob("*.json")}
     assert main.load_run(main.SHOWCASE_RUN).id == main.SHOWCASE_RUN
+
+
+def test_health_names_the_contact_address_and_it_can_be_overridden(env, monkeypatch):
+    assert browser().get("/api/health").json()["contact_email"] == access.CONTACT_DEFAULT
+    monkeypatch.setenv(access.CONTACT_ENV, "someone@example.com")
+    assert browser().get("/api/health").json()["contact_email"] == "someone@example.com"
+    kind, data = events(browser().get(f"/api/stream?company={CO}&mode=live").text)[-1]
+    assert "someone@example.com" in data["message"]

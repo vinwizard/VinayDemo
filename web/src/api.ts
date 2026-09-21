@@ -290,6 +290,8 @@ export interface Health {
   showcase: { company: string; run: string };
   /** Hosted demo: saved replay only, onboarding and live runs are refused by the server. */
   public_demo: boolean;
+  /** Where to ask for a personal live link, or for a pass's cap to be raised. */
+  contact_email: string;
 }
 
 export const getHealth = () => json<Health>("/api/health");

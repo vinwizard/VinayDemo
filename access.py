@@ -32,6 +32,8 @@ KEY_ENV = "OPENAI_API_KEY"
 PUBLIC_ENV = "VISEXP_PUBLIC_DEMO"
 SECRET_ENV = "SESSION_SECRET"
 ADMIN_ENV = "ADMIN_PASSWORD"
+CONTACT_ENV = "CONTACT_EMAIL"          # where visitors ask for a pass or a higher cap
+CONTACT_DEFAULT = "vinaynair2k@gmail.com"
 SEED_FILE = Path(__file__).resolve().parent / "passes.json"
 PASS_COOKIE, ADMIN_COOKIE = "vd_pass", "vd_admin"
 ADMIN_TTL_S = 12 * 3600
@@ -52,7 +54,7 @@ SEARCH_CALL_USD = 0.025              # per web_search_call, the highest per-call
 UNKNOWN_USAGE = (30_000, 4_000)      # tokens charged when a response reports no usage
 
 CAP_MESSAGE = ("This pass has used its ${cap:.2f} limit, so nothing more can run on it. The saved "
-               "reports are still open. Ask whoever sent you the link if you would like a top-up.")
+               "reports are still open. Email {email} if you would like a higher limit.")
 REVOKED_MESSAGE = "This pass has been switched off. The saved reports are still open."
 UNKNOWN_CODE = "That link is not valid any more. You can still browse the saved reports."
 
@@ -73,6 +75,10 @@ class Refused(BaseException):
 
 def public_demo() -> bool:
     return bool(os.environ.get(PUBLIC_ENV))
+
+
+def contact_email() -> str:
+    return os.environ.get(CONTACT_ENV) or CONTACT_DEFAULT
 
 
 def now() -> str:
@@ -303,7 +309,7 @@ def check(pass_id: Optional[str]) -> None:
     if p is None or p["revoked"]:
         raise Refused(REVOKED_MESSAGE)
     if p["spent_usd"] >= p["cap_usd"]:
-        raise Refused(CAP_MESSAGE.format(cap=p["cap_usd"]))
+        raise Refused(CAP_MESSAGE.format(cap=p["cap_usd"], email=contact_email()))
 
 
 def _get(obj, key):

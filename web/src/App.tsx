@@ -20,6 +20,13 @@ const PASS_CODE = (() => {
   return code;
 })();
 
+/** A mailto link to ask for live access, subject prefilled. */
+function Contact({ email }: { email?: string }) {
+  if (!email) return <>the demo's owner</>;
+  const subject = encodeURIComponent("Positioning Drift - live access request");
+  return <a href={`mailto:${email}?subject=${subject}`}>{email}</a>;
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("preloaded");
   const [health, setHealth] = useState<Health | null>(null);
@@ -104,16 +111,18 @@ export default function App() {
           </div>
           <span className="muted">
             {pass.capped
-              ? "This pass has reached its limit. The saved reports stay open; ask whoever sent you the link for a top-up."
-              : "Onboard a company and measure it live on real models. Your runs are visible only to you."}
+              ? <>This pass has reached its limit. The saved reports stay open; email <Contact email={health?.contact_email} /> for a higher limit.</>
+              : <>Onboard a company and measure it live on real models. Your runs are visible only to you.
+                  This pass includes ${pass.cap_usd.toFixed(2)} of live runs; need more? Email <Contact email={health?.contact_email} /> to have it raised.</>}
           </span>
         </div>
       )}
       {health?.public_demo && !pass && (
         <div className="callout warn-box">
           <strong>Public demo — saved runs only.</strong> Apart from the {showcase?.profile.name ?? "Profound"} report,
-          a real live run saved earlier, every answer here is a bundled sample, and no AI model is called. Onboarding and live runs need your own key:
-          clone the repo and run it locally.
+          a real live run saved earlier, every answer here is a bundled sample, and no AI model is called.
+          Want to try it live on your own company? Email <Contact email={health.contact_email} /> from your work email
+          and you will get a personal link.
         </div>
       )}
       {error && <div className="callout error">{error}</div>}

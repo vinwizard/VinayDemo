@@ -85,7 +85,8 @@ OFFLINE_FIXED = "offline replay: the bundled sample's claims and weights are fix
 # their pass, and see the shared demo items plus their own.
 PUBLIC_ENV = access.PUBLIC_ENV
 PUBLIC_REFUSED = ("This is the public demo: it replays the saved sample only, so {what} is switched "
-                  "off here. Run it locally with your own key to measure a real company.")
+                  "off here. Want to try it live on your own company? Email {email} from your work "
+                  "email for a personal link.")
 public_demo = access.public_demo
 Holder = Optional[dict]   # the pass behind the request's session cookie, if any
 
@@ -105,7 +106,7 @@ def refuse_in_public(what: str, holder: Holder = None) -> None:
     """Public demo without a pass: refused. With a pass: refused up front once it is capped or
     revoked, rather than after a crawl that cannot be paid for."""
     if public_demo() and holder is None:
-        raise HTTPException(403, PUBLIC_REFUSED.format(what=what))
+        raise HTTPException(403, PUBLIC_REFUSED.format(what=what, email=access.contact_email()))
     if holder:
         try:
             access.check(holder["id"])
@@ -655,6 +656,7 @@ def health(request: Request = None):
             "live_available": live.available() and (not public_demo() or bool(holder_of(request))),
             "live_status": live.status(),
             "public_demo": public_demo(),
+            "contact_email": access.contact_email(),
             "measured_model": measured, "evaluator_model": evaluator,
             # a model grading its own output has a self-preference bias worth surfacing
             "same_model_warning": bool(measured and evaluator and measured == evaluator)}
