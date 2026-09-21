@@ -58,11 +58,13 @@ def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float],
     The model already judged each mention's polarity (agents/evaluation.py extract_attributes); this
     function consumes that judgment, it does not second-guess it.
 
-    An intended attribute needs a majority of its answers to mention it without criticising it before
-    it counts as landed: `echo_rate` excludes criticism, but a neutral association counts the same as
-    an endorsement. One that AI raises mainly to contradict is `contested`, checked before the absence
-    zones because "AI says the opposite" is a different problem from "AI never says it", and at the
-    low CONTESTED_MIN bar for the same reason IMPOSED_MIN is low.
+    An intended attribute needs a majority of its answers to endorse it before it counts as landed:
+    `echo_rate` counts only positive observations. A neutral mention ("Notion is sometimes used for
+    project tracking") is not the model being convinced of anything, so it does not count as the
+    positioning having landed; neither does criticism. One that AI raises mainly to contradict is
+    `contested`, checked before the absence zones because "AI says the opposite" is a different
+    problem from "AI never says it", and at the low CONTESTED_MIN bar for the same reason
+    IMPOSED_MIN is low.
     """
     echoed = echo_rate is not None and echo_rate >= ECHO_THRESHOLD
     stated = cs is not None and cs >= CLAIM_THRESHOLD
@@ -126,14 +128,15 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
         hits = [(pid, o) for pid in kept for o in observations.get(pid, []) if o.attribute_id == a.id]
         echoes = len({pid for pid, _ in hits})
         neg = len({pid for pid, o in hits if o.polarity == "negative"})
-        # echo_rate drives `landed` and the alignment score. It counts every non-negative mention -
-        # positive and neutral alike - and excludes only criticism; mention_rate keeps the full count
-        # so a reader can see the volume, and negative_rate the criticism inside it.
+        pos = len({pid for pid, o in hits if o.polarity == "positive"})
+        # echo_rate drives `landed` and the alignment score. It counts only positive observations:
+        # a neutral mention is not conviction, and criticism is the opposite of it. mention_rate keeps
+        # the full count so a reader can see the volume, and negative_rate the criticism inside it.
         # extract_attributes keeps at most one observation per attribute per answer, so these are
         # disjoint counts of answers, not of sentences.
         mr = rate(echoes, n)
         nr = rate(neg, n)
-        er = rate(echoes - neg, n)
+        er = rate(pos, n)
         cs = claim_strength(a)
         if not relevant(a, mr):
             continue  # unclaimed and barely mentioned: not a finding, and never padding for the report
@@ -145,8 +148,10 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
                           f"{echoes} of them say it in words quoted verbatim.")
         if zone == "contested":
             limits.append(f"AI raised this in {echoes} of {n} answers and was negative in {neg} of them; "
-                          "the score counts the mentions that were not critical, whether they "
-                          "endorsed the claim or merely noted it.")
+                          "the score counts only the answers that endorsed it.")
+        if zone in ("lost_claim", "unstated_intent") and mr is not None and mr >= ECHO_THRESHOLD:
+            limits.append(f"AI mentions this in {echoes} of {n} answers but does not endorse it: "
+                          f"only {pos} endorsed it.")
         if n < MIN_NAMED:
             limits.append(f"Only {n} eligible brand-question answer(s); perception is not measurable.")
         if a.intended and cs is None:

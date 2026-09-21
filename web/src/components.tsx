@@ -13,6 +13,7 @@ const ZONE_FILL: Record<Zone, string> = {
 };
 
 const pct = (x: number | null) => (x == null ? 0 : Math.round(x * 100));
+const endorsed = (s: AttributeScore) => Math.round((s.echo_rate ?? 0) * s.n);
 
 const ZONE_COUNT: Record<Zone, (d: DriftReport) => number> = {
   landed: (d) => d.landed.length,
@@ -141,7 +142,7 @@ function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
         <dt>How much of your site says it</dt>
         <dd>{share ? `states it on ${share}` : "no page data"}</dd>
         <dt>How often AI says it</dt>
-        <dd>{s.echoes} of {s.n} eligible answers{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}</dd>
+        <dd>mentioned in {s.echoes} of {s.n} eligible answers · {endorsed(s)} endorsed{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}</dd>
         {s.intended_weight != null && <><dt>Intent weight</dt><dd>{s.intended_weight}</dd></>}
       </dl>
       {s.quotes.length > 0 && (
@@ -210,14 +211,16 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
             </div>
           </div>
           <div>
-            {/* Width is how OFTEN AI raises it; the red segment is how much of that was criticism.
-                Using echo_rate alone would draw a zero-width bar for an attribute AI only attacks. */}
+            {/* Total width is how OFTEN AI raises it. The zone-coloured segment is endorsements
+                (echo_rate, what drives landed and alignment), the grey one neutral mentions, and the
+                red one criticism. */}
             <div className="bar-track">
               <div className="bar" style={{ width: `${pct(s.echo_rate)}%`, background: ZONE_FILL[s.zone] }} />
+              <div className="bar" style={{ width: `${Math.max(0, pct(s.mention_rate) - pct(s.echo_rate) - pct(s.negative_rate))}%`, background: "#c9d1d9" }} />
               <div className="bar neg" style={{ width: `${pct(s.negative_rate)}%` }} />
             </div>
             <div className="muted">
-              {s.echoes}/{s.n} answers{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
+              {s.echoes}/{s.n} mentioned · {endorsed(s)} endorsed{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
             </div>
           </div>
           <div><span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span></div>
@@ -242,10 +245,13 @@ function GapCard({ s }: { s: AttributeScore }) {
         <span className={`pill ${s.zone}`}>{OWNER_TITLE[s.owner]}</span>
       </div>
       <p style={{ margin: ".4rem 0 0" }}>{OWNER_TEXT[s.owner]}</p>
+      {s.limitations.filter((l) => l.includes("does not endorse it")).map((l, i) => (
+        <p className="warn" key={i} style={{ margin: ".3rem 0 0" }}>{l}</p>
+      ))}
       {s.discovered && <p className="muted" style={{ margin: ".3rem 0 0" }}>Discovered from the answers.</p>}
       <p className="muted" style={{ margin: ".3rem 0 0" }}>
         {share ? `${share} state it` : "no page data"}
-        {" · "}AI echoed it in {s.echoes} of {s.n} brand answers
+        {" · "}AI mentioned it in {s.echoes} of {s.n} brand answers · {endorsed(s)} endorsed
         {s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
       </p>
       {s.quotes[0] && <p className="quote">{plain(s.quotes[0])}</p>}
@@ -431,6 +437,10 @@ export function Compare({ a, b, runs = [] }: { a: Run; b: Run; runs?: RunSummary
   const name = (r: Run) => names[r.id]?.full ?? r.id;
   const labels = [...new Set([...a.attribute_scores, ...b.attribute_scores].map((s) => s.label))];
   const find = (r: Run, label: string) => r.attribute_scores.find((s) => s.label === label);
+  // Intended rows compare the endorsement rate that drives alignment; an imposed row has no
+  // positioning to land, so it compares how often AI raises it at all.
+  const shown = (s: AttributeScore) =>
+    s.intended_weight ? `${pct(s.echo_rate)}% endorsed` : `${pct(s.mention_rate)}% mentioned`;
   const da = a.drift, db = b.drift;
   const delta = (x: number | null | undefined, y: number | null | undefined) =>
     x == null || y == null ? null : Math.round((y - x) * 10) / 10;
@@ -471,8 +481,8 @@ export function Compare({ a, b, runs = [] }: { a: Run; b: Run; runs?: RunSummary
           return (
             <div className="cmp" key={label}>
               <div>{label}</div>
-              <div>{sa ? <span className={`pill ${sa.zone}`}>{pct(sa.echo_rate)}%</span> : <span className="muted">—</span>}</div>
-              <div>{sb ? <span className={`pill ${sb.zone}`}>{pct(sb.echo_rate)}%</span> : <span className="muted">—</span>}</div>
+              <div>{sa ? <span className={`pill ${sa.zone}`}>{shown(sa)}</span> : <span className="muted">—</span>}</div>
+              <div>{sb ? <span className={`pill ${sb.zone}`}>{shown(sb)}</span> : <span className="muted">—</span>}</div>
               <div className="muted">
                 {!sa || !sb ? "only in one run" : moved ? `${ZONE_LABEL[sa.zone]} → ${ZONE_LABEL[sb.zone]}` : "unchanged"}
               </div>
