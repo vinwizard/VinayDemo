@@ -213,7 +213,10 @@ def test_a_visitor_without_a_pass_is_replay_only_with_zero_model_calls(env):
 
 
 def test_a_fresh_data_dir_gets_every_committed_company_and_run(env, tmp_path):
+    stale = tmp_path / "runs" / f"{main.SHOWCASE_RUN}.json"
+    stale.write_text("{}")
     main.seed_data_dir()
+    assert stale.read_bytes() == (reports.BUNDLED / "runs" / stale.name).read_bytes()
     for kind in ("companies", "runs"):
         bundled = {p.name for p in (reports.BUNDLED / kind).glob("*.json")}
         assert bundled and bundled <= {p.name for p in (tmp_path / kind).glob("*.json")}

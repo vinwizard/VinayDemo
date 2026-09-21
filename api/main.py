@@ -688,13 +688,17 @@ def my_pass(request: Request, visit: bool = False):
 
 
 def seed_data_dir() -> None:
-    """DATA_DIR on a fresh disk starts empty: give it every committed company and run."""
+    """Committed companies and runs are the source of truth: DATA_DIR gets a fresh copy of each."""
     for dst_dir in (reports.COMPANIES, reports.RUNS):
-        for src in (reports.BUNDLED / dst_dir.name).glob("*.json"):
+        src_dir = reports.BUNDLED / dst_dir.name
+        if dst_dir.resolve() == src_dir.resolve():
+            continue
+        for src in src_dir.glob("*.json"):
             dst = dst_dir / src.name
-            if not dst.exists():
+            if not dst.exists() or dst.read_bytes() != src.read_bytes():
                 dst_dir.mkdir(parents=True, exist_ok=True)
                 shutil.copy(src, dst)
+
 
 seed_data_dir()
 seed_public_runs()
