@@ -210,11 +210,12 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
             </div>
           </div>
           <div>
-            {/* Width is how OFTEN AI raises it; the red segment is how much of that was criticism.
-                echo_rate is endorsements only, so it would shrink an attribute AI mentions neutrally
-                (or only attacks) to nothing: the coloured bar is every non-critical mention. */}
+            {/* Total width is how OFTEN AI raises it. The zone-coloured segment is endorsements
+                (echo_rate, what drives landed and alignment), the grey one neutral mentions, and the
+                red one criticism. */}
             <div className="bar-track">
-              <div className="bar" style={{ width: `${pct(s.mention_rate) - pct(s.negative_rate)}%`, background: ZONE_FILL[s.zone] }} />
+              <div className="bar" style={{ width: `${pct(s.echo_rate)}%`, background: ZONE_FILL[s.zone] }} />
+              <div className="bar" style={{ width: `${Math.max(0, pct(s.mention_rate) - pct(s.echo_rate) - pct(s.negative_rate))}%`, background: "#c9d1d9" }} />
               <div className="bar neg" style={{ width: `${pct(s.negative_rate)}%` }} />
             </div>
             <div className="muted">
@@ -434,7 +435,8 @@ export function Compare({ a, b, runs = [] }: { a: Run; b: Run; runs?: RunSummary
   const find = (r: Run, label: string) => r.attribute_scores.find((s) => s.label === label);
   // Intended rows compare the endorsement rate that drives alignment; an imposed row has no
   // positioning to land, so it compares how often AI raises it at all.
-  const shown = (s: AttributeScore) => pct(s.intended_weight ? s.echo_rate : s.mention_rate);
+  const shown = (s: AttributeScore) =>
+    s.intended_weight ? `${pct(s.echo_rate)}% endorsed` : `${pct(s.mention_rate)}% mentioned`;
   const da = a.drift, db = b.drift;
   const delta = (x: number | null | undefined, y: number | null | undefined) =>
     x == null || y == null ? null : Math.round((y - x) * 10) / 10;
@@ -475,8 +477,8 @@ export function Compare({ a, b, runs = [] }: { a: Run; b: Run; runs?: RunSummary
           return (
             <div className="cmp" key={label}>
               <div>{label}</div>
-              <div>{sa ? <span className={`pill ${sa.zone}`}>{shown(sa)}%</span> : <span className="muted">—</span>}</div>
-              <div>{sb ? <span className={`pill ${sb.zone}`}>{shown(sb)}%</span> : <span className="muted">—</span>}</div>
+              <div>{sa ? <span className={`pill ${sa.zone}`}>{shown(sa)}</span> : <span className="muted">—</span>}</div>
+              <div>{sb ? <span className={`pill ${sb.zone}`}>{shown(sb)}</span> : <span className="muted">—</span>}</div>
               <div className="muted">
                 {!sa || !sb ? "only in one run" : moved ? `${ZONE_LABEL[sa.zone]} → ${ZONE_LABEL[sb.zone]}` : "unchanged"}
               </div>
