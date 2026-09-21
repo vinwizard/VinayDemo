@@ -39,8 +39,9 @@ rejects it. This is as load-bearing as the brand-leak rule on blind probes. A bl
 the vendor ("your platform", "this product") is rejected the same way by `ana.vendor_address`: a buyer
 who has never heard of the brand asks about a need and a kind of product, not about the vendor.
 
-Independent portfolio demo — not a Profound product or integration. Spec: [`agents.md`](agents.md).
-Architecture of the original visibility engine still applies: [`CHECKPOINT.md`](CHECKPOINT.md).
+Independent portfolio demo — not a Profound product or integration. Agent instructions:
+[`CLAUDE.md`](CLAUDE.md), with the detailed spec split into skills under [`.claude/skills/`](.claude/skills)
+(the original overnight brief and milestone log are in `build-history`).
 Presenter script: [`DEMO.md`](DEMO.md).
 
 > **The page measures live; the bundled samples are synthetic.** The page has no demo mode. The two

@@ -17,7 +17,7 @@ DEV_DELAY_ENV = "VISEXP_DEV_DELAY"
 def dev_delay() -> float:
     """Seconds to stall per replayed answer — a DEVELOPMENT aid only, off unless the env var is set.
 
-    agents.md section 7 forbids simulated latency in the demo, and this must never be used to imply a
+    .claude/skills/build-history forbids simulated latency in the demo, and this must never be used to imply a
     provider was called. Its only purpose is to expose how the UI behaves when `execute_or_replay`
     blocks, which is what a real per-call provider will do. When it is on, the app says so loudly.
     """

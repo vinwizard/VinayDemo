@@ -1,4 +1,4 @@
-"""Deterministic arithmetic (agents.md section 6). No model judgment lives here."""
+"""Deterministic arithmetic (.claude/skills/evaluation-and-scoring). No model judgment lives here."""
 import re
 from collections import Counter
 from typing import Optional
