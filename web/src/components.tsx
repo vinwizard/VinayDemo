@@ -509,7 +509,7 @@ function ClaimDrawer({ s, run, onClose }: { s: AttributeScore; run: Run; onClose
   const probes = new Map(run.probes.map((p) => [p.id, p]));
   const answers = new Map(run.answers.map((a) => [a.probe_id, a]));
   const site = (run.attributes ?? []).find((a) => a.id === s.attribute_id);
-  const fix = (run.win_back ?? []).find((a) => a.attribute_id === s.attribute_id);
+  const fix = winBackPlan(run).actions.find((a) => a.attribute_id === s.attribute_id);
   const replay = run.mode !== "live_api";
   return (
     <dialog ref={ref} className="drawer" aria-labelledby={`${s.attribute_id}-title`} onClose={onClose}

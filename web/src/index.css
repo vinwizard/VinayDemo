@@ -261,7 +261,7 @@ input[type="range"] { accent-color: var(--accent); width: 9rem; }
   animation: slide-in .22s ease-out;
 }
 .drawer::backdrop { background: rgb(23 32 43 / 35%); }
-.drawer-body { padding: 1.1rem 1.2rem 2rem; display: flex; flex-direction: column; gap: .6rem; }
+.drawer-body { min-height: 100%; padding: 1.1rem 1.2rem 2rem; display: flex; flex-direction: column; gap: .6rem; }
 .drawer h4 { margin: .6rem 0 0; font-size: .76rem; color: var(--muted); text-transform: uppercase;
              letter-spacing: .04em; font-weight: 550; }
 .drawer .quote { margin: 0; }
