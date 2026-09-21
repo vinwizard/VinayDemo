@@ -1,5 +1,6 @@
 // Typed client for the Python engine's HTTP API. Mirrors schemas.py — keep in sync.
-export const API = "http://127.0.0.1:8000";
+// VITE_API lets a second checkout run beside the first without fighting over port 8000.
+export const API: string = import.meta.env.VITE_API ?? "http://127.0.0.1:8000";
 
 export type Zone = "landed" | "lost_claim" | "contested" | "unstated_intent" | "imposed" | "unprioritised";
 export type Owner = "authority_gap" | "messaging_gap" | "contested_identity" | "imposed_identity"
@@ -68,6 +69,16 @@ export interface Answer {
   citations: string[];
   provenance: string;
   status: string;
+  provider: string | null;
+  model: string | null;
+  collected_at: string | null;
+  search_executed: boolean | null;
+}
+
+export interface QueryEvaluation {
+  probe_id: string;
+  valid: boolean;
+  competitor_recommendations: string[];
 }
 
 export interface TopicEvaluation {
@@ -88,6 +99,7 @@ export interface Run {
   topics: Topic[];
   probes: Probe[];
   answers: Answer[];
+  evaluations: QueryEvaluation[];
   topic_evaluations: TopicEvaluation[];
   attribute_scores: AttributeScore[];
   drift: DriftReport | null;
@@ -110,24 +122,29 @@ export interface RunSummary {
   unprioritised: number;
 }
 
-export interface Scenario {
-  id: string;
-  title: string;
-  notice: string | null;
-  company: string;
-  named_probes: number;
-  intended: { id: string; label: string; description: string | null; weight: number;
-              claim_pages: number; claim_pages_total: number }[];
-}
-
 export const ZONE_LABEL: Record<Zone, string> = {
   landed: "landed",
   lost_claim: "lost claim",
   contested: "contested",
-  unstated_intent: "never stated",
+  // The zone fires below drift.CLAIM_THRESHOLD, a share of pages, so it covers "1 of 6" as well as
+  // "0 of 6". "never stated" beside a row reading "33% of pages (2 of 6)" contradicted itself.
+  unstated_intent: "understated",
   imposed: "imposed",
   unprioritised: "unprioritised",
 };
+
+/** One line per zone, for the legend above the claim table. */
+export const ZONE_MEANING: Record<Zone, string> = {
+  landed: "you want it, and AI says it",
+  lost_claim: "your site says it; AI does not repeat it",
+  contested: "AI says the opposite of what you claim",
+  unstated_intent: "you want it, but too few of your pages say it",
+  imposed: "AI says it; you never claimed it",
+  unprioritised: "your site says it and AI repeats it, but you did not weight it",
+};
+
+/** Legend order: what is working, then each kind of gap, then the one that is not a gap. */
+export const ZONES: Zone[] = ["landed", "lost_claim", "contested", "unstated_intent", "imposed", "unprioritised"];
 
 export const OWNER_TITLE: Record<Owner, string> = {
   authority_gap: "Authority gap",
@@ -138,10 +155,11 @@ export const OWNER_TITLE: Record<Owner, string> = {
   none: "Aligned",
 };
 
-// Why each gap is whose problem. Mirrors drift.OWNER_TEXT.
+// Why each gap is whose problem. Mirrors drift.OWNER_TEXT, except messaging_gap: drift's "does not
+// clearly say it either" reads as absolute beside a nonzero page count, so the web says it relatively.
 export const OWNER_TEXT: Record<Owner, string> = {
   authority_gap: "You state this clearly and the models are not repeating it.",
-  messaging_gap: "AI does not say it because your own copy does not clearly say it either.",
+  messaging_gap: "AI does not say it, and neither do enough of your own pages.",
   contested_identity: "AI talks about this and says the opposite of what you claim.",
   imposed_identity: "AI asserts this about you without you claiming it.",
   unprioritised_claim: "You say this on your own site and AI repeats it, but you did not mark it as "
@@ -197,6 +215,7 @@ export interface CompanyDetail {
   pages: string[];
   attributes: ClaimedAttribute[];
   warnings: string[];
+  replay: boolean;
 }
 
 export interface CompanySummary {
@@ -211,10 +230,6 @@ export const deleteAttribute = (companyId: string, attributeId: string) =>
   json<CompanyDetail>(`/api/companies/${companyId}/attributes/${attributeId}`, { method: "DELETE" });
 export const getCompany = (id: string) => json<CompanyDetail>(`/api/companies/${id}`);
 
-/** Crawls the company's own site and saves what survived quote validation. Needs an API key. */
-export const onboard = (url: string, name: string) =>
-  json<CompanyDetail>(`/api/onboard?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`);
-
 /** The customer's own input: intent weights and claims their copy never makes. */
 export const patchCompany = (
   id: string,
@@ -228,55 +243,77 @@ export const patchCompany = (
 
 export interface Health {
   ok: boolean;
-  scenarios: string[];
   live_available: boolean;
   live_status: string;
-  measured_model: string | null;
+  seed_company: string;
 }
 
 export const getHealth = () => json<Health>("/api/health");
-export const getScenarios = () => json<Scenario[]>("/api/scenarios");
 export const getRuns = () => json<RunSummary[]>("/api/runs");
 export const getRun = (id: string) => json<Run>(`/api/runs/${id}`);
 
+/** One answer, the moment the model returns it. `answer` is the first few hundred characters. */
+export interface StreamAnswer {
+  probe_id: string; kind: "blind" | "named"; phase: string; topic_label: string | null;
+  text: string; status: string; answer: string; provenance: string; grounded: boolean | null;
+  done: number; expected: number;
+}
+
+/** A graph node finished. `planned` counts every question the run has decided to ask so far. */
+export interface StreamNode {
+  node: string; stage: string; agent: string; log: string; mode: string;
+  planned: { buyer: number; brand: number; followup: number };
+  competitors: string[];
+}
+
 export interface StreamHandlers {
-  onNode?: (e: { node: string; stage: string; agent: string; log: string }) => void;
-  onAnswer?: (e: { probe_id: string; kind: string; phase: string; topic_label: string | null;
-                   text: string; done: number; expected: number }) => void;
+  onNode?: (e: StreamNode) => void;
+  onAnswer?: (e: StreamAnswer) => void;
   onDone?: (e: { run_id: string; run: Run }) => void;
   onError?: (e: { message: string }) => void;
 }
 
-/** Opens the SSE stream for one run, against a bundled scenario or an onboarded company. */
-export function streamRun(
-  target: { scenario: string } | { company: string },
-  mode: "demo" | "live",
-  h: StreamHandlers,
+/**
+ * Opens one SSE stream. `last` names the event after which the server ends the response; closing
+ * there stops EventSource reconnecting and replaying the whole job.
+ */
+function openStream(
+  path: string,
+  handlers: Record<string, ((d: never) => void) | undefined>,
+  last: string,
+  onError?: (e: { message: string }) => void,
 ): () => void {
-  const q = "scenario" in target
-    ? `scenario=${encodeURIComponent(target.scenario)}`
-    : `company=${encodeURIComponent(target.company)}`;
-  const es = new EventSource(`${API}/api/stream?${q}&mode=${mode}`);
-  // JSON.parse yields any, so each handler's own parameter type fixes T at the call site.
-  const on = <T>(name: string, fn?: (d: T) => void) =>
-    es.addEventListener(name, (ev) => fn?.(JSON.parse((ev as MessageEvent).data)));
-  on("node", h.onNode);
-  on("answer", h.onAnswer);
-  on("done", (d: { run_id: string; run: Run }) => {
-    h.onDone?.(d);
-    es.close(); // the server ends the response; close so the browser does not reconnect
-  });
+  const es = new EventSource(`${API}${path}`);
+  for (const [name, fn] of Object.entries(handlers)) {
+    es.addEventListener(name, (ev) => {
+      fn?.(JSON.parse((ev as MessageEvent).data) as never);
+      if (name === last) es.close();
+    });
+  }
   // One listener for both error shapes: the server's `event: error` carries JSON,
   // while a transport failure dispatches a bare Event with no data. Closing either
   // way stops EventSource from retrying forever.
   es.addEventListener("error", (ev) => {
     const data: unknown = (ev as MessageEvent).data;
-    h.onError?.(
+    onError?.(
       typeof data === "string"
         ? (JSON.parse(data) as { message: string })
-        : { message: "Could not reach the run stream. Check the API server is running on port 8000." },
+        : { message: `Could not reach the API at ${API}. Check the API server is running.` },
     );
     es.close();
   });
   return () => es.close();
 }
+
+/** Measures one onboarded company. The UI only ever asks for live; the server owns any fallback. */
+export const streamRun = (companyId: string, h: StreamHandlers) =>
+  openStream(`/api/stream?company=${encodeURIComponent(companyId)}&mode=live`,
+             { node: h.onNode, answer: h.onAnswer, done: h.onDone }, "done", h.onError);
+
+/** Onboarding as it happens: the crawl's page list first, then the saved company. */
+export const streamOnboard = (url: string, name: string, h: {
+  onPages?: (e: { pages: string[] }) => void;
+  onCompany?: (c: CompanyDetail) => void;
+  onError?: (e: { message: string }) => void;
+}) => openStream(`/api/onboard/stream?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`,
+                 { pages: h.onPages, company: h.onCompany }, "company", h.onError);

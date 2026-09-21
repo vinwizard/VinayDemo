@@ -5,6 +5,7 @@ page for the whole batch. Here the graph runs on a worker thread and pushes an e
 well as per node, so the browser sees real progress while a long batch is still running.
 """
 import json
+import os
 import queue
 import re
 import threading
@@ -19,7 +20,7 @@ from pydantic import BaseModel, Field
 
 import fetching
 import graph
-from agents.ana import brand_leaks
+from agents.ana import brand_leaks, discovered_competitors
 from agents.evaluator_model import ModelEvaluator
 from agents.onboarding import NAMED_TEMPLATES, named_probes_for
 from agents.onboarding_model import MIN_CLAIMS, OnboardingAgent, buyer_questions_for
@@ -47,34 +48,41 @@ def sse(event: str, payload: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(payload, default=str)}\n\n"
 
 
-@app.get("/api/scenarios")
-def scenarios():
-    out = []
-    for sid in sorted(fixture.SCENARIOS):
-        p = fixture.FixtureProvider(sid)
-        attrs = p.attributes()
-        out.append(dict(
-            id=sid, title=p.title, notice=p.data.get("notice"),
-            company=p.data["profile"]["name"],
-            named_probes=len(p.named_probes()),
-            intended=[dict(id=a.id, label=a.label, description=a.description,
-                           weight=a.intended_weight, claim_pages=a.claim_pages,
-                           claim_pages_total=a.claim_pages_total)
-                      for a in attrs if a.intended]))
-    return out
-
-
 NO_REPLAY = ("{name} was onboarded from its own website, so there are no authored answers to "
              "replay — demo mode can only replay the two bundled scenarios. Measuring a real "
              f"company means asking a real model, which needs {live.KEY_ENV}.")
+
+
+# The preloaded Notion company: a real onboarding of notion.com, committed so a fresh clone has it.
+SEED_COMPANY = "5eed0001"
+# Emergency fallback for a demo with no network: measuring the seed company replays the bundled
+# Notion sample instead. Deliberately not reachable from the UI — only from the server's environment
+# — and the run it produces is saved as a sample run and says so on every surface that shows it.
+OFFLINE_ENV = "VISEXP_OFFLINE_REPLAY"
+OFFLINE_FIXED = "offline replay: the bundled sample's claims and weights are fixed"
+
+
+def offline_seed(company_id: str) -> bool:
+    return company_id == SEED_COMPANY and bool(os.environ.get(OFFLINE_ENV))
+
+
+def replay_company() -> Company:
+    """The seed as the offline run scores it: the bundled sample's claims, never written to disk."""
+    provider = fixture.FixtureProvider("A")
+    return Company(id=SEED_COMPANY, profile=provider.profile, attributes=provider.attributes(), pages=[],
+                   warnings=["Offline replay: these are the bundled sample's authored claims, not a "
+                             "read of the site."])
 
 
 def build_provider(mode: str, scenario: Optional[str] = None, company_id: Optional[str] = None):
     """-> (provider, profile, expected_answers, run_mode). Either a bundled scenario or a saved company.
 
     Live mode needs a key; it never falls back silently to fixtures, because a fixture result
-    labelled live would be a fabricated measurement.
+    labelled live would be a fabricated measurement. The one fallback, OFFLINE_ENV, is opt-in on the
+    server and labels its run as replay.
     """
+    if company_id and offline_seed(company_id):
+        company_id, scenario, mode = None, "A", "demo"
     if company_id:
         try:
             base = CompanyProvider(load_company(company_id))
@@ -110,6 +118,15 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
     return prov, profile, len(blind) + len(base.named_probes()), "live_api"
 
 
+def progress(run) -> dict:
+    """What a run has planned so far, in the counts the staged progress names."""
+    planned = {"buyer": 0, "brand": 0, "followup": 0}
+    for p in run.probes:
+        planned["followup" if p.phase == "followup" else "brand" if p.kind == "named" else "buyer"] += 1
+    return dict(mode=run.mode, planned=planned,
+                competitors=discovered_competitors(run.topic_evaluations))
+
+
 def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = None) -> Iterator[str]:
     """Executes one run on a worker thread, yielding SSE as the graph progresses."""
     if not company_id and scenario not in fixture.SCENARIOS:
@@ -138,6 +155,8 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
         q.put(("answer", dict(probe_id=probe.id, kind=probe.kind, phase=probe.phase,
                               topic_label=topic_labels.get(probe.topic_id),
                               text=probe.text, status=a.status,
+                              answer=a.text[:320], provenance=a.provenance,
+                              grounded=a.search_executed,
                               done=state["done"], expected=expected)))
         return a
 
@@ -150,7 +169,7 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
                 topic_labels.update({t.id: t.label for t in run.topics})
                 stage, agent = graph.STAGES[node]
                 q.put(("node", dict(node=node, stage=stage, agent=agent,
-                                    log=run.log[-1] if run.log else "")))
+                                    log=run.log[-1] if run.log else "", **progress(run))))
             save_run(run)
             q.put(("done", dict(run_id=run.id, run=json.loads(run.model_dump_json()))))
         except Exception as e:                       # surfaced, never swallowed
@@ -259,17 +278,16 @@ def company_payload(c: Company) -> dict:
                          buyer_questions=a.buyer_questions, intended_weight=a.intended_weight,
                          added_by_user=a.added_by_user, note=a.note)
                     for a in c.attributes],
-        warnings=c.warnings)
+        warnings=c.warnings, replay=offline_seed(c.id))
 
 
-@app.get("/api/onboard")
-def onboard(url: str, name: str = ""):
+def onboard_steps(url: str, name: str) -> Iterator[tuple[str, dict]]:
     """Agent 1: crawl a company's own pages, extract the CLAIMED layer, and save the company.
 
-    Returns claimed attributes with descriptions, verbatim quotes and page counts DERIVED from
-    those quotes. Intent weights are deliberately absent — what a company wants to be known for is
-    the customer's input, arrives only through PATCH, and is not derivable from their own
-    marketing copy.
+    Yields ("pages", fetched URLs) once the crawl lands, then ("company", payload). The payload has
+    claimed attributes with descriptions, verbatim quotes and page counts DERIVED from those
+    quotes. Intent weights are deliberately absent — what a company wants to be known for is the
+    customer's input, arrives only through PATCH, and is not derivable from their own marketing copy.
     """
     if not live.available():
         raise HTTPException(400, f"Onboarding needs {live.KEY_ENV} for the extraction model.")
@@ -279,6 +297,7 @@ def onboard(url: str, name: str = ""):
         raise HTTPException(400, f"Refused: {e}")
     except fetching.FetchError as e:
         raise HTTPException(502, f"Could not fetch: {e}")
+    yield "pages", {"pages": [u for u, _ in pages]}
     domain = fetching.validate(url)[1].removeprefix("www.")
     try:
         profile, attrs, warnings = OnboardingAgent().run(name, domain, pages)
@@ -294,7 +313,30 @@ def onboard(url: str, name: str = ""):
     company = Company(id=uuid.uuid4().hex[:10], profile=profile, attributes=attrs,
                       pages=[u for u, _ in pages], warnings=warnings)
     save_company(company)
-    return company_payload(company)
+    yield "company", company_payload(company)
+
+
+@app.get("/api/onboard")
+def onboard(url: str, name: str = ""):
+    return dict(onboard_steps(url, name))["company"]
+
+
+def onboard_events(url: str, name: str) -> Iterator[str]:
+    """The same onboarding as SSE, so the browser can show the crawl finish before extraction does."""
+    try:
+        for kind, payload in onboard_steps(url, name):
+            yield sse(kind, payload)
+    except HTTPException as e:
+        yield sse("error", {"message": str(e.detail)})
+    except Exception as e:                           # detail stays on the server console
+        traceback.print_exc()
+        yield sse("error", {"message": f"Onboarding failed: {type(e).__name__}"})
+
+
+@app.get("/api/onboard/stream")
+def onboard_stream(url: str, name: str = ""):
+    return StreamingResponse(onboard_events(url, name), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 ADDED_MIN_WEIGHT = 0.1
@@ -357,7 +399,7 @@ def companies():
     out = []
     for path in list_companies():
         try:
-            c = load_company(path.stem)
+            c = _company(path.stem)
         except Exception:
             continue
         out.append(dict(id=c.id, name=c.profile.name, domain=c.profile.domain,
@@ -368,6 +410,8 @@ def companies():
 
 
 def _company(company_id: str) -> Company:
+    if offline_seed(company_id):
+        return replay_company()
     try:
         return load_company(company_id)
     except (FileNotFoundError, ValueError):
@@ -388,6 +432,8 @@ def patch_company(company_id: str, patch: CompanyPatch):
     invent an aspiration the customer never expressed. An ADDED claim is the opposite case — nothing
     but the customer's own intent puts it here — so it arrives already weighted.
     """
+    if offline_seed(company_id):
+        raise HTTPException(400, OFFLINE_FIXED)
     c = _company(company_id)
     by_id = {a.id: a for a in c.attributes}
     for aid, weight in patch.weights.items():
@@ -424,6 +470,8 @@ def patch_company(company_id: str, patch: CompanyPatch):
 @app.delete("/api/companies/{company_id}/attributes/{attribute_id}")
 def delete_attribute(company_id: str, attribute_id: str):
     """Remove a claim the customer typed. Only theirs: an extracted claim is evidence, not an opinion."""
+    if offline_seed(company_id):
+        raise HTTPException(400, OFFLINE_FIXED)
     c = _company(company_id)
     attr = next((a for a in c.attributes if a.id == attribute_id), None)
     if attr is None:
@@ -442,7 +490,7 @@ def health():
     from agents import evaluator_model
     measured = live.model_name() if live.available() else None
     evaluator = evaluator_model.model_name() if live.available() else None
-    return {"ok": True, "scenarios": sorted(fixture.SCENARIOS),
+    return {"ok": True, "scenarios": sorted(fixture.SCENARIOS), "seed_company": SEED_COMPANY,
             "live_available": live.available(), "live_status": live.status(),
             "measured_model": measured, "evaluator_model": evaluator,
             # a model grading its own output has a self-preference bias worth surfacing

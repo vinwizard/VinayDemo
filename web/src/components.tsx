@@ -1,9 +1,9 @@
 import { useState } from "react";
-import type { AttributeScore, DriftReport, Run, RunSummary } from "./api";
-import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_ORDER } from "./api";
-import { claimShare, probeLabels, provenanceLabel, runLabels } from "./labels";
+import type { Answer, AttributeScore, DriftReport, QueryEvaluation, Run, RunSummary, Zone } from "./api";
+import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_MEANING, ZONE_ORDER, ZONES } from "./api";
+import { PROVENANCE_LABEL, claimShare, plain, probeLabels, provenanceLabel, runLabels, when } from "./labels";
 
-const ZONE_FILL: Record<string, string> = {
+const ZONE_FILL: Record<Zone, string> = {
   landed: "var(--landed)",
   lost_claim: "var(--lost)",
   contested: "var(--contested)",
@@ -14,22 +14,47 @@ const ZONE_FILL: Record<string, string> = {
 
 const pct = (x: number | null) => (x == null ? 0 : Math.round(x * 100));
 
-export function Metrics({ d }: { d: DriftReport }) {
+const ZONE_COUNT: Record<Zone, (d: DriftReport) => number> = {
+  landed: (d) => d.landed.length,
+  lost_claim: (d) => d.lost_claims.length,
+  contested: (d) => d.contested?.length ?? 0,
+  unstated_intent: (d) => d.unstated_intent.length,
+  imposed: (d) => d.imposed.length,
+  unprioritised: (d) => d.unprioritised?.length ?? 0,
+};
+
+export function Metrics({ d, brand }: { d: DriftReport; brand: string }) {
   return (
     <>
-      <div className="metrics">
-        <div className="metric">
+      <div className="headline">
+        <div className="figure">
           <div className="label">Positioning alignment</div>
           <div className="value">{d.alignment == null ? "n/a" : `${d.alignment}%`}</div>
+          <p>
+            Weighted by how much each claim matters to you: how often AI’s answers about {brand} say
+            what you want to be known for.
+            {d.alignment == null && " Withheld — too few brand answers to score."}
+          </p>
         </div>
-        <div className="metric"><div className="label">Landed</div><div className="value">{d.landed.length}</div></div>
-        <div className="metric"><div className="label">Lost claims</div><div className="value">{d.lost_claims.length}</div></div>
-        <div className="metric"><div className="label">Contested</div><div className="value">{d.contested?.length ?? 0}</div></div>
-        <div className="metric"><div className="label">Never stated</div><div className="value">{d.unstated_intent.length}</div></div>
-        <div className="metric"><div className="label">Imposed</div><div className="value">{d.imposed.length}</div></div>
-        <div className="metric"><div className="label">Unprioritised</div><div className="value">{d.unprioritised?.length ?? 0}</div></div>
+        <div className="figure secondary">
+          <div className="label">Buyer visibility</div>
+          <div className="value">{d.visibility == null ? "n/a" : d.visibility}<small>{d.visibility != null && " / 100"}</small></div>
+          <p>
+            How often {brand} came up when a buyer asked without naming it — a mention scores half,
+            a recommendation full. A separate measure; it does not move alignment.
+          </p>
+        </div>
       </div>
-      <p className="muted" style={{ marginTop: ".4rem" }}>
+      <div className="zones" role="list" aria-label="Claims by zone">
+        {ZONES.map((z) => (
+          <div key={z} role="listitem" className={`zone ${ZONE_COUNT[z](d) ? "" : "zero"}`}>
+            <span className="dot" style={{ background: ZONE_FILL[z] }} />
+            <strong>{ZONE_COUNT[z](d)} {ZONE_LABEL[z]}</strong>
+            <span className="muted"> — {ZONE_MEANING[z]}</span>
+          </div>
+        ))}
+      </div>
+      <p className="muted" style={{ margin: 0 }}>
         {d.n_named} brand questions answered drive perception · {d.n_blind} buyer questions answered
         give a separate visibility score of {d.visibility == null ? "n/a" : `${d.visibility}/100`} ·
         source: {provenanceLabel(d.provenance)}
@@ -45,6 +70,60 @@ export function Metrics({ d }: { d: DriftReport }) {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * Where these answers came from, stated before any number. A replayed run gets the loudest label
+ * on the page: presenting authored answers as measured is the one failure this product cannot have.
+ */
+function RunSource({ run }: { run: Run }) {
+  if (run.mode !== "live_api") {
+    return (
+      <div className="callout sample">
+        <strong>SYNTHETIC DEMO — fixture replay; no live chatbot measurements; model judgment simulated.</strong>
+        {" "}Every answer in this run was authored, not asked.
+      </div>
+    );
+  }
+  const models = [...new Set(run.answers.map((a) => a.model).filter(Boolean))].join(", ");
+  return (
+    <p className="source">
+      <strong>{PROVENANCE_LABEL.live_api}</strong> — {models || "the configured model"} via the OpenAI
+      Responses API with web search. This measures that API at this moment, not the ChatGPT consumer
+      app. Answers with no search behind them are excluded from scores.
+    </p>
+  );
+}
+
+/** One run, top to bottom: where it came from, the two numbers, then claim by claim, then why. */
+export function Report({ run }: { run: Run }) {
+  const d = run.drift;
+  return (
+    <article className="report">
+      <div className="report-head">
+        <h2>{run.profile.name} — report</h2>
+        <span className="muted" title={run.id}>{when(run.created_at)}</span>
+      </div>
+      <RunSource run={run} />
+      {d ? (
+        <>
+          <Metrics d={d} brand={run.profile.name} />
+          <section>
+            <h3>Claim by claim: what your site says, and what AI says</h3>
+            <DriftMap scores={run.attribute_scores} run={run} />
+          </section>
+          <section>
+            <h3>Whose problem is each gap?</h3>
+            <GapCards scores={run.attribute_scores} />
+          </section>
+          <Competitors run={run} />
+          <Evidence run={run} />
+        </>
+      ) : (
+        <div className="callout">This run finished without a drift report.</div>
+      )}
+    </article>
   );
 }
 
@@ -68,7 +147,7 @@ function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
       {s.quotes.length > 0 && (
         <>
           <h4>Verbatim quotes</h4>
-          {s.quotes.map((q, i) => <p className="quote" key={i}>{q}</p>)}
+          {s.quotes.map((q, i) => <p className="quote" key={i}>{plain(q)}</p>)}
         </>
       )}
       {s.probe_ids.length > 0 && (
@@ -105,7 +184,7 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
   return (
     <div className="card">
       <div className="drift-head">
-        <div>Attribute</div><div>What you claim</div><div>What AI says</div><div /><div />
+        <div>Claim</div><div>Your site says it</div><div>AI says it</div><div>Zone</div><div />
       </div>
       {rows.map((s) => (
         <div className="drift-row" key={s.attribute_id}>
@@ -143,7 +222,7 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
           <button className="info" aria-expanded={open === s.attribute_id}
                   aria-label={`Evidence for ${s.label}`}
                   onClick={() => setOpen(open === s.attribute_id ? null : s.attribute_id)}>
-            i
+            Evidence
           </button>
           {open === s.attribute_id && <EvidenceBubble s={s} run={run} />}
         </div>
@@ -166,7 +245,7 @@ function GapCard({ s }: { s: AttributeScore }) {
         {" · "}AI echoed it in {s.echoes} of {s.n} brand answers
         {s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
       </p>
-      {s.quotes[0] && <p className="quote">{s.quotes[0]}</p>}
+      {s.quotes[0] && <p className="quote">{plain(s.quotes[0])}</p>}
       {s.owner === "authority_gap" && (
         <p className="muted" style={{ marginBottom: 0 }}>
           Relevant capability:{" "}
@@ -189,61 +268,118 @@ export function GapCards({ scores }: { scores: AttributeScore[] }) {
     .filter((s) => GAP_ZONES.includes(s.zone))
     .sort((a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.intended_weight ?? 0) - (a.intended_weight ?? 0))
     .slice(0, 4);
-  if (!gaps.length) return null;
+  if (!gaps.length) {
+    return <div className="card muted">Nothing to fix: no claim is lost, contested, understated or imposed.</div>;
+  }
   return (
-    <div className="stack">
+    <div className="gaps">
       {gaps.map((s) => <GapCard key={s.attribute_id} s={s} />)}
     </div>
   );
 }
 
+/** Mirrors scoring.eligible: only an answer that counts toward the scores can name anything here. */
+const counts = (a: Answer, e: QueryEvaluation) =>
+  a.status === "ok" && e.valid && a.provenance !== "web_research_snapshot"
+  && !(a.provenance === "live_api" && !a.search_executed);
+
 /**
- * Who AI offered instead, and what it said when asked to compare.
+ * The stretch of an answer around the first mention of a name, as plain text, so the reader can see
+ * how it came up: a recommendation, a passing example, or only a citation's hostname. Falls back to
+ * the raw text when stripping the Markdown removed the only mention (a name inside a link's URL).
+ */
+function mention(text: string, name: string): [string, string, string] | null {
+  for (const flat of [plain(text), text].map((t) => t.replace(/\s+/g, " "))) {
+    const i = flat.toLowerCase().indexOf(name.toLowerCase());
+    if (i < 0) continue;
+    const j = i + name.length;
+    const from = i > 90 ? flat.indexOf(" ", i - 90) + 1 : 0;
+    const to = flat.length - j > 140 ? Math.max(j, flat.lastIndexOf(" ", j + 140)) : flat.length;
+    return [(from ? "…" : "") + flat.slice(from, i), flat.slice(i, j), flat.slice(j, to) + (to < flat.length ? "…" : "")];
+  }
+  return null;
+}
+
+/**
+ * Every product named in a buyer answer, beside the line that names it, and what AI said when asked
+ * to compare.
  *
- * In a live run nobody supplied these names: a buyer question describes what the company does
- * without naming it, so every brand in the answer is one the model chose. In replay they are
- * authored fixture labels and the panel says so — a sentence asserting measured behaviour is
- * believed over the banner at the top of the page, and this product's whole claim is that it never
- * presents authored evidence as measured evidence.
+ * A name here is only what the evidence supports: the model named it in an answer to a question that
+ * never named the company. Many such names are obscure products a search happened to surface, or a
+ * citation's hostname, so the panel neither calls them competitors nor claims they were recommended
+ * — the line is shown so the reader judges each one. It ranks only when a name genuinely repeats
+ * across answers; when each appears once, any order would just be the first answer's order.
+ *
+ * In replay the names are authored fixture labels and the panel says so — a sentence asserting
+ * measured behaviour is believed over the banner at the top of the page, and this product's whole
+ * claim is that it never presents authored evidence as measured evidence.
  */
 export function Competitors({ run }: { run: Run }) {
   const replay = run.mode !== "live_api";
-  const byTopic = new Map(run.topics.map((t) => [t.id, t.label]));
-  const rows = run.topic_evaluations
-    .filter((te) => te.phase === "baseline" && te.top_competitors.length > 0)
-    .map((te) => ({ topic: byTopic.get(te.topic_id) ?? te.topic_id, names: te.top_competitors }));
+  const topicOf = new Map(run.topics.map((t) => [t.id, t.label]));
+  const answers = new Map(run.answers.map((a) => [a.probe_id, a]));
+  const evals = new Map(run.evaluations.map((e) => [e.probe_id, e]));
+  const named = new Map<string, { name: string; count: number; topic: string;
+                                   where: [string, string, string] | null }>();
+  for (const p of run.probes.filter((x) => x.kind === "blind" && x.phase === "baseline")) {
+    const a = answers.get(p.id), e = evals.get(p.id);
+    if (!a || !e || !counts(a, e)) continue;
+    for (const name of new Set(e.competitor_recommendations)) {
+      const row = named.get(name.toLowerCase());
+      if (row) row.count += 1;
+      else named.set(name.toLowerCase(), { name, count: 1, topic: topicOf.get(p.topic_id) ?? p.topic_id,
+                                           where: mention(a.text, name) });
+    }
+  }
+  const repeats = [...named.values()].some((r) => r.count > 1);
+  // A stable sort: names seen once keep the order they appeared in.
+  const rows = [...named.values()].sort((x, y) => (repeats ? y.count - x.count : 0));
   const comparison = run.probes.find((p) => p.kind === "named" && p.phase === "followup");
-  const answer = comparison && run.answers.find((a) => a.probe_id === comparison.id);
+  const answer = comparison && answers.get(comparison.id);
   // "Nobody was named" and "nobody was asked" are different findings. With no weighted claim there
-  // are no buyer questions at all, and an empty competitor set then means silence, not absence.
+  // are no buyer questions at all, and an empty set then means silence, not absence.
   const askedBuyerQuestions = run.probes.some((p) => p.kind === "blind" && p.phase === "baseline");
   if (!rows.length) {
     return (
       <div className="card muted">
         {!askedBuyerQuestions
-          ? "No buyer question was asked — nothing is weighted as intended — so the buyer axis was not measured and no competitor could be discovered."
+          ? "No buyer question was asked — nothing is weighted as intended — so the buyer axis was not measured and no other product could be named."
           : replay
             ? "This sample scenario names no competitor in its authored buyer answers. Replay never asks the comparison question either: that round exists only in a live run."
-            : "No competitor was named in any buyer answer, so there was nothing to compare against and no comparison question was asked."}
+            : "No other product was named in any buyer answer that counts toward the scores, so there was nothing to compare against and no comparison question was asked."}
       </div>
     );
   }
   return (
     <div className="card">
-      <h3>Who AI named instead</h3>
+      <h3>Named in buyer answers</h3>
       <p className="muted" style={{ margin: ".3rem 0 .6rem" }}>
         {replay
           ? "Authored sample data, not a measurement: no model volunteered these names. A live run"
             + " puts here the brands the model itself offered when a buyer described what you do"
             + " without naming you, and only a live run asks the comparison question below."
-          : "Discovered, not asked for: these are the brands the model volunteered when a buyer"
-            + " described what you do without naming you."}
+          : `Every product the model named when a buyer asked about what ${run.profile.name} does`
+            + " without naming it. Being named is not being recommended, or being a competitor:"
+            + " each sits beside the part of the answer that names it, so judge it yourself."}
+        {" "}
+        {repeats
+          ? "Sorted by how many answers named it; the rest were named once, in the order they appeared."
+          : "Each was named in one answer only, so this is the order they appeared, not a ranking."}
       </p>
-      <table>
-        <thead><tr><th>Buyer topic</th><th>Recommended instead</th></tr></thead>
+      <table className="named">
+        <thead>
+          <tr><th>Product</th>{repeats && <th>Answers</th>}<th>Buyer topic</th><th>Where the answer names it</th></tr>
+        </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.topic}><td>{r.topic}</td><td>{r.names.join(", ")}</td></tr>
+            <tr key={r.name}>
+              <td><strong>{r.name}</strong></td>
+              {repeats && <td>{r.count}</td>}
+              <td className="muted">{r.topic}</td>
+              <td className="muted">
+                {r.where ? <>{r.where[0]}<strong>{r.where[1]}</strong>{r.where[2]}</> : "—"}
+              </td>
+            </tr>
           ))}
         </tbody>
       </table>
@@ -253,7 +389,7 @@ export function Competitors({ run }: { run: Run }) {
             Follow-up question, built from those names (exploratory — not counted in alignment)
           </h4>
           <strong>{comparison.text}</strong>
-          <p className="muted" style={{ marginBottom: 0 }}>{answer?.text ?? "no answer"}</p>
+          <p className="muted long-answer">{answer ? plain(answer.text) : "no answer"}</p>
         </>
       )}
     </div>
@@ -277,7 +413,7 @@ export function Evidence({ run }: { run: Run }) {
           <div className="card" key={p.id}>
             <div className="muted" title={p.id}>{names[p.id] ?? p.id}</div>
             <strong>{p.text}</strong>
-            <p className="muted" style={{ marginBottom: 0 }}>{byId[p.id]?.text ?? "no answer"}</p>
+            <p className="muted long-answer">{byId[p.id] ? plain(byId[p.id].text) : "no answer"}</p>
           </div>
         ))}
       </div>
