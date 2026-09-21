@@ -10,7 +10,7 @@ import graph
 from agents import ana, evaluation, onboarding
 from providers import fixture, imported, live
 from reports import from_json, load_run, save_run, to_json, to_markdown
-from schemas import Answer, CompanyProfile, PositioningPoint, Probe, Topic
+from schemas import Answer, CompanyProfile, PositioningPoint, Probe, QueryEvaluation, Topic
 from scoring import domain_matches, score_topic, visibility_score
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -181,6 +181,16 @@ def test_no_eligible_answers_gives_null():
     assert te.status == "insufficient evidence"
 
 
+def test_a_name_beside_the_brand_is_not_a_competitor_answer():
+    t = Topic(id="kb", label="KB", buyer_need="n", positioning_point_ids=[], fit="strong")
+    answers = [Answer(probe_id=f"x-{i}", text="t", provenance="synthetic", provider="fixture") for i in range(3)]
+    ev = lambda mentioned: QueryEvaluation(probe_id="x", valid=True, mentioned=mentioned, strength=int(mentioned), explanation="e",
+                                           competitor_recommendations=["GitHub"])
+    te = score_topic(t, "baseline", answers, [ev(True), ev(True), ev(False)])
+    assert te.competitor_answers == 1 and te.competitor_rate == 0.333 and te.top_competitors == ["GitHub"]
+    assert te.status == "unclear"   # two complements beside the brand are not a candidate gap
+
+
 # --- edge cases -----------------------------------------------------------------
 def test_negative_mention():
     e = evaluation.evaluate(PROBE, synth("Notion is clunky for this.", mentioned=True, negative_mention=True,
@@ -254,6 +264,17 @@ def test_competitor_must_be_named_in_the_body_not_in_a_citation(name, kept):
     assert e.valid   # the name is dropped; the answer's other labels still stand
     assert (name in e.competitor_recommendations) is kept
     assert kept or any("Citation-only" in w for w in e.warnings)
+
+
+def test_a_link_in_the_prose_is_part_of_the_body():
+    text = ("**[Notion](https://notion.so)** is the best pick. Try [Asana](https://asana.com) too.\n"
+            "[Trello vs Asana](https://example.com/t)\n"
+            "Confluence also works. ([Coda](https://example.com/coda))")
+    e = evaluation.evaluate(PROBE, synth(text, mentioned=True, recommended=True,
+                                         evidence_quotes=["is the best pick"],
+                                         competitor_recommendations=["Asana", "Trello", "Coda"]), PROFILE)
+    assert e.valid and e.mentioned                      # a hyperlinked brand is a body mention
+    assert e.competitor_recommendations == ["Asana"]    # source card and `([host](url))` still excluded
 
 
 @pytest.mark.parametrize("labels", [dict(mentioned=True, evidence_quotes=[""]),

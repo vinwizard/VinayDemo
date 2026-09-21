@@ -115,6 +115,18 @@ def test_a_checkable_assertion_passes():
     assert [a.id for a in attrs] == ["enterprise_ready"] and not warnings
 
 
+@pytest.mark.parametrize("statement,rejected", [
+    ("Modern Treasury offers SAML single sign-on, audit logs and SCIM provisioning for IT.", False),
+    ("Modern Treasury lets IT roll out SSO seamlessly across the whole company.", True),
+])
+def test_a_marketing_word_in_the_company_name_is_not_marketing(statement, rejected):
+    raw = json.loads(payload(name="Modern Treasury", aliases=[]))
+    raw["attributes"][0]["description"] = statement
+    _, attrs, warnings = agent(json.dumps(raw)).run("Modern Treasury", "example.com", PAGES)
+    assert (attrs == []) is rejected
+    assert any("seamlessly" in w for w in warnings) is rejected
+
+
 def test_a_real_description_is_kept_without_complaint():
     _, attrs, warnings = agent(payload()).run("Acme", "example.com", PAGES)
     assert "SCIM" in attrs[0].description

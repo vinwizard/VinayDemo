@@ -30,15 +30,19 @@ CAPABILITIES = {
                    "Examine how the brand is described and whether product-fit evidence is clear."),
 }
 
-# Every `[title](url)` — the `([host](url))` inline citations and the bare source-card lines a
-# search answer is full of — and every naked URL. What is left is what the model actually said.
-CITATION = re.compile(r"\(?\[[^\]]*\]\([^)\s]*\)\)?|https?://\S+")
+# The `([host](url))` inline citations, the source-card lines that are nothing but a link, and every
+# naked URL. A link inside a sentence ("Try [Asana](https://asana.com)") is the answer's own words.
+CITATION = re.compile(r"\(\[[^\]]*\]\([^)\s]*\)\)"
+                      r"|(?<![^\n])[^\w\n]*(?:\d+\.)?[^\w\n]*\[[^\]]*\]\([^)\s]*\)[^\w\n]*(?![^\n])"
+                      r"|(?<!\]\()https?://\S+")
+LINK = re.compile(r"\[([^\]]*)\]\([^)\s]*\)")
 
 
 def answer_body(text: str) -> str:
-    """The answer minus its citation markup. A name that exists only in a citation is a source the
-    model read, not something it said, so body checks run on this and never on the raw text."""
-    return CITATION.sub(" ", text)
+    """The answer minus its citation markup, prose links reduced to their text. A name that exists
+    only in a citation is a source the model read, not something it said, so body checks run on this
+    and never on the raw text."""
+    return LINK.sub(r"\1", CITATION.sub(" ", text))
 
 
 def named_in(name: str, body: str) -> bool:

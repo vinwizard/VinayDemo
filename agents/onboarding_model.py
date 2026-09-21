@@ -175,9 +175,11 @@ def statement_problems(names: list[str], label: str, description: str) -> list[s
     if not _useful_description(label, description):
         return ["restates the label or is too thin"]
     problems = []
-    if not any(re.search(rf"(?<!\w){re.escape(n)}(?!\w)", description, re.I) for n in names if n):
+    named = [rf"(?<!\w){re.escape(n)}(?!\w)" for n in names if n]
+    if not any(re.search(n, description, re.I) for n in named):
         problems.append("does not name the company, so it is not a standalone assertion")
-    if vague := sorted({m.group(0).lower() for m in MARKETING.finditer(description)}):
+    unnamed = re.sub("|".join(named), " ", description, flags=re.I) if named else description
+    if vague := sorted({m.group(0).lower() for m in MARKETING.finditer(unnamed)}):
         problems.append(f"marketing language nothing can contradict ({', '.join(vague)})")
     return problems
 

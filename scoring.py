@@ -51,7 +51,7 @@ def score_topic(topic: Topic, phase: str, answers: list[Answer], evals: list[Que
         kept.append(e) if ok else reasons.append(f"{a.probe_id}: {why}")
     n = len(kept)
     rec = sum(e.recommended for e in kept)
-    comp = sum(bool(e.competitor_recommendations) for e in kept)
+    comp = sum(bool(e.competitor_recommendations) and not e.mentioned for e in kept)
     te = TopicEvaluation(
         topic_id=topic.id, phase=phase, provenance=provenance, n=n, excluded=len(reasons), excluded_reasons=reasons,
         mentions=sum(e.mentioned for e in kept), recommendations=rec,
