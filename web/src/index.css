@@ -94,6 +94,13 @@ input:focus-visible, button:focus-visible, select:focus-visible { outline: 2px s
 .callout.warn-box { border-color: #f1b0b0; background: #fffafa; }
 .callout.warn-box h4 { color: var(--lost); }
 .callout.warn-box ul { color: var(--muted); font-size: .85rem; }
+.callout.checks { display: flex; flex-direction: column; gap: .6rem; }
+.callout.checks p { margin: 0; }
+.checks-head { gap: .5rem; flex-wrap: wrap; align-items: center; }
+.checks-head h4 { margin: 0 .3rem 0 0; }
+.callout.checks .block > summary { padding: .55rem .85rem; }
+.callout.checks ul.block-body { margin: 0; padding: .6rem .85rem .7rem 2rem; gap: .3rem; }
+.pill.neutral { background: var(--bg); border-color: var(--border); color: var(--muted); }
 .callout.sample { border-color: var(--sample-border); background: var(--sample-bg); color: var(--sample-text); }
 
 .tag {

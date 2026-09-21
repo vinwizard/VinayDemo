@@ -320,7 +320,7 @@ def company_payload(c: Company) -> dict:
                          buyer_questions=a.buyer_questions, intended_weight=a.intended_weight,
                          added_by_user=a.added_by_user, note=a.note)
                     for a in c.attributes],
-        warnings=c.warnings, replay=offline_seed(c.id))
+        warnings=c.warnings, checks=[k.model_dump() for k in c.checks], replay=offline_seed(c.id))
 
 
 def onboard_steps(url: str, name: str) -> Iterator[tuple[str, dict]]:
@@ -343,7 +343,7 @@ def onboard_steps(url: str, name: str) -> Iterator[tuple[str, dict]]:
     yield "pages", {"pages": [u for u, _ in pages]}
     domain = fetching.validate(url)[1].removeprefix("www.")
     try:
-        profile, attrs, warnings = OnboardingAgent().run(name, domain, pages)
+        profile, attrs, warnings, checks = OnboardingAgent().run(name, domain, pages)
     except ValueError as e:
         raise HTTPException(502, f"Extraction failed: {e}")
     profile.logo_url = logo
@@ -355,7 +355,7 @@ def onboard_steps(url: str, name: str) -> Iterator[tuple[str, dict]]:
                            "little for a reliable claim percentage — read every page share with care.")
     warnings += vet_questions(profile, attrs)
     company = Company(id=uuid.uuid4().hex[:10], profile=profile, attributes=attrs,
-                      pages=[u for u, _ in pages], warnings=warnings)
+                      pages=[u for u, _ in pages], warnings=warnings, checks=checks)
     save_company(company)
     yield "company", company_payload(company)
 

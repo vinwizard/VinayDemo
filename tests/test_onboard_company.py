@@ -322,6 +322,9 @@ def test_a_thin_site_is_saved_with_a_warning_rather_than_refused(store, monkeypa
     assert [a["id"] for a in out["attributes"]] == ["fast"]  # thin, not empty: its one claim survived
     assert any("too little for a reliable claim percentage" in w for w in out["warnings"])
     assert out["profile"]["logo_url"] == "https://acme.example/icon.png"   # the crawl's icon is kept
+    # how each claim fared travels as structure, saved with the company, never as a warning string
+    assert [(c["label"], c["kept"], c["quotes_matched"]) for c in out["checks"]] == [("Fast to set up", True, 1)]
+    assert reports.load_company(out["id"]).checks[0].label == "Fast to set up"
 
 
 def test_a_repeated_buyer_question_is_dropped_before_the_company_is_saved():
