@@ -91,7 +91,7 @@ cd web && export PATH="$HOME/miniconda3/envs/visexp/bin:$PATH" && npm install &&
 Open http://localhost:5173. The two bundled scenarios need no API keys, accounts, or internet. Stop
 either process with `Ctrl+C`. [`WEB.md`](WEB.md) has the details, live mode and the API reference.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 180 tests incl. one journey per
+Tests: `conda activate visexp && python -m pytest -q` (offline; 213 tests incl. one journey per
 bundled scenario end to end through the `/api/stream` event stream, the live adapter under an injected
 transport — including how it classifies a refused key or a region block — no API key, no network).
 
