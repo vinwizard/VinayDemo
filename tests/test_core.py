@@ -1,4 +1,4 @@
-"""Offline acceptance checks (agents.md section 10) for the engine. Run: python -m pytest"""
+"""Offline acceptance checks (.claude/skills/evaluation-and-scoring) for the engine. Run: python -m pytest"""
 import json
 import socket
 from pathlib import Path

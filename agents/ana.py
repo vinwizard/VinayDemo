@@ -75,7 +75,7 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
     company's own positioning implies — with no brand name, in a fresh context — is a stronger test
     than a generic topic question, because a miss cannot be blamed on an irrelevant question.
 
-    Aspiration is not product fit (agents.md section 3): an attribute their own copy states gets
+    Aspiration is not product fit (.claude/skills/product-workflow): an attribute their own copy states gets
     `strong` fit, one they merely want gets `partial`. A question that leaks the brand is rejected,
     never rewritten. A question addressed to the vendor is skipped, not fatal; the third return value
     names the skipped question ids so the run log can say why a topic is missing.

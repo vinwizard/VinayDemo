@@ -1,4 +1,4 @@
-"""Safe public-URL fetcher for onboarding (agents.md section 3).
+"""Safe public-URL fetcher for onboarding (.claude/skills/product-workflow).
 
 Fetching a URL a user supplies is an SSRF primitive: without care it can be pointed at
 127.0.0.1, a private LAN host, or a cloud metadata endpoint. Protections here:

@@ -16,7 +16,7 @@ INSIGHTS = "https://www.tryprofound.com/features/answer-engine-insights"
 AGENTS = "https://www.tryprofound.com/features/agents"
 TEMPLATES = "https://www.tryprofound.com/agent-templates"
 
-# Reviewed configuration table (agents.md section 4). Explanation of possible fit, not an API call.
+# Reviewed configuration table (.claude/skills/evaluation-and-scoring). Explanation of possible fit, not an API call.
 CAPABILITIES = {
     "absent_vs_competitors": ("Answer Engine Insights / competitive benchmarking", INSIGHTS,
                               "Track a wider fixed prompt set over time to assess whether the gap persists."),

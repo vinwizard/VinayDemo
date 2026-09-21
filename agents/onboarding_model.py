@@ -2,7 +2,7 @@
 
 The split that matters: this agent can only ever establish what the company's own copy **claims**.
 What they **intend** to be known for is the customer's aspiration and must be entered by a human
-(agents.md section 3 — aspirations are stored separately and never count as product fit). So the
+(.claude/skills/product-workflow — aspirations are stored separately and never count as product fit). So the
 output here is the claimed layer; intent weights are applied afterwards by the user.
 
 Nothing the model says is trusted:

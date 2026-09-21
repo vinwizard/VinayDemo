@@ -132,7 +132,7 @@ def test_placebo_questions_never_name_the_brand():
 
 
 def test_aspiration_alone_is_not_strong_product_fit():
-    """agents.md section 3: a claim their own copy does not state cannot count as strong fit."""
+    """.claude/skills/product-workflow: a claim their own copy does not state cannot count as strong fit."""
     p = provider(transport=lambda *_: response())
     topics, _ = p.plan(fixture.bundled_profile("A"))
     fits = {t.id: t.fit for t in topics if t.kind == "buyer"}

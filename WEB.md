@@ -153,7 +153,11 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   company's own pages state and AI repeats, but which the customer did not weight. Zone keys and
   numbers never change; `web/src/labels.ts` only speaks them (`lost_claim` → "claim to win back",
   `contested` → "claim to correct", `unstated_intent` → "claim to amplify", `imposed` → "identity
-  to shape")
+  to shape"). **Download summary (PDF)** beside the run date opens the browser's print dialog on a
+  one-page executive summary (logo, untapped potential with the real score beneath, top 3 landed
+  claims, top 3 claims to win back / correct / amplify / shape, run date and live-vs-sample source);
+  "Save as PDF" makes the file. It is print CSS over a view that never renders on screen — no PDF
+  library, no server call (`screenshots/exec-summary-pdf.png`)
 - **History** — every saved run from `data/runs/` with its untapped potential; click one to open
   its report in place
 - **Compare** — two runs side by side as untapped potential with the real score beneath, the change
