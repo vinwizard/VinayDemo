@@ -24,6 +24,7 @@ CO = "abcdef0123"            # a copy of the seed company under an id with no of
 # example intent set, the second left unweighted.
 CLAIM = "knowledge_centralization"
 UNWEIGHTED = "cross_team_collaboration"
+SHOWCASE = reports.RUNS / f"{main.SHOWCASE_RUN}.json"   # the committed file, read before RUNS is patched
 
 
 @pytest.fixture
@@ -341,3 +342,17 @@ def test_public_demo_seeds_both_scenarios_once(public):
     assert sorted(r["scenario"] for r in runs) == ["A", "B"]
     main.seed_public_runs()                        # a restart with runs on disk adds none
     assert len(public.get("/api/runs").json()) == 2
+
+
+def test_public_demo_seeds_the_scenarios_beside_the_committed_showcase(public):
+    (main.RUNS / SHOWCASE.name).write_bytes(SHOWCASE.read_bytes())
+    main.seed_public_runs()
+    assert sorted(str(r["scenario"]) for r in public.get("/api/runs").json()) == ["A", "B", "None"]
+
+
+def test_rescoring_the_showcase_never_rewrites_the_committed_file(client):
+    saved = main.RUNS / SHOWCASE.name
+    saved.write_bytes(SHOWCASE.read_bytes())
+    claim = client.get(f"/api/runs/{main.SHOWCASE_RUN}").json()["attributes"][0]["id"]
+    r = client.post(f"/api/runs/{main.SHOWCASE_RUN}/rescore", json={"weights": {claim: 0.5}})
+    assert r.status_code == 200 and saved.read_bytes() == SHOWCASE.read_bytes()

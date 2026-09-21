@@ -108,6 +108,9 @@ export function streamingProbeLabel(probeId: string, kind: string, phase: string
   return `Buyer question ${n ?? "?"}${suffix}`;
 }
 
+export const day = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+
 export const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {
     day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",

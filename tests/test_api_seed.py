@@ -32,6 +32,16 @@ def test_the_seed_company_ships_with_the_repo_and_is_weighted():
     assert main.health()["seed_company"] == main.SEED_COMPANY
 
 
+def test_the_profound_showcase_ships_as_a_real_live_run():
+    run = reports.load_run(main.SHOWCASE_RUN)
+    company = reports.load_company(main.SHOWCASE_COMPANY)
+    for p in (run.profile, company.profile):
+        assert (p.name, p.domain) == ("Profound", "tryprofound.com") and p.logo_url
+    assert run.mode == "live_api" and run.status == "complete" and run.drift
+    assert all(a.provenance == "live_api" for a in run.answers)   # never relabelled as sample
+    assert main.health()["showcase"] == {"company": main.SHOWCASE_COMPANY, "run": main.SHOWCASE_RUN}
+
+
 def test_without_the_env_var_the_seed_never_falls_back_to_fixtures(monkeypatch):
     monkeypatch.delenv(main.OFFLINE_ENV, raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)

@@ -2,15 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import type { CompanyDetail, Health, Run, RunSummary } from "./api";
 import { API, getCompany, getHealth, getRun, getRuns } from "./api";
 import { Compare, History, Logo, Report } from "./components";
-import { headline, potentialText, runLabels } from "./labels";
+import { day, headline, potentialText, runLabels } from "./labels";
 import { CompanyWorkflow } from "./workflow";
 
-type Tab = "preloaded" | "onboard" | "history" | "compare";
+type Tab = "preloaded" | "showcase" | "onboard" | "history" | "compare";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("preloaded");
   const [health, setHealth] = useState<Health | null>(null);
   const [seed, setSeed] = useState<CompanyDetail["profile"] | null>(null);
+  const [showcase, setShowcase] = useState<Run | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [opened, setOpened] = useState<Run | null>(null);
@@ -23,6 +24,7 @@ export default function App() {
     getHealth().then((h) => {
       setHealth(h);
       getCompany(h.seed_company).then((c) => setSeed(c.profile)).catch(() => {});
+      getRun(h.showcase.run).then(setShowcase).catch(() => {});
     })
       .catch(() => setError(`Could not reach the API at ${API}. Start it first — see WEB.md.`));
     refreshRuns();
@@ -37,9 +39,9 @@ export default function App() {
 
   const runNames = runLabels(runs);
   const tabs: [Tab, string][] = [
-    ["preloaded", seed?.name ?? "Notion"], ["onboard", "Onboard your own company"],
-    ["history", "History"], ["compare", "Compare"],
-  ].filter(([t]) => !(health?.public_demo && t === "onboard")) as [Tab, string][];
+    ["preloaded", seed?.name ?? "Notion"], ["showcase", showcase?.profile.name ?? "Profound"],
+    ["onboard", "Onboard your own company"], ["history", "History"], ["compare", "Compare"],
+  ].filter(([t]) => !(health?.public_demo && t === "onboard") && (t !== "showcase" || showcase)) as [Tab, string][];
 
   return (
     <div className="shell">
@@ -53,6 +55,7 @@ export default function App() {
             <button key={t} role="tab" className="tab" aria-selected={tab === t}
                     onClick={() => { setTab(t); if (t === "history") setOpened(null); }}>
               {t === "preloaded" && seed && <Logo name={seed.name} url={seed.logo_url} size={18} />}
+              {t === "showcase" && showcase && <Logo name={showcase.profile.name} url={showcase.profile.logo_url} size={18} />}
               {label}
             </button>
           ))}
@@ -61,8 +64,8 @@ export default function App() {
 
       {health?.public_demo && (
         <div className="callout warn-box">
-          <strong>Public demo — saved replay only.</strong> Every answer here is a bundled sample, not a
-          live measurement, and no AI model is called. Onboarding and live runs need your own key:
+          <strong>Public demo — saved runs only.</strong> Apart from the {showcase?.profile.name ?? "Profound"} report,
+          a real live run saved earlier, every answer here is a bundled sample, and no AI model is called. Onboarding and live runs need your own key:
           clone the repo and run it locally.
         </div>
       )}
@@ -73,6 +76,15 @@ export default function App() {
         {health && <CompanyWorkflow companyId={health.seed_company} preloaded publicDemo={health.public_demo}
                                      onRunSaved={refreshRuns} />}
       </div>
+      {tab === "showcase" && showcase && (
+        <div className="stack">
+          <p className="muted" style={{ margin: 0 }}>
+            A real live run, saved on {day(showcase.created_at)}: {showcase.profile.domain} was read and
+            its claims put to AI as buyer and brand questions. Opening this tab replays nothing and asks no model.
+          </p>
+          <Report run={showcase} onRescored={setShowcase} />
+        </div>
+      )}
       <div hidden={tab !== "onboard"}>
         {health && !health.live_available && (
           <div className="callout warn-box">

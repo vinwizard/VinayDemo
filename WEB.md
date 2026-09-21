@@ -102,7 +102,7 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/health` | liveness, whether live mode is usable, and `seed_company` — the id of the preloaded company |
+| `GET /api/health` | liveness, whether live mode is usable, and `seed_company` — the id of the preloaded company, and `showcase` — the company and run ids of the preloaded Profound report |
 | `GET /api/stream?company=<id>` or `?scenario=A&mode=demo` | SSE while the graph runs: `node` (with `planned` question counts per stage, discovered `competitors` and the run `mode`), `answer` (the question, the first 320 characters of its answer, provenance and whether a web search ran), `done` (the full run), `error`. A company is always `mode=live`, apart from the offline fallback above. The page only ever measures companies; `?scenario=` remains for the fixture path |
 | `GET /api/runs` | run history, newest first |
 | `GET /api/runs/{id}` | one full run, including the drift report and its `insights` (share of voice, cited sources); the stream's `done` event and `rescore` return the same shape |
@@ -121,6 +121,11 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   notion.com, committed so a fresh clone has it, with an example set of intent weights the page
   labels as an example rather than Notion's own. It is the same workflow as the next tab, starting at
   step 3
+- **Profound** — the preloaded finished report. `data/runs/8d1d78c3e6.json` is a real live run of
+  tryprofound.com (`data/companies/998420ffae.json` its onboarding), committed so every clone and the
+  public demo open it straight away, labelled as measured live with its date. Opening it asks no
+  model; re-weighting it re-scores in the page but never rewrites the committed file
+  (`SHOWCASE_RUN` in `api/main.py`). It also appears in History and Compare
 - **Onboard your own company** — one workflow on one screen, seven stages that complete in order:
   read their site (the pages fetched), extract what they claim (claims kept, each with its verbatim
   quote and page count, and a "How we checked these claims" panel listing each extracted claim once:
