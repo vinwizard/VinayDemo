@@ -113,7 +113,11 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
             <div>{s.label}</div>
             {s.description && <div className="muted desc">{s.description}</div>}
             <div className="muted">
-              {s.intended_weight ? `intent ${s.intended_weight}` : "not claimed by you"}
+              {s.intended_weight
+                ? `intent ${s.intended_weight}`
+                : s.claim_pages > 0 || (s.claim_strength ?? 0) > 0
+                  ? "on your site, not weighted"
+                  : "not claimed by you"}
             </div>
           </div>
           <div>
