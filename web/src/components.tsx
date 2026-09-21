@@ -720,6 +720,25 @@ export function Competitors({ run }: { run: Run }) {
     );
   }
   const top = rows[0];
+  const namedTable = (shown: typeof rows) => (
+    <table className="named">
+      <thead>
+        <tr><th>Product</th>{repeats && <th>Answers</th>}<th>Buyer topic</th><th>Where the answer names it</th></tr>
+      </thead>
+      <tbody>
+        {shown.map((r) => (
+          <tr key={r.name}>
+            <td><strong>{r.name}</strong></td>
+            {repeats && <td>{r.count}</td>}
+            <td className="muted">{r.topic}</td>
+            <td className="muted">
+              {r.where ? <>{r.where[0]}<strong>{r.where[1]}</strong>{r.where[2]}</> : "—"}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
   return (
     <Section title={title}
            found={`${plural(rows.length, "product")} named${repeats ? ` · most often ${top.name} (${top.count})` : ""}`}>
@@ -736,30 +755,19 @@ export function Competitors({ run }: { run: Run }) {
           ? "Sorted by how many answers named it; the rest were named once, in the order they appeared."
           : "Each was named in one answer only, so this is the order they appeared, not a ranking."}
       </p>
-      <table className="named">
-        <thead>
-          <tr><th>Product</th>{repeats && <th>Answers</th>}<th>Buyer topic</th><th>Where the answer names it</th></tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.name}>
-              <td><strong>{r.name}</strong></td>
-              {repeats && <td>{r.count}</td>}
-              <td className="muted">{r.topic}</td>
-              <td className="muted">
-                {r.where ? <>{r.where[0]}<strong>{r.where[1]}</strong>{r.where[2]}</> : "—"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {namedTable(rows.slice(0, SHOWN_NAMED))}
+      {rows.length > SHOWN_NAMED && (
+        <details>
+          <summary className="muted">Show the other {plural(rows.length - SHOWN_NAMED, "product")}</summary>
+          {namedTable(rows.slice(SHOWN_NAMED))}
+        </details>
+      )}
       {comparison && (
         <>
           <h4 className="muted" style={{ marginTop: "1rem" }}>
             Follow-up question, built from those names (exploratory — not counted in alignment)
           </h4>
-          <strong>{comparison.text}</strong>
-          <p className="muted long-answer">{answer ? plain(answer.text) : "no answer"}</p>
+          <QuestionRow p={comparison} name="Follow-up" answer={answer || undefined} replay={replay} />
         </>
       )}
     </Section>
@@ -815,6 +823,7 @@ function ShareOfVoice({ run }: { run: Run }) {
 }
 
 const SHOWN_SOURCES = 8;
+const SHOWN_NAMED = 3;
 
 /**
  * The sites AI cited in the answers that count, ranked by how many answers cite each. A third-party
