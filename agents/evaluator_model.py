@@ -291,6 +291,18 @@ class ModelEvaluator:
             return None
         return proposals
 
+    def win_back(self, prompt: str) -> Optional[list]:
+        """-> raw actions for win_back.validate, or None if the call failed."""
+        self.calls += 1
+        try:
+            actions = _json_object(self._transport(prompt, self.model, self.timeout)).get("actions")
+            if not isinstance(actions, list):
+                raise ValueError("action-plan output has no actions list")
+        except Exception as e:
+            self.failures.append(f"win back: {type(e).__name__}: {e}")
+            return None
+        return actions
+
     def _ask(self, prompt: str) -> str:
         self.calls += 1
         return self._transport(prompt, self.model, self.timeout)

@@ -138,7 +138,13 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   visibility. A legend counts each zone in opportunity wording, then an optional **weights** block
   that calls `POST /api/runs/{id}/rescore` (no new AI calls; a 409 is shown in the server's words),
   the claim-vs-echo drift map with an Evidence disclosure per claim, "where the upside is" cards,
-  and four collapsible blocks whose headers state what each found: **buyer questions** ("12 asked ·
+  and collapsible blocks whose headers state what each found: **how to win it back** (per claim to
+  win back or amplify, the page of theirs to change, a suggested rewrite and the buyer questions that
+  did not recommend them which it should help with — one evaluator-model call at the end of a live
+  run over the saved answers and pages, authored and labelled sample in replay; `agents/win_back.py`
+  drops any action whose page was not read, whose replaced copy is not verbatim on it, whose rewrite
+  is marketing language, or whose question was not asked, and says why; it moves no number),
+  **buyer questions** ("12 asked ·
   named you in 8"), **brand questions**, **who AI named instead** (every product named in a buyer
   answer that counts, beside the line that names it, plus the round-two comparison question) and
   **discovered identities**. Every n/a shows the server's reason from `na_reasons`. Two lenses: with
