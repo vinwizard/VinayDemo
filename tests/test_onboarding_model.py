@@ -21,7 +21,7 @@ def payload(**over):
         "customer_types": ["startups"],
         "attributes": [{
             "id": "enterprise_ready", "label": "Enterprise ready",
-            "description": "Offers SAML single sign-on, audit logs and SCIM provisioning for "
+            "description": "Acme offers SAML single sign-on, audit logs and SCIM provisioning for "
                            "company-wide IT rollout.",
             "aliases": ["enterprise-grade"],
             "claim_quotes": ["SAML single sign-on, audit logs and SCIM provisioning"],
@@ -57,7 +57,7 @@ def test_quote_on_every_page_counts_every_page():
     pages = [("https://example.com/a", "Acme has audit logs everywhere."),
              ("https://example.com/b", "Acme has audit logs everywhere too.")]
     raw = json.loads(payload())
-    raw["attributes"][0]["claim_quotes"] = ["Acme has audit logs"]
+    raw["attributes"][0]["claim_quotes"] = ["Acme has audit logs everywhere"]
     _, attrs, _ = agent(json.dumps(raw)).run("Acme", "example.com", pages)
     assert attrs[0].claim_pages == 2 and attrs[0].claim_pages_total == 2
 
@@ -74,18 +74,57 @@ def test_unverifiable_quote_drops_the_attribute():
 
 def test_partially_hallucinated_quotes_keep_only_the_real_ones():
     raw = json.loads(payload())
-    raw["attributes"][0]["claim_quotes"] = ["audit logs and SCIM provisioning", "we are ISO 27001"]
+    raw["attributes"][0]["claim_quotes"] = ["audit logs and SCIM provisioning",
+                                            "we are ISO 27001 certified today"]
     _, attrs, warnings = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
     assert attrs[0].claim_quotes == ["audit logs and SCIM provisioning"]
     assert any("not verbatim" in w for w in warnings)
 
 
-# --- the actual complaint: labels that explain nothing ------------------------
-def test_description_that_restates_the_label_is_flagged():
+# --- the actual complaint: claims nothing could contradict ---------------------
+def test_description_that_restates_the_label_is_rejected():
     raw = json.loads(payload())
     raw["attributes"][0]["description"] = "Enterprise ready for enterprises."
     _, attrs, warnings = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
-    assert any("restates the label" in w for w in warnings)
+    assert attrs == [] and any("restates the label" in w for w in warnings)
+
+
+@pytest.mark.parametrize("statement,why", [
+    # the two statements the first live linear.app onboard actually produced
+    ("The platform reduces noise and restores momentum, allowing teams to ship products rapidly "
+     "and with focus.", "does not name the company"),
+    ("Designed specifically for contemporary product development practices, accommodating scaling "
+     "needs as teams grow.", "does not name the company"),
+    ("Acme minimizes noise and friction, allowing teams to focus and maintain high velocity.",
+     "marketing language"),
+    ("Acme lets IT roll out SSO seamlessly across the whole company.", "marketing language"),
+])
+def test_marketing_paraphrase_is_rejected_not_kept(statement, why):
+    raw = json.loads(payload())
+    raw["attributes"][0]["description"] = statement
+    _, attrs, warnings = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
+    assert attrs == []
+    assert any(why in w and statement in w for w in warnings)   # the loss is shown, not silent
+
+
+def test_a_checkable_assertion_passes():
+    raw = json.loads(payload())
+    raw["attributes"][0]["description"] = ("Acme is fast by design - issues open instantly and the "
+                                           "whole app is keyboard-first")
+    _, attrs, warnings = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
+    assert [a.id for a in attrs] == ["enterprise_ready"] and not warnings
+
+
+@pytest.mark.parametrize("statement,rejected", [
+    ("Modern Treasury offers SAML single sign-on, audit logs and SCIM provisioning for IT.", False),
+    ("Modern Treasury lets IT roll out SSO seamlessly across the whole company.", True),
+])
+def test_a_marketing_word_in_the_company_name_is_not_marketing(statement, rejected):
+    raw = json.loads(payload(name="Modern Treasury", aliases=[]))
+    raw["attributes"][0]["description"] = statement
+    _, attrs, warnings = agent(json.dumps(raw)).run("Modern Treasury", "example.com", PAGES)
+    assert (attrs == []) is rejected
+    assert any("seamlessly" in w for w in warnings) is rejected
 
 
 def test_a_real_description_is_kept_without_complaint():
@@ -94,12 +133,40 @@ def test_a_real_description_is_kept_without_complaint():
     assert not any("restates the label" in w for w in warnings)
 
 
-def test_missing_description_is_flagged():
+def test_missing_description_is_rejected():
     raw = json.loads(payload())
     raw["attributes"][0]["description"] = ""
     _, attrs, warnings = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
-    assert attrs[0].description is None
-    assert any("too thin" in w or "restates" in w for w in warnings)
+    assert attrs == [] and any("too thin" in w for w in warnings)
+
+
+# --- page counts come from every page ------------------------------------------
+def test_quotes_filed_by_page_count_every_page_that_states_it():
+    pages = PAGES + [("https://example.com/security",
+                      "Security first: SAML single sign-on, audit logs and SCIM provisioning.")]
+    raw = json.loads(payload())
+    raw["attributes"][0]["claim_quotes"] = {"2": "SAML single sign-on, audit logs and SCIM provisioning",
+                                            "3": "Security first: SAML single sign-on"}
+    _, attrs, _ = agent(json.dumps(raw)).run("Acme", "example.com", pages)
+    assert attrs[0].claim_pages == 2 and attrs[0].claim_evidence_ids == ["pg2", "pg3"]
+
+
+def test_a_nav_label_on_every_page_does_not_count():
+    """Asking for a quote from every page invites "Available today" from the site chrome."""
+    pages = [(f"https://example.com/{i}", "Available today. " + t) for i, (_, t) in enumerate(PAGES)]
+    raw = json.loads(payload())
+    raw["attributes"][0]["claim_quotes"] = ["Available today",
+                                            "SAML single sign-on, audit logs and SCIM provisioning"]
+    _, attrs, warnings = agent(json.dumps(raw)).run("Acme", "example.com", pages)
+    assert attrs[0].claim_pages == 1 and attrs[0].claim_quotes == [
+        "SAML single sign-on, audit logs and SCIM provisioning"]
+    assert any("too short" in w for w in warnings)
+
+
+def test_the_company_name_always_counts_as_a_mention():
+    """The model lists product names as aliases; the bare name must still count as the brand."""
+    profile, _, _ = agent(payload(aliases=["Acme Agent"])).run("Acme", "example.com", PAGES)
+    assert profile.aliases == ["Acme", "Acme Agent"]
 
 
 # --- the three layers stay separate ------------------------------------------

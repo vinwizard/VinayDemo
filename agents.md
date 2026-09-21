@@ -213,7 +213,7 @@ mention_rate = mentions / n
 recommendation_rate = recommendations / n
 citation_rate = owned_domain_citations / n
 visibility_score = 100 * sum(strength) / (2*n)
-competitor_rate = answers_with_positive_competitor_recommendations / n
+competitor_rate = answers_recommending_a_competitor_and_never_mentioning_the_brand / n
 fit_weight = strong:1.0, partial:0.5, unsupported:0.0
 gap_priority = 100 * fit_weight * (1-recommendation_rate) * competitor_rate
 ```
