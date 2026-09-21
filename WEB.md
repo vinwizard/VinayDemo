@@ -123,8 +123,8 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   step 3
 - **Onboard your own company** — one workflow on one screen, seven stages that complete in order:
   read their site (the pages fetched), extract what they claim (claims kept, each with its verbatim
-  quote and page count), choose what you want to be known for (the zero-floor intent sliders and the
-  add-your-own row), ask buyer questions, ask brand questions, follow up on products AI named, and
+  quote and page count), optionally choose what you want to be known for (the zero-floor intent
+  sliders and the add-your-own row), ask buyer questions, ask brand questions, follow up on products AI named, and
   score. Each stage is driven by the stream's events, shows what it actually did, and lists every
   answer as it arrives; a finished stage folds to a one-line summary. The report appears beneath
   the stages when scoring finishes. Previously onboarded companies can be reopened from step 1
