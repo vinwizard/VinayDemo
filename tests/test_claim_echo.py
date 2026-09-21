@@ -117,9 +117,21 @@ def test_rescore_rejects_unknown_attribute_and_missing_run(client):
     assert client.post("/api/runs/0000000000/rescore", json={"weights": {}}).status_code == 404
 
 
-def test_rescore_of_a_run_saved_before_observations_were_stored(monkeypatch):
+def test_rescore_refuses_a_run_saved_before_observations_were_stored(client, monkeypatch):
     run = run_scenario("A", strip=True)
-    run.observations, run.drift_notes = {}, []
+    data = json.loads(run.model_dump_json())
+    del data["observations"]
+    (reports.RUNS / f"{run.id}.json").write_text(json.dumps(data))
     forbid_model_calls(monkeypatch)
     weights = {a.id: a.intended_weight for a in FixtureProvider("A").attributes() if a.intended}
-    assert graph.rescore(run, weights).drift.alignment == 21.4
+    r = client.post(f"/api/runs/{run.id}/rescore", json={"weights": weights})
+    assert r.status_code == 409 and "measure again" in r.json()["detail"]
+
+
+def test_rescore_of_empty_but_present_observations(monkeypatch):
+    run, n_named = run_scenario("A", strip=True), run_scenario("A").drift.n_named
+    run.observations = {}
+    forbid_model_calls(monkeypatch)
+    weights = {a.id: a.intended_weight for a in FixtureProvider("A").attributes() if a.intended}
+    d = graph.rescore(run, weights).drift
+    assert d.lens == "intent" and d.n_named == n_named

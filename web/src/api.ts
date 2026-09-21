@@ -124,6 +124,7 @@ export interface RunSummary {
   company: string;
   alignment: number | null;
   claim_echo?: number | null;
+  lens?: "claim" | "intent" | null;
   visibility: number | null;
   landed: number;
   lost: number;

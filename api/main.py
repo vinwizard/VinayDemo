@@ -206,6 +206,7 @@ def list_all():
                         company=r.profile.name,
                         alignment=d.alignment if d else None,
                         claim_echo=d.claim_echo if d else None,
+                        lens=d.lens if d else None,
                         visibility=d.visibility if d else None,
                         landed=len(d.landed) if d else 0,
                         lost=len(d.lost_claims) if d else 0,

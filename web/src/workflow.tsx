@@ -10,7 +10,7 @@ import type { CompanyDetail, CompanySummary, Run, StreamAnswer, StreamNode } fro
 import { getCompanies, getCompany, streamOnboard, streamRun } from "./api";
 import { ClaimsStep } from "./claims";
 import { Report } from "./components";
-import { PROVENANCE_LABEL, plain, streamingProbeLabel } from "./labels";
+import { PROVENANCE_LABEL, headline, pctText, plain, streamingProbeLabel } from "./labels";
 
 type StageState = "pending" | "active" | "done" | "skipped" | "failed";
 
@@ -362,7 +362,7 @@ export function CompanyWorkflow({ companyId, preloaded, onRunSaved }: {
 
       <Stage n={7} title="Score" state={s7} last
              summary={p.run?.drift
-               ? `Alignment ${p.run.drift.alignment == null ? "n/a" : `${p.run.drift.alignment}%`}`
+               ? `${headline(p.run.drift).label} ${pctText(headline(p.run.drift).value)}`
                  + ` · ${PROVENANCE_LABEL[p.run.mode] ?? p.run.mode}`
                : s7 === "active" ? "Checking every quote is verbatim, then placing each claim…"
                : "Every quote checked word for word against its answer, then each claim placed"}>

@@ -296,7 +296,7 @@ class Run(BaseModel):
     attributes: list[Attribute] = []
     attribute_scores: list[AttributeScore] = []
     # validated observations per named probe id, kept so a re-score never needs the model again
-    observations: dict[str, list[AttributeObservation]] = {}
+    observations: Optional[dict[str, list[AttributeObservation]]] = None  # None: saved before re-scoring
     drift_notes: list[str] = []  # limitations measure_drift adds beyond the report's own
     drift: Optional[DriftReport] = None
     log: list[str] = []

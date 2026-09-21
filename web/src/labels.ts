@@ -106,3 +106,11 @@ export function runLabels(runs: RunSummary[]): Record<string, RunLabel> {
   });
   return out;
 }
+
+/** The run's headline number: claim echo when nothing was weighted, alignment otherwise. */
+export const headline = (d: { lens?: string | null; alignment: number | null; claim_echo?: number | null }) =>
+  d.lens === "claim"
+    ? { label: "Claim echo", value: d.claim_echo ?? null }
+    : { label: "Alignment", value: d.alignment };
+
+export const pctText = (x: number | null | undefined) => (x == null ? "n/a" : `${x}%`);

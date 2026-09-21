@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Answer, AttributeScore, DriftReport, QueryEvaluation, Run, RunSummary, Zone } from "./api";
 import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_MEANING, ZONE_ORDER, ZONES } from "./api";
-import { PROVENANCE_LABEL, claimShare, plain, probeLabels, provenanceLabel, runLabels, when } from "./labels";
+import { PROVENANCE_LABEL, claimShare, headline, pctText, plain, probeLabels, provenanceLabel, runLabels, when } from "./labels";
 
 const ZONE_FILL: Record<Zone, string> = {
   landed: "var(--landed)",
@@ -28,15 +28,27 @@ export function Metrics({ d, brand }: { d: DriftReport; brand: string }) {
   return (
     <>
       <div className="headline">
-        <div className="figure">
-          <div className="label">Positioning alignment</div>
-          <div className="value">{d.alignment == null ? "n/a" : `${d.alignment}%`}</div>
-          <p>
-            Weighted by how much each claim matters to you: how often AI’s answers about {brand} say
-            what you want to be known for.
-            {d.alignment == null && " Withheld — too few brand answers to score."}
-          </p>
-        </div>
+        {d.lens === "claim" ? (
+          <div className="figure">
+            <div className="label">Claim echo</div>
+            <div className="value">{pctText(d.claim_echo)}</div>
+            <p>
+              Weighted by how often your site states each claim: how often AI’s answers about {brand}
+              repeat what the site says, supportively.
+              {d.claim_echo == null && d.na_reasons?.claim_echo && ` ${d.na_reasons.claim_echo}`}
+            </p>
+          </div>
+        ) : (
+          <div className="figure">
+            <div className="label">Positioning alignment</div>
+            <div className="value">{pctText(d.alignment)}</div>
+            <p>
+              Weighted by how much each claim matters to you: how often AI’s answers about {brand} say
+              what you want to be known for.
+              {d.alignment == null && d.na_reasons?.alignment && ` ${d.na_reasons.alignment}`}
+            </p>
+          </div>
+        )}
         <div className="figure secondary">
           <div className="label">Buyer visibility</div>
           <div className="value">{d.visibility == null ? "n/a" : d.visibility}<small>{d.visibility != null && " / 100"}</small></div>
@@ -444,7 +456,8 @@ export function Compare({ a, b, runs = [] }: { a: Run; b: Run; runs?: RunSummary
   const da = a.drift, db = b.drift;
   const delta = (x: number | null | undefined, y: number | null | undefined) =>
     x == null || y == null ? null : Math.round((y - x) * 10) / 10;
-  const alignDelta = delta(da?.alignment, db?.alignment);
+  const ha = da ? headline(da) : null, hb = db ? headline(db) : null;
+  const alignDelta = ha?.label === hb?.label ? delta(ha?.value, hb?.value) : null;
   return (
     <div className="stack">
       <div className="card">
@@ -452,7 +465,7 @@ export function Compare({ a, b, runs = [] }: { a: Run; b: Run; runs?: RunSummary
           <div>
             <div className="muted" title={a.id}>{name(a)}</div>
             <div className="value" style={{ fontSize: "1.6rem", fontWeight: 600 }}>
-              {da?.alignment ?? "n/a"}%
+              <small className="muted">{ha?.label ?? "Alignment"} </small>{pctText(ha?.value)}
             </div>
           </div>
           <div style={{ textAlign: "center" }}>
@@ -465,7 +478,7 @@ export function Compare({ a, b, runs = [] }: { a: Run; b: Run; runs?: RunSummary
           <div style={{ textAlign: "right" }}>
             <div className="muted" title={b.id}>{name(b)}</div>
             <div className="value" style={{ fontSize: "1.6rem", fontWeight: 600 }}>
-              {db?.alignment ?? "n/a"}%
+              <small className="muted">{hb?.label ?? "Alignment"} </small>{pctText(hb?.value)}
             </div>
           </div>
         </div>
@@ -501,7 +514,7 @@ export function History({ runs, onOpen }: { runs: RunSummary[]; onOpen: (id: str
     <div className="card">
       <table>
         <thead>
-          <tr><th>Run</th><th>When</th><th>Scenario</th><th>Alignment</th><th>Landed</th><th>Lost</th><th>Imposed</th></tr>
+          <tr><th>Run</th><th>When</th><th>Scenario</th><th>Headline</th><th>Landed</th><th>Lost</th><th>Imposed</th></tr>
         </thead>
         <tbody>
           {runs.map((r) => (
@@ -509,7 +522,7 @@ export function History({ runs, onOpen }: { runs: RunSummary[]; onOpen: (id: str
               <td title={r.id}>{names[r.id]?.short ?? r.id}</td>
               <td className="muted">{r.created_at.replace("T", " ")}</td>
               <td>{r.scenario ?? "—"}</td>
-              <td><strong>{r.alignment == null ? "n/a" : `${r.alignment}%`}</strong></td>
+              <td><strong>{headline(r).label} {pctText(headline(r).value)}</strong></td>
               <td>{r.landed}</td><td>{r.lost}</td><td>{r.imposed}</td>
             </tr>
           ))}

@@ -243,18 +243,8 @@ def rescore(run: Run, weights: dict[str, float]) -> Run:
     """
     if run.status != "complete":
         raise ValidationError("only a finished run can be re-scored")
-    if not run.observations:
-        # saved before observations were stored: the declared ones are re-derivable from the saved
-        # labels without a model, but a discovered attribute's evidence was never kept
-        if any(a.discovered for a in run.attributes):
-            raise ValidationError("this run predates re-scoring and has discovered attributes whose "
-                                  "evidence was not saved; measure again to set weights on it")
-        answers = {a.probe_id: a for a in run.answers}
-        run.observations = {p.id: evaluation.extract_attributes(answers[p.id], run.attributes)[0]
-                            for p in run.probes if p.kind == "named" and p.id in answers}
-        run.drift_notes = [x for x in (run.drift.limitations if run.drift else [])
-                           if x.startswith(("Dropped unverifiable", "Discovery —", "No competitor",
-                                            "No buyer question"))]
+    if run.observations is None:
+        raise ValidationError("this run was saved before re-scoring existed; measure again to set weights")
     by_id = {a.id: a for a in run.attributes}
     for aid, w in weights.items():
         by_id[aid].intended_weight = round(w, 2) or None
