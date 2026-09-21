@@ -7,3 +7,5 @@ __pycache__/
 data/runs/*.json
 screenshots/
 tests/
+web/node_modules/
+web/dist/
