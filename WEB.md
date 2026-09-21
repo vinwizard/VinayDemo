@@ -1,7 +1,7 @@
 # Web frontend (React + FastAPI)
 
-Replaces the Streamlit UI. The Python engine is **unchanged** — `graph.py`, `drift.py`, `agents/`,
-`scoring.py` and the fixtures are imported, not modified. `app.py` still runs today, but it is
+Replaces the Streamlit UI. The Python engine — `graph.py`, `drift.py`, `agents/`, `scoring.py` and
+the fixtures — is imported, not reimplemented. `app.py` still runs today, but it is
 scheduled for removal in a filed follow-up task.
 
 ## Why not Streamlit
@@ -57,8 +57,9 @@ Restart the API. It prints `[config] loaded from .env: OPENAI_API_KEY=<set>` —
 values. Check `curl -s http://127.0.0.1:8000/api/health` for `"live_available": true`, then reload the
 page and the Mode dropdown becomes selectable.
 
-A live run is 16 calls: 8 to the measured model with web search, 8 to the evaluator. It measures
-perception only, so alignment is produced and visibility stays null. Without a key, live mode
+A live run asks every brand and buyer question once to the measured model with web search, and has
+the evaluator grade each answer — two calls per question — plus one round-two comparison question
+when a buyer answer names a competitor. Without a key, live mode
 **errors** rather than falling back to fixtures — a fixture result under a live label would be a
 fabricated measurement.
 

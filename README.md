@@ -83,7 +83,7 @@ python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
 
 Open http://localhost:8501. No API keys, accounts, or internet needed. Stop the server with `Ctrl+C`.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 141 tests incl. one UI journey per
+Tests: `conda activate visexp && python -m pytest -q` (offline; 177 tests incl. one UI journey per
 scenario, the live adapter under an injected transport and the stream endpoint's setup-error path — no
 API key, no network).
 
