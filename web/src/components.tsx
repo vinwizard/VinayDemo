@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AttributeScore, DriftReport, Run, RunSummary } from "./api";
-import { OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_ORDER } from "./api";
+import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_ORDER } from "./api";
 import { claimShare, probeLabels, provenanceLabel, runLabels } from "./labels";
 
 const ZONE_FILL: Record<string, string> = {
@@ -182,7 +182,7 @@ function GapCard({ s }: { s: AttributeScore }) {
 
 export function GapCards({ scores }: { scores: AttributeScore[] }) {
   const gaps = scores
-    .filter((s) => s.zone !== "landed")
+    .filter((s) => GAP_ZONES.includes(s.zone))
     .sort((a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.intended_weight ?? 0) - (a.intended_weight ?? 0))
     .slice(0, 4);
   if (!gaps.length) return null;
@@ -196,11 +196,14 @@ export function GapCards({ scores }: { scores: AttributeScore[] }) {
 /**
  * Who AI offered instead, and what it said when asked to compare.
  *
- * Nobody supplied these names: a buyer question describes what the company does without naming it,
- * so every brand in the answer is one the model chose. The engine has always extracted them and
- * checked them verbatim against the answer text; until now nothing displayed them.
+ * In a live run nobody supplied these names: a buyer question describes what the company does
+ * without naming it, so every brand in the answer is one the model chose. In replay they are
+ * authored fixture labels and the panel says so — a sentence asserting measured behaviour is
+ * believed over the banner at the top of the page, and this product's whole claim is that it never
+ * presents authored evidence as measured evidence.
  */
 export function Competitors({ run }: { run: Run }) {
+  const replay = run.mode !== "live_api";
   const byTopic = new Map(run.topics.map((t) => [t.id, t.label]));
   const rows = run.topic_evaluations
     .filter((te) => te.phase === "baseline" && te.top_competitors.length > 0)
@@ -213,9 +216,11 @@ export function Competitors({ run }: { run: Run }) {
   if (!rows.length) {
     return (
       <div className="card muted">
-        {askedBuyerQuestions
-          ? "No competitor was named in any buyer answer, so there was nothing to compare against and no comparison question was asked."
-          : "No buyer question was asked — nothing is weighted as intended — so the buyer axis was not measured and no competitor could be discovered."}
+        {!askedBuyerQuestions
+          ? "No buyer question was asked — nothing is weighted as intended — so the buyer axis was not measured and no competitor could be discovered."
+          : replay
+            ? "This sample scenario names no competitor in its authored buyer answers. Replay never asks the comparison question either: that round exists only in a live run."
+            : "No competitor was named in any buyer answer, so there was nothing to compare against and no comparison question was asked."}
       </div>
     );
   }
@@ -223,8 +228,12 @@ export function Competitors({ run }: { run: Run }) {
     <div className="card">
       <h3>Who AI named instead</h3>
       <p className="muted" style={{ margin: ".3rem 0 .6rem" }}>
-        Discovered, not asked for: these are the brands the model volunteered when a buyer described
-        what you do without naming you.
+        {replay
+          ? "Authored sample data, not a measurement: no model volunteered these names. A live run"
+            + " puts here the brands the model itself offered when a buyer described what you do"
+            + " without naming you, and only a live run asks the comparison question below."
+          : "Discovered, not asked for: these are the brands the model volunteered when a buyer"
+            + " described what you do without naming you."}
       </p>
       <table>
         <thead><tr><th>Buyer topic</th><th>Recommended instead</th></tr></thead>

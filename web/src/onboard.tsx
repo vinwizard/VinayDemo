@@ -105,6 +105,14 @@ export function Onboard({ liveAvailable, busy, onMeasure }: {
   };
 
   const intended = Object.values(weights).filter((w) => w > 0).length;
+  // A weighted claim reaches the buyer axis only if it still HAS buyer questions: vetting drops
+  // leaking or repeated ones, and generation can fail outright. Counting the cap alone overstates
+  // how many made it, on a screen whose job is to be trusted about counts.
+  const onBuyerAxis = Math.min(
+    MAX_BUYER_TOPICS,
+    company?.attributes.filter((a) => (weights[a.id] ?? 0) > 0 && a.buyer_questions.length > 0).length ?? 0,
+  );
+  const brandAxisOnly = intended - onBuyerAxis;
 
   return (
     <div className="stack">
@@ -157,10 +165,11 @@ export function Onboard({ liveAvailable, busy, onMeasure }: {
               Move a slider for each claim you actually want to be known for. A slider left at zero
               stays at zero: we never guess an intention you did not state.
             </p>
-            {intended > MAX_BUYER_TOPICS && (
+            {brandAxisOnly > 0 && (
               <p className="warn">
-                Only the first {MAX_BUYER_TOPICS} weighted claims get buyer questions, so {intended - MAX_BUYER_TOPICS}{" "}
-                of your {intended} will be measured on the brand axis alone.
+                {brandAxisOnly} of your {intended} weighted claim{intended === 1 ? "" : "s"} will be
+                measured on the brand axis alone: the buyer axis takes at most {MAX_BUYER_TOPICS} claims,
+                and only claims that still have buyer questions.
               </p>
             )}
             <div className="stack" style={{ marginTop: ".7rem" }}>

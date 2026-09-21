@@ -152,16 +152,18 @@ class FakeEvaluator:
     """Labels every answer the same way. The validators still check them against the text."""
     model = "test-evaluator"
 
-    def __init__(self, competitors):
+    def __init__(self, competitors, mentioned=False, quotes=()):
         self.competitors = competitors
+        self.mentioned = mentioned
+        self.quotes = list(quotes)
 
     def label(self, probe, answer, attributes, profile):
-        return dict(mentioned=False, recommended=False, negative_mention=False,
-                    competitor_recommendations=list(self.competitors), evidence_quotes=[],
+        return dict(mentioned=self.mentioned, recommended=False, negative_mention=False,
+                    competitor_recommendations=list(self.competitors), evidence_quotes=self.quotes,
                     on_topic=True, attributes=[])
 
 
-def live_run(competitors, answer_text):
+def live_run(competitors, answer_text, mentioned=False, quotes=()):
     from providers import live
     message = {"type": "message", "content": [{"type": "output_text", "text": answer_text,
                                                "annotations": []}]}
@@ -169,7 +171,7 @@ def live_run(competitors, answer_text):
     f = fixture.FixtureProvider("A")
     prov = live.LiveProvider(f.attributes(), f.named_probes(), profile=f.profile,
                              model="test-model", transport=transport,
-                             evaluator=FakeEvaluator(competitors))
+                             evaluator=FakeEvaluator(competitors, mentioned, quotes))
     return graph.execute(graph.new_run(f.profile, prov, mode="live_api"), prov)
 
 
@@ -357,3 +359,26 @@ def test_an_added_claim_cannot_be_created_unintended():
     with pytest.raises(ValidationError):
         main.AddedAttribute(label="Secure by default", intended_weight=0.0)
     assert main.AddedAttribute(label="Secure by default").intended_weight == 0.5
+
+
+def test_the_target_is_never_its_own_competitor(store):
+    """An evaluator listing the target among "other brands" is a routine slip, and this list reaches
+    both the report table and a paid question: "How does Notion compare to Notion and Linear?"."""
+    text = "Notion and Linear are good options for this."
+    run = live_run(["Notion", "Linear"], text, mentioned=True, quotes=[text])
+    named = {c for te in run.topic_evaluations for c in te.top_competitors}
+    assert named == {"Linear"}
+    cmp = next(p for p in run.probes if p.id == ana.COMPARISON_PROBE_ID)
+    assert cmp.text == "How does Notion compare to Linear?"
+    # dropping the self-reference is a correction, not an evidence failure: the answer still scores
+    assert all(e.valid for e in run.evaluations if e.probe_id.endswith("-b1"))
+
+
+def test_a_claim_you_never_weighted_is_not_filed_under_gaps():
+    """`unprioritised` is the company's own claim being repeated back. Both report surfaces read the
+    same list, so neither can quietly start calling it somebody's problem."""
+    assert "unprioritised" not in drift.GAP_ZONES and "landed" not in drift.GAP_ZONES
+    claimed = Attribute(id="fast", label="Fast to set up", claim_evidence_ids=["pg1"],
+                        claim_quotes=["set up in minutes"], claim_pages=3, claim_pages_total=6)
+    zone, _ = drift.classify(claimed, 0.75, drift.claim_strength(claimed))
+    assert zone not in drift.GAP_ZONES

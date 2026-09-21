@@ -21,6 +21,11 @@ CONTESTED_MIN = 0.25   # AI actively saying the opposite of an intended claim is
 CLAIM_THRESHOLD = 0.4  # share of known pages that must state it before absence is an authority problem
 MIN_NAMED = 3          # below this, perception is not measurable and alignment is null
 
+# The zones that are somebody's problem. `landed` is working and `unprioritised` is the company's
+# own claim being repeated back — neither belongs under a heading that calls it a gap. Mirrored by
+# GAP_ZONES in web/src/api.ts.
+GAP_ZONES = ("contested", "lost_claim", "unstated_intent", "imposed")
+
 OWNER_TEXT = {
     "authority_gap": "You state this clearly and the models are not repeating it.",
     "messaging_gap": "AI does not say it because your own copy does not clearly say it either.",

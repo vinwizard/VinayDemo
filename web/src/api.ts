@@ -149,6 +149,13 @@ export const OWNER_TEXT: Record<Owner, string> = {
   none: "Intended positioning is reflected in AI answers.",
 };
 
+/**
+ * The zones that are somebody's problem. `landed` is working and `unprioritised` is the company's
+ * own claim being repeated back — neither belongs under a heading that calls it a gap. Mirrors
+ * drift.GAP_ZONES; filtering on "not landed" silently made every new non-problem zone a gap.
+ */
+export const GAP_ZONES: Zone[] = ["contested", "lost_claim", "unstated_intent", "imposed"];
+
 export const ZONE_ORDER: Record<Zone, number> = {
   contested: 0,   // AI contradicting a claim you care about outranks AI merely ignoring it
   lost_claim: 1,

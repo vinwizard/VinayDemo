@@ -32,7 +32,7 @@ def load(scenario: str) -> dict:
 
 
 def bundled_profile(scenario: str = "A") -> CompanyProfile:
-    return CompanyProfile(**load(scenario)["profile"])
+    return FixtureProvider(scenario).profile
 
 
 class ReplayUnavailable(Exception):
@@ -55,7 +55,7 @@ class FixtureProvider:
 
     def check_profile(self, profile: CompanyProfile):
         """Arbitrary or structurally edited companies must never receive the bundled report."""
-        if structural_fingerprint(profile) != structural_fingerprint(CompanyProfile(**self.data["profile"])):
+        if structural_fingerprint(profile) != structural_fingerprint(self.profile):
             raise ReplayUnavailable(
                 f"Replay data exists only for the unmodified bundled {self.data['profile']['name']} profile. "
                 "This profile differs in identity or positioning, so it needs regeneration, an imported research file, "

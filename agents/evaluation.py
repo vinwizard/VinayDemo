@@ -4,6 +4,7 @@ Replay: authored fixture labels propose the judgment; deterministic code validat
 quote, mention, competitor and citation against the raw answer and computes all numbers.
 Live: `MODEL_EVAL_PROMPT` is the prepared interface; it has not been run (no credentials).
 """
+from agents.ana import brand_leaks
 from labels import probe_names, with_ids
 from schemas import (Answer, Attribute, AttributeObservation, CompanyProfile, GapFinding, Probe,
                      QueryEvaluation, Topic, TopicEvaluation)
@@ -59,7 +60,14 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
         warnings.append("Recommendation/negative flag without a mention.")
     if labels["mentioned"] and not labels["evidence_quotes"]:
         warnings.append("Mention claimed without a supporting quote.")
-    missing_comps = [c for c in labels["competitor_recommendations"] if c not in answer.text]
+    # An evaluator listing the target among "other brands recommended" is a routine slip, and this
+    # list is not display-only: it feeds competitor_rate, gap_priority and the round-two comparison
+    # question sent to the measured model. "How does Notion compare to Notion and Confluence?" must
+    # be impossible, so the target's own vocabulary is stripped here, at the one shared boundary.
+    competitors = [c for c in labels["competitor_recommendations"] if not brand_leaks(c, profile)]
+    if own := [c for c in labels["competitor_recommendations"] if brand_leaks(c, profile)]:
+        warnings.append(f"Self-named competitor(s) dropped: {own} is the target, not a rival.")
+    missing_comps = [c for c in competitors if c not in answer.text]
     if missing_comps:
         warnings.append(f"Competitor(s) not in answer text: {missing_comps}")
     if not labels.get("on_topic", True):
@@ -72,7 +80,8 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
     if labels.get("outdated_claim_quote"):
         warnings.append(f"Possible outdated/inaccurate claim: \"{labels['outdated_claim_quote']}\"")
 
-    blocking = [w for w in warnings if not w.startswith(("Ambiguous alias", "Lookalike", "Possible outdated"))]
+    blocking = [w for w in warnings
+                if not w.startswith(("Ambiguous alias", "Lookalike", "Possible outdated", "Self-named"))]
     valid = not blocking
     strength = None
     if valid:
@@ -92,11 +101,11 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
         expl += " Owned domain cited without a body mention (citation-only; not counted as a mention)."
     elif owned:
         expl += " Owned domain cited."
-    if labels["competitor_recommendations"]:
-        expl += f" Competitors recommended: {', '.join(labels['competitor_recommendations'])}."
+    if competitors:
+        expl += f" Competitors recommended: {', '.join(competitors)}."
     return QueryEvaluation(
         probe_id=probe.id, valid=valid, mentioned=labels["mentioned"], recommended=labels["recommended"],
-        negative_mention=labels["negative_mention"], competitor_recommendations=labels["competitor_recommendations"],
+        negative_mention=labels["negative_mention"], competitor_recommendations=competitors,
         evidence_quotes=labels["evidence_quotes"], owned_citation=owned, strength=strength,
         explanation=expl, warnings=warnings)
 

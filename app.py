@@ -208,7 +208,7 @@ for s in sorted(run.attribute_scores, key=lambda x: (ORDER[x.zone], -(x.echo_rat
 # ---------------- whose problem is it ----------------
 st.write("")
 st.markdown("#### Whose problem is each gap?")
-gaps = [s for s in run.attribute_scores if s.zone in ("contested", "lost_claim", "unstated_intent", "imposed")]
+gaps = [s for s in run.attribute_scores if s.zone in drift.GAP_ZONES]
 gaps.sort(key=lambda s: (ORDER[s.zone], -((s.intended_weight or 0))))
 for s in gaps[:4]:
     with st.container(border=True):
