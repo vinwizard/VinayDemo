@@ -150,3 +150,14 @@ def test_only_same_origin_useful_links_are_followed():
     assert links == ["https://example.com/product/ai", "https://example.com/enterprise"]
     assert not any("other.example.com" in l for l in links)
     assert not any("careers" in l for l in links)
+
+
+def test_icon_prefers_apple_touch_then_icon_then_favicon_and_only_http():
+    base = "https://acme.example/home"
+    both = '<link rel="icon" href="/f.ico"><link href="/touch.png" rel="apple-touch-icon">'
+    assert fetching.icon_url(base, both) == "https://acme.example/touch.png"
+    assert fetching.icon_url(base, '<link rel="shortcut icon" href="//cdn.example/i.png">') \
+        == "https://cdn.example/i.png"
+    assert fetching.icon_url(base, '<link rel="icon" href="javascript:alert(1)">') \
+        == "https://acme.example/favicon.ico"
+    assert fetching.icon_url(base, "<p>no links</p>") == "https://acme.example/favicon.ico"

@@ -310,7 +310,8 @@ def test_an_added_claim_without_a_key_is_still_added_and_the_omission_is_stated(
 def test_a_thin_site_is_saved_with_a_warning_rather_than_refused(store, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(fetching, "fetch_site",
-                        lambda url, max_pages: [("https://acme.example/", "we set up in minutes")])
+                        lambda url, max_pages: ([("https://acme.example/", "we set up in minutes")],
+                                               "https://acme.example/icon.png"))
     monkeypatch.setattr(onboarding_model, "default_transport", lambda *_: json.dumps(
         {"name": "Acme", "one_liner": "Acme sets up fast.", "attributes": [
             {"id": "fast", "label": "Fast to set up", "description": "Acme accounts are usable in "
@@ -320,6 +321,7 @@ def test_a_thin_site_is_saved_with_a_warning_rather_than_refused(store, monkeypa
     assert reports.load_company(out["id"]).id == out["id"]   # the paid crawl is not discarded
     assert [a["id"] for a in out["attributes"]] == ["fast"]  # thin, not empty: its one claim survived
     assert any("too little for a reliable claim percentage" in w for w in out["warnings"])
+    assert out["profile"]["logo_url"] == "https://acme.example/icon.png"   # the crawl's icon is kept
 
 
 def test_a_repeated_buyer_question_is_dropped_before_the_company_is_saved():

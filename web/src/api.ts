@@ -88,7 +88,11 @@ export interface Answer {
 export interface QueryEvaluation {
   probe_id: string;
   valid: boolean;
+  mentioned: boolean;
+  recommended: boolean;
+  negative_mention: boolean;
   competitor_recommendations: string[];
+  explanation: string;
 }
 
 export interface TopicEvaluation {
@@ -105,12 +109,13 @@ export interface Run {
   scenario: string | null;
   status: string;
   mode: string;
-  profile: { name: string; domain: string };
+  profile: { name: string; domain: string; logo_url?: string | null };
   topics: Topic[];
   probes: Probe[];
   answers: Answer[];
   evaluations: QueryEvaluation[];
   topic_evaluations: TopicEvaluation[];
+  attributes?: ClaimedAttribute[];
   attribute_scores: AttributeScore[];
   drift: DriftReport | null;
   log: string[];
@@ -132,28 +137,9 @@ export interface RunSummary {
   unstated: number;
   imposed: number;
   unprioritised: number;
+  /** Field name -> why that number is null. */
+  na_reasons?: Record<string, string>;
 }
-
-export const ZONE_LABEL: Record<Zone, string> = {
-  landed: "landed",
-  lost_claim: "lost claim",
-  contested: "contested",
-  // The zone fires below drift.CLAIM_THRESHOLD, a share of pages, so it covers "1 of 6" as well as
-  // "0 of 6". "never stated" beside a row reading "33% of pages (2 of 6)" contradicted itself.
-  unstated_intent: "understated",
-  imposed: "imposed",
-  unprioritised: "unprioritised",
-};
-
-/** One line per zone, for the legend above the claim table. */
-export const ZONE_MEANING: Record<Zone, string> = {
-  landed: "you want it, and AI says it",
-  lost_claim: "your site says it; AI does not repeat it",
-  contested: "AI says the opposite of what you claim",
-  unstated_intent: "you want it, but too few of your pages say it",
-  imposed: "AI says it; you never claimed it",
-  unprioritised: "your site says it and AI repeats it, but you did not weight it",
-};
 
 /** Legend order: what is working, then each kind of gap, then the one that is not a gap. */
 export const ZONES: Zone[] = ["landed", "lost_claim", "contested", "unstated_intent", "imposed", "unprioritised"];
@@ -223,7 +209,7 @@ export interface CompanyDetail {
   id: string;
   created_at: string;
   profile: { name: string; domain: string; aliases: string[]; customer_types: string[];
-             one_liner: string | null; warnings: string[] };
+             one_liner: string | null; warnings: string[]; logo_url?: string | null };
   pages: string[];
   attributes: ClaimedAttribute[];
   warnings: string[];
@@ -263,6 +249,14 @@ export interface Health {
 export const getHealth = () => json<Health>("/api/health");
 export const getRuns = () => json<RunSummary[]>("/api/runs");
 export const getRun = (id: string) => json<Run>(`/api/runs/${id}`);
+
+/** Re-scores a finished run's saved answers with intent weights. No model is asked. */
+export const rescoreRun = (id: string, weights: Record<string, number>) =>
+  json<Run>(`/api/runs/${id}/rescore`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ weights }),
+  });
 
 /** One answer, the moment the model returns it. `answer` is the first few hundred characters. */
 export interface StreamAnswer {

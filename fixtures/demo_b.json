@@ -137,7 +137,8 @@
   "warnings": [
    "Profile evidence is illustrative until replaced by a sourced research snapshot."
   ],
-  "approved": false
+  "approved": false,
+  "logo_url": "https://www.notion.com/front-static/logo-ios.png"
  },
  "topics": [
   {

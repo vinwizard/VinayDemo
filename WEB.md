@@ -128,23 +128,33 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   score. Each stage is driven by the stream's events, shows what it actually did, and lists every
   answer as it arrives; a finished stage folds to a one-line summary. The report appears beneath
   the stages when scoring finishes. Previously onboarded companies can be reopened from step 1
-- **Report** (inline after a run, and from History) — where the answers came from first (measured
-  live, with the model, or the SYNTHETIC DEMO banner for a replayed run), then positioning alignment
-  and buyer visibility side by side, a legend counting each zone with what it means, the
-  claim-vs-echo drift map with an Evidence disclosure per claim, "whose problem is each gap" cards,
-  "named in buyer answers" (every product named in a buyer answer that counts toward the scores,
-  beside the part of the answer that names it, ranked only when a name repeats across answers, plus the round-two
-  comparison question built from those names), and the evidence, limitations and log behind a
-  disclosure. Two lenses: with no weight set the report reads through the **claim lens** — buyer
-  questions go to the claims stated on the most pages, **claim echo** (of what the site claims,
-  weighted by pages stating it, how much AI repeats supportively) is the headline, zones read
-  against the claims (landed / lost claim / contested / imposed), and alignment is absent with its
-  reason in `drift.na_reasons`. Once weights exist the **intent lens** adds alignment and the
-  unstated-intent messaging gap. **Unprioritised** is an intent-lens zone for a claim the company's
-  own pages state and AI repeats, but which the customer did not weight — the one case where
-  "imposed" would otherwise accuse AI of asserting something the company demonstrably claims
-- **History** — every saved run from `data/runs/`; click one to open its report in place
-- **Compare** — two runs side by side with the alignment delta and per-attribute zone changes (`lost claim → landed`)
+- **Report** (inline after a run, and from History) — the company's own website icon beside its
+  name (captured at onboarding from the homepage already fetched: `apple-touch-icon`, then any icon
+  link, then `/favicon.ico`, stored as `profile.logo_url`; the first letter in a coloured square when
+  there is none or it fails to load — never an external logo service), then where the answers came
+  from (measured live, with the model, or the SYNTHETIC DEMO banner for a replayed run), then the
+  headline framed as upside: the large number is **untapped potential** (100 minus the score) with
+  the real score directly beneath it ("AI echoes 21.4% of what you claim today"), beside buyer
+  visibility. A legend counts each zone in opportunity wording, then an optional **weights** block
+  that calls `POST /api/runs/{id}/rescore` (no new AI calls; a 409 is shown in the server's words),
+  the claim-vs-echo drift map with an Evidence disclosure per claim, "where the upside is" cards,
+  and four collapsible blocks whose headers state what each found: **buyer questions** ("12 asked ·
+  named you in 8"), **brand questions**, **who AI named instead** (every product named in a buyer
+  answer that counts, beside the line that names it, plus the round-two comparison question) and
+  **discovered identities**. Every n/a shows the server's reason from `na_reasons`. Two lenses: with
+  no weight set the report reads through the **claim lens** — buyer questions go to the claims
+  stated on the most pages, **claim echo** (of what the site claims, weighted by pages stating it,
+  how much AI repeats supportively) is the headline, and alignment is absent with its reason in
+  `drift.na_reasons`. Once weights exist the **intent lens** makes alignment the headline and adds
+  the unstated-intent messaging gap. **Unprioritised** is an intent-lens zone for a claim the
+  company's own pages state and AI repeats, but which the customer did not weight. Zone keys and
+  numbers never change; `web/src/labels.ts` only speaks them (`lost_claim` → "claim to win back",
+  `contested` → "claim to correct", `unstated_intent` → "claim to amplify", `imposed` → "identity
+  to shape")
+- **History** — every saved run from `data/runs/` with its untapped potential; click one to open
+  its report in place
+- **Compare** — two runs side by side as untapped potential with the real score beneath, the change
+  in untapped potential, and per-attribute zone changes (`claim to win back → landed`)
 
 Saving weights on the Notion tab — or measuring, which saves them first — writes to the committed
 seed file, so the working tree shows it modified afterwards; `git checkout data/companies/5eed0001.json`

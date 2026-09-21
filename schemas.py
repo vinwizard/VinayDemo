@@ -39,6 +39,7 @@ class CompanyProfile(BaseModel):
     evidence: list[Evidence] = []
     warnings: list[str] = []
     approved: bool = False
+    logo_url: Optional[str] = None  # the site's own icon, from the homepage fetch; display only
 
     def all_domains(self) -> list[str]:
         return sorted({self.domain, *self.owned_domains})

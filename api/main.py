@@ -213,7 +213,9 @@ def list_all():
                         contested=len(d.contested) if d else 0,
                         unstated=len(d.unstated_intent) if d else 0,
                         imposed=len(d.imposed) if d else 0,
-                        unprioritised=len(d.unprioritised) if d else 0))
+                        unprioritised=len(d.unprioritised) if d else 0,
+                        na_reasons=d.na_reasons if d else
+                        {"headline": "This run finished without a drift report."}))
     return sorted(out, key=lambda r: r["created_at"], reverse=True)
 
 
@@ -278,6 +280,7 @@ def company_payload(c: Company) -> dict:
         profile=dict(name=p.name, domain=p.domain, aliases=p.aliases,
                      customer_types=p.customer_types,
                      one_liner=p.positioning_points[0].text if p.positioning_points else None,
+                     logo_url=p.logo_url,
                      warnings=p.warnings),
         pages=c.pages,
         attributes=[dict(id=a.id, label=a.label, description=a.description, aliases=a.aliases,
@@ -300,7 +303,7 @@ def onboard_steps(url: str, name: str) -> Iterator[tuple[str, dict]]:
     if not live.available():
         raise HTTPException(400, f"Onboarding needs {live.KEY_ENV} for the extraction model.")
     try:
-        pages = fetching.fetch_site(url, max_pages=CRAWL_PAGES)
+        pages, logo = fetching.fetch_site(url, max_pages=CRAWL_PAGES)
     except fetching.UnsafeURL as e:
         raise HTTPException(400, f"Refused: {e}")
     except fetching.FetchError as e:
@@ -311,6 +314,7 @@ def onboard_steps(url: str, name: str) -> Iterator[tuple[str, dict]]:
         profile, attrs, warnings = OnboardingAgent().run(name, domain, pages)
     except ValueError as e:
         raise HTTPException(502, f"Extraction failed: {e}")
+    profile.logo_url = logo
     if len(attrs) < MIN_CLAIMS:
         # The company is saved either way — discarding a paid crawl to refuse a thin site is the
         # wrong trade. Withhold confidence in the numbers, not the company.

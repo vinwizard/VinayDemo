@@ -9,8 +9,8 @@ import type { ReactNode } from "react";
 import type { CompanyDetail, CompanySummary, Run, StreamAnswer, StreamNode } from "./api";
 import { getCompanies, getCompany, streamOnboard, streamRun } from "./api";
 import { ClaimsStep } from "./claims";
-import { Report } from "./components";
-import { PROVENANCE_LABEL, headline, pctText, plain, streamingProbeLabel } from "./labels";
+import { Logo, Report } from "./components";
+import { PROVENANCE_LABEL, headline, plain, potentialText, streamingProbeLabel } from "./labels";
 
 type StageState = "pending" | "active" | "done" | "skipped" | "failed";
 
@@ -210,7 +210,8 @@ export function CompanyWorkflow({ companyId, preloaded, onRunSaved }: {
     <div className="workflow">
       {company && (
         <header className="company">
-          <div className="row" style={{ alignItems: "baseline", flexWrap: "wrap" }}>
+          <div className="row" style={{ alignItems: "center", flexWrap: "wrap" }}>
+            <Logo name={company.profile.name} url={company.profile.logo_url} size={36} />
             <h2>{company.profile.name}</h2>
             <a href={`https://${company.profile.domain}`} target="_blank" rel="noreferrer">{company.profile.domain}</a>
             {preloaded && <span className="tag preset">Preloaded example</span>}
@@ -362,7 +363,7 @@ export function CompanyWorkflow({ companyId, preloaded, onRunSaved }: {
 
       <Stage n={7} title="Score" state={s7} last
              summary={p.run?.drift
-               ? `${headline(p.run.drift).label} ${pctText(headline(p.run.drift).value)}`
+               ? `${headline(p.run.drift).label} · ${potentialText(headline(p.run.drift))}`
                  + ` · ${PROVENANCE_LABEL[p.run.mode] ?? p.run.mode}`
                : s7 === "active" ? "Checking every quote is verbatim, then placing each claim…"
                : "Every quote checked word for word against its answer, then each claim placed"}>
@@ -377,7 +378,7 @@ export function CompanyWorkflow({ companyId, preloaded, onRunSaved }: {
 
       {p.run && (
         <div ref={reportRef} className="report-wrap">
-          <Report run={p.run} />
+          <Report run={p.run} onRescored={(r) => { setP((x) => ({ ...x, run: r })); onRunSaved(); }} />
         </div>
       )}
     </div>

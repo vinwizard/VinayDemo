@@ -12,7 +12,7 @@ interface Added { label: string; description: string; weight: number }
 // drop it out of the report unseen. Changing your mind is the Remove button, not a slider position.
 // Mirrors api.ADDED_MIN_WEIGHT / AddedAttribute.
 const ADDED_DEFAULT_WEIGHT = 0.5;
-const ADDED_MIN_WEIGHT = 0.1;
+export const ADDED_MIN_WEIGHT = 0.1;
 
 /** Mirrors ana.MAX_TOPICS: the buyer axis is capped at four topics of three questions. */
 const MAX_BUYER_TOPICS = 4;
@@ -27,7 +27,7 @@ const EMPTY_DRAFT: Added = { label: "", description: "", weight: ADDED_DEFAULT_W
  * typing it was itself the intent; it leaves by the Remove button, which is visible and deliberate,
  * never by a drag to zero that silently deletes the row from the report.
  */
-function Slider({ value, onChange, id, label, min = 0, disabled }: {
+export function Slider({ value, onChange, id, label, min = 0, disabled }: {
   value: number; onChange: (v: number) => void; id: string; label: string; min?: number;
   disabled?: boolean;
 }) {

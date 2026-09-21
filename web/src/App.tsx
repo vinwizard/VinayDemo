@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Health, Run, RunSummary } from "./api";
-import { API, getHealth, getRun, getRuns } from "./api";
-import { Compare, History, Report } from "./components";
-import { headline, pctText, runLabels } from "./labels";
+import type { CompanyDetail, Health, Run, RunSummary } from "./api";
+import { API, getCompany, getHealth, getRun, getRuns } from "./api";
+import { Compare, History, Logo, Report } from "./components";
+import { headline, potentialText, runLabels } from "./labels";
 import { CompanyWorkflow } from "./workflow";
 
 type Tab = "preloaded" | "onboard" | "history" | "compare";
@@ -10,6 +10,7 @@ type Tab = "preloaded" | "onboard" | "history" | "compare";
 export default function App() {
   const [tab, setTab] = useState<Tab>("preloaded");
   const [health, setHealth] = useState<Health | null>(null);
+  const [seed, setSeed] = useState<CompanyDetail["profile"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [opened, setOpened] = useState<Run | null>(null);
@@ -19,7 +20,10 @@ export default function App() {
   const refreshRuns = useCallback(() => { getRuns().then(setRuns).catch(() => {}); }, []);
 
   useEffect(() => {
-    getHealth().then(setHealth)
+    getHealth().then((h) => {
+      setHealth(h);
+      getCompany(h.seed_company).then((c) => setSeed(c.profile)).catch(() => {});
+    })
       .catch(() => setError(`Could not reach the API at ${API}. Start it first — see WEB.md.`));
     refreshRuns();
   }, [refreshRuns]);
@@ -33,7 +37,7 @@ export default function App() {
 
   const runNames = runLabels(runs);
   const tabs: [Tab, string][] = [
-    ["preloaded", "Notion"], ["onboard", "Onboard your own company"],
+    ["preloaded", seed?.name ?? "Notion"], ["onboard", "Onboard your own company"],
     ["history", "History"], ["compare", "Compare"],
   ];
 
@@ -48,6 +52,7 @@ export default function App() {
           {tabs.map(([t, label]) => (
             <button key={t} role="tab" className="tab" aria-selected={tab === t}
                     onClick={() => { setTab(t); if (t === "history") setOpened(null); }}>
+              {t === "preloaded" && seed && <Logo name={seed.name} url={seed.logo_url} size={18} />}
               {label}
             </button>
           ))}
@@ -73,7 +78,7 @@ export default function App() {
       {tab === "history" && (opened ? (
         <div className="stack">
           <button className="linky back" onClick={() => setOpened(null)}>← All runs</button>
-          <Report run={opened} />
+          <Report run={opened} onRescored={(r) => { setOpened(r); refreshRuns(); }} />
         </div>
       ) : <History runs={runs} onOpen={openRun} />)}
 
@@ -85,7 +90,7 @@ export default function App() {
               <option value="">choose…</option>
               {runs.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {runNames[r.id]?.full ?? r.id} · {headline(r).label} {pctText(headline(r).value)}
+                  {runNames[r.id]?.full ?? r.id} · {headline(r).label} · {potentialText(headline(r))}
                 </option>
               ))}
             </select>
@@ -94,7 +99,7 @@ export default function App() {
               <option value="">choose…</option>
               {runs.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {runNames[r.id]?.full ?? r.id} · {headline(r).label} {pctText(headline(r).value)}
+                  {runNames[r.id]?.full ?? r.id} · {headline(r).label} · {potentialText(headline(r))}
                 </option>
               ))}
             </select>

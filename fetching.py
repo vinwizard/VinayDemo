@@ -193,9 +193,38 @@ def same_origin_links(base_url: str, html_text: str, limit: int = 2) -> list[str
     return out
 
 
-def fetch_site(url: str, max_pages: int = 3) -> list[tuple[str, str]]:
-    """Homepage plus up to two same-origin pages. Individual page failures are skipped, not fatal."""
-    final, html = fetch_raw(url)             # one request; HTML reused for text AND link discovery
+class _Icons(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.links: list[tuple[set[str], str]] = []
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "link" and a.get("href"):
+            self.links.append((set((a.get("rel") or "").lower().split()), a["href"]))
+
+
+def icon_url(base_url: str, html_text: str) -> Optional[str]:
+    """The site's own icon: apple-touch-icon, then any icon link, then /favicon.ico.
+
+    Only an absolute http(s) URL is returned — the browser loads it as an <img>, so a data:,
+    javascript: or relative href never reaches the page as-is.
+    """
+    parser = _Icons()
+    parser.feed(html_text)
+    hrefs = ([h for rel, h in parser.links if "apple-touch-icon" in rel]
+             + [h for rel, h in parser.links if "icon" in rel] + ["/favicon.ico"])
+    for href in hrefs:
+        u = urljoin(base_url, href.strip())
+        if urlparse(u).scheme in ALLOWED_SCHEMES:
+            return u
+    return None
+
+
+def fetch_site(url: str, max_pages: int = 3) -> tuple[list[tuple[str, str]], Optional[str]]:
+    """-> (pages, icon URL). Homepage plus up to two same-origin pages; individual page failures are
+    skipped, not fatal. The icon comes from the homepage HTML already fetched — no extra request."""
+    final, html = fetch_raw(url)             # one request; HTML reused for text, links AND the icon
     text = extract_text(html)
     if not text:
         raise FetchError(f"no extractable text at {final}")
@@ -205,4 +234,4 @@ def fetch_site(url: str, max_pages: int = 3) -> list[tuple[str, str]]:
             pages.append(fetch(link))
         except (UnsafeURL, FetchError):
             continue                          # a missing sub-page is not fatal to onboarding
-    return pages
+    return pages, icon_url(final, html)

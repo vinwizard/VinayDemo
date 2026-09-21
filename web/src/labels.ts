@@ -1,7 +1,31 @@
 // The one place raw engine identifiers become words a reader who has never seen the code can read.
 // Nothing here changes stored data: ids, provenance values and strengths keep their names in the
 // JSON exports and saved runs. This module only decides how they are SPOKEN on screen.
-import type { Probe, RunSummary, Topic } from "./api";
+import type { Probe, RunSummary, Topic, Zone } from "./api";
+
+// Zone names are spoken as the opportunity each one is, not as a loss: the zone keys, counts and
+// every number behind them are unchanged — only the words on screen are. Each label reads alone on a
+// pill and before a count ("claim to win back · 2").
+export const ZONE_LABEL: Record<Zone, string> = {
+  landed: "landed",
+  lost_claim: "claim to win back",
+  contested: "claim to correct",
+  // The zone fires below drift.CLAIM_THRESHOLD, a share of pages, so it covers "1 of 6" as well as
+  // "0 of 6": the wording must not say "never stated" beside a row reading "2 of 6".
+  unstated_intent: "claim to amplify",
+  imposed: "identity to shape",
+  unprioritised: "unweighted echo",
+};
+
+/** One line per zone, for the legend above the claim table. */
+export const ZONE_MEANING: Record<Zone, string> = {
+  landed: "you want it, and AI already says it",
+  lost_claim: "your site says it; AI does not repeat it yet",
+  contested: "AI tells a different story from your claim — room to set it straight",
+  unstated_intent: "you want it; more of your pages could say it",
+  imposed: "AI already links you to it, though you never claimed it — adopt it or reframe it",
+  unprioritised: "your site says it and AI repeats it; you just have not weighted it",
+};
 
 /** `Answer.provenance`, `DriftReport.provenance` and `Run.mode` all speak this vocabulary. */
 export const PROVENANCE_LABEL: Record<string, string> = {
@@ -107,10 +131,40 @@ export function runLabels(runs: RunSummary[]): Record<string, RunLabel> {
   return out;
 }
 
-/** The run's headline number: claim echo when nothing was weighted, alignment otherwise. */
-export const headline = (d: { lens?: string | null; alignment: number | null; claim_echo?: number | null }) =>
-  d.lens === "claim"
-    ? { label: "Claim echo", value: d.claim_echo ?? null }
-    : { label: "Alignment", value: d.alignment };
+const tenth = (x: number) => Math.round(x * 10) / 10;
+
+export interface Headline {
+  label: string;
+  /** The real score: the share AI already says. Never hidden, only placed under the potential. */
+  value: number | null;
+  /** 100 minus the score: the share still open. Display only — nothing stores it. */
+  potential: number | null;
+  /** The real score as one sentence, shown directly beneath the potential. */
+  today: string | null;
+  /** The key the server's na_reasons uses for this number. */
+  field: "claim_echo" | "alignment";
+}
+
+/**
+ * The run's headline, framed as upside: claim echo when nothing was weighted, alignment otherwise.
+ * The large number is what AI does NOT yet say; the real score sits right under it.
+ */
+export function headline(d: { lens?: string | null; alignment: number | null; claim_echo?: number | null }): Headline {
+  const claim = d.lens === "claim";
+  const value = claim ? d.claim_echo ?? null : d.alignment;
+  return {
+    label: claim ? "Claim echo" : "Alignment",
+    value,
+    potential: value == null ? null : tenth(100 - value),
+    today: value == null ? null
+      : claim ? `AI echoes ${value}% of what you claim today`
+      : `AI says ${value}% of what you want to be known for today`,
+    field: claim ? "claim_echo" : "alignment",
+  };
+}
 
 export const pctText = (x: number | null | undefined) => (x == null ? "n/a" : `${x}%`);
+
+/** "78.6% untapped potential", or "n/a" when the server withheld the score. */
+export const potentialText = (h: Headline) =>
+  h.potential == null ? "n/a" : `${h.potential}% untapped potential`;
