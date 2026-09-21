@@ -52,10 +52,9 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
  * its own label, in the one list that says what happened to it.
  */
 function HowWeChecked({ checks }: { checks: ClaimCheck[] }) {
-  const unique = [...new Map(checks.map((c) => [c.id, c])).values()];
-  const kept = unique.filter((c) => c.kept);
-  const notFound = unique.filter((c) => !c.kept && c.quotes_matched === 0);
-  const unchecked = unique.filter((c) => !c.kept && c.quotes_matched > 0);
+  const kept = checks.filter((c) => c.kept);
+  const notFound = checks.filter((c) => !c.kept && c.not_found);
+  const unchecked = checks.filter((c) => !c.kept && !c.not_found);
   const trimmed = kept.filter((c) => c.quotes_removed > 0);
   const removed = trimmed.reduce((n, c) => n + c.quotes_removed, 0);
   const left = notFound.length + unchecked.length;
@@ -72,15 +71,15 @@ function HowWeChecked({ checks }: { checks: ClaimCheck[] }) {
       {notFound.length > 0 && (
         <details className="block" open>
           <summary><span className="block-title">Left out: we couldn't find them on your pages</span></summary>
-          <ul className="block-body">{notFound.map((c) => <li key={c.id}>{c.label}</li>)}</ul>
+          <ul className="block-body">{notFound.map((c, i) => <li key={i}>{c.label}</li>)}</ul>
         </details>
       )}
       {unchecked.length > 0 && (
         <details className="block" open>
           <summary><span className="block-title">Left out: found, but the claim could not be checked</span></summary>
           <ul className="block-body">
-            {unchecked.map((c) => (
-              <li key={c.id}>{c.label}{c.notes.length > 0 && <div className="muted">{c.notes.join(" ")}</div>}</li>
+            {unchecked.map((c, i) => (
+              <li key={i}>{c.label}{c.notes.length > 0 && <div className="muted">{c.notes.join(" ")}</div>}</li>
             ))}
           </ul>
         </details>
@@ -89,8 +88,8 @@ function HowWeChecked({ checks }: { checks: ClaimCheck[] }) {
         <details className="block">
           <summary><span className="block-title">Kept, with {plural(removed, "quote")} removed</span></summary>
           <ul className="block-body">
-            {trimmed.map((c) => (
-              <li key={c.id}>
+            {trimmed.map((c, i) => (
+              <li key={i}>
                 {c.label} <span className="muted">— {c.quotes_matched} of {c.quotes_matched + c.quotes_removed} quotes matched</span>
               </li>
             ))}

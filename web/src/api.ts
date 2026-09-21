@@ -212,6 +212,7 @@ export interface ClaimCheck {
   kept: boolean;
   quotes_matched: number;
   quotes_removed: number;
+  not_found: boolean;
   notes: string[];
 }
 

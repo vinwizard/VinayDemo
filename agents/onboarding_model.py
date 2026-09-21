@@ -228,6 +228,7 @@ def build_attributes(data: dict, pages: list[tuple[str, str]], name: str = ""
         check.quotes_matched, check.quotes_removed = len(verified), len(short) + len(bad)
         if not verified:
             check.notes.append("No verifiable quote on any fetched page.")
+            check.not_found = True
             continue
         description = (raw.get("description") or "").strip()
         # A claim nobody could contradict cannot be measured as agreed or disagreed with: dropped,

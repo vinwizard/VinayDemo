@@ -273,6 +273,7 @@ class ClaimCheck(BaseModel):
     kept: bool
     quotes_matched: int = 0
     quotes_removed: int = 0  # too short, or not verbatim on any fetched page
+    not_found: bool = False  # left out because no quote was on any fetched page
     notes: list[str] = []    # plain sentences: why quotes were removed or the claim left out
 
 

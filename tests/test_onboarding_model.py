@@ -76,6 +76,7 @@ def test_unverifiable_quote_drops_the_attribute():
     assert any("nothing can be measured" in w for w in warnings)
     [c] = checks   # one entry per claim, never listed twice, under its plain label
     assert (c.label, c.kept, c.quotes_matched, c.quotes_removed) == ("Enterprise ready", False, 0, 1)
+    assert c.not_found
 
 
 def test_partially_hallucinated_quotes_keep_only_the_real_ones():
@@ -96,6 +97,7 @@ def test_description_that_restates_the_label_is_rejected():
     _, attrs, _, checks = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
     assert attrs == [] and any("restates the label" in n for n in notes(checks))
     assert not checks[0].kept and checks[0].quotes_matched == 1   # found, but not checkable
+    assert not checks[0].not_found
 
 
 @pytest.mark.parametrize("statement,why", [
@@ -217,6 +219,7 @@ def test_unlabelled_attribute_is_dropped():
     assert [a.id for a in attrs] == ["enterprise_ready"]
     assert any("no name" in n for n in notes(checks))
     assert checks[1].label == "Unnamed claim 2" and not checks[1].kept
+    assert not checks[1].not_found   # listed as could-not-be-checked, not as missing from the pages
 
 
 def test_description_restating_a_hyphenated_label_is_rejected():
