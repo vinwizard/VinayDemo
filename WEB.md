@@ -151,7 +151,7 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     opportunity wording, then every claim as a card (zone, a bar of how AI raises it, site share
     and AI share). A card opens the **claim drawer** — a native modal dialog (Esc, backdrop or ✕
     closes it; full screen on a phone): the site's verbatim quotes, what AI said with each
-    question's full answer, limitations, and the claim's win-back fix. Then the optional
+    question's full answer, limitations, and the claim's win-back fix (only while it is a claim to win back or amplify). Then the optional
     **weights** block, which calls `POST /api/runs/{id}/rescore` (no new AI calls; a 409 is shown
     in the server's words), and the limitations and workflow log.
   - **Win it back** — the action plan (per claim to win back or amplify, the page of theirs to
@@ -169,8 +169,8 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     as a target), **share of voice** (answers recommending the brand beside the three
     most-recommended competitors, on the buyer questions that count; a tie for first beyond those
     three is counted in the headline, "A, B, C and 2 others 3 each"), **who AI named instead**
-    (every product named in a buyer answer that counts, beside the line that names it, plus the
-    round-two comparison question) and **discovered identities** (cards that open the same drawer).
+    (every product named in a buyer answer that counts, beside the line that names it — the first
+    three shown, the rest behind a toggle — plus the round-two comparison question) and **discovered identities** (cards that open the same drawer).
 
   Every n/a shows the server's reason from `na_reasons`. Two lenses: with
   no weight set the report reads through the **claim lens** — buyer questions go to the claims
