@@ -235,6 +235,17 @@ export interface ClaimedAttribute {
   note: string | null;
 }
 
+/** How one extracted claim fared against the company's own pages. Mirrors schemas.ClaimCheck. */
+export interface ClaimCheck {
+  id: string;
+  label: string;
+  kept: boolean;
+  quotes_matched: number;
+  quotes_removed: number;
+  not_found: boolean;
+  notes: string[];
+}
+
 export interface CompanyDetail {
   id: string;
   created_at: string;
@@ -243,6 +254,7 @@ export interface CompanyDetail {
   pages: string[];
   attributes: ClaimedAttribute[];
   warnings: string[];
+  checks: ClaimCheck[];   // empty for companies saved before checks existed: their notes are in warnings
   replay: boolean;
 }
 

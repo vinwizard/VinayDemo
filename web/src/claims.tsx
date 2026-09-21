@@ -1,7 +1,7 @@
 // The step between reading a site and measuring it: what their own pages claim, and which of those
 // claims the customer actually wants to be known for. Every claim here came from GET /api/onboard.
 import { useState } from "react";
-import type { CompanyDetail } from "./api";
+import type { ClaimCheck, CompanyDetail } from "./api";
 import { deleteAttribute, patchCompany } from "./api";
 import { statedOn } from "./labels";
 
@@ -44,6 +44,64 @@ export function Slider({ value, onChange, id, label, min = 0, disabled }: {
 
 const weightsOf = (c: CompanyDetail) =>
   Object.fromEntries(c.attributes.map((a) => [a.id, a.intended_weight ?? 0]));
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/**
+ * Quote validation, shown as the rigour it is rather than as errors: every claim appears once, under
+ * its own label, in the one list that says what happened to it.
+ */
+function HowWeChecked({ checks }: { checks: ClaimCheck[] }) {
+  const kept = checks.filter((c) => c.kept);
+  const notFound = checks.filter((c) => !c.kept && c.not_found);
+  const unchecked = checks.filter((c) => !c.kept && !c.not_found);
+  const trimmed = kept.filter((c) => c.quotes_removed > 0);
+  const removed = trimmed.reduce((n, c) => n + c.quotes_removed, 0);
+  const left = notFound.length + unchecked.length;
+  return (
+    <div className="callout checks">
+      <div className="row checks-head">
+        <h4>How we checked these claims</h4>
+        <span className="pill landed">{kept.length} verified</span>
+        {left > 0 && <span className="pill neutral">{left} left out</span>}
+      </div>
+      <p className="muted">
+        A claim is kept only if we can quote it word for word from your own site.
+      </p>
+      {notFound.length > 0 && (
+        <details className="block" open>
+          <summary><span className="block-title">Left out: we couldn't find them on your pages</span></summary>
+          <ul className="block-body">{notFound.map((c, i) => <li key={i}>{c.label}</li>)}</ul>
+        </details>
+      )}
+      {unchecked.length > 0 && (
+        <details className="block" open>
+          <summary><span className="block-title">Left out: found, but the claim could not be checked</span></summary>
+          <ul className="block-body">
+            {unchecked.map((c, i) => (
+              <li key={i}>{c.label}{c.notes.length > 0 && <div className="muted">{c.notes.join(" ")}</div>}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {trimmed.length > 0 && (
+        <details className="block">
+          <summary><span className="block-title">Kept, with {plural(removed, "quote")} removed</span></summary>
+          <ul className="block-body">
+            {trimmed.map((c, i) => (
+              <li key={i}>
+                {c.label} <span className="muted">— {c.quotes_matched} of {c.quotes_matched + c.quotes_removed} quotes matched</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {left > 0 && (
+        <p className="muted">Think one of these belongs? Add it above as your own claim.</p>
+      )}
+    </div>
+  );
+}
 
 export function ClaimsStep({ company, running, onCompany, onMeasure }: {
   company: CompanyDetail;
@@ -178,6 +236,8 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
           your {MAX_BUYER_TOPICS} most heavily weighted claims that still have buyer questions.
         </p>
       )}
+
+      {company.checks.length > 0 && <HowWeChecked checks={company.checks} />}
 
       {company.warnings.length > 0 && (
         <div className="callout warn-box">

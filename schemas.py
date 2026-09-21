@@ -262,6 +262,21 @@ class DriftReport(BaseModel):
     na_reasons: dict[str, str] = {}  # field name -> why that number is null
 
 
+class ClaimCheck(BaseModel):
+    """How one extracted claim fared against the fetched pages, for the "how we checked" panel.
+
+    Structured so the page never parses warning strings. Companies saved before this field existed
+    have an empty list and their quote problems as plain strings in `Company.warnings`.
+    """
+    id: str
+    label: str
+    kept: bool
+    quotes_matched: int = 0
+    quotes_removed: int = 0  # too short, or not verbatim on any fetched page
+    not_found: bool = False  # left out because no quote was on any fetched page
+    notes: list[str] = []    # plain sentences: why quotes were removed or the claim left out
+
+
 class WinBackAction(BaseModel):
     """One fix for a claim to win back or amplify: a page the run read, and buyer questions it asked.
 
@@ -294,6 +309,7 @@ class Company(BaseModel):
     attributes: list[Attribute] = []
     pages: list[str] = []      # the URLs actually fetched; claim_pages_total counts these
     warnings: list[str] = []
+    checks: list[ClaimCheck] = []
 
 
 class Run(BaseModel):

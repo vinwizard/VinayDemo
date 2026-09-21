@@ -16,7 +16,7 @@ import os
 import re
 from typing import Callable, Optional
 
-from schemas import Attribute, CompanyProfile, Evidence, PositioningPoint
+from schemas import Attribute, ClaimCheck, CompanyProfile, Evidence, PositioningPoint
 
 KEY_ENV = "OPENAI_API_KEY"
 MODEL_ENV = "ONBOARDING_MODEL"
@@ -201,37 +201,42 @@ def statement_problems(names: list[str], label: str, description: str) -> list[s
 
 
 def build_attributes(data: dict, pages: list[tuple[str, str]], name: str = ""
-                     ) -> tuple[list[Attribute], list[str]]:
-    """-> (claimed attributes, warnings). claim_pages is counted, never taken from the model."""
+                     ) -> tuple[list[Attribute], list[ClaimCheck]]:
+    """-> (claimed attributes, one check per extracted claim). claim_pages is counted, never taken
+    from the model."""
     texts = [text for _, text in pages]
     names = [name, data.get("name") or "", *[a for a in (data.get("aliases") or []) if isinstance(a, str)]]
-    out, warnings = [], []
+    out, checks = [], []
     for i, raw in enumerate(data.get("attributes", [])[:MAX_ATTRIBUTES], start=1):
         label = (raw.get("label") or "").strip()
-        if not label:
-            warnings.append(f"attribute {i}: no label; dropped")
-            continue
         aid = _slug(raw.get("id"), f"attr{i}")
+        check = ClaimCheck(id=aid, label=label or f"Unnamed claim {i}", kept=False)
+        checks.append(check)
+        if not label:
+            check.notes.append("The claim had no name.")
+            continue
         quotes = raw.get("claim_quotes") or []
         quotes = [q for q in (quotes.values() if isinstance(quotes, dict) else quotes)
                   if isinstance(q, str) and q.strip()]
         if short := [q for q in quotes if len(q.split()) < MIN_QUOTE_WORDS]:
-            warnings.append(f"{aid}: {len(short)} quote(s) under {MIN_QUOTE_WORDS} words, too short to "
-                            "state a claim; dropped")
+            check.notes.append(f"{len(short)} quote(s) under {MIN_QUOTE_WORDS} words, too short to "
+                               "state a claim.")
         quotes = [q for q in quotes if q not in short]
         verified = [q for q in quotes if any(q in t for t in texts)]
         if bad := [q for q in quotes if q not in verified]:
-            warnings.append(f"{aid}: {len(bad)} quote(s) not verbatim in the fetched pages; dropped")
+            check.notes.append(f"{len(bad)} quote(s) not verbatim in the fetched pages.")
+        check.quotes_matched, check.quotes_removed = len(verified), len(short) + len(bad)
         if not verified:
-            warnings.append(f"{aid}: no verifiable quote on any fetched page; attribute dropped")
+            check.notes.append("No verifiable quote on any fetched page.")
+            check.not_found = True
             continue
         description = (raw.get("description") or "").strip()
         # A claim nobody could contradict cannot be measured as agreed or disagreed with: dropped,
         # not flagged, and the rejected sentence is shown so the loss is visible.
         if problems := statement_problems(names, label, description):
-            warnings.append(f"{aid}: claim statement rejected ({'; '.join(problems)}): "
-                            f"“{description}”; attribute dropped")
+            check.notes.append(f"Claim statement rejected ({'; '.join(problems)}): “{description}”")
             continue
+        check.kept = True
         # the number that drives "stated on N% of your pages" — counted from validated quotes only
         pages_with = sum(1 for t in texts if any(q in t for q in verified))
         out.append(Attribute(
@@ -243,7 +248,7 @@ def build_attributes(data: dict, pages: list[tuple[str, str]], name: str = ""
             buyer_questions=[q for q in (raw.get("buyer_questions") or [])
                              if isinstance(q, str) and q.strip()][:3],
             note="Claimed positioning extracted from the company's own pages. Intent weight not set."))
-    return out, warnings
+    return out, checks
 
 
 def build_profile(data: dict, pages: list[tuple[str, str]], domain: str) -> CompanyProfile:
@@ -277,12 +282,12 @@ class OnboardingAgent:
         self.timeout = timeout
 
     def run(self, name: str, domain: str, pages: list[tuple[str, str]]
-            ) -> tuple[CompanyProfile, list[Attribute], list[str]]:
+            ) -> tuple[CompanyProfile, list[Attribute], list[str], list[ClaimCheck]]:
         if not pages:
             raise ValueError("onboarding needs at least one fetched page")
         data = parse(self._transport(build_prompt(name, pages), self.model, self.timeout))
-        attributes, warnings = build_attributes(data, pages, name)
+        attributes, checks = build_attributes(data, pages, name)
         profile = build_profile(data, pages, domain)
-        if not attributes:
-            warnings.append("No attribute survived quote validation; nothing can be measured yet.")
-        return profile, attributes, warnings
+        warnings = [] if attributes else [
+            "No attribute survived quote validation; nothing can be measured yet."]
+        return profile, attributes, warnings, checks
