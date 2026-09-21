@@ -273,3 +273,60 @@ def test_a_failure_during_a_run_streams_without_its_detail(client, monkeypatch):
     r = client.get("/api/stream", params={"scenario": "A"})
     assert sse_events(r.text)[-1][0] == "error"
     assert SENTINEL not in r.text
+
+
+# --- public demo (render.yaml) --------------------------------------------------------------------
+
+@pytest.fixture
+def public(client, monkeypatch):
+    monkeypatch.setenv(main.PUBLIC_ENV, "1")
+    monkeypatch.setenv(live.KEY_ENV, SENTINEL)   # a key configured by mistake must still never be used
+    monkeypatch.setattr(live, "preflight", lambda: pytest.fail("public demo reached a model"))
+    return client
+
+
+@pytest.mark.parametrize("path", [
+    f"/api/stream?company={CO}&mode=live",
+    "/api/stream?scenario=A&mode=live",
+    "/api/onboard/stream?url=https://acme.example/&name=Acme",
+])
+def test_public_demo_refuses_every_model_path_over_sse(public, path):
+    events = sse_events(public.get(path).text)
+    assert [k for k, _ in events] == ["error"]
+    assert "public demo" in events[0][1]["message"]
+
+
+def test_public_demo_refuses_onboarding_and_edits(public):
+    before = public.get(f"/api/companies/{CO}").json()
+    assert public.get("/api/onboard?url=https://acme.example/").status_code == 403
+    assert public.patch(f"/api/companies/{CO}",
+                        json={"added": [{"label": "Fast setup"}]}).status_code == 403
+    assert public.delete(f"/api/companies/{CO}/attributes/{CLAIM}").status_code == 403
+    assert public.get(f"/api/companies/{CO}").json() == before
+
+
+def test_public_demo_replays_the_seed_and_says_live_is_off(public):
+    health = public.get("/api/health").json()
+    assert health["public_demo"] is True and health["live_available"] is False
+    assert public.get(f"/api/companies/{main.SEED_COMPANY}").json()["replay"] is True
+    events = sse_events(public.get(f"/api/stream?company={main.SEED_COMPANY}&mode=live").text)
+    kind, done = events[-1]
+    assert kind == "done" and done["run"]["mode"] == "demo_replay"
+
+
+def test_public_demo_rescore_is_not_saved(public):
+    events = sse_events(public.get(f"/api/stream?company={main.SEED_COMPANY}&mode=live").text)
+    run_id = events[-1][1]["run_id"]
+    before = public.get(f"/api/runs/{run_id}").json()
+    claim = before["attributes"][0]["id"]
+    r = public.post(f"/api/runs/{run_id}/rescore", json={"weights": {claim: 0.5}})
+    assert r.status_code == 200 and r.json() != before
+    assert public.get(f"/api/runs/{run_id}").json() == before
+
+
+def test_public_demo_seeds_both_scenarios_once(public):
+    main.seed_public_runs()
+    runs = public.get("/api/runs").json()
+    assert sorted(r["scenario"] for r in runs) == ["A", "B"]
+    main.seed_public_runs()                        # a restart with runs on disk adds none
+    assert len(public.get("/api/runs").json()) == 2

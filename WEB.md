@@ -186,4 +186,4 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
   this one open
 - `/api/onboard` and `PATCH /api/companies/{id}` are unauthenticated, like the rest of the API
 - Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)
-- No production build wiring — Vite dev server only, so nothing is deployable from here yet
+- Production: `VITE_API= npm run build` makes a same-origin build in `web/dist`, which FastAPI serves when it exists (the `Dockerfile` and `render.yaml` do this — see README "Deploy to Render")

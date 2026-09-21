@@ -164,6 +164,31 @@ Completed runs are saved to `data/runs/<id>.json` and can be reopened from the H
 Onboarded companies are saved the same way, to `data/companies/<id>.json`, and carry the same caveat:
 both are local JSON files, so neither survives a Cloud Run redeploy (see below).
 
+## Deploy to Render (public replay link)
+
+[`render.yaml`](render.yaml) deploys the app as one free web service: the `Dockerfile` builds the web
+app and FastAPI serves it with the API on the same origin. It sets `VISEXP_PUBLIC_DEMO=1`, so the link
+replays the saved Notion sample only — no API key, no model calls, no cost. Live runs, onboarding and
+company edits are refused with a message saying so, even if a key were configured; re-scoring works but
+is never saved, so one visitor cannot change what the next one sees. The two bundled scenarios are
+replayed once at startup so History and Compare are not empty.
+
+1. Sign in at [render.com](https://render.com) with GitHub.
+2. **New → Blueprint**.
+3. Pick this repository (grant Render access to it if it is not listed).
+4. **Apply**. The first build takes a few minutes; the service URL appears on its page.
+
+Free-tier caveat: the service sleeps after about 15 minutes without traffic, and the next visit waits
+roughly a minute while it wakes. Open the link yourself shortly before sharing it or recording.
+
+Check the production build locally first:
+
+```bash
+(cd web && npm ci && VITE_API= npm run build)
+VISEXP_PUBLIC_DEMO=1 python -m uvicorn api.main:app --port 8000
+curl localhost:8000/ && curl localhost:8000/api/companies
+```
+
 ## Deploying later (GCP Cloud Run)
 
 Not done tonight — needs a GCP project, billing and your review. Shortest path once you have them:
@@ -174,9 +199,8 @@ gcloud config set project YOUR_PROJECT
 gcloud run deploy visibility-explorer --source . --region us-central1 --allow-unauthenticated
 ```
 
-`--source .` builds the included `Dockerfile`, which serves the **API only** on `$PORT`: the React app
-has no production build wiring yet (see [`WEB.md`](WEB.md)), so there is no deployable UI until it does.
-Fixture mode needs no secrets.
+`--source .` builds the included `Dockerfile`, which serves the web app and the API on `$PORT`.
+Add `--set-env-vars VISEXP_PUBLIC_DEMO=1` for a replay-only public link; that needs no secrets.
 Caveats: Cloud Run disk and sessions are ephemeral, so `data/runs/` and `data/companies/` are **not** durable
 there — download JSON reports instead, and expect an onboarded company to have to be onboarded again after a
 redeploy, or add storage later. Live mode would need server-side secrets (Secret Manager) and access

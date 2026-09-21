@@ -11,11 +11,13 @@ import re
 import threading
 import traceback
 import uuid
+from pathlib import Path
 from typing import Iterator, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 import fetching
@@ -62,8 +64,35 @@ OFFLINE_ENV = "VISEXP_OFFLINE_REPLAY"
 OFFLINE_FIXED = "offline replay: the bundled sample's claims and weights are fixed"
 
 
+# The hosted demo (render.yaml): anyone with the link can open it, so nothing may reach a model or
+# spend the owner's key. Implies the offline replay, and refuses every path that would call a model
+# or change a saved company — even when a key happens to be configured.
+PUBLIC_ENV = "VISEXP_PUBLIC_DEMO"
+PUBLIC_REFUSED = ("This is the public demo: it replays the saved sample only, so {what} is switched "
+                  "off here. Run it locally with your own key to measure a real company.")
+
+
+def public_demo() -> bool:
+    return bool(os.environ.get(PUBLIC_ENV))
+
+
+def refuse_in_public(what: str) -> None:
+    if public_demo():
+        raise HTTPException(403, PUBLIC_REFUSED.format(what=what))
+
+
 def offline_seed(company_id: str) -> bool:
-    return company_id == SEED_COMPANY and bool(os.environ.get(OFFLINE_ENV))
+    return company_id == SEED_COMPANY and bool(os.environ.get(OFFLINE_ENV) or public_demo())
+
+
+def seed_public_runs() -> None:
+    """A fresh public deploy has no saved runs (they are gitignored), so replay both bundled
+    scenarios once — fixtures only, no model — and History and Compare have something to open."""
+    if not public_demo() or any(RUNS.glob("*.json")):
+        return
+    for scenario in sorted(fixture.SCENARIOS):
+        prov = fixture.FixtureProvider(scenario)
+        save_run(graph.execute(graph.new_run(prov.profile, prov), prov))
 
 
 def replay_company() -> Company:
@@ -95,6 +124,7 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
         if mode != "live":
             return (base, base.profile,
                     len(base.named_probes()) + graph.MAX_BASELINE + graph.MAX_FOLLOWUP, "demo_replay")
+    refuse_in_public("measuring with a live model")
     profile = base.profile
     if not live.available():
         raise HTTPException(400, f"Live mode needs {live.KEY_ENV}. {live.status()}")
@@ -300,6 +330,7 @@ def onboard_steps(url: str, name: str) -> Iterator[tuple[str, dict]]:
     quotes. Intent weights are deliberately absent — what a company wants to be known for is the
     customer's input, arrives only through PATCH, and is not derivable from their own marketing copy.
     """
+    refuse_in_public("onboarding a new company")
     if not live.available():
         raise HTTPException(400, f"Onboarding needs {live.KEY_ENV} for the extraction model.")
     try:
@@ -440,7 +471,8 @@ def rescore_run(run_id: str, req: RescoreRequest):
         graph.rescore(run, req.weights)
     except graph.ValidationError as e:
         raise HTTPException(409, str(e))
-    save_run(run)
+    if not public_demo():   # public: arithmetic only, so allowed — but one visitor never rewrites the shared run
+        save_run(run)
     return json.loads(run.model_dump_json())
 
 
@@ -482,6 +514,7 @@ def patch_company(company_id: str, patch: CompanyPatch):
     invent an aspiration the customer never expressed. An ADDED claim is the opposite case — nothing
     but the customer's own intent puts it here — so it arrives already weighted.
     """
+    refuse_in_public("editing a company")
     if offline_seed(company_id):
         raise HTTPException(400, OFFLINE_FIXED)
     c = _company(company_id)
@@ -513,6 +546,7 @@ def patch_company(company_id: str, patch: CompanyPatch):
 @app.delete("/api/companies/{company_id}/attributes/{attribute_id}")
 def delete_attribute(company_id: str, attribute_id: str):
     """Remove a claim the customer typed. Only theirs: an extracted claim is evidence, not an opinion."""
+    refuse_in_public("editing a company")
     if offline_seed(company_id):
         raise HTTPException(400, OFFLINE_FIXED)
     c = _company(company_id)
@@ -534,7 +568,17 @@ def health():
     measured = live.model_name() if live.available() else None
     evaluator = evaluator_model.model_name() if live.available() else None
     return {"ok": True, "scenarios": sorted(fixture.SCENARIOS), "seed_company": SEED_COMPANY,
-            "live_available": live.available(), "live_status": live.status(),
+            "live_available": live.available() and not public_demo(), "live_status": live.status(),
+            "public_demo": public_demo(),
             "measured_model": measured, "evaluator_model": evaluator,
             # a model grading its own output has a self-preference bias worth surfacing
             "same_model_warning": bool(measured and evaluator and measured == evaluator)}
+
+
+seed_public_runs()
+
+# Production: serve the built web app from the same origin (render.yaml builds it with VITE_API="").
+# Mounted last so every /api route above wins.
+WEB_DIST = Path(__file__).resolve().parent.parent / "web" / "dist"
+if WEB_DIST.is_dir():
+    app.mount("/", StaticFiles(directory=WEB_DIST, html=True), name="web")
