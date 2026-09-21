@@ -136,6 +136,19 @@ export interface Run {
   win_back?: WinBackAction[];
   win_back_notes?: string[];
   log: string[];
+  insights?: Insights;  // derived by the API from the saved answers; absent on a run read raw
+}
+
+/** Two panels the API reads off a run's counted baseline answers (insights.py). `reason` says why one is empty. */
+export interface Insights {
+  sources: {
+    answers: number; cited_answers: number; reason: string | null;
+    sources: { domain: string; answers: number; buyer: number; brand: number; owned: boolean; target: boolean }[];
+  };
+  voice: {
+    questions: number; brand: string; brand_recommended: number; reason: string | null;
+    rivals: { name: string; count: number }[]; tied_top: number;
+  };
 }
 
 export interface RunSummary {

@@ -202,7 +202,9 @@ export function Report({ run, onRescored, weightNote }: {
             <WinBack run={run} />
             <BuyerQuestions run={run} />
             <BrandQuestions run={run} />
+            <ShareOfVoice run={run} />
             <Competitors run={run} />
+            <CitedSources run={run} />
             <Discovered run={run} />
           </div>
           <Evidence run={run} />
@@ -621,6 +623,108 @@ export function Competitors({ run }: { run: Run }) {
           <p className="muted long-answer">{answer ? plain(answer.text) : "no answer"}</p>
         </>
       )}
+    </Block>
+  );
+}
+
+/** "A", "A and B", "A, B and C". */
+const listed = (xs: string[]) => xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`;
+
+const SAMPLE_NOTE = "Authored sample data, not a measurement: a live run fills this from the model's own answers.";
+
+/** Brand vs the most-recommended competitors, on the buyer questions that count. One bar per name. */
+function ShareOfVoice({ run }: { run: Run }) {
+  const v = run.insights?.voice;
+  const title = "Share of voice on buyer questions";
+  if (!v) return null;
+  if (v.reason) {
+    return (
+      <Block title={title} found="not measured">
+        <p className="muted" style={{ margin: 0 }}>{v.reason}</p>
+      </Block>
+    );
+  }
+  const top = v.rivals.filter((r) => r.count === v.rivals[0].count);
+  const others = v.tied_top - top.length;
+  const rivalText = v.tied_top > 1
+    ? `${listed([...top.map((r) => r.name), ...(others ? [plural(others, "other")] : [])])} ${v.rivals[0].count} each`
+    : `${top[0].name} ${plural(top[0].count, "time")}`;
+  const bars = [{ name: v.brand, count: v.brand_recommended, brand: true },
+                ...v.rivals.map((r) => ({ ...r, brand: false }))];
+  return (
+    <Block title={title}
+           found={`On ${v.questions} buyer questions, AI recommended ${v.brand} ${plural(v.brand_recommended, "time")} and ${rivalText}`}>
+      <p className="muted" style={{ margin: 0 }}>
+        {run.mode !== "live_api" && <>{SAMPLE_NOTE} </>}
+        How many of the {v.questions} buyer questions that count got an answer recommending each product. None
+        of those questions named {v.brand}; a mention without a recommendation does not count, and a product
+        counts once per answer, however often it repeats.
+      </p>
+      <div className="sov" role="list" aria-label={`Answers recommending each product, out of ${v.questions}`}>
+        {bars.map((b) => (
+          <div key={b.name} role="listitem" className="sov-row" title={`${b.name}: recommended in ${b.count} of ${v.questions} answers`}>
+            <span className={b.brand ? "sov-name brand" : "sov-name"}>{b.name}</span>
+            <span className="sov-track">
+              <span className={b.brand ? "sov-bar brand" : "sov-bar"} style={{ width: `${(100 * b.count) / v.questions}%` }} />
+            </span>
+            <span className="sov-count">{b.count} / {v.questions}</span>
+          </div>
+        ))}
+      </div>
+    </Block>
+  );
+}
+
+const SHOWN_SOURCES = 8;
+
+/**
+ * The sites AI cited in the answers that count, ranked by how many answers cite each. A third-party
+ * site cited more than once is flagged as a target: being on the pages AI reads is the lever.
+ */
+function CitedSources({ run }: { run: Run }) {
+  const s = run.insights?.sources;
+  const title = "Where AI gets its opinion";
+  if (!s) return null;
+  if (s.reason) {
+    return (
+      <Block title={title} found="no citations">
+        <p className="muted" style={{ margin: 0 }}>{s.reason}</p>
+      </Block>
+    );
+  }
+  const targets = s.sources.filter((r) => r.target);
+  const rows = s.sources.slice(0, SHOWN_SOURCES);
+  const rest = s.sources.length - rows.length;
+  return (
+    <Block title={title}
+           found={`${plural(s.sources.length, "site")} cited · most often ${s.sources[0].domain} (${plural(s.sources[0].answers, "answer")})`
+             + ` · ${targets.length ? `${targets.length} to target` : "none to target yet"}`}>
+      <p className="muted" style={{ margin: 0 }}>
+        {run.mode !== "live_api" && <>{SAMPLE_NOTE} Every example.com address is a fictional placeholder. </>}
+        {s.cited_answers} of the {s.answers} buyer and brand answers that count cite at least one source.
+        A third-party site cited in more than one answer is worth a presence: it is where AI reads about
+        this market. A citation shows what the model read, not why it answered as it did.
+      </p>
+      <table className="named">
+        <thead>
+          <tr><th>Site</th><th>Answers citing it</th><th>In buyer · brand answers</th><th>Whose</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.domain}>
+              <td><strong>{r.domain}</strong></td>
+              <td>{r.answers}</td>
+              <td className="muted">{r.buyer} · {r.brand}</td>
+              <td>
+                {r.owned ? <span className="pill landed">your site</span>
+                  : r.target ? <span className="pill lost_claim">third party · target</span>
+                  : <span className="muted">third party</span>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {rest > 0 && <p className="muted" style={{ margin: 0 }}>+ {plural(rest, "more site")}, none cited more often than those above.</p>}
     </Block>
   );
 }
