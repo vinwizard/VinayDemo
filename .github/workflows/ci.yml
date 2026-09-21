@@ -5,9 +5,6 @@
 # a sentinel key that must appear in no response body or header. tests/test_api_stream.py and
 # tests/test_api_seed.py drive the stream generators directly; /api/onboard and
 # /api/onboard/stream are covered only that way, not over HTTP.
-# Two known api/main.py bugs are pinned as strict xfails in tests/test_api_http.py (a malformed
-# run id answers 500, and an exception raised mid-run streams its message to the browser); each
-# turns CI red once fixed, so the xfail marker is removed with the fix.
 # What they do NOT cover: TestClient is in-process, so a real uvicorn server, proxy buffering and
 # the CORS policy are untested. There is no web test runner, so no web/src behaviour — including
 # the stream client in web/src/api.ts — is executed by CI; it is only typechecked and linted.

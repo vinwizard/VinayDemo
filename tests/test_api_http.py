@@ -104,9 +104,6 @@ def test_unknown_run_is_404(client):
     assert client.get("/api/runs/0123456789").status_code == 404
 
 
-@pytest.mark.xfail(strict=True, reason="BUG in api/main.py get_run: a malformed run id makes "
-                   "reports.load_run raise ValueError, which get_run does not catch, so the API "
-                   "answers 500 instead of 404. _company already maps the same ValueError to 404.")
 def test_malformed_run_id_is_404_not_500(client):
     assert client.get("/api/runs/not-a-run").status_code == 404
 
@@ -256,10 +253,6 @@ def test_the_key_appears_in_no_response_body_or_header(client, monkeypatch):
         assert not any(SENTINEL in f"{k}: {v}" for k, v in r.headers.items()), r.request.url
 
 
-@pytest.mark.xfail(strict=True, reason="BUG in api/main.py run_events.work: an exception raised "
-                   "after setup (e.g. inside a provider call) is streamed as f'{type(e).__name__}: {e}', "
-                   "so its message — which can carry the key — reaches the browser. The setup path "
-                   "already sends only the exception type.")
 def test_a_failure_during_a_run_streams_without_its_detail(client, monkeypatch):
     from providers import fixture
 
