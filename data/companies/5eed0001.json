@@ -1,25 +1,30 @@
 {
   "id": "5eed0001",
   "schema_version": 1,
-  "created_at": "2026-09-20T23:31:14",
+  "created_at": "2026-09-21T11:02:57",
   "profile": {
     "name": "Notion",
     "domain": "notion.com",
     "owned_domains": [],
-    "aliases": [],
+    "aliases": [
+      "Notion",
+      "Notion AI",
+      "Notion Custom Agents",
+      "Notion Agent"
+    ],
     "branded_terms": [],
     "customer_types": [
-      "Enterprise",
       "Small businesses",
       "Startups",
-      "Individuals"
+      "Developers",
+      "Enterprise teams"
     ],
     "capabilities": [],
     "use_cases": [],
     "positioning_points": [
       {
         "id": "pp1",
-        "text": "Where teams and agents think together.",
+        "text": "Where teams and agents Think together. Capture context, find answers, and automate tasks with AI built for your team.",
         "evidence_ids": [
           "pg1"
         ],
@@ -30,136 +35,214 @@
       {
         "id": "pg1",
         "url": "https://www.notion.com",
-        "excerpt": "Product Notion AI AI tools for work Agents Automate busywork AI Meeting Notes Perfectly written by AI Enterprise Search Find answers instantly Knowledge Base Centralize your knowledge Docs Simple and powerful Projects Manage any project Connections Connect your apps Security Safe and scalable Notion Calendar It's time . See what’s new → Download the Notion App → AI AI features Notion AI AI tools for work Agents Automate busywork AI Meeting Notes Perfectly written by AI Enterprise Search Find answers instantly Explore use cases For work For life Resources Browse Templates Consultants Connections Discover What's New Customer stories Blog Webinars Learn Developers Academy Product tours Help Developers Startups Enterprise Pricing Request a demo Log in Get Notion free Where teams and agents Think together. Capture context, find answers, and automate tasks with AI built for your team. Get Notion free Request a demo Play Trusted by 98% of the Forbes Cloud 100 AI where your team works. Capture knowledge Bring everything into one system of record. → Find answers Get answers, instantly—with citations. → Automate busywork Keep work moving 24/7 with agents. → See what Notion can do Triage prod",
+        "excerpt": "Product Features See all features \u2192 Capture Bring everything into one system of record. Find Get answers, instantly\u2014with citations. Automate Keep work moving 24/7 with agents. . See what\u2019s new \u2192 Download the Notion App \u2192 Resources Notion for Enterprise Small businesses Startups Developers Discover What's New Customer stories Webinars Templates Consultants Learn Academy Product tours Help Center Pricing Request a demo Log in Get Notion free Where teams and agents Think together. Capture context, find answers, and automate tasks with AI built for your team. Get Notion free Request a demo Play The most ambitious companies run on Notion. AI where your team works. Capture knowledge Bring everything into one system of record. \u2192 Find answers Get answers, instantly\u2014with citations. \u2192 Automate busywork Keep work moving 24/7 with agents. \u2192 See what Notion can do Triage product feedback \u2192 Resolve support tickets in Slack \u2192 Respond to security alerts faster \u2192 Automate weekly reporting \u2192 Create your own developer tools \u2192 Trusted by teams that ship. Using the most AI-native tools like Notion is an important competitive advantage for us to stay small while doing a lot. Michael Truell Co-founder & ",
         "retrieved_at": null,
         "source_type": "page_fetch"
       },
       {
         "id": "pg2",
         "url": "https://www.notion.com/product",
-        "excerpt": "Product Features See all features → Capture Bring everything into one system of record. Find Get answers, instantly—with citations. Automate Keep work moving 24/7 with agents. . See what’s new → Download the Notion App → Resources Notion for Enterprise Small businesses Startups Developers Discover What's New Customer stories Webinars Templates Consultants Learn Academy Product tours Help Center Pricing Request a demo Log in Get Notion free Where teams and agents Think together. Capture context, find answers, and automate tasks with AI built for your team. Get Notion free Request a demo Play The most ambitious companies run on Notion. AI where your team works. Capture knowledge Bring everything into one system of record. → Find answers Get answers, instantly—with citations. → Automate busywork Keep work moving 24/7 with agents. → See what Notion can do Triage product feedback → Resolve support tickets in Slack → Respond to security alerts faster → Automate weekly reporting → Create your own developer tools → Trusted by teams that ship. Using the most AI-native tools like Notion is an important competitive advantage for us to stay small while doing a lot. Michael Truell Co-founder & ",
+        "excerpt": "Product Notion AI AI tools for work Agents Automate busywork AI Meeting Notes Perfectly written by AI Enterprise Search Find answers instantly Knowledge Base Centralize your knowledge Docs Simple and powerful Projects Manage any project Connections Connect your apps Security Safe and scalable Notion Calendar It's time . See what\u2019s new \u2192 Download the Notion App \u2192 AI AI features Notion AI AI tools for work Agents Automate busywork AI Meeting Notes Perfectly written by AI Enterprise Search Find answers instantly Explore use cases For work For life Resources Browse Templates Consultants Connections Discover What's New Customer stories Blog Webinars Learn Developers Academy Product tours Help Developers Startups Enterprise Pricing Request a demo Log in Get Notion free Where teams and agents Think together. Capture context, find answers, and automate tasks with AI built for your team. Get Notion free Request a demo Play Trusted by 98% of the Forbes Cloud 100 AI where your team works. Capture knowledge Bring everything into one system of record. \u2192 Find answers Get answers, instantly\u2014with citations. \u2192 Automate busywork Keep work moving 24/7 with agents. \u2192 See what Notion can do Triage prod",
         "retrieved_at": null,
         "source_type": "page_fetch"
       },
       {
         "id": "pg3",
-        "url": "https://www.notion.com/product/ai",
-        "excerpt": "Product Notion AI AI tools for work Agents Automate busywork AI Meeting Notes Perfectly written by AI Enterprise Search Find answers instantly Knowledge Base Centralize your knowledge Docs Simple and powerful Projects Manage any project Connections Connect your apps Security Safe and scalable Notion Calendar It's time . See what’s new → Download the Notion App → AI AI features Notion AI AI tools for work Agents Automate busywork AI Meeting Notes Perfectly written by AI Enterprise Search Find answers instantly Explore use cases For work For life Resources Browse Templates Consultants Connections Discover What's New Customer stories Blog Webinars Learn Developers Academy Product tours Help Developers Startups Enterprise Pricing Request a demo Log in Get Notion free Meet your 24/7 AI team Infinite minds, built for teamwork. Answer questions, prioritize tasks, and write reports—all while you sleep. Try for free Request a demo Trusted by teams at Agents Enterprise search AI Meeting Notes Admin controls Enterprise Search 16:10 Admin Controls 16:10 If it’s something that’s repetitive, we have a Notion Agent for it. Ben Levick Head of AI & Operations, Ramp AI that works where your team wor",
+        "url": "https://www.notion.com/product/features",
+        "excerpt": "Product Notion AI AI tools for work Agents Automate busywork AI Meeting Notes Perfectly written by AI Enterprise Search Find answers instantly Knowledge Base Centralize your knowledge Docs Simple and powerful Projects Manage any project Connections Connect your apps Security Safe and scalable Notion Calendar It's time . See what\u2019s new \u2192 Download the Notion App \u2192 AI AI features Notion AI AI tools for work Agents Automate busywork AI Meeting Notes Perfectly written by AI Enterprise Search Find answers instantly Explore use cases For work For life Resources Browse Templates Consultants Connections Discover What's New Customer stories Blog Webinars Learn Developers Academy Product tours Help Developers Startups Enterprise Pricing Request a demo Log in Get Notion free So, what can Notion do? Capture your team\u2019s knowledge, find answers across all your apps, and automate your busywork. Get Notion free Contact sales Capture knowledge. Meetings, decisions, processes, product specs. The notes take themselves, and documentation keeps itself up to date. Docs \u2192 Create block-based docs that flex from a note to a full spec. Databases \u2192 Organize anything and connect it across your workspace. AI Me",
         "retrieved_at": null,
         "source_type": "page_fetch"
       },
       {
         "id": "pg4",
-        "url": "https://www.notion.com/product/agents",
-        "excerpt": "Product Notion AI AI tools for work Agents Automate busywork AI Meeting Notes Perfectly written by AI Enterprise Search Find answers instantly Knowledge Base Centralize your knowledge Docs Simple and powerful Projects Manage any project Connections Connect your apps Security Safe and scalable Notion Calendar It's time . See what’s new → Download the Notion App → AI AI features Notion AI AI tools for work Agents Automate busywork AI Meeting Notes Perfectly written by AI Enterprise Search Find answers instantly Explore use cases For work For life Resources Browse Templates Consultants Connections Discover What's New Customer stories Blog Webinars Learn Developers Academy Product tours Help Developers Startups Enterprise Pricing Request a demo Log in Get Notion free Notion Agents Your 24/7 AI team. You assign the tasks. Your Agents do the work. Try for free Request a demo Trusted by those at Custom Agents automate recurring work for your entire team. Answers, tasks, updates—automated and running while you sleep. Set them up once, and the workflows run themselves. Q&A agents Instant answers to repeat questions Answers questions using knowledge in Notion and connected tools. Task routin",
+        "url": "https://www.notion.com/enterprise",
+        "excerpt": "Product Notion AI AI tools for work Agents Automate busywork AI Meeting Notes Perfectly written by AI Enterprise Search Find answers instantly Knowledge Base Centralize your knowledge Docs Simple and powerful Projects Manage any project Connections Connect your apps Security Safe and scalable Notion Calendar It's time . See what\u2019s new \u2192 Download the Notion App \u2192 AI AI features Notion AI AI tools for work Agents Automate busywork AI Meeting Notes Perfectly written by AI Enterprise Search Find answers instantly Explore use cases For work For life Resources Browse Templates Consultants Connections Discover What's New Customer stories Blog Webinars Learn Developers Academy Product tours Help Developers Startups Enterprise Pricing Request a demo Log in Get Notion free Notion for Enterprise Knowledge and work. Connected. One secure AI workspace where enterprise teams plan, collaborate, and build faster together. Request a demo Trusted by 98% of the Forbes Cloud 100 Company knowledge One home that\u2019s organized, searchable, and accurate. Enterprise search Instantly surface answers across Notion and connected apps. Integrated projects Plan tasks, track progress, and align teams. Workflows & ",
         "retrieved_at": null,
         "source_type": "page_fetch"
       },
       {
         "id": "pg5",
-        "url": "https://www.notion.com/product/ai-meeting-notes",
-        "excerpt": "Product Notion AI AI tools for work Agents Automate busywork AI Meeting Notes Perfectly written by AI Enterprise Search Find answers instantly Knowledge Base Centralize your knowledge Docs Simple and powerful Projects Manage any project Connections Connect your apps Security Safe and scalable Notion Calendar It's time . See what’s new → Download the Notion App → AI AI features Notion AI AI tools for work Agents Automate busywork AI Meeting Notes Perfectly written by AI Enterprise Search Find answers instantly Explore use cases For work For life Resources Browse Templates Consultants Connections Discover What's New Customer stories Blog Webinars Learn Developers Academy Product tours Help Developers Startups Enterprise Pricing Request a demo Log in Get Notion free We also have AI note-taking, yada yada yada. Try for free Identifies speakers seamlessly Transcribes and summarizes in real-time Supports every video tool Transcribes and summarizes in real-time Identifies speakers seamlessly Supports every video tool Syncs with your calendar Handles consent Works everywhere you do Simply put, ours is better. The recap sends itself. The moment the meeting ends, notes land where your team w",
+        "url": "https://www.notion.com/product/dev",
+        "excerpt": "[ S ] Syncs [ A ] Agent tools [ H ] Webhooks [ W ] Workers [ E ] External agents [ P ] Platform [ D ] Docs Log in Get Notion free /dev/notion Not just another CRUD API for your SaaS. Start building on the Notion CLI or read our docs See the Developer Platform in action. Re-watch the keynote \u2192 Trusted by engineers at Sync any data source into Notion. Continuously upsert external records into a Notion Database with Workers, a declarative schema, and a persistent cursor. and others zendeskSync.ts See example import { Worker } from \"@notionhq/workers\"; const worker = new Worker(); const tickets = worker.database(\"tickets\", { type: \"managed\", initialTitle: \"Support Tickets\", primaryKeyProperty: \"Tickets\", schema: { properties: { \"Tickets\": Schema.title(), \"CSAT score\": Schema.select([{ name: \"Very satisfied\" }, ...]), \"Feature tags\": Schema.multiSelect([{ name: \"Account access\" }, ...]), }}, }); worker.sync(\"ticketsSync\", { database: tickets, schedule: \"5m\", execute: async () => ({ changes: (await zendesk.tickets.list()).map(t => ({ type: \"upsert\" as const, key: t.id, properties: { \"Tickets\": Builder.title(t.subject), \"CSAT score\": Builder.select(t.csat), \"Feature tags\": Builder.multiSe",
         "retrieved_at": null,
         "source_type": "page_fetch"
       },
       {
         "id": "pg6",
-        "url": "https://www.notion.com/product/enterprise-search",
-        "excerpt": "Product Features See all features → Capture Bring everything into one system of record. Find Get answers, instantly—with citations. Automate Keep work moving 24/7 with agents. . See what’s new → Download the Notion App → Resources Notion for Enterprise Small businesses Startups Developers Discover What's New Customer stories Webinars Templates Consultants Learn Academy Product tours Help Center Pricing Request a demo Log in Get Notion free Enterprise Search Every answer, one search. Answers in seconds and detailed reports delivered in minutes, right where your teams already work. Get Notion free Watch demo video Pause Uh-oh! It looks like your ad blocker is preventing the video from playing. Ranked #1 by G2 What used to take hours of debugging can now be solved in minutes just by asking Notion AI. John Allard Engineering, OpenAI Find answers, wherever they’re hiding. See Enterprise Search in action Search across apps With AI connectors, you can integrate your favorite work tools. Notion AI will search across all of them to find exactly what you need. Instant answers Get up-to-date answers with context to unblock work. Results you can trust Every answer includes verified content and",
+        "url": "https://www.notion.com/customers",
+        "excerpt": "Product Features See all features \u2192 Capture Bring everything into one system of record. Find Get answers, instantly\u2014with citations. Automate Keep work moving 24/7 with agents. . See what\u2019s new \u2192 Download the Notion App \u2192 Resources Notion for Enterprise Small businesses Startups Developers Discover What's New Customer stories Webinars Templates Consultants Learn Academy Product tours Help Center Pricing Request a demo Log in Get Notion free See how leading companies streamline workflows, consolidate tools, and bring everyone\u2019s knowledge into one connected workspace. Featured Story Remote Built a World-Class IT Help Desk with Orchestrated Notion Custom Agents \u00d7 Customers Team sizes Small (1-99 employees) Medium (100-999 employees) Enterprise (1000+ employees) Industries Technology Manufacturing Ecommerce Transportation Professional services Media Education Non-profit Hospitality Advertising Entertainment Clear The Digital Double: How Baseten Scaled Its Most-Asked Expert 5-10\u00d7 the number of questions asked daily Clay\u2019s New Default: Workflows That Happen in the Background With Notion, we're always just one question away from being on the same page. Willie Yao, Head of Engineering How t",
         "retrieved_at": null,
         "source_type": "page_fetch"
       }
     ],
     "warnings": [
-      "Claimed positioning only. Which of these you WANT to be known for, and how much each matters, is your input — it is not derivable from your own marketing copy."
+      "Claimed positioning only. Which of these you WANT to be known for, and how much each matters, is your input \u2014 it is not derivable from your own marketing copy."
     ],
     "approved": false
   },
   "attributes": [
     {
-      "id": "ai_tools",
-      "label": "AI tools for work",
-      "description": "Notion integrates AI capabilities to automate tasks, answering questions and generating content, allowing teams to work more efficiently.",
+      "id": "knowledge_centralization",
+      "label": "Centralize team knowledge",
+      "description": "Notion brings everything into one system of record to capture knowledge including meetings, decisions, processes, and product specs.",
       "aliases": [
-        "AI features",
-        "Notion AI"
+        "knowledge management system",
+        "centralized knowledge base",
+        "all-in-one workspace for knowledge"
       ],
-      "intended_weight": 0.9,
+      "intended_weight": 1.0,
       "claim_evidence_ids": [
         "pg1",
-        "pg2"
-      ],
-      "added_by_user": false,
-      "claim_quotes": [
-        "Capture context, find answers, and automate tasks with AI built for your team."
-      ],
-      "claim_pages": 2,
-      "claim_pages_total": 6,
-      "buyer_questions": [
-        "How can AI simplify my team's workflow?",
-        "What tasks can be automated using AI?",
-        "Are there specific use cases for AI in project management?"
-      ],
-      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
-    },
-    {
-      "id": "enterprise_search",
-      "label": "Enterprise Search",
-      "description": "This feature allows users to search through various connected applications and databases in seconds to find the information they need.",
-      "aliases": [
-        "Unified search",
-        "Instant answers"
-      ],
-      "intended_weight": 0.5,
-      "claim_evidence_ids": [
+        "pg2",
+        "pg3",
+        "pg4",
         "pg6"
       ],
       "added_by_user": false,
       "claim_quotes": [
-        "Every answer, one search."
+        "Capture Bring everything into one system of record.",
+        "Capture knowledge Bring everything into one system of record.",
+        "Capture knowledge. Meetings, decisions, processes, product specs."
       ],
-      "claim_pages": 1,
+      "claim_pages": 5,
       "claim_pages_total": 6,
       "buyer_questions": [
-        "How quickly can I find information across multiple tools?",
-        "Can the search feature provide sources for the information retrieved?",
-        "What applications can be integrated for searching?"
+        "What knowledge management software can help a startup centralize team decisions and project documentation?",
+        "Which tools provide a single system of record for all company knowledge for small businesses?",
+        "What platforms help enterprises organize and maintain searchable company knowledge bases?"
       ],
       "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
     },
     {
-      "id": "custom_agents",
-      "label": "Automate busywork",
-      "description": "Custom Agents can handle repetitive tasks autonomously, managing work efficiently without user intervention.",
+      "id": "instant_answer_search",
+      "label": "Instant search with citations",
+      "description": "Notion provides enterprise search that instantly surfaces answers across Notion and connected apps with citations.",
       "aliases": [
-        "Notion Agents",
-        "Task automation"
+        "cross-app search",
+        "instant answer retrieval",
+        "search across integrated tools"
+      ],
+      "intended_weight": 0.5,
+      "claim_evidence_ids": [
+        "pg1",
+        "pg2",
+        "pg3",
+        "pg4",
+        "pg6"
+      ],
+      "added_by_user": false,
+      "claim_quotes": [
+        "Find Get answers, instantly\u2014with citations.",
+        "Find answers Get answers, instantly\u2014with citations.",
+        "Enterprise Search \u2192 Search across Notion, Slack, Jira, and more."
+      ],
+      "claim_pages": 5,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "What software can instantly find answers across multiple work apps for a medium-sized team?",
+        "Which tools offer enterprise search for quick information retrieval with citations?",
+        "What knowledge platforms integrate search across email, Slack, and project management tools?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "task_automation",
+      "label": "Automate workflows and busywork",
+      "description": "Notion automates workflows with always-on agents that handle repetitive database tasks, triage, reporting, and customized agent orchestration.",
+      "aliases": [
+        "workflow automation",
+        "AI task automation",
+        "automated business processes"
       ],
       "intended_weight": 0.7,
       "claim_evidence_ids": [
+        "pg1",
+        "pg2",
+        "pg3",
+        "pg4",
+        "pg6"
+      ],
+      "added_by_user": false,
+      "claim_quotes": [
+        "Automate Keep work moving 24/7 with agents.",
+        "Automate busywork Keep work moving 24/7 with agents.",
+        "Agents own their own workflows 24/7, so you can focus on your life\u2019s work."
+      ],
+      "claim_pages": 5,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "What workflow automation software can handle repetitive tasks for startups?",
+        "Which platforms provide AI agents to automate and orchestrate business workflows for enterprises?",
+        "What tools can automate reporting and support ticket triage for medium businesses?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "ai_integration",
+      "label": "Integrated AI tools for work",
+      "description": "Notion embeds AI capabilities directly where teams work including AI meeting notes, writing assistance, coding help, and automation, eliminating app switching.",
+      "aliases": [
+        "AI-powered workspace",
+        "built-in AI collaboration tools",
+        "contextual AI assistance"
+      ],
+      "intended_weight": 0.9,
+      "claim_evidence_ids": [
+        "pg1",
+        "pg2",
         "pg4"
       ],
       "added_by_user": false,
       "claim_quotes": [
-        "Your Agents do the work.",
-        "Set them up once, and the workflows run themselves."
+        "AI where your team works.",
+        "AI with all the right context Not just another generic AI tool\u2014it\u2019s AI powered by your team\u2019s knowledge and workflows.",
+        "One AI tool for everything Brainstorm, write, code, search, and automate workflows, all in Notion."
       ],
-      "claim_pages": 1,
+      "claim_pages": 3,
       "claim_pages_total": 6,
       "buyer_questions": [
-        "What types of tasks can these agents automate?",
-        "Can I customize the workflow of an agent?",
-        "How do I monitor the work done by the agents?"
+        "Which collaboration tools have integrated AI features for note-taking and writing for startups?",
+        "What AI-powered platforms offer meeting capture and workflow automation for enterprise teams?",
+        "What software provides all-in-one AI assistance directly in the workspace for small businesses?"
       ],
       "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
     },
     {
-      "id": "meeting_notes",
-      "label": "AI Meeting Notes",
-      "description": "AI Meeting Notes captures and summarizes meetings, ensuring all essential details are preserved and actionable tasks assigned automatically.",
+      "id": "enterprise_security_compliance",
+      "label": "Enterprise-grade security and compliance",
+      "description": "Notion offers enterprise-grade security including SAML SSO, SCIM API, audit logs, granular permissions, AI governance with no training on user data, data residency, and certifications like SOC 2 Type 2 and ISO 27001.",
       "aliases": [
-        "Meeting transcription",
-        "Notes capture"
+        "secure workspace",
+        "compliance certifications",
+        "enterprise-level data protection"
+      ],
+      "intended_weight": null,
+      "claim_evidence_ids": [
+        "pg3",
+        "pg4"
+      ],
+      "added_by_user": false,
+      "claim_quotes": [
+        "Enterprise-grade security, admin controls, and agent governance.",
+        "Global compliance standards GDPR, CCPA, and HIPAA certifications Third-party security certifications SOC 2 Type 2, BSI C5, and ISO (27001, 27701, 27017, 27018)"
+      ],
+      "claim_pages": 2,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "What workspace software offers enterprise-grade security and compliance certifications for regulated industries?",
+        "Which platforms support SAML SSO and granular access permissions for medium to large enterprises?",
+        "What collaboration tools provide data residency options and AI governance for compliance?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "custom_tool_building",
+      "label": "Build custom tools and integrations",
+      "description": "Notion provides developer tools including a CLI, API, workers runtime, agent SDK, and MCP to build custom syncs, tools, agents, and integrations on top of Notion.",
+      "aliases": [
+        "developer platform",
+        "custom automation tools",
+        "programmable workspace"
       ],
       "intended_weight": null,
       "claim_evidence_ids": [
@@ -167,41 +250,68 @@
       ],
       "added_by_user": false,
       "claim_quotes": [
-        "The recap sends itself."
+        "Notion API Turn docs into Markdown and build internal tools with PATs or shared connections."
       ],
       "claim_pages": 1,
       "claim_pages_total": 6,
       "buyer_questions": [
-        "How accurate is the transcription of meetings?",
-        "Can the notes be shared automatically?",
-        "What happens to the meeting notes after the meeting ends?"
+        "What collaboration platforms have APIs and SDKs for building custom workflow automations for developers?",
+        "Which tools allow startups to create custom agent workflows and integrations with external apps?",
+        "What software provides programmable capabilities and CLI for building internal developer tools?"
       ],
       "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
     },
     {
-      "id": "knowledge_base",
-      "label": "Centralize your knowledge",
-      "description": "Notion provides a unified platform to store and organize all knowledge within a team, making information easily accessible.",
+      "id": "cross_team_collaboration",
+      "label": "Supports real-time and multi-team collaboration",
+      "description": "Notion supports real-time collaboration on docs with live editing, comments, teamspaces for home bases, verified pages, and backlinking to connect work across teams.",
       "aliases": [
-        "Knowledge management",
-        "Information hub"
+        "team collaboration tools",
+        "real-time editing",
+        "collaborative workspace"
       ],
-      "intended_weight": 1.0,
+      "intended_weight": null,
       "claim_evidence_ids": [
-        "pg1",
-        "pg2",
-        "pg6"
+        "pg3"
       ],
       "added_by_user": false,
       "claim_quotes": [
-        "Bring everything into one system of record."
+        "Backlinks \u2192 See how every page connects across your workspace."
       ],
-      "claim_pages": 3,
+      "claim_pages": 1,
       "claim_pages_total": 6,
       "buyer_questions": [
-        "How can I ensure my team's knowledge is easily accessible?",
-        "What features assist in managing the knowledge base?",
-        "Can I track changes made to documents in the knowledge base?"
+        "What software supports real-time document collaboration and commenting for startup teams?",
+        "Which workspace platforms provide team-specific spaces and linking across work for enterprises?",
+        "What tools enable multiple teams to collaborate live on project documentation?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "app_integration_connectivity",
+      "label": "Integrate and sync with external apps",
+      "description": "Notion integrates and syncs with essential apps like Salesforce, Jira, Slack, Figma, GitHub, and others, embedding rich information and allowing data syncing into databases.",
+      "aliases": [
+        "app integrations",
+        "external tool sync",
+        "connected workspace"
+      ],
+      "intended_weight": null,
+      "claim_evidence_ids": [
+        "pg3",
+        "pg4"
+      ],
+      "added_by_user": false,
+      "claim_quotes": [
+        "Link previews \u2192 Preview Figma, GitHub, and more inline.",
+        "Integrate, sync, and automate workflows, embed rich information, and find answers across your apps."
+      ],
+      "claim_pages": 2,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "Which platforms offer integrations with Salesforce, Jira, Slack and development tools for medium businesses?",
+        "What workspace software syncs external app data into project management databases?",
+        "What collaboration tools provide rich embed previews from popular SaaS apps for enterprises?"
       ],
       "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
     }
@@ -209,13 +319,10 @@
   "pages": [
     "https://www.notion.com",
     "https://www.notion.com/product",
-    "https://www.notion.com/product/ai",
-    "https://www.notion.com/product/agents",
-    "https://www.notion.com/product/ai-meeting-notes",
-    "https://www.notion.com/product/enterprise-search"
+    "https://www.notion.com/product/features",
+    "https://www.notion.com/enterprise",
+    "https://www.notion.com/product/dev",
+    "https://www.notion.com/customers"
   ],
-  "warnings": [
-    "enterprise_search: 1 quote(s) not verbatim in the fetched pages; dropped",
-    "meeting_notes: 1 quote(s) not verbatim in the fetched pages; dropped"
-  ]
+  "warnings": []
 }
