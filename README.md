@@ -16,12 +16,16 @@ Three layers are kept deliberately separate:
 
 The gap between **claimed** and **perceived** is an *authority gap* — you say it and the models do not
 repeat it. The gap between **intended** and **claimed** is a *messaging gap* — AI does not say it because
-you never clearly said it either. Naming which one you are looking at is the point of the product.
+you never clearly said it either. A claim AI does repeat, mostly to contradict it, is *contested* — a
+different problem from silence. Naming which one you are looking at is the point of the product.
 
 Two probe families measure two different things:
 
 - **Blind probes** never name the brand → **visibility**. Do you show up at all?
 - **Named probes** name the brand but never name an attribute → **perception**. What does AI say you are?
+
+The ids and these code names stay internal; on screen they are *buyer questions* and *brand questions*
+(see the wording rules in [`WEB.md`](WEB.md)).
 
 A named probe that contains the attribute it measures invites the model to agree, so `ana.attribute_leaks`
 rejects it. This is as load-bearing as the brand-leak rule on blind probes.
@@ -79,7 +83,7 @@ python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
 
 Open http://localhost:8501. No API keys, accounts, or internet needed. Stop the server with `Ctrl+C`.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 129 tests incl. one UI journey per
+Tests: `conda activate visexp && python -m pytest -q` (offline; 141 tests incl. one UI journey per
 scenario, the live adapter under an injected transport and the stream endpoint's setup-error path — no
 API key, no network).
 
@@ -124,8 +128,8 @@ Then repeat the create step above.
 | Scores, quote/citation/domain validation | Deterministic code (`scoring.py`, `agents/evaluation.py`) |
 | Notion profile evidence | **Genuine** Claude Code research snapshot, `data/research/notion_2026-09-18.json` (verbatim excerpts, 2026-09-18) |
 | Profound capability links | Official pages, checked the same night |
-| Live model calls | **Not implemented** — `providers/live.py` is a disabled stub (needs an API key + implementation) |
-| URL fetching for arbitrary companies | **Disabled** — paste facts instead |
+| Live model calls | **Implemented** in `providers/live.py` (OpenAI Responses API + web search) — needs `OPENAI_API_KEY`; setup in [`WEB.md`](WEB.md) |
+| URL fetching for arbitrary companies | **Real** — `fetching.py` crawls up to 3 public pages (SSRF-safe) for the API's `/api/onboard`, which needs an OpenAI key. The Streamlit app still does not fetch: paste facts there |
 
 ## Layout
 

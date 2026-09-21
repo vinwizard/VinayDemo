@@ -63,7 +63,7 @@ def score_topic(topic: Topic, phase: str, answers: list[Answer], evals: list[Que
         limitations=["Small sample: at most three baseline questions per topic."],
     )
     if provenance == "synthetic":
-        te.limitations.append("Simulated score from synthetic fixture answers; not a chatbot measurement.")
+        te.limitations.append("Simulated score from sample answers; not a chatbot measurement.")
     if n < 3:
         te.status = "insufficient evidence"
         te.limitations.append(f"Only {n} eligible observation(s); priority ranking omitted.")

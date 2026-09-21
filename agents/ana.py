@@ -128,14 +128,18 @@ def choose_followup(topics: list[Topic], topic_evals: list[TopicEvaluation], eva
     mixed = sorted((te for te in base if te.status == "mixed"), key=lambda te: -te.gap_priority)
     chosen = [te for te in gaps + mixed if te.gap_priority > 0][:MAX_FOLLOWUP_TOPICS]
     if not chosen:
-        return AdaptiveDecision(selected_topics=[], new_probes=[], evidence_probe_ids=[],
-                                rationale="Stop: no supported topic shows a candidate gap or mixed result worth another round.")
+        return AdaptiveDecision(
+            selected_topics=[], new_probes=[], evidence_probe_ids=[],
+            rationale="Stop: no topic with supported fit was left unrecommended or split, "
+                      "so another round of questions would add nothing.")
+    label = {t.id: t.label for t in topics}
     strength = {e.probe_id: e.strength for e in evals}
     asked = {p.text.strip().lower() for p in probes}
     new, evidence, why = [], [], []
     for te in chosen:
         motivating = [p.id for p in probes if p.topic_id == te.topic_id and p.phase == "baseline"
                       and (strength.get(p.id) or 0) < 2]
+        answered = [i for i in motivating if strength.get(i) is not None]
         evidence += motivating
         for raw in bank.get(te.topic_id, [])[:PER_FOLLOWUP_TOPIC]:
             p = Probe(**raw, parent_probe_ids=motivating)
@@ -144,7 +148,12 @@ def choose_followup(topics: list[Topic], topic_evals: list[TopicEvaluation], eva
             new.append(p)
         uncertainty = ("whether the absence persists under differently framed buyer questions"
                        if te.status == "candidate gap" else "why results were split across similar questions")
-        why.append(f"{te.topic_id} ({te.status}, {te.recommendations}/{te.n} recommended, priority {te.gap_priority:g}): "
-                   f"tests {uncertainty}; motivated by {', '.join(motivating) or 'topic-level results'}")
+        found = (f"not recommended in any of {te.n} answers" if not te.recommendations
+                 else f"recommended in only {te.recommendations} of {te.n} answers")
+        n_m = len(answered)
+        motive = (f"{n_m} answer{'' if n_m == 1 else 's'} that did not recommend the brand" if answered
+                  else "the topic-level result")
+        why.append(f"{label.get(te.topic_id, te.topic_id)} — {found}; asking more questions to test "
+                   f"{uncertainty}, prompted by {motive}")
     return AdaptiveDecision(selected_topics=[te.topic_id for te in chosen], new_probes=new,
                             evidence_probe_ids=evidence, rationale=" | ".join(why))

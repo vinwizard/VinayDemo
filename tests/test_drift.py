@@ -3,7 +3,8 @@ import pytest
 
 import drift
 from agents import ana, evaluation
-from schemas import Answer, Attribute, AttributeScore, CompanyProfile, Probe, QueryEvaluation
+from schemas import (Answer, Attribute, AttributeObservation, AttributeScore, CompanyProfile,
+                     Probe, QueryEvaluation)
 
 mk = lambda **k: Attribute(id=k.pop("id", "x"), label=k.pop("label", "X"), **k)
 INTENDED_STATED = dict(intended_weight=1.0, claim_evidence_ids=["e"], claim_pages=6, claim_pages_total=8)
@@ -142,7 +143,19 @@ def test_purely_negative_unclaimed_attribute_is_still_reported():
     assert drift.classify(a, 0.0, 0.0, 0.375) == ("imposed", "imposed_identity")
 
 
-def test_negative_echoes_lower_the_alignment_score():
+def test_negative_mentions_are_subtracted_from_the_supportive_echo():
+    """End to end through score_attributes: 4 of 5 answers raise it, 3 of those to criticise it."""
     a = mk(**INTENDED_STATED)
-    obs = {f"p{i}": [] for i in range(8)}
-    assert drift.alignment([score(1.0, 0.125)]) < drift.alignment([score(1.0, 0.625)])
+    probes = [Probe(id=f"np-{i}", topic_id="perception", text="What is Notion?", kind="named",
+                    phase="baseline", purpose="p") for i in range(1, 6)]
+    answers = [Answer(probe_id=p.id, text="Notion is an AI-native workspace.", provenance="synthetic",
+                      status="ok") for p in probes]
+    evals = [QueryEvaluation(probe_id=p.id, valid=True, mentioned=True, strength=1, explanation="e")
+             for p in probes]
+    obs = {f"np-{i}": [AttributeObservation(attribute_id="x", quote="AI-native workspace",
+                                            polarity="negative" if i <= 3 else "positive")]
+           for i in range(1, 5)}
+    s = drift.score_attributes([a], probes, answers, evals, obs)[0]
+    assert s.mention_rate == 0.8 and s.negative_echoes == 3
+    assert s.echo_rate < s.mention_rate  # the three criticisms must not read as endorsement
+    assert s.echo_rate == 0.2 and s.zone == "contested"

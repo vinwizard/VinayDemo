@@ -4,6 +4,7 @@ Replay: authored fixture labels propose the judgment; deterministic code validat
 quote, mention, competitor and citation against the raw answer and computes all numbers.
 Live: `MODEL_EVAL_PROMPT` is the prepared interface; it has not been run (no credentials).
 """
+from labels import probe_names, with_ids
 from schemas import (Answer, Attribute, AttributeObservation, CompanyProfile, GapFinding, Probe,
                      QueryEvaluation, Topic, TopicEvaluation)
 from scoring import PRIORITY_LABEL, domain_matches, mentions_alias
@@ -79,13 +80,14 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
     if not valid:
         expl = "Needs review: evidence failed validation; excluded from scores."
     elif labels["recommended"]:
-        expl = "Target positively recommended (strength 2)."
+        expl = "Target positively recommended (scored: recommended)."
     elif labels["negative_mention"]:
-        expl = "Target mentioned negatively only (strength 0; criticism, not absence)."
+        expl = ("Target mentioned only critically; scored the same as absent, because "
+                "criticism is not a recommendation.")
     elif labels["mentioned"]:
-        expl = "Target mentioned descriptively but not recommended (strength 1)."
+        expl = "Target mentioned descriptively but not recommended (scored: mentioned)."
     else:
-        expl = "Target absent from answer body (strength 0)."
+        expl = "Target absent from answer body (scored: absent)."
     if owned and not labels["mentioned"]:
         expl += " Owned domain cited without a body mention (citation-only; not counted as a mention)."
     elif owned:
@@ -135,6 +137,7 @@ def extract_attributes(answer: Answer, attributes: list[Attribute]) -> tuple[lis
 def build_findings(topics: list[Topic], topic_evals: list[TopicEvaluation], evals: list[QueryEvaluation],
                    probes: list[Probe]) -> list[GapFinding]:
     ev = {e.probe_id: e for e in evals}
+    pn = probe_names(probes, topics)
     findings = []
     for t in topics:
         te = next((x for x in topic_evals if x.topic_id == t.id and x.phase == "baseline"), None)
@@ -145,7 +148,7 @@ def build_findings(topics: list[Topic], topic_evals: list[TopicEvaluation], eval
         fu_te = next((x for x in topic_evals if x.topic_id == t.id and x.phase == "followup"), None)
         note = None
         if fu_ids and fu_te:
-            note = (f"Exploratory follow-ups {', '.join(fu_ids)} (not merged into baseline): "
+            note = (f"Exploratory follow-ups {with_ids(fu_ids, pn)} (not merged into baseline): "
                     f"{fu_te.recommendations}/{fu_te.n} recommended.")
         limits = list(te.limitations) + [
             "Citations alone do not prove why a model chose a brand.",
@@ -179,17 +182,17 @@ def build_findings(topics: list[Topic], topic_evals: list[TopicEvaluation], eval
         described = [i for i in base_ids if ev.get(i) and ev[i].mentioned and not ev[i].recommended]
         if te.status == "mixed":
             if described:
-                add("poor_match", f"Recommended in {te.recommendations}/{te.n}; mentioned without recommendation in {', '.join(described)}.",
+                add("poor_match", f"Recommended in {te.recommendations}/{te.n}; mentioned without recommendation in {with_ids(described, pn)}.",
                     "Brand appears but is not clearly matched to this use case in some answers.", base_ids)
             else:
                 add("absent_vs_competitors", f"Recommended in {te.recommendations}/{te.n}; absent elsewhere while competitors appeared ({comps}).",
                     "Mixed visibility; the small sample cannot show whether this persists.", base_ids)
         if neg and te.status == "candidate gap":
-            add("poor_match", f"Negative mention(s) in {', '.join(neg)}.",
+            add("poor_match", f"Negative mention(s) in {with_ids(neg, pn)}.",
                 "The brand is described critically for this use case.", neg)
         outdated = [i for i in base_ids if ev.get(i) and any(w.startswith("Possible outdated") for w in ev[i].warnings)]
         if outdated:
-            add("factcheck", f"Answer(s) {', '.join(outdated)} contain a product claim flagged as possibly outdated.",
+            add("factcheck", f"Answer(s) to {with_ids(outdated, pn)} contain a product claim flagged as possibly outdated.",
                 "Needs comparison against current authoritative product facts.", outdated,
                 ["Accuracy not yet verified against current company pages."])
         if t.fit == "strong" and te.owned_citations == 0 and te.recommendations < te.n:

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AttributeScore, DriftReport, Run, RunSummary } from "./api";
 import { OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_ORDER } from "./api";
+import { probeLabels, provenanceLabel, runLabels } from "./labels";
 
 const ZONE_FILL: Record<string, string> = {
   landed: "var(--landed)",
@@ -27,12 +28,13 @@ export function Metrics({ d }: { d: DriftReport }) {
         <div className="metric"><div className="label">Imposed</div><div className="value">{d.imposed.length}</div></div>
       </div>
       <p className="muted" style={{ marginTop: ".4rem" }}>
-        {d.n_named} named answers drive perception · {d.n_blind} blind answers give a separate visibility
-        score of {d.visibility == null ? "n/a" : `${d.visibility}/100`} · provenance {d.provenance}
+        {d.n_named} brand questions answered drive perception · {d.n_blind} buyer questions answered
+        give a separate visibility score of {d.visibility == null ? "n/a" : `${d.visibility}/100`} ·
+        source: {provenanceLabel(d.provenance)}
       </p>
       {d.excluded_named > 0 && (
         <div className="bubble" style={{ borderLeftColor: "var(--lost)", marginTop: ".5rem", gridColumn: "auto" }}>
-          <h4 className="warn">{d.excluded_named} of {d.named_asked} named answers excluded</h4>
+          <h4 className="warn">{d.excluded_named} of {d.named_asked} brand answers excluded</h4>
           <p style={{ margin: ".2rem 0 .4rem" }}>
             Alignment rests on {d.n_named}. An excluded answer cannot count against the brand, so this
             score is biased upward — read it as a ceiling, not a measurement.
@@ -47,15 +49,16 @@ export function Metrics({ d }: { d: DriftReport }) {
 /** Evidence for one attribute, inline and scrollable. Beats sending the reader to the page bottom. */
 function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
   const probeText = new Map((run?.probes ?? []).map((p) => [p.id, p.text]));
+  const names = probeLabels(run?.probes ?? [], run?.topics ?? []);
   return (
     <div className="bubble" role="region" aria-label={`Evidence for ${s.label}`}>
       <h4>Evidence · {s.label}</h4>
       {s.description && <p style={{ margin: "0 0 .5rem" }}>{s.description}</p>}
       <dl>
         <dt>Zone</dt><dd>{ZONE_LABEL[s.zone]} — {OWNER_TITLE[s.owner]}</dd>
-        <dt>Your copy</dt>
+        <dt>How much of your site says it</dt>
         <dd>{s.claim_strength == null ? "no page data" : `states it on ${pct(s.claim_strength)}% of known pages`}</dd>
-        <dt>AI echo</dt>
+        <dt>How often AI says it</dt>
         <dd>{s.echoes} of {s.n} eligible answers{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}</dd>
         {s.intended_weight != null && <><dt>Intent weight</dt><dd>{s.intended_weight}</dd></>}
       </dl>
@@ -70,7 +73,7 @@ function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
           <h4>From these questions</h4>
           <ul>
             {s.probe_ids.map((id) => (
-              <li key={id}><span className="log">{id}</span> {probeText.get(id) ?? ""}</li>
+              <li key={id} title={id}><strong>{names[id] ?? id}</strong> — {probeText.get(id) ?? ""}</li>
             ))}
           </ul>
         </>
@@ -157,7 +160,7 @@ export function GapCards({ scores }: { scores: AttributeScore[] }) {
           <p style={{ margin: ".4rem 0 0" }}>{OWNER_TEXT[s.owner]}</p>
           <p className="muted" style={{ margin: ".3rem 0 0" }}>
             {s.claim_strength == null ? "no page data" : `${pct(s.claim_strength)}% of your known pages state it`}
-            {" · "}AI echoed it in {s.echoes} of {s.n} named answers
+            {" · "}AI echoed it in {s.echoes} of {s.n} brand answers
             {s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
           </p>
           {s.quotes[0] && <p className="quote">{s.quotes[0]}</p>}
@@ -183,6 +186,7 @@ export function GapCards({ scores }: { scores: AttributeScore[] }) {
 export function Evidence({ run }: { run: Run }) {
   const named = run.probes.filter((p) => p.kind === "named");
   const byId = Object.fromEntries(run.answers.map((a) => [a.probe_id, a]));
+  const names = probeLabels(run.probes, run.topics);
   return (
     <details className="card">
       <summary style={{ cursor: "pointer", fontWeight: 500 }}>
@@ -190,11 +194,11 @@ export function Evidence({ run }: { run: Run }) {
       </summary>
       <h3 style={{ marginTop: "1rem" }}>Limitations</h3>
       <ul className="muted">{run.drift?.limitations.map((l, i) => <li key={i}>{l}</li>)}</ul>
-      <h3>Named questions asked (never contain an attribute name)</h3>
+      <h3>Brand questions asked (never contain an attribute name)</h3>
       <div className="stack">
         {named.map((p) => (
           <div className="card" key={p.id}>
-            <div className="log">{p.id}</div>
+            <div className="muted" title={p.id}>{names[p.id] ?? p.id}</div>
             <strong>{p.text}</strong>
             <p className="muted" style={{ marginBottom: 0 }}>{byId[p.id]?.text ?? "no answer"}</p>
           </div>
@@ -206,7 +210,9 @@ export function Evidence({ run }: { run: Run }) {
   );
 }
 
-export function Compare({ a, b }: { a: Run; b: Run }) {
+export function Compare({ a, b, runs = [] }: { a: Run; b: Run; runs?: RunSummary[] }) {
+  const names = runLabels(runs);
+  const name = (r: Run) => names[r.id]?.full ?? r.id;
   const labels = [...new Set([...a.attribute_scores, ...b.attribute_scores].map((s) => s.label))];
   const find = (r: Run, label: string) => r.attribute_scores.find((s) => s.label === label);
   const da = a.drift, db = b.drift;
@@ -218,7 +224,7 @@ export function Compare({ a, b }: { a: Run; b: Run }) {
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <div>
-            <div className="muted">A · scenario {a.scenario} · {a.id}</div>
+            <div className="muted" title={a.id}>{name(a)}</div>
             <div className="value" style={{ fontSize: "1.6rem", fontWeight: 600 }}>
               {da?.alignment ?? "n/a"}%
             </div>
@@ -231,7 +237,7 @@ export function Compare({ a, b }: { a: Run; b: Run }) {
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div className="muted">B · scenario {b.scenario} · {b.id}</div>
+            <div className="muted" title={b.id}>{name(b)}</div>
             <div className="value" style={{ fontSize: "1.6rem", fontWeight: 600 }}>
               {db?.alignment ?? "n/a"}%
             </div>
@@ -240,7 +246,8 @@ export function Compare({ a, b }: { a: Run; b: Run }) {
       </div>
       <div className="card">
         <div className="cmp muted" style={{ borderTop: "none" }}>
-          <div>Attribute</div><div>A</div><div>B</div><div>Zone change</div>
+          <div>Attribute</div><div>{names[a.id]?.short ?? "A"}</div>
+          <div>{names[b.id]?.short ?? "B"}</div><div>Zone change</div>
         </div>
         {labels.map((label) => {
           const sa = find(a, label), sb = find(b, label);
@@ -262,6 +269,7 @@ export function Compare({ a, b }: { a: Run; b: Run }) {
 }
 
 export function History({ runs, onOpen }: { runs: RunSummary[]; onOpen: (id: string) => void }) {
+  const names = runLabels(runs);
   if (!runs.length) return <div className="card muted">No saved runs yet. Measure drift to create one.</div>;
   return (
     <div className="card">
@@ -272,7 +280,7 @@ export function History({ runs, onOpen }: { runs: RunSummary[]; onOpen: (id: str
         <tbody>
           {runs.map((r) => (
             <tr key={r.id} className="pick" onClick={() => onOpen(r.id)}>
-              <td className="log">{r.id}</td>
+              <td title={r.id}>{names[r.id]?.short ?? r.id}</td>
               <td className="muted">{r.created_at.replace("T", " ")}</td>
               <td>{r.scenario ?? "—"}</td>
               <td><strong>{r.alignment == null ? "n/a" : `${r.alignment}%`}</strong></td>

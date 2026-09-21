@@ -27,6 +27,7 @@ st.markdown("""
 .z-lost {background:#fdecec; border-color:#f1b0b0; color:#8a1c1c;}
 .z-unstated {background:#fff4e5; border-color:#f3c98b; color:#7a4b00;}
 .z-imposed {background:#eef2ff; border-color:#c3cdfa; color:#2e3a8c;}
+.z-contested {background:#fbe9f0; border-color:#f0aac4; color:#8a1c4b;}
 .bar {height:15px; border-radius:3px;}
 .attr {font-size:.93rem; color:#24292f; padding-top:.1rem;}
 .muted {color:#57606a; font-size:.8rem;}
@@ -40,10 +41,13 @@ SS.setdefault("run", None)
 SS.setdefault("run_requested", False)
 SS.setdefault("notice", None)
 
-ZONE_CLS = {"landed": "z-landed", "lost_claim": "z-lost", "unstated_intent": "z-unstated", "imposed": "z-imposed"}
-ZONE_LABEL = {"landed": "landed", "lost_claim": "lost claim", "unstated_intent": "never stated", "imposed": "imposed"}
+ZONE_CLS = {"landed": "z-landed", "lost_claim": "z-lost", "unstated_intent": "z-unstated",
+            "imposed": "z-imposed", "contested": "z-contested"}
+ZONE_LABEL = {"landed": "landed", "lost_claim": "lost claim", "unstated_intent": "never stated",
+              "imposed": "imposed", "contested": "contested"}
 OWNER_TITLE = {"authority_gap": "Authority gap", "messaging_gap": "Messaging gap",
-               "imposed_identity": "Imposed identity", "none": "Aligned"}
+               "imposed_identity": "Imposed identity", "contested_identity": "Contested identity",
+               "none": "Aligned"}
 
 
 def esc(t):
@@ -183,7 +187,7 @@ h = st.columns([2.4, 1.6, 1.6, 1.2])
 h[1].markdown("<span class='muted'>What you claim</span>", unsafe_allow_html=True)
 h[2].markdown("<span class='muted'>What AI says</span>", unsafe_allow_html=True)
 
-ORDER = {"lost_claim": 0, "unstated_intent": 1, "imposed": 2, "landed": 3}
+ORDER = {"contested": 0, "lost_claim": 1, "unstated_intent": 2, "imposed": 3, "landed": 4}
 for s in sorted(run.attribute_scores, key=lambda x: (ORDER[x.zone], -(x.echo_rate or 0))):
     c = st.columns([2.4, 1.6, 1.6, 1.2])
     c[0].markdown(f"<div class='attr'>{esc(s.label)}</div>"
@@ -191,7 +195,8 @@ for s in sorted(run.attribute_scores, key=lambda x: (ORDER[x.zone], -(x.echo_rat
                      "<span class='muted'>not claimed by you</span>"), unsafe_allow_html=True)
     cw = int((s.claim_strength or 0) * 100)
     ew = int((s.echo_rate or 0) * 100)
-    fill = {"landed": "#2da44e", "lost_claim": "#cf222e", "unstated_intent": "#bf8700", "imposed": "#4c5fd7"}[s.zone]
+    fill = {"landed": "#2da44e", "lost_claim": "#cf222e", "unstated_intent": "#bf8700",
+            "imposed": "#4c5fd7", "contested": "#bf3989"}[s.zone]
     c[1].markdown(f"<div class='bar' style='width:{cw}%;background:#8c959f'></div>"
                   f"<span class='muted'>{cw}% of pages</span>", unsafe_allow_html=True)
     c[2].markdown(f"<div class='bar' style='width:{ew}%;background:{fill}'></div>"
@@ -201,7 +206,7 @@ for s in sorted(run.attribute_scores, key=lambda x: (ORDER[x.zone], -(x.echo_rat
 # ---------------- whose problem is it ----------------
 st.write("")
 st.markdown("#### Whose problem is each gap?")
-gaps = [s for s in run.attribute_scores if s.zone in ("lost_claim", "unstated_intent", "imposed")]
+gaps = [s for s in run.attribute_scores if s.zone in ("contested", "lost_claim", "unstated_intent", "imposed")]
 gaps.sort(key=lambda s: (ORDER[s.zone], -((s.intended_weight or 0))))
 for s in gaps[:4]:
     with st.container(border=True):
@@ -218,7 +223,7 @@ for s in gaps[:4]:
                        "https://www.tryprofound.com/features/answer-engine-insights")
         elif s.owner == "messaging_gap":
             st.caption("Not an AI problem: your own copy does not state this clearly enough to be repeated.")
-        elif s.owner == "imposed_identity":
+        elif s.owner in ("imposed_identity", "contested_identity"):
             st.caption("Relevant capability: sentiment/theme analysis — "
                        "https://www.tryprofound.com/features/answer-engine-insights")
 

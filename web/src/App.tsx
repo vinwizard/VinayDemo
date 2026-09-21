@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Health, Run, RunSummary, Scenario } from "./api";
 import { getHealth, getRun, getRuns, getScenarios, streamRun } from "./api";
 import { Compare, DriftMap, Evidence, GapCards, History, Metrics } from "./components";
+import { PROBE_KIND_LABEL, runLabels, streamingProbeLabel } from "./labels";
 
 type Tab = "measure" | "report" | "history" | "compare";
 interface FeedItem { key: string; text: string; sub?: string }
@@ -36,10 +37,15 @@ export default function App() {
     closer.current?.();
     closer.current = streamRun(scenario, mode, {
       onNode: (e) =>
-        setFeed((f) => [{ key: `n${f.length}`, text: `${e.node} · ${e.stage} · ${e.agent}`, sub: e.log }, ...f]),
+        setFeed((f) => [{ key: `n${f.length}`, text: `${e.stage} · ${e.agent}`, sub: e.log }, ...f]),
       onAnswer: (e) => {
         setProgress({ done: e.done, expected: e.expected });
-        setFeed((f) => [{ key: `a${f.length}`, text: `${e.done}/${e.expected} · ${e.probe_id} (${e.kind})`, sub: e.text }, ...f]);
+        setFeed((f) => [{
+          key: `a${f.length}`,
+          text: `${e.done}/${e.expected} · ${streamingProbeLabel(e.probe_id, e.kind, e.phase, e.topic_label)}`
+                + ` · ${PROBE_KIND_LABEL[e.kind] ?? e.kind}`,
+          sub: e.text,
+        }, ...f]);
       },
       onDone: (e) => { setRun(e.run); setBusy(false); setTab("report"); refreshRuns(); },
       onError: (e) => { setError(e.message); setBusy(false); },
@@ -54,6 +60,7 @@ export default function App() {
   }, [cmpA, cmpB]);
 
   const sc = scenarios.find((s) => s.id === scenario);
+  const runNames = runLabels(runs);
   const pctDone = progress.expected ? (progress.done / progress.expected) * 100 : 0;
 
   return (
@@ -134,10 +141,10 @@ export default function App() {
                   ))}
                 </div>
                 <p className="muted" style={{ marginBottom: 0 }}>
-                  Asks {sc.named_probes} questions that name the brand but never name an attribute
+                  Asks {sc.named_probes} brand questions that name the brand but never name an attribute
                   {mode === "live"
                     ? ". Live runs measure perception only, so no visibility score is produced."
-                    : ", plus 12 blind questions that never name the brand."}
+                    : ", plus 12 buyer questions that never name the brand."}
                 </p>
               </>
             )}
@@ -183,15 +190,23 @@ export default function App() {
             <label className="muted">Run A</label>
             <select value={cmpA} onChange={(e) => setCmpA(e.target.value)}>
               <option value="">choose…</option>
-              {runs.map((r) => <option key={r.id} value={r.id}>{r.id} · {r.scenario} · {r.alignment}%</option>)}
+              {runs.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {runNames[r.id]?.full ?? r.id} · {r.alignment}%
+                </option>
+              ))}
             </select>
             <label className="muted">Run B</label>
             <select value={cmpB} onChange={(e) => setCmpB(e.target.value)}>
               <option value="">choose…</option>
-              {runs.map((r) => <option key={r.id} value={r.id}>{r.id} · {r.scenario} · {r.alignment}%</option>)}
+              {runs.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {runNames[r.id]?.full ?? r.id} · {r.alignment}%
+                </option>
+              ))}
             </select>
           </div>
-          {pairA && pairB ? <Compare a={pairA} b={pairB} />
+          {pairA && pairB ? <Compare a={pairA} b={pairB} runs={runs} />
             : <div className="card muted">Pick two runs to compare. Run both scenarios first if the list is short.</div>}
         </div>
       )}
