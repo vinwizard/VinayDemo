@@ -156,7 +156,7 @@ def extract_attributes(answer: Answer, attributes: list[Attribute]) -> tuple[lis
         if not isinstance(quote, str) or not quote.strip() or quote not in answer.text:
             warnings.append(f"Attribute {aid}: quote not verbatim in the answer; dropped.")
             continue
-        if quote not in answer_body(answer.text):
+        if quote not in CITATION.sub(" ", answer.text):
             warnings.append(f"Attribute {aid}: quote is from a citation, not the answer; dropped.")
             continue
         kept.append(AttributeObservation(attribute_id=aid, quote=quote,
