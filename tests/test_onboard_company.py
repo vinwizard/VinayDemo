@@ -284,11 +284,12 @@ def test_a_thin_site_is_saved_with_a_warning_rather_than_refused(store, monkeypa
                         lambda url, max_pages: [("https://acme.example/", "we set up in minutes")])
     monkeypatch.setattr(onboarding_model, "default_transport", lambda *_: json.dumps(
         {"name": "Acme", "one_liner": "Acme sets up fast.", "attributes": [
-            {"id": "fast", "label": "Fast to set up", "description": "New accounts are usable in "
+            {"id": "fast", "label": "Fast to set up", "description": "Acme accounts are usable in "
              "minutes without a migration project.", "claim_quotes": ["we set up in minutes"],
              "buyer_questions": ["Which tool sets up fastest?"]}]}))
     out = main.onboard(url="https://acme.example/", name="Acme")
     assert reports.load_company(out["id"]).id == out["id"]   # the paid crawl is not discarded
+    assert [a["id"] for a in out["attributes"]] == ["fast"]  # thin, not empty: its one claim survived
     assert any("too little for a reliable claim percentage" in w for w in out["warnings"])
 
 

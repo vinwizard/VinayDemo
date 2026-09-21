@@ -162,7 +162,9 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
   product's habit of showing its work, and is worth doing deliberately rather than as a payload
   field nothing renders — `agents.onboarding.named_probes_for` already produces them
 - No tests for the React app itself. `tests/test_api_stream.py` runs each bundled scenario end to end
-  through the event stream the app consumes, which is the journey coverage the repository has
+  through the event stream the app consumes, which is the journey coverage the repository has;
+  `tests/test_api_seed.py` covers the preloaded company, its offline fallback and the onboarding
+  stream's event order
 - Report-surface attribute descriptions still render nothing: `AttributeScore` carries no
   `description` field. The onboarding task added `claim_pages`/`claim_pages_total` there but left
   this one open

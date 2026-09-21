@@ -69,6 +69,8 @@ def test_onboarding_streams_the_crawl_before_the_extraction(monkeypatch, tmp_pat
                         lambda url, max_pages: [("https://acme.example/", "we set up in minutes")])
     monkeypatch.setattr(onboarding_model, "default_transport", lambda *_: json.dumps(
         {"name": "Acme", "attributes": [{"id": "fast", "label": "Fast to set up",
+                                         "description": "Acme accounts are usable in minutes "
+                                                        "without a migration project.",
                                          "claim_quotes": ["we set up in minutes"]}]}))
     out = events(main.onboard_events("https://acme.example/", "Acme"))
     assert [k for k, _ in out] == ["pages", "company"]
