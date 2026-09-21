@@ -247,7 +247,7 @@ CITED = ("Asana is the pick for this. ([zapier.com](https://zapier.com/blog/asan
     ("zapier.com", False),   # a citation's host
     ("zapier", False),       # a domain stem
     ("Height", False),       # inside another word
-    ("monday.com", False),   # lowercase host shape: dropped even in prose (see BARE_HOST)
+    ("monday.com", True),    # a product whose name is its domain, written in the prose
 ])
 def test_competitor_must_be_named_in_the_body_not_in_a_citation(name, kept):
     e = evaluation.evaluate(PROBE, synth(CITED, competitor_recommendations=[name]), PROFILE)

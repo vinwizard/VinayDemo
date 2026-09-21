@@ -59,7 +59,10 @@ def score_topic(topic: Topic, phase: str, answers: list[Answer], evals: list[Que
         mention_rate=rate(sum(e.mentioned for e in kept), n), recommendation_rate=rate(rec, n),
         citation_rate=rate(sum(e.owned_citation for e in kept), n),
         visibility_score=visibility_score([e.strength for e in kept]), competitor_rate=rate(comp, n),
-        status="", top_competitors=[c for c, _ in Counter(c for e in kept for c in e.competitor_recommendations).most_common(4)],
+        # A competitor is whoever AI names in a buyer answer that never names the brand: a name beside
+        # the brand is alongside it — often a tool it integrates with — not instead of it.
+        status="", top_competitors=[c for c, _ in Counter(c for e in kept if not e.mentioned
+                                                          for c in e.competitor_recommendations).most_common(4)],
         limitations=["Small sample: at most three baseline questions per topic."],
     )
     if provenance == "synthetic":

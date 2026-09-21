@@ -33,12 +33,6 @@ CAPABILITIES = {
 # Every `[title](url)` — the `([host](url))` inline citations and the bare source-card lines a
 # search answer is full of — and every naked URL. What is left is what the model actually said.
 CITATION = re.compile(r"\(?\[[^\]]*\]\([^)\s]*\)\)?|https?://\S+")
-# A competitor name written as a lowercase host ("zapier.com") is a source being cited, not a
-# product being recommended. "Otter.ai" in prose is capitalised and stays.
-# ponytail: also drops a product whose name IS its lowercase domain ("cctk.ai" — seen live — or
-# "monday.com"). Citation hosts are already excluded by the body check, so delete this rule if it
-# costs a real competitor.
-BARE_HOST = re.compile(r"^(https?://)?(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(/\S*)?$")
 
 
 def answer_body(text: str) -> str:
@@ -95,8 +89,8 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
         warnings.append(f"Competitor(s) not in answer text: {missing_comps}")
     # In the text, but only as a citation's title or host, or as a domain stem: a source the model
     # read, not a product it recommended. The name is dropped; the answer's other labels still stand.
-    cited = [c for c in competitors if c not in missing_comps
-             and (BARE_HOST.match(c) or not named_in(c, body))]
+    # A name that IS a domain ("cctk.ai", "monday.com") written in the answer's own prose stays.
+    cited = [c for c in competitors if c not in missing_comps and not named_in(c, body)]
     if cited:
         warnings.append(f"Citation-only name(s) dropped, not named in the answer body: {cited}")
         competitors = [c for c in competitors if c not in cited]

@@ -364,14 +364,23 @@ def test_an_added_claim_cannot_be_created_unintended():
 def test_the_target_is_never_its_own_competitor(store):
     """An evaluator listing the target among "other brands" is a routine slip, and this list reaches
     both the report table and a paid question: "How does Notion compare to Notion and Linear?"."""
-    text = "Notion and Linear are good options for this."
-    run = live_run(["Notion", "Linear"], text, mentioned=True, quotes=[text])
+    run = live_run(["Notion", "Linear"], "Linear is a good option for this.")
     named = {c for te in run.topic_evaluations for c in te.top_competitors}
     assert named == {"Linear"}
     cmp = next(p for p in run.probes if p.id == ana.COMPARISON_PROBE_ID)
     assert cmp.text == "How does Notion compare to Linear?"
     # dropping the self-reference is a correction, not an evidence failure: the answer still scores
     assert all(e.valid for e in run.evaluations if e.probe_id.endswith("-b1"))
+
+
+def test_a_name_beside_the_brand_is_not_a_competitor(store):
+    """The competitor is whoever AI names in an answer that never names the brand. "Sinatra
+    integrates with GitHub and Notion" names a complement, not a rival."""
+    text = "Sinatra integrates with GitHub and Notion to automate issue assignment."
+    run = live_run(["Sinatra"], text, mentioned=True, quotes=[text])
+    assert all(e.valid for e in run.evaluations if e.probe_id.endswith("-b1"))
+    assert not any(te.top_competitors for te in run.topic_evaluations)
+    assert not [p for p in run.probes if p.id == ana.COMPARISON_PROBE_ID]
 
 
 def test_a_claim_you_never_weighted_is_not_filed_under_gaps():
