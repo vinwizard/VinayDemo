@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { ReactNode } from "react";
-import type { Answer, AttributeScore, DriftReport, Probe, QueryEvaluation, Run, RunSummary, Zone } from "./api";
+import type { KeyboardEvent, ReactNode } from "react";
+import type { Answer, AttributeScore, DriftReport, Probe, QueryEvaluation, Run, WinBackAction, RunSummary, Zone } from "./api";
 import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_ORDER, ZONES, rescoreRun } from "./api";
 import { ADDED_MIN_WEIGHT, Slider } from "./claims";
 import {
@@ -73,6 +73,19 @@ function Block({ title, found, children, open }: {
   );
 }
 
+/** One titled part of a report tab, headed by what it found. */
+function Section({ title, found, children }: { title: string; found: ReactNode; children: ReactNode }) {
+  return (
+    <section className="panel-sec">
+      <div className="panel-sec-head">
+        <h3>{title}</h3>
+        <span className="block-found">{found}</span>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 const ZONE_COUNT: Record<Zone, (d: DriftReport) => number> = {
   landed: (d) => d.landed.length,
   lost_claim: (d) => d.lost_claims.length,
@@ -82,34 +95,43 @@ const ZONE_COUNT: Record<Zone, (d: DriftReport) => number> = {
   unprioritised: (d) => d.unprioritised?.length ?? 0,
 };
 
-export function Metrics({ d, brand }: { d: DriftReport; brand: string }) {
+/** The headline, buyer visibility and the claims to win back: pinned above every tab. */
+function Figures({ d }: { d: DriftReport }) {
   const h = headline(d);
+  const lost = d.lost_claims.length;
+  return (
+    <div className="figures">
+      <div className="fig potential">
+        <span className="fig-value">{h.potential == null ? "n/a" : `${h.potential}%`}</span>
+        <span className="fig-label">{h.potential == null ? h.label : "untapped potential"}</span>
+        <span className="fig-sub">{h.today ?? d.na_reasons?.[h.field]}</span>
+      </div>
+      <div className="fig">
+        <span className="fig-value">{d.visibility == null ? "n/a" : d.visibility}{d.visibility != null && <small> / 100</small>}</span>
+        <span className="fig-label">buyer visibility</span>
+        {d.visibility == null && <span className="fig-sub">{d.na_reasons?.visibility}</span>}
+      </div>
+      <div className="fig">
+        <span className="fig-value">{lost}</span>
+        <span className="fig-label">{lost === 1 ? "claim" : "claims"} to win back</span>
+      </div>
+    </div>
+  );
+}
+
+/** What the pinned figures mean, the zone legend and any excluded answers: the top of the Overview. */
+function Explain({ d, brand }: { d: DriftReport; brand: string }) {
   return (
     <>
-      <div className="headline">
-        <div className="figure potential">
-          <div className="label">{h.label}</div>
-          <div className="value">
-            {h.potential == null ? "n/a" : `${h.potential}%`}
-            {h.potential != null && <small> untapped potential</small>}
-          </div>
-          <div className="today">{h.today ?? d.na_reasons?.[h.field]}</div>
-          <p>
-            {d.lens === "claim"
-              ? `Weighted by how often your site states each claim: the share of what the site says that AI’s answers about ${brand} do not yet repeat supportively.`
-              : `Weighted by how much each claim matters to you: the share of what you want to be known for that AI’s answers about ${brand} do not yet say.`}
-          </p>
-        </div>
-        <div className="figure secondary">
-          <div className="label">Buyer visibility</div>
-          <div className="value">{d.visibility == null ? "n/a" : d.visibility}<small>{d.visibility != null && " / 100"}</small></div>
-          {d.visibility == null && <div className="today">{d.na_reasons?.visibility}</div>}
-          <p>
-            How often {brand} came up when a buyer asked without naming it — a mention scores half,
-            a recommendation full. A separate measure; it does not move the headline.
-          </p>
-        </div>
-      </div>
+      <p className="muted" style={{ margin: 0 }}>
+        {d.lens === "claim"
+          ? `Untapped potential is weighted by how often your site states each claim: the share of what the site says that AI’s answers about ${brand} do not yet repeat supportively.`
+          : `Untapped potential is weighted by how much each claim matters to you: the share of what you want to be known for that AI’s answers about ${brand} do not yet say.`}
+        {" "}Buyer visibility is how often {brand} came up when a buyer asked without naming it — a
+        mention scores half, a recommendation full; a separate measure that does not move the headline.
+        {" "}{d.n_named} brand questions answered drive the headline · {d.n_blind} buyer questions answered
+        drive buyer visibility · source: {provenanceLabel(d.provenance)}
+      </p>
       <div className="zones" role="list" aria-label="Claims by zone">
         {ZONES.map((z) => (
           <div key={z} role="listitem" className={`zone ${ZONE_COUNT[z](d) ? "" : "zero"}`}>
@@ -119,12 +141,8 @@ export function Metrics({ d, brand }: { d: DriftReport; brand: string }) {
           </div>
         ))}
       </div>
-      <p className="muted" style={{ margin: 0 }}>
-        {d.n_named} brand questions answered drive the headline · {d.n_blind} buyer questions answered
-        drive buyer visibility · source: {provenanceLabel(d.provenance)}
-      </p>
       {d.excluded_named > 0 && (
-        <div className="bubble" style={{ borderLeftColor: "var(--lost)", marginTop: ".5rem", gridColumn: "auto" }}>
+        <div className="bubble" style={{ borderLeftColor: "var(--lost)" }}>
           <h4 className="warn">{d.excluded_named} of {d.named_asked} brand answers excluded</h4>
           <p style={{ margin: ".2rem 0 .4rem" }}>
             The headline rests on {d.n_named}. An excluded answer cannot count against the brand, so this
@@ -160,10 +178,25 @@ function RunSource({ run }: { run: Run }) {
   );
 }
 
+const TABS = [
+  ["overview", "Overview"], ["win-back", "Win it back"], ["buyer", "Buyer questions"],
+  ["brand", "Brand questions"], ["sources", "Sources & rivals"],
+] as const;
+type ReportTab = (typeof TABS)[number][0];
+
+/** "#report-buyer" opens the Buyer questions tab, so a link can land on one. */
+const tabFromHash = (): ReportTab =>
+  TABS.find(([t]) => window.location.hash === `#report-${t}`)?.[0] ?? "overview";
+
+const sortClaims = (scores: AttributeScore[]) => [...scores].sort(
+  (a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.mention_rate ?? b.echo_rate ?? 0) - (a.mention_rate ?? a.echo_rate ?? 0),
+);
+
 /**
- * One run, top to bottom: where it came from, the upside, claim by claim, then each kind of question
- * in its own block. `onRescored` enables the optional weights step; without it the report is read-only.
- * `weightNote` replaces the weights step with one plain line.
+ * One run as a product: a summary pinned at the top, then one tab per question a reader asks —
+ * each fitting about one screen — and a drawer with everything about a single claim. Same numbers
+ * and data as ever; only the layout. `onRescored` enables the optional weights step; without it the
+ * report is read-only. `weightNote` replaces the weights step with one plain line.
  */
 export function Report({ run, onRescored, weightNote }: {
   run: Run;
@@ -171,47 +204,120 @@ export function Report({ run, onRescored, weightNote }: {
   weightNote?: string;
 }) {
   const d = run.drift;
+  const uid = useId();
+  const top = useRef<HTMLDivElement>(null);
+  const [tab, setTabState] = useState<ReportTab>(tabFromHash);
+  const [claim, setClaim] = useState<string | null>(null);
+  useEffect(() => {
+    const follow = () => setTabState(tabFromHash());
+    window.addEventListener("hashchange", follow);
+    return () => window.removeEventListener("hashchange", follow);
+  }, []);
+  useEffect(() => {
+    // On a phone the tab strip scrolls sideways: keep the chosen tab in view, including one opened by a link.
+    const btn = document.getElementById(`${uid}-tab-${tab}`), strip = btn?.parentElement;
+    if (btn && strip) strip.scrollLeft = btn.offsetLeft - strip.offsetLeft - 16;
+  }, [tab, uid]);
+  const setTab = (t: ReportTab, focus = false) => {
+    setTabState(t);
+    window.history.replaceState(null, "", `#report-${t}`);
+    if (focus) document.getElementById(`${uid}-tab-${t}`)?.focus();
+    // A pinned header means the reader scrolled into the previous tab; start the new one at its top.
+    const head = top.current;
+    if (head && head.getBoundingClientRect().top <= 0) head.parentElement?.scrollIntoView({ block: "start" });
+  };
+  const onKey = (e: KeyboardEvent) => {
+    const i = TABS.findIndex(([t]) => t === tab);
+    const to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: TABS.length - 1 }[e.key];
+    if (to == null) return;
+    e.preventDefault();
+    setTab(TABS[(to + TABS.length) % TABS.length][0], true);
+  };
+
   const claims = run.attribute_scores.filter((s) => !s.discovered);
+  const opened = run.attribute_scores.find((s) => s.attribute_id === claim);
+  const count: Record<ReportTab, number | undefined> = {
+    overview: claims.length,
+    "win-back": winBackPlan(run).actions.length,
+    buyer: run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline").length,
+    brand: run.probes.filter((p) => p.kind === "named" && p.phase === "baseline").length,
+    sources: run.insights?.sources.sources.length,
+  };
+
   return (
     <article className="report">
-      <div className="report-head">
-        <div className="row">
-          <Logo name={run.profile.name} url={run.profile.logo_url} />
-          <h2>{run.profile.name} — report</h2>
-        </div>
-        <div className="row">
-          <span className="muted" title={run.id}>{when(run.created_at)}</span>
+      <div className="report-top" ref={top}>
+        <div className="report-head">
+          <div className="row" style={{ minWidth: 0 }}>
+            <Logo name={run.profile.name} url={run.profile.logo_url} size={34} />
+            <div style={{ minWidth: 0 }}>
+              <h2>{run.profile.name}</h2>
+              <div className="muted" title={run.id}>
+                {when(run.created_at)} · {run.mode === "live_api" ? PROVENANCE_LABEL.live_api : "Sample run — authored answers"}
+              </div>
+            </div>
+          </div>
+          {d && <Figures d={d} />}
           {d && <PrintSummary run={run} />}
         </div>
-      </div>
-      <RunSource run={run} />
-      {d ? (
-        <>
-          <Metrics d={d} brand={run.profile.name} />
-          {weightNote ? <p className="muted">{weightNote}</p>
-            : onRescored && <Weights key={run.id} run={run} onRescored={onRescored} />}
-          <section>
-            <h3>Claim by claim: what your site says, and what AI says</h3>
-            <DriftMap scores={claims} run={run} />
-          </section>
-          <section>
-            <h3>Where the upside is</h3>
-            <GapCards scores={run.attribute_scores} />
-          </section>
-          <div className="blocks">
-            <WinBack run={run} />
-            <BuyerQuestions run={run} />
-            <BrandQuestions run={run} />
-            <ShareOfVoice run={run} />
-            <Competitors run={run} />
-            <CitedSources run={run} />
-            <Discovered run={run} />
+        {d && (
+          <div className="report-tabs" role="tablist" aria-label="Report sections" onKeyDown={onKey}>
+            {TABS.map(([t, label]) => (
+              <button key={t} id={`${uid}-tab-${t}`} role="tab" className="rtab" aria-selected={tab === t}
+                      aria-controls={`${uid}-panel-${t}`} tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)}>
+                {label}
+                {count[t] != null && <span className="rtab-count">{count[t]}</span>}
+              </button>
+            ))}
           </div>
-          <Evidence run={run} />
-        </>
+        )}
+      </div>
+      {d ? (
+        <div className="report-panel" role="tabpanel" id={`${uid}-panel-${tab}`} aria-labelledby={`${uid}-tab-${tab}`}
+             tabIndex={0}>
+          {tab === "overview" && (
+            <>
+              <RunSource run={run} />
+              <Explain d={d} brand={run.profile.name} />
+              <section>
+                <h3>Claim by claim — tap one for its evidence and fix</h3>
+                <ClaimCards scores={claims} onOpen={setClaim} />
+              </section>
+              {weightNote ? <p className="muted">{weightNote}</p>
+                : onRescored && <Weights key={run.id} run={run} onRescored={onRescored} />}
+              <Evidence run={run} />
+            </>
+          )}
+          {tab === "win-back" && (
+            <>
+              <WinBack run={run} />
+              <Section title="Where the upside is" found="the biggest open claims first">
+                <GapCards scores={run.attribute_scores} onOpen={setClaim} />
+              </Section>
+            </>
+          )}
+          {tab === "buyer" && <BuyerQuestions run={run} />}
+          {tab === "brand" && <BrandQuestions run={run} />}
+          {tab === "sources" && (
+            <>
+              <CitedSources run={run} />
+              <ShareOfVoice run={run} />
+              <Competitors run={run} />
+              <Discovered run={run} onOpen={setClaim} />
+            </>
+          )}
+        </div>
       ) : (
-        <div className="callout">This run finished without a drift report.</div>
+        <>
+          <RunSource run={run} />
+          <div className="callout">This run finished without a drift report.</div>
+        </>
       )}
+      {opened && <ClaimDrawer s={opened} run={run} onClose={() => {
+        setClaim(null);
+        // Back to the card or link that opened it, which a click in Safari never focused.
+        top.current?.parentElement?.querySelector<HTMLElement>(`[data-claim="${CSS.escape(opened.attribute_id)}"]`)?.focus();
+      }} />}
     </article>
   );
 }
@@ -352,112 +458,142 @@ function Weights({ run, onRescored }: { run: Run; onRescored: (r: Run) => void }
   );
 }
 
-/** Evidence for one attribute, inline and scrollable. Beats sending the reader to the page bottom. */
-function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
-  const probeText = new Map((run?.probes ?? []).map((p) => [p.id, p.text]));
-  const names = probeLabels(run?.probes ?? [], run?.topics ?? []);
-  const share = claimShare(s.claim_pages, s.claim_pages_total, s.claim_strength);
+/**
+ * How AI raises a claim. Total width is how OFTEN AI raises it. The zone-coloured segment is
+ * endorsements (echo_rate, what drives landed and alignment), the grey one neutral mentions, and
+ * the red one criticism.
+ */
+function AiBar({ s }: { s: AttributeScore }) {
   return (
-    <div className="bubble" role="region" aria-label={`Evidence for ${s.label}`}>
-      <h4>Evidence · {s.label}</h4>
-      {s.description && <p style={{ margin: "0 0 .5rem" }}>{s.description}</p>}
-      <dl>
-        <dt>Zone</dt><dd>{ZONE_LABEL[s.zone]} — {OWNER_TITLE[s.owner]}</dd>
-        <dt>How much of your site says it</dt>
-        <dd>{share ? `states it on ${share}` : na(s.na_reasons, "claim_strength")}</dd>
-        <dt>How often AI says it</dt>
-        <dd>{s.echo_rate == null ? na(s.na_reasons, "echo_rate")
-          : <>mentioned in {s.echoes} of {s.n} eligible answers · {endorsed(s)} endorsed{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}</>}</dd>
-        {s.intended_weight != null && <><dt>Intent weight</dt><dd>{s.intended_weight}</dd></>}
-      </dl>
-      {s.quotes.length > 0 && (
-        <>
-          <h4>Verbatim quotes</h4>
-          {s.quotes.map((q, i) => <p className="quote" key={i}>{plain(q)}</p>)}
-        </>
-      )}
-      {s.probe_ids.length > 0 && (
-        <>
-          <h4>From these questions</h4>
-          <ul>
-            {s.probe_ids.map((id) => (
-              <li key={id} title={id}><strong>{names[id] ?? id}</strong> — {probeText.get(id) ?? ""}</li>
-            ))}
-          </ul>
-        </>
-      )}
-      {s.limitations.length > 0 && (
-        <>
-          <h4>Limitations</h4>
-          <ul>{s.limitations.map((l, i) => <li className="warn" key={i}>{l}</li>)}</ul>
-        </>
-      )}
-      {s.quotes.length === 0 && (
-        <p className="muted" style={{ margin: 0 }}>
-          No verbatim quote supports this attribute in any eligible answer. Absence of evidence, not
-          evidence of absence — but nothing here was scored on faith.
-        </p>
-      )}
-    </div>
+    <span className="bar-track thin" aria-hidden>
+      <span className="bar" style={{ width: `${pct(s.echo_rate)}%`, background: ZONE_FILL[s.zone] }} />
+      <span className="bar" style={{ width: `${Math.max(0, pct(s.mention_rate) - pct(s.echo_rate) - pct(s.negative_rate))}%`, background: "#c9d1d9" }} />
+      <span className="bar neg" style={{ width: `${pct(s.negative_rate)}%` }} />
+    </span>
   );
 }
 
-export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run }) {
-  const [open, setOpen] = useState<string | null>(null);
-  const rows = [...scores].sort(
-    (a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.mention_rate ?? b.echo_rate ?? 0) - (a.mention_rate ?? a.echo_rate ?? 0),
-  );
+const standing = (s: AttributeScore) =>
+  s.discovered ? "discovered from the answers"
+    : s.intended_weight ? `intent ${s.intended_weight}`
+    : s.claim_pages > 0 || (s.claim_strength ?? 0) > 0 ? "on your site, not weighted"
+    : "not claimed by you";
+
+/** Every claim as a card; tapping one opens its drawer. */
+function ClaimCards({ scores, onOpen }: { scores: AttributeScore[]; onOpen: (id: string) => void }) {
   return (
-    <div className="card">
-      <div className="drift-head">
-        <div>Claim</div><div>Your site says it</div><div>AI says it</div><div>Zone</div><div />
-      </div>
-      {rows.map((s) => (
-        <div className="drift-row" key={s.attribute_id}>
-          <div>
-            <div>{s.label}</div>
-            {s.description && <div className="muted desc">{s.description}</div>}
-            <div className="muted">
-              {s.discovered
-                ? "discovered from the answers"
-                : s.intended_weight
-                  ? `intent ${s.intended_weight}`
-                  : s.claim_pages > 0 || (s.claim_strength ?? 0) > 0
-                    ? "on your site, not weighted"
-                    : "not claimed by you"}
-            </div>
-          </div>
-          <div>
-            <div className="bar-track">
-              <div className="bar" style={{ width: `${pct(s.claim_strength)}%`, background: "#8c959f" }} />
-            </div>
-            <div className="muted">{siteShare(s)}</div>
-          </div>
-          <div>
-            {/* Total width is how OFTEN AI raises it. The zone-coloured segment is endorsements
-                (echo_rate, what drives landed and alignment), the grey one neutral mentions, and the
-                red one criticism. */}
-            <div className="bar-track">
-              <div className="bar" style={{ width: `${pct(s.echo_rate)}%`, background: ZONE_FILL[s.zone] }} />
-              <div className="bar" style={{ width: `${Math.max(0, pct(s.mention_rate) - pct(s.echo_rate) - pct(s.negative_rate))}%`, background: "#c9d1d9" }} />
-              <div className="bar neg" style={{ width: `${pct(s.negative_rate)}%` }} />
-            </div>
-            <div className="muted">{aiShare(s)}</div>
-          </div>
-          <div><span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span></div>
-          <button className="info" aria-expanded={open === s.attribute_id}
-                  aria-label={`Evidence for ${s.label}`}
-                  onClick={() => setOpen(open === s.attribute_id ? null : s.attribute_id)}>
-            Evidence
-          </button>
-          {open === s.attribute_id && <EvidenceBubble s={s} run={run} />}
-        </div>
+    <div className="claim-cards">
+      {sortClaims(scores).map((s) => (
+        <button key={s.attribute_id} className="claim-card" data-claim={s.attribute_id} aria-haspopup="dialog" onClick={() => onOpen(s.attribute_id)}>
+          <span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span>
+          <strong>{s.label}</strong>
+          <AiBar s={s} />
+          <span className="muted">Site: {siteShare(s)}</span>
+          <span className="muted">AI: {aiShare(s)}</span>
+          <span className="muted">{standing(s)}</span>
+        </button>
       ))}
     </div>
   );
 }
 
-function GapCard({ s }: { s: AttributeScore }) {
+/**
+ * Everything about one claim: what the site says, what AI said, and its win-back fix. A native
+ * modal dialog, so the browser traps focus, closes it on Esc and returns focus to the card.
+ */
+function ClaimDrawer({ s, run, onClose }: { s: AttributeScore; run: Run; onClose: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  // Unmounting removes the dialog, which ends the modal; closing here would fire onClose.
+  useEffect(() => { if (!ref.current?.open) ref.current?.showModal(); }, []);
+  const names = probeLabels(run.probes, run.topics);
+  const probes = new Map(run.probes.map((p) => [p.id, p]));
+  const answers = new Map(run.answers.map((a) => [a.probe_id, a]));
+  const site = (run.attributes ?? []).find((a) => a.id === s.attribute_id);
+  const fix = winBackPlan(run).actions.find((a) => a.attribute_id === s.attribute_id);
+  const replay = run.mode !== "live_api";
+  return (
+    <dialog ref={ref} className="drawer" aria-labelledby={`${s.attribute_id}-title`} onClose={onClose}
+            onClick={(e) => { if (e.target === ref.current) ref.current.close(); }}>
+      <div className="drawer-body">
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <h3 id={`${s.attribute_id}-title`} style={{ margin: 0 }}>{s.label}</h3>
+            <span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span>{" "}
+            <span className="muted">{standing(s)}</span>
+          </div>
+          <button className="ghost" onClick={() => ref.current?.close()} aria-label="Close">✕</button>
+        </div>
+        {s.description && <p style={{ margin: 0 }}>{s.description}</p>}
+        <p style={{ margin: 0 }}><strong>{OWNER_TITLE[s.owner]}.</strong> {OWNER_TEXT[s.owner]}</p>
+
+        <h4>What your site says</h4>
+        <p className="muted" style={{ margin: 0 }}>
+          {claimShare(s.claim_pages, s.claim_pages_total, s.claim_strength)
+            ? `States it on ${siteShare(s)}` : siteShare(s)}
+        </p>
+        {site?.claim_quotes.map((q, i) => <p className="quote" key={i}>{q}</p>)}
+        {!site?.claim_quotes.length && (
+          <p className="muted" style={{ margin: 0 }}>
+            {s.discovered ? "Nothing — found in the answers, never supplied by you or your site."
+              : "No verbatim quote from your pages is saved with this run."}
+          </p>
+        )}
+
+        <h4>What AI said</h4>
+        <p className="muted" style={{ margin: 0 }}>
+          {s.echo_rate == null ? na(s.na_reasons, "echo_rate")
+            : <>Mentioned in {s.echoes} of {s.n} eligible answers · {endorsed(s)} endorsed{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}</>}
+          {s.intended_weight != null && ` · intent weight ${s.intended_weight}`}
+        </p>
+        {s.quotes.map((q, i) => <p className="quote" key={i}>{plain(q)}</p>)}
+        {s.quotes.length === 0 && (
+          <p className="muted" style={{ margin: 0 }}>
+            No verbatim quote supports this attribute in any eligible answer. Absence of evidence, not
+            evidence of absence — but nothing here was scored on faith.
+          </p>
+        )}
+        {s.probe_ids.length > 0 && (
+          <div className="qlist">
+            {s.probe_ids.map((id) => (
+              <details className="qrow" key={id}>
+                <summary>
+                  <span className="muted" title={id}>{names[id] ?? id}</span>
+                  <span className="qrow-text">{probes.get(id)?.text ?? ""}</span>
+                </summary>
+                <p className="muted long-answer">
+                  {answers.get(id) && replay && <span className="tag sample">sample</span>}
+                  {answers.get(id) ? plain(answers.get(id)!.text) : "no answer"}
+                </p>
+              </details>
+            ))}
+          </div>
+        )}
+        {s.limitations.length > 0 && (
+          <ul style={{ margin: 0 }}>{s.limitations.map((l, i) => <li className="warn" key={i}>{l}</li>)}</ul>
+        )}
+
+        <h4>How to win it back</h4>
+        {fix ? <FixCard a={fix} run={run} />
+          : <p className="muted" style={{ margin: 0 }}>
+              {s.zone === "lost_claim" || s.zone === "unstated_intent"
+                ? "No verified fix for this claim yet."
+                : s.zone === "landed" ? "Nothing to win back: AI already says it."
+                : "The action plan covers claims to win back or amplify only."}
+            </p>}
+        {s.owner === "authority_gap" && (
+          <p className="muted" style={{ margin: 0 }}>
+            Relevant capability:{" "}
+            <a href="https://www.tryprofound.com/features/answer-engine-insights" target="_blank" rel="noreferrer">
+              Answer Engine Insights / citation analysis
+            </a>
+          </p>
+        )}
+      </div>
+    </dialog>
+  );
+}
+
+function GapCard({ s, onOpen }: { s: AttributeScore; onOpen: (id: string) => void }) {
   return (
     <div className="card">
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -486,11 +622,14 @@ function GapCard({ s }: { s: AttributeScore }) {
           Not an AI problem: your own copy does not state this clearly enough to be repeated.
         </p>
       )}
+      <button className="linky" style={{ marginTop: ".4rem" }} data-claim={s.attribute_id} aria-haspopup="dialog" onClick={() => onOpen(s.attribute_id)}>
+        All evidence
+      </button>
     </div>
   );
 }
 
-export function GapCards({ scores }: { scores: AttributeScore[] }) {
+function GapCards({ scores, onOpen }: { scores: AttributeScore[]; onOpen: (id: string) => void }) {
   const gaps = scores
     .filter((s) => GAP_ZONES.includes(s.zone))
     .sort((a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.intended_weight ?? 0) - (a.intended_weight ?? 0))
@@ -500,7 +639,7 @@ export function GapCards({ scores }: { scores: AttributeScore[] }) {
   }
   return (
     <div className="gaps">
-      {gaps.map((s) => <GapCard key={s.attribute_id} s={s} />)}
+      {gaps.map((s) => <GapCard key={s.attribute_id} s={s} onOpen={onOpen} />)}
     </div>
   );
 }
@@ -569,7 +708,7 @@ export function Competitors({ run }: { run: Run }) {
   const title = "Who AI named instead";
   if (!rows.length) {
     return (
-      <Block title={title} found="none named">
+      <Section title={title} found="none named">
         <p className="muted" style={{ margin: 0 }}>
         {!askedBuyerQuestions
           ? "No buyer question was asked — nothing is weighted as intended — so the buyer axis was not measured and no other product could be named."
@@ -577,12 +716,31 @@ export function Competitors({ run }: { run: Run }) {
             ? "This sample scenario names no competitor in its authored buyer answers. Replay never asks the comparison question either: that round exists only in a live run."
             : "No other product was named in any buyer answer that counts toward the scores, so there was nothing to compare against and no comparison question was asked."}
         </p>
-      </Block>
+      </Section>
     );
   }
   const top = rows[0];
+  const namedTable = (shown: typeof rows) => (
+    <table className="named">
+      <thead>
+        <tr><th>Product</th>{repeats && <th>Answers</th>}<th>Buyer topic</th><th>Where the answer names it</th></tr>
+      </thead>
+      <tbody>
+        {shown.map((r) => (
+          <tr key={r.name}>
+            <td><strong>{r.name}</strong></td>
+            {repeats && <td>{r.count}</td>}
+            <td className="muted">{r.topic}</td>
+            <td className="muted">
+              {r.where ? <>{r.where[0]}<strong>{r.where[1]}</strong>{r.where[2]}</> : "—"}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
   return (
-    <Block title={title}
+    <Section title={title}
            found={`${plural(rows.length, "product")} named${repeats ? ` · most often ${top.name} (${top.count})` : ""}`}>
       <p className="muted" style={{ margin: "0 0 .6rem" }}>
         {replay
@@ -597,33 +755,22 @@ export function Competitors({ run }: { run: Run }) {
           ? "Sorted by how many answers named it; the rest were named once, in the order they appeared."
           : "Each was named in one answer only, so this is the order they appeared, not a ranking."}
       </p>
-      <table className="named">
-        <thead>
-          <tr><th>Product</th>{repeats && <th>Answers</th>}<th>Buyer topic</th><th>Where the answer names it</th></tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.name}>
-              <td><strong>{r.name}</strong></td>
-              {repeats && <td>{r.count}</td>}
-              <td className="muted">{r.topic}</td>
-              <td className="muted">
-                {r.where ? <>{r.where[0]}<strong>{r.where[1]}</strong>{r.where[2]}</> : "—"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {namedTable(rows.slice(0, SHOWN_NAMED))}
+      {rows.length > SHOWN_NAMED && (
+        <details>
+          <summary className="muted">Show the other {plural(rows.length - SHOWN_NAMED, "product")}</summary>
+          {namedTable(rows.slice(SHOWN_NAMED))}
+        </details>
+      )}
       {comparison && (
         <>
           <h4 className="muted" style={{ marginTop: "1rem" }}>
             Follow-up question, built from those names (exploratory — not counted in alignment)
           </h4>
-          <strong>{comparison.text}</strong>
-          <p className="muted long-answer">{answer ? plain(answer.text) : "no answer"}</p>
+          <QuestionRow p={comparison} name="Follow-up" answer={answer || undefined} replay={replay} />
         </>
       )}
-    </Block>
+    </Section>
   );
 }
 
@@ -639,9 +786,9 @@ function ShareOfVoice({ run }: { run: Run }) {
   if (!v) return null;
   if (v.reason) {
     return (
-      <Block title={title} found="not measured">
+      <Section title={title} found="not measured">
         <p className="muted" style={{ margin: 0 }}>{v.reason}</p>
-      </Block>
+      </Section>
     );
   }
   const top = v.rivals.filter((r) => r.count === v.rivals[0].count);
@@ -652,7 +799,7 @@ function ShareOfVoice({ run }: { run: Run }) {
   const bars = [{ name: v.brand, count: v.brand_recommended, brand: true },
                 ...v.rivals.map((r) => ({ ...r, brand: false }))];
   return (
-    <Block title={title}
+    <Section title={title}
            found={`On ${v.questions} buyer questions, AI recommended ${v.brand} ${plural(v.brand_recommended, "time")} and ${rivalText}`}>
       <p className="muted" style={{ margin: 0 }}>
         {run.mode !== "live_api" && <>{SAMPLE_NOTE} </>}
@@ -671,11 +818,12 @@ function ShareOfVoice({ run }: { run: Run }) {
           </div>
         ))}
       </div>
-    </Block>
+    </Section>
   );
 }
 
 const SHOWN_SOURCES = 8;
+const SHOWN_NAMED = 3;
 
 /**
  * The sites AI cited in the answers that count, ranked by how many answers cite each. A third-party
@@ -687,16 +835,16 @@ function CitedSources({ run }: { run: Run }) {
   if (!s) return null;
   if (s.reason) {
     return (
-      <Block title={title} found="no citations">
+      <Section title={title} found="no citations">
         <p className="muted" style={{ margin: 0 }}>{s.reason}</p>
-      </Block>
+      </Section>
     );
   }
   const targets = s.sources.filter((r) => r.target);
   const rows = s.sources.slice(0, SHOWN_SOURCES);
   const rest = s.sources.length - rows.length;
   return (
-    <Block title={title}
+    <Section title={title}
            found={`${plural(s.sources.length, "site")} cited · most often ${s.sources[0].domain} (${plural(s.sources[0].answers, "answer")})`
              + ` · ${targets.length ? `${targets.length} to target` : "none to target yet"}`}>
       <p className="muted" style={{ margin: 0 }}>
@@ -725,27 +873,31 @@ function CitedSources({ run }: { run: Run }) {
         </tbody>
       </table>
       {rest > 0 && <p className="muted" style={{ margin: 0 }}>+ {plural(rest, "more site")}, none cited more often than those above.</p>}
-    </Block>
+    </Section>
   );
 }
 
-/** One question and its answer, with what the scorer made of it. */
-function QuestionCard({ p, name, answer, verdict, tags, replay }: {
-  p: Probe; name: string; answer?: Answer; verdict?: ReactNode; tags?: ReactNode; replay: boolean;
+/** One question as a compact row; opening it shows the full answer and what the scorer made of it. */
+function QuestionRow({ p, name, answer, verdict, tags, note, replay }: {
+  p: Probe; name: string; answer?: Answer; verdict?: ReactNode; tags?: ReactNode; note?: ReactNode;
+  replay: boolean;
 }) {
   return (
-    <div className="question">
-      <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+    <details className="qrow">
+      <summary>
         <span className="muted" title={p.id}>{name}</span>
+        <span className="qrow-text">{p.text}</span>
         {verdict}
+      </summary>
+      <div className="qrow-body">
+        {tags && <div className="row" style={{ flexWrap: "wrap", gap: ".3rem" }}>{tags}</div>}
+        {note}
+        <p className="muted long-answer">
+          {answer && replay && <span className="tag sample">sample</span>}
+          {answer ? plain(answer.text) : "no answer"}
+        </p>
       </div>
-      <strong>{p.text}</strong>
-      {tags && <div className="row" style={{ flexWrap: "wrap", gap: ".3rem" }}>{tags}</div>}
-      <p className="muted long-answer">
-        {answer && replay && <span className="tag sample">sample</span>}
-        {answer ? plain(answer.text) : "no answer"}
-      </p>
-    </div>
+    </details>
   );
 }
 
@@ -774,12 +926,12 @@ function BuyerQuestions({ run }: { run: Run }) {
     return <span className="pill lost_claim">did not name you yet</span>;
   };
   const card = (p: Probe) => (
-    <QuestionCard key={p.id} p={p} name={names[p.id] ?? p.id} answer={answers.get(p.id)}
-                  verdict={verdict(p)} replay={replay}
-                  tags={evals.get(p.id)?.explanation && <span className="muted">{evals.get(p.id)!.explanation}</span>} />
+    <QuestionRow key={p.id} p={p} name={names[p.id] ?? p.id} answer={answers.get(p.id)}
+                 verdict={verdict(p)} replay={replay}
+                 note={evals.get(p.id)?.explanation && <span className="muted">{evals.get(p.id)!.explanation}</span>} />
   );
   return (
-    <Block title="Buyer questions"
+    <Section title="Buyer questions"
            found={!base.length ? na(run.drift?.na_reasons, "visibility")
              : `${base.length} asked · named you in ${namedIn}${recIn ? ` · recommended you in ${recIn}` : ""}`
                + (excluded ? ` · ${excluded} excluded` : "")}>
@@ -787,14 +939,14 @@ function BuyerQuestions({ run }: { run: Run }) {
         What a buyer would ask without naming {run.profile.name}. Each one AI answered without
         bringing {run.profile.name} up is room to be found.
       </p>
-      <div className="questions">{base.map(card)}</div>
+      <div className="qlist">{base.map(card)}</div>
       {follow.length > 0 && (
         <>
           <h4>Follow-up questions (exploratory — not counted in the scores)</h4>
-          <div className="questions">{follow.map(card)}</div>
+          <div className="qlist">{follow.map(card)}</div>
         </>
       )}
-    </Block>
+    </Section>
   );
 }
 
@@ -803,56 +955,67 @@ function BuyerQuestions({ run }: { run: Run }) {
  * the buyer questions it should help with. The server kept only actions whose page was read and
  * whose questions were asked; a claim that became a target by re-scoring has no action yet.
  */
-function WinBack({ run }: { run: Run }) {
+function winBackPlan(run: Run) {
   const targets = run.attribute_scores.filter((s) => !s.discovered && (s.zone === "lost_claim" || s.zone === "unstated_intent"));
-  if (!targets.length) return null;
-  const replay = run.mode !== "live_api";
+  const zones = new Set(targets.map((s) => s.attribute_id));
+  return { targets, actions: (run.win_back ?? []).filter((a) => zones.has(a.attribute_id)) };
+}
+
+/** One verified fix: the page to change, the suggested rewrite and the buyer questions it serves. */
+function FixCard({ a, run }: { a: WinBackAction; run: Run }) {
+  const zone = run.attribute_scores.find((s) => s.attribute_id === a.attribute_id)?.zone ?? a.zone;
   const names = probeLabels(run.probes, run.topics);
   const probes = new Map(run.probes.map((p) => [p.id, p]));
-  const zones = new Map(targets.map((s) => [s.attribute_id, s.zone]));
-  const actions = (run.win_back ?? []).filter((a) => zones.has(a.attribute_id));
+  return (
+    <div className="question">
+      <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+        <strong>{a.label}</strong>
+        <span className={`pill ${zone}`}>{ZONE_LABEL[zone]}</span>
+      </div>
+      <span className="muted">
+        Page to change: <a href={a.page_url} target="_blank" rel="noreferrer">{a.page_url}</a>
+        {a.current_copy ? " · replace:" : " · add new copy"}
+      </span>
+      {a.current_copy && <p className="quote">{a.current_copy}</p>}
+      <p style={{ margin: 0 }}>
+        {run.mode !== "live_api" && <span className="tag sample">sample</span>}{" "}
+        <strong>Suggested rewrite:</strong> {a.rewrite}
+      </p>
+      {a.question_ids.length ? (
+        <ul style={{ margin: 0 }}>
+          {a.question_ids.map((q) => (
+            <li key={q}><span className="muted" title={q}>{names[q] ?? q}:</span> {probes.get(q)?.text}</li>
+          ))}
+        </ul>
+      ) : (
+        <span className="muted">No buyer question in this run asks for this — add one to the next run to measure it.</span>
+      )}
+      {a.why && <span className="muted">{a.why}</span>}
+    </div>
+  );
+}
+
+function WinBack({ run }: { run: Run }) {
+  const { targets, actions } = winBackPlan(run);
+  if (!targets.length) return null;
   const planned = new Set(actions.map((a) => a.attribute_id));
   const unplanned = targets.filter((s) => !planned.has(s.attribute_id));
   const questions = new Set(actions.flatMap((a) => a.question_ids)).size;
   return (
-    <Block title="How to win it back"
+    <Section title="How to win it back"
            found={actions.length ? `${plural(actions.length, "fix", "fixes")} · ${plural(questions, "buyer question")} to win`
              : "no verified fix"}>
       <p className="muted" style={{ margin: 0 }}>
         For each claim to win back or amplify: the page of yours to change, a suggested rewrite, and
         the buyer questions that did not recommend {run.profile.name} which it should help with. A
         draft — check every statement against the product before publishing, then measure again.
-        It changes no number above.
+        It changes no number in this report.
       </p>
-      <div className="questions">
-        {actions.map((a) => (
-          <div className="question" key={a.attribute_id}>
-            <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
-              <strong>{a.label}</strong>
-              <span className={`pill ${zones.get(a.attribute_id)}`}>{ZONE_LABEL[zones.get(a.attribute_id)!]}</span>
-            </div>
-            <span className="muted">
-              Page to change: <a href={a.page_url} target="_blank" rel="noreferrer">{a.page_url}</a>
-              {a.current_copy ? " · replace:" : " · add new copy"}
-            </span>
-            {a.current_copy && <p className="quote">{a.current_copy}</p>}
-            <p style={{ margin: 0 }}>
-              {replay && <span className="tag sample">sample</span>}{" "}
-              <strong>Suggested rewrite:</strong> {a.rewrite}
-            </p>
-            {a.question_ids.length ? (
-              <ul style={{ margin: 0 }}>
-                {a.question_ids.map((q) => (
-                  <li key={q}><span className="muted" title={q}>{names[q] ?? q}:</span> {probes.get(q)?.text}</li>
-                ))}
-              </ul>
-            ) : (
-              <span className="muted">No buyer question in this run asks for this — add one to the next run to measure it.</span>
-            )}
-            {a.why && <span className="muted">{a.why}</span>}
-          </div>
-        ))}
-      </div>
+      {actions.length > 0 && (
+        <div className="questions">
+          {actions.map((a) => <FixCard key={a.attribute_id} a={a} run={run} />)}
+        </div>
+      )}
       {unplanned.length > 0 && (
         <p className="muted" style={{ margin: 0 }}>
           No fix yet for {unplanned.map((s) => s.label).join(", ")}
@@ -865,7 +1028,7 @@ function WinBack({ run }: { run: Run }) {
           <ul>{run.win_back_notes!.map((n, i) => <li key={i} className="log">{n}</li>)}</ul>
         </>
       )}
-    </Block>
+    </Section>
   );
 }
 
@@ -887,33 +1050,35 @@ function BrandQuestions({ run }: { run: Run }) {
   const withClaims = named.filter((p) => raised.get(p.id)?.some((s) => !s.discovered)).length;
   const d = run.drift;
   return (
-    <Block title="Brand questions"
+    <Section title="Brand questions"
            found={`${named.length} asked · your claims came up in ${withClaims}`
              + (d?.excluded_named ? ` · ${d.excluded_named} excluded` : "")}>
       <p className="muted" style={{ margin: 0 }}>
         Each names {run.profile.name} and never a claim, so whatever AI says it is known for, it said
         unprompted. These answers drive the headline.
       </p>
-      <div className="questions">
+      <div className="qlist">
         {named.map((p) => (
-          <QuestionCard key={p.id} p={p} name={names[p.id] ?? p.id} answer={answers.get(p.id)} replay={replay}
-                        verdict={excluded(p.id)
-                          ? <span className="tag warn">excluded from scores</span> : undefined}
-                        tags={(raised.get(p.id) ?? []).map((s) => (
-                          <span key={s.attribute_id} className={`pill ${s.zone}`}>{s.label}</span>
-                        ))} />
+          <QuestionRow key={p.id} p={p} name={names[p.id] ?? p.id} answer={answers.get(p.id)} replay={replay}
+                       verdict={excluded(p.id)
+                         ? <span className="tag warn">excluded from scores</span>
+                         : raised.get(p.id)?.length ? <span className="muted">{plural(raised.get(p.id)!.length, "claim")}</span>
+                         : undefined}
+                       tags={(raised.get(p.id) ?? []).map((s) => (
+                         <span key={s.attribute_id} className={`pill ${s.zone}`}>{s.label}</span>
+                       ))} />
         ))}
       </div>
-    </Block>
+    </Section>
   );
 }
 
 /** Things AI says the company is known for that neither the company nor its site ever supplied. */
-function Discovered({ run }: { run: Run }) {
+function Discovered({ run, onOpen }: { run: Run; onOpen: (id: string) => void }) {
   const found = run.attribute_scores.filter((s) => s.discovered);
   const toShape = found.filter((s) => s.zone === "imposed").length;
   return (
-    <Block title="Discovered identities"
+    <Section title="Discovered identities"
            found={found.length ? `${found.length} found in the answers${toShape ? ` · ${toShape} to shape` : ""}`
              : "none found"}>
       {found.length ? (
@@ -922,14 +1087,14 @@ function Discovered({ run }: { run: Run }) {
             Found in the answers by the discovery pass — never supplied by you or your site. Each is
             an identity AI already gives {run.profile.name}: adopt it, or reframe it.
           </p>
-          <DriftMap scores={found} run={run} />
+          <ClaimCards scores={found} onOpen={onOpen} />
         </>
       ) : (
         <p className="muted" style={{ margin: 0 }}>
-          The answers raised nothing about {run.profile.name} beyond the claims above.
+          The answers raised nothing about {run.profile.name} beyond the claims on the Overview.
         </p>
       )}
-    </Block>
+    </Section>
   );
 }
 

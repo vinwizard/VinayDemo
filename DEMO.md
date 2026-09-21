@@ -33,11 +33,13 @@ fixture-backed nodes.
 
 > "Alignment 21%. Of everything Notion wants to be known for, AI echoes about a fifth of it."
 
-Walk the zone counts on the report: what landed, what was lost, what they never stated, what AI imposed.
+The number stays pinned at the top of the report while you move between its tabs. Walk the zone
+counts on the Overview: what landed, what was lost, what they never stated, what AI imposed.
 
-**1:00 — the drift map (30s)**
+**1:00 — the claim cards (30s)**
 
-Each attribute shows what they claim beside what AI says. The asymmetry is the product:
+Each claim card shows what they claim beside what AI says; tap one to open its drawer with the
+site's quotes, what AI said and its win-back fix. The asymmetry is the product:
 
 - Strong claim, no echo → they say it, AI ignores it
 - No claim, strong echo → AI says it, they never claimed it
@@ -62,8 +64,8 @@ If there is time, put the two runs side by side in the comparison view to show t
 
 **Close**
 
-Open the evidence behind the report — every question asked, every answer, the limitations, the
-workflow log. Nothing on the screen is unsourced.
+Open the evidence behind the report — the Buyer and Brand questions tabs hold every question asked
+and every answer; the Overview ends with the limitations and the workflow log. Nothing on the screen is unsourced.
 
 **If asked what is real:** the workflow, the validation, the arithmetic and the routing are real code.
 The answers in both scenarios are authored fixtures; no model was called for them. Live measurement
