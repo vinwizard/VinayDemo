@@ -169,8 +169,8 @@ both are local JSON files, so neither survives a Cloud Run redeploy (see below).
 [`render.yaml`](render.yaml) deploys the app as one free web service: the `Dockerfile` builds the web
 app and FastAPI serves it with the API on the same origin. It sets `VISEXP_PUBLIC_DEMO=1`, so the link
 replays the saved Notion sample only — no API key, no model calls, no cost. Live runs, onboarding and
-company edits are refused with a message saying so, even if a key were configured; re-scoring works but
-is never saved, so one visitor cannot change what the next one sees. The two bundled scenarios are
+company edits are refused with a message saying so, even if a key were configured; a visitor's replay
+and re-scoring are shown to them but never saved, so one visitor cannot change what the next one sees. The two bundled scenarios are
 replayed once at startup so History and Compare are not empty.
 
 1. Sign in at [render.com](https://render.com) with GitHub.

@@ -200,7 +200,8 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
                 stage, agent = graph.STAGES[node]
                 q.put(("node", dict(node=node, stage=stage, agent=agent,
                                     log=run.log[-1] if run.log else "", **progress(run))))
-            save_run(run)
+            if not public_demo():
+                save_run(run)
             q.put(("done", dict(run_id=run.id, run=json.loads(run.model_dump_json()))))
         except Exception as e:                       # surfaced, never swallowed; detail stays on the console
             traceback.print_exc()

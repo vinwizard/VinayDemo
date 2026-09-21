@@ -314,9 +314,17 @@ def test_public_demo_replays_the_seed_and_says_live_is_off(public):
     assert kind == "done" and done["run"]["mode"] == "demo_replay"
 
 
-def test_public_demo_rescore_is_not_saved(public):
+def test_public_demo_replay_is_not_saved(public):
+    main.seed_public_runs()
+    before = public.get("/api/runs").json()
     events = sse_events(public.get(f"/api/stream?company={main.SEED_COMPANY}&mode=live").text)
-    run_id = events[-1][1]["run_id"]
+    assert events[-1][0] == "done" and events[-1][1]["run"]["id"] == events[-1][1]["run_id"]
+    assert public.get("/api/runs").json() == before
+
+
+def test_public_demo_rescore_is_not_saved(public):
+    main.seed_public_runs()
+    run_id = public.get("/api/runs").json()[0]["id"]
     before = public.get(f"/api/runs/{run_id}").json()
     claim = before["attributes"][0]["id"]
     r = public.post(f"/api/runs/{run_id}/rescore", json={"weights": {claim: 0.5}})
