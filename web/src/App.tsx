@@ -39,7 +39,7 @@ export default function App() {
   const tabs: [Tab, string][] = [
     ["preloaded", seed?.name ?? "Notion"], ["onboard", "Onboard your own company"],
     ["history", "History"], ["compare", "Compare"],
-  ];
+  ].filter(([t]) => !(health?.public_demo && t === "onboard")) as [Tab, string][];
 
   return (
     <div className="shell">
@@ -59,11 +59,19 @@ export default function App() {
         </nav>
       </header>
 
+      {health?.public_demo && (
+        <div className="callout warn-box">
+          <strong>Public demo — saved replay only.</strong> Every answer here is a bundled sample, not a
+          live measurement, and no AI model is called. Onboarding and live runs need your own key:
+          clone the repo and run it locally.
+        </div>
+      )}
       {error && <div className="callout error">{error}</div>}
 
       {/* Both company tabs stay mounted, so a measurement keeps streaming while you look elsewhere. */}
       <div hidden={tab !== "preloaded"}>
-        {health && <CompanyWorkflow companyId={health.seed_company} preloaded onRunSaved={refreshRuns} />}
+        {health && <CompanyWorkflow companyId={health.seed_company} preloaded publicDemo={health.public_demo}
+                                     onRunSaved={refreshRuns} />}
       </div>
       <div hidden={tab !== "onboard"}>
         {health && !health.live_available && (

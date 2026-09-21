@@ -257,6 +257,8 @@ export interface Health {
   live_available: boolean;
   live_status: string;
   seed_company: string;
+  /** Hosted demo: saved replay only, onboarding and live runs are refused by the server. */
+  public_demo: boolean;
 }
 
 export const getHealth = () => json<Health>("/api/health");
