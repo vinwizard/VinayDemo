@@ -31,7 +31,12 @@ cd ~/Projects/VinayDemo/.claude/worktrees/web-frontend/web && export PATH="$HOME
 ```
 
 Open **http://localhost:5173** — not `127.0.0.1:5173`. Vite binds IPv6 localhost and the numeric
-address is refused. The API must be on port 8000; CORS allows only the Vite dev origin.
+address is refused. The browser calls the API on port 8000 unless `VITE_API` says otherwise — useful
+when a second checkout is running beside the first:
+
+```bash
+VITE_API=http://127.0.0.1:8731 npx vite --port 5731   # with the API started on --port 8731
+```
 
 ### Why not `conda activate`
 
@@ -54,8 +59,8 @@ LIVE_MODEL=gpt-6-astra
 ```
 
 Restart the API. It prints `[config] loaded from .env: OPENAI_API_KEY=<set>` — names only, never
-values. Check `curl -s http://127.0.0.1:8000/api/health` for `"live_available": true`, then reload the
-page and the Mode dropdown becomes selectable.
+values. Check `curl -s http://127.0.0.1:8000/api/health` for `"live_available": true`. There is no
+mode switch in the page: every measurement it starts is live.
 
 A live run asks every brand and buyer question once to the measured model with web search, and has
 the evaluator grade each answer — two calls per question — plus one round-two comparison question
@@ -66,10 +71,21 @@ fabricated measurement.
 Set `EVALUATOR_MODEL` to a different model from `LIVE_MODEL` once it works: a model grading its own
 output has a self-preference bias.
 
-To watch the streaming work without spending anything, run the API with a per-answer stall:
+### Offline fallback — no network, no key
+
+For a demo on bad wifi, start the API with `VISEXP_OFFLINE_REPLAY=1`. Measuring the preloaded
+Notion company then replays the bundled Notion sample (fixture scenario A) instead of asking a model.
+Nothing in the page can turn this on; it lives only in the server's environment, and only the
+preloaded company is affected — any other company still refuses without a key. The run says what it
+is everywhere it appears: an "Offline replay — sample answers, not a measurement" notice above the
+stages, a SAMPLE tag on every streamed answer, and the SYNTHETIC DEMO banner on its report and in
+History. It is scored against the sample's own claims, not the preloaded ones.
+
+To watch the stages move with a visible pause per answer, add `VISEXP_DEV_DELAY=1` (seconds per
+replayed answer) to the same command:
 
 ```bash
-VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
 `node` and `npm` come from the `visexp` conda env — nothing is installed system-wide.
@@ -78,11 +94,11 @@ VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -m uvicorn api.main:app -
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/health` | liveness + known scenarios |
-| `GET /api/scenarios` | scenario list with each company's intended attributes and claim strength |
-| `GET /api/stream?scenario=A` or `?company=<id>` | SSE: `node`, `answer`, `done`, `error` events while the graph runs. A company is always `mode=live` |
+| `GET /api/health` | liveness, whether live mode is usable, and `seed_company` — the id of the preloaded company |
+| `GET /api/stream?company=<id>` or `?scenario=A&mode=demo` | SSE while the graph runs: `node` (with `planned` question counts per stage, discovered `competitors` and the run `mode`), `answer` (the question, the first 320 characters of its answer, provenance and whether a web search ran), `done` (the full run), `error`. A company is always `mode=live`, apart from the offline fallback above. The page only ever measures companies; `?scenario=` remains for the fixture path |
 | `GET /api/runs` | run history, newest first |
 | `GET /api/runs/{id}` | one full run, including the drift report |
+| `GET /api/onboard/stream?url=&name=` | the same onboarding as SSE: `pages` (the URLs the crawl fetched) as soon as the crawl lands, then `company` once extraction is saved, or `error`. The page uses this one |
 | `GET /api/onboard?url=&name=` | Agent 1: crawl up to 6 of a company's own pages, extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. Needs the same key as live mode. A company is always saved, never refused: a site where fewer than three claims survive quote validation carries a prominent warning that it states too little for a reliable claim percentage, and the existing insufficient-evidence rules withhold the scores rather than the company |
 | `GET /api/companies` · `GET /api/companies/{id}` | onboarded companies, newest first, and one in full |
 | `PATCH /api/companies/{id}` | the customer's own input: `{weights: {id: 0..1}, added: [{label, description, intended_weight}]}`. Intent arrives only here — never derived from their copy, and a weight of 0 leaves an extracted attribute unintended. An **added** claim is intended by construction, so its weight cannot go below 0.1 |
@@ -92,11 +108,33 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
 
 ## Views
 
-- **Measure** — pick a scenario, see intended attributes and how much of their own copy states each, run it, watch the live feed and progress bar
-- **Onboard a company** — name, website, "Read their site": the claims it found as full statements with their supporting quote and the page count beside every percentage, an intent slider per claim starting at zero, and a row to add a claim their copy never states. Measuring from here is live-only and the screen says so
-- **Report** — alignment headline, six zone counters (landed, lost claim, contested, never stated, imposed, unprioritised), the claim-vs-echo drift map, "whose problem is each gap" cards, "who AI named instead" (competitors discovered from the blind answers, plus the round-two comparison question built from those names), evidence behind a disclosure. **Unprioritised** is the zone for a claim the company's own pages state and AI repeats, but which the customer never weighted — the default state of every onboarded attribute until a slider moves, and the one case where "imposed" would otherwise accuse AI of asserting something the company demonstrably claims
-- **History** — every saved run from `data/runs/`, click to open
+- **Notion** — the preloaded company. `data/companies/5eed0001.json` is a real onboarding of
+  notion.com, committed so a fresh clone has it, with an example set of intent weights the page
+  labels as an example rather than Notion's own. It is the same workflow as the next tab, starting at
+  step 3
+- **Onboard your own company** — one workflow on one screen, seven stages that complete in order:
+  read their site (the pages fetched), extract what they claim (claims kept, each with its verbatim
+  quote and page count), choose what you want to be known for (the zero-floor intent sliders and the
+  add-your-own row), ask buyer questions, ask brand questions, follow up on who AI named instead, and
+  score. Each stage is driven by the stream's events, shows what it actually did, and lists every
+  answer as it arrives; a finished stage folds to a one-line summary. The report appears beneath
+  the stages when scoring finishes. Previously onboarded companies can be reopened from step 1
+- **Report** (inline after a run, and from History) — where the answers came from first (measured
+  live, with the model, or the SYNTHETIC DEMO banner for a replayed run), then positioning alignment
+  and buyer visibility side by side, a legend counting each zone with what it means, the
+  claim-vs-echo drift map with an Evidence disclosure per claim, "whose problem is each gap" cards,
+  "who AI named instead" (competitors discovered from the blind answers, plus the round-two
+  comparison question built from those names), and the evidence, limitations and log behind a
+  disclosure. **Unprioritised** is the zone for a claim the company's own pages state and AI repeats,
+  but which the customer never weighted — the default state of every onboarded attribute until a
+  slider moves, and the one case where "imposed" would otherwise accuse AI of asserting something the
+  company demonstrably claims
+- **History** — every saved run from `data/runs/`; click one to open its report in place
 - **Compare** — two runs side by side with the alignment delta and per-attribute zone changes (`lost claim → landed`)
+
+Saving weights on the Notion tab — or measuring, which saves them first — writes to the committed
+seed file, so the working tree shows it modified afterwards; `git checkout data/companies/5eed0001.json`
+restores the example weights.
 
 ## Wording
 
@@ -111,10 +149,12 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
 
 ## Not done yet
 
-- The onboard screen does not show the brand questions it will ask. Showing them would fit this
-  product's habit of showing its work, and is worth doing deliberately rather than as a payload
-  field nothing renders — `agents.onboarding.named_probes_for` already produces them
-- No tests for the React app; the API has one, over the stream endpoint's setup-error path (`tests/test_api_stream.py`)
+- The claims step does not list the brand questions before a run; they appear, with their answers,
+  as the run asks them. Listing them up front would need them in the company payload —
+  `agents.onboarding.named_probes_for` already produces them
+- No tests for the React app. The API's are over the stream endpoint's setup-error path
+  (`tests/test_api_stream.py`), and the preloaded company, the offline fallback, the stream's stage
+  counts and the onboarding stream's event order (`tests/test_api_seed.py`)
 - Streamlit `app.py` still prints raw probe and node ids; it is scheduled for deletion rather than relabelling
 - Report-surface attribute descriptions still render nothing: `AttributeScore` carries no
   `description` field. The onboarding task added `claim_pages`/`claim_pages_total` there but left

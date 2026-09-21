@@ -73,7 +73,7 @@ export function streamingProbeLabel(probeId: string, kind: string, phase: string
   return `Buyer question ${n ?? "?"}${suffix}`;
 }
 
-const when = (iso: string) =>
+export const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {
     day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
   });

@@ -11,3 +11,5 @@ web/node_modules/
 *.log
 data/companies/*.json
 !data/companies/.gitkeep
+# the preloaded Notion company: a real onboarding of notion.com, committed so a fresh clone has it
+!data/companies/5eed0001.json

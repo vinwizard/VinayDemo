@@ -83,7 +83,7 @@ python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501
 
 Open http://localhost:8501. No API keys, accounts, or internet needed. Stop the server with `Ctrl+C`.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 177 tests incl. one UI journey per
+Tests: `conda activate visexp && python -m pytest -q` (offline; 183 tests incl. one UI journey per
 scenario, the live adapter under an injected transport and the stream endpoint's setup-error path — no
 API key, no network).
 
@@ -108,8 +108,10 @@ export PATH="$HOME/miniconda3/envs/visexp/bin:$PATH"
 
 ### Web frontend
 
-A React + FastAPI frontend with live OpenAI measurement lives on the `worktree-web-frontend` branch.
-See [`WEB.md`](WEB.md). The Streamlit app here remains the offline demo of record.
+A React + FastAPI frontend under `web/` and `api/` measures live only: a preloaded Notion company
+and an onboard-your-own-company workflow, with no synthetic mode in the page. Its one offline path is
+a server environment variable for demos without network. See [`WEB.md`](WEB.md). The Streamlit app
+here remains the offline demo of record.
 
 ### Rebuilding the environment from scratch
 

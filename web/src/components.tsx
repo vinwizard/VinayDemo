@@ -1,9 +1,9 @@
 import { useState } from "react";
-import type { AttributeScore, DriftReport, Run, RunSummary } from "./api";
-import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_ORDER } from "./api";
-import { claimShare, probeLabels, provenanceLabel, runLabels } from "./labels";
+import type { AttributeScore, DriftReport, Run, RunSummary, Zone } from "./api";
+import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_MEANING, ZONE_ORDER, ZONES } from "./api";
+import { PROVENANCE_LABEL, claimShare, probeLabels, provenanceLabel, runLabels, when } from "./labels";
 
-const ZONE_FILL: Record<string, string> = {
+const ZONE_FILL: Record<Zone, string> = {
   landed: "var(--landed)",
   lost_claim: "var(--lost)",
   contested: "var(--contested)",
@@ -14,22 +14,47 @@ const ZONE_FILL: Record<string, string> = {
 
 const pct = (x: number | null) => (x == null ? 0 : Math.round(x * 100));
 
-export function Metrics({ d }: { d: DriftReport }) {
+const ZONE_COUNT: Record<Zone, (d: DriftReport) => number> = {
+  landed: (d) => d.landed.length,
+  lost_claim: (d) => d.lost_claims.length,
+  contested: (d) => d.contested?.length ?? 0,
+  unstated_intent: (d) => d.unstated_intent.length,
+  imposed: (d) => d.imposed.length,
+  unprioritised: (d) => d.unprioritised?.length ?? 0,
+};
+
+export function Metrics({ d, brand }: { d: DriftReport; brand: string }) {
   return (
     <>
-      <div className="metrics">
-        <div className="metric">
+      <div className="headline">
+        <div className="figure">
           <div className="label">Positioning alignment</div>
           <div className="value">{d.alignment == null ? "n/a" : `${d.alignment}%`}</div>
+          <p>
+            Weighted by how much each claim matters to you: how often AI’s answers about {brand} say
+            what you want to be known for.
+            {d.alignment == null && " Withheld — too few brand answers to score."}
+          </p>
         </div>
-        <div className="metric"><div className="label">Landed</div><div className="value">{d.landed.length}</div></div>
-        <div className="metric"><div className="label">Lost claims</div><div className="value">{d.lost_claims.length}</div></div>
-        <div className="metric"><div className="label">Contested</div><div className="value">{d.contested?.length ?? 0}</div></div>
-        <div className="metric"><div className="label">Never stated</div><div className="value">{d.unstated_intent.length}</div></div>
-        <div className="metric"><div className="label">Imposed</div><div className="value">{d.imposed.length}</div></div>
-        <div className="metric"><div className="label">Unprioritised</div><div className="value">{d.unprioritised?.length ?? 0}</div></div>
+        <div className="figure secondary">
+          <div className="label">Buyer visibility</div>
+          <div className="value">{d.visibility == null ? "n/a" : d.visibility}<small>{d.visibility != null && " / 100"}</small></div>
+          <p>
+            How often {brand} came up when a buyer asked without naming it — a mention scores half,
+            a recommendation full. A separate measure; it does not move alignment.
+          </p>
+        </div>
       </div>
-      <p className="muted" style={{ marginTop: ".4rem" }}>
+      <div className="zones" role="list" aria-label="Claims by zone">
+        {ZONES.map((z) => (
+          <div key={z} role="listitem" className={`zone ${ZONE_COUNT[z](d) ? "" : "zero"}`}>
+            <span className="dot" style={{ background: ZONE_FILL[z] }} />
+            <strong>{ZONE_COUNT[z](d)} {ZONE_LABEL[z]}</strong>
+            <span className="muted"> — {ZONE_MEANING[z]}</span>
+          </div>
+        ))}
+      </div>
+      <p className="muted" style={{ margin: 0 }}>
         {d.n_named} brand questions answered drive perception · {d.n_blind} buyer questions answered
         give a separate visibility score of {d.visibility == null ? "n/a" : `${d.visibility}/100`} ·
         source: {provenanceLabel(d.provenance)}
@@ -45,6 +70,60 @@ export function Metrics({ d }: { d: DriftReport }) {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * Where these answers came from, stated before any number. A replayed run gets the loudest label
+ * on the page: presenting authored answers as measured is the one failure this product cannot have.
+ */
+function RunSource({ run }: { run: Run }) {
+  if (run.mode !== "live_api") {
+    return (
+      <div className="callout sample">
+        <strong>SYNTHETIC DEMO — fixture replay; no live chatbot measurements; model judgment simulated.</strong>
+        {" "}Every answer in this run was authored, not asked.
+      </div>
+    );
+  }
+  const models = [...new Set(run.answers.map((a) => a.model).filter(Boolean))].join(", ");
+  return (
+    <p className="source">
+      <strong>{PROVENANCE_LABEL.live_api}</strong> — {models || "the configured model"} via the OpenAI
+      Responses API with web search. This measures that API at this moment, not the ChatGPT consumer
+      app. Answers with no search behind them are excluded from scores.
+    </p>
+  );
+}
+
+/** One run, top to bottom: where it came from, the two numbers, then claim by claim, then why. */
+export function Report({ run }: { run: Run }) {
+  const d = run.drift;
+  return (
+    <article className="report">
+      <div className="report-head">
+        <h2>{run.profile.name} — report</h2>
+        <span className="muted" title={run.id}>{when(run.created_at)}</span>
+      </div>
+      <RunSource run={run} />
+      {d ? (
+        <>
+          <Metrics d={d} brand={run.profile.name} />
+          <section>
+            <h3>Claim by claim: what your site says, and what AI says</h3>
+            <DriftMap scores={run.attribute_scores} run={run} />
+          </section>
+          <section>
+            <h3>Whose problem is each gap?</h3>
+            <GapCards scores={run.attribute_scores} />
+          </section>
+          <Competitors run={run} />
+          <Evidence run={run} />
+        </>
+      ) : (
+        <div className="callout">This run finished without a drift report.</div>
+      )}
+    </article>
   );
 }
 
@@ -105,7 +184,7 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
   return (
     <div className="card">
       <div className="drift-head">
-        <div>Attribute</div><div>What you claim</div><div>What AI says</div><div /><div />
+        <div>Claim</div><div>Your site says it</div><div>AI says it</div><div>Zone</div><div />
       </div>
       {rows.map((s) => (
         <div className="drift-row" key={s.attribute_id}>
@@ -143,7 +222,7 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
           <button className="info" aria-expanded={open === s.attribute_id}
                   aria-label={`Evidence for ${s.label}`}
                   onClick={() => setOpen(open === s.attribute_id ? null : s.attribute_id)}>
-            i
+            Evidence
           </button>
           {open === s.attribute_id && <EvidenceBubble s={s} run={run} />}
         </div>
@@ -189,9 +268,11 @@ export function GapCards({ scores }: { scores: AttributeScore[] }) {
     .filter((s) => GAP_ZONES.includes(s.zone))
     .sort((a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.intended_weight ?? 0) - (a.intended_weight ?? 0))
     .slice(0, 4);
-  if (!gaps.length) return null;
+  if (!gaps.length) {
+    return <div className="card muted">Nothing to fix: no claim is lost, contested, never stated or imposed.</div>;
+  }
   return (
-    <div className="stack">
+    <div className="gaps">
       {gaps.map((s) => <GapCard key={s.attribute_id} s={s} />)}
     </div>
   );
@@ -253,7 +334,7 @@ export function Competitors({ run }: { run: Run }) {
             Follow-up question, built from those names (exploratory — not counted in alignment)
           </h4>
           <strong>{comparison.text}</strong>
-          <p className="muted" style={{ marginBottom: 0 }}>{answer?.text ?? "no answer"}</p>
+          <p className="muted long-answer">{answer?.text ?? "no answer"}</p>
         </>
       )}
     </div>
