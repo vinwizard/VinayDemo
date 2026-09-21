@@ -90,6 +90,11 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
     profile = base.profile
     if not live.available():
         raise HTTPException(400, f"Live mode needs {live.KEY_ENV}. {live.status()}")
+    if not base.attributes():
+        # Refused before preflight, which is itself a billed call.
+        raise HTTPException(400, f"Nothing on {profile.name}'s site survived quote validation, so "
+                                 "there is nothing to measure yet. Add a claim you want to be known "
+                                 "for, or onboard again from a page that states its positioning.")
     try:
         live.preflight()   # one trivial call: an unusable model fails once, not 20 times
     except live.ModelUnsupported as e:

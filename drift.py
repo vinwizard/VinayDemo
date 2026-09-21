@@ -70,7 +70,10 @@ def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float],
     claimed = bool(a.claim_evidence_ids) or (cs is not None and cs > 0)
     if a.intended and echoed:
         return "landed", "none"
-    if a.intended and contested:
+    # Contradiction of anything the company states on its own site, weighted or not: "AI says the
+    # opposite of what you claim" is literally true of an unweighted claim too, and it outranks
+    # being unweighted, so this is tested before `unprioritised` below.
+    if (a.intended or claimed) and contested:
         return "contested", "contested_identity"
     if a.intended and stated:
         return "lost_claim", "authority_gap"

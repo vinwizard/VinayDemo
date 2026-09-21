@@ -61,7 +61,12 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
     never rewritten.
     """
     topics, probes, dropped = [], [], []
-    for a in [x for x in attributes if x.intended and x.buyer_questions]:
+    # Heaviest intent first, so truncation to MAX_TOPICS keeps the claims the customer cares about
+    # most rather than whichever the extraction model emitted first. The sort is stable: equal
+    # weights keep stored order, so the same company always plans the same questions.
+    eligible = sorted((x for x in attributes if x.intended and x.buyer_questions),
+                      key=lambda x: -x.intended_weight)
+    for a in eligible:
         topic = Topic(id=f"pos-{a.id}", label=a.label, kind="buyer",
                       buyer_need=f"A buyer looking for: {a.label.lower()}",
                       positioning_point_ids=[], fit="strong" if a.claimed else "partial",

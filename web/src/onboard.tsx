@@ -105,14 +105,18 @@ export function Onboard({ liveAvailable, busy, onMeasure }: {
   };
 
   const intended = Object.values(weights).filter((w) => w > 0).length;
-  // A weighted claim reaches the buyer axis only if it still HAS buyer questions: vetting drops
-  // leaking or repeated ones, and generation can fail outright. Counting the cap alone overstates
-  // how many made it, on a screen whose job is to be trusted about counts.
-  const onBuyerAxis = Math.min(
-    MAX_BUYER_TOPICS,
-    company?.attributes.filter((a) => (weights[a.id] ?? 0) > 0 && a.buyer_questions.length > 0).length ?? 0,
+  // Mirrors ana.blind_probes_from_attributes: only weighted claims that still HAVE buyer questions
+  // are eligible, heaviest first (a stable sort, so ties keep their order), cut at MAX_BUYER_TOPICS.
+  // Everything else weighted is measured on the brand axis alone, and is named, not just counted.
+  const weighted = company?.attributes.filter((a) => (weights[a.id] ?? 0) > 0) ?? [];
+  const onBuyerAxis = new Set(
+    weighted.filter((a) => a.buyer_questions.length > 0)
+      .sort((x, y) => (weights[y.id] ?? 0) - (weights[x.id] ?? 0))
+      .slice(0, MAX_BUYER_TOPICS)
+      .map((a) => a.id),
   );
-  const brandAxisOnly = intended - onBuyerAxis;
+  const brandAxisOnly = weighted.filter((a) => !onBuyerAxis.has(a.id)).map((a) => a.label);
+  const nothingToMeasure = !company?.attributes.length && !draft.label.trim();
 
   return (
     <div className="stack">
@@ -165,11 +169,10 @@ export function Onboard({ liveAvailable, busy, onMeasure }: {
               Move a slider for each claim you actually want to be known for. A slider left at zero
               stays at zero: we never guess an intention you did not state.
             </p>
-            {brandAxisOnly > 0 && (
+            {brandAxisOnly.length > 0 && (
               <p className="warn">
-                {brandAxisOnly} of your {intended} weighted claim{intended === 1 ? "" : "s"} will be
-                measured on the brand axis alone: the buyer axis takes at most {MAX_BUYER_TOPICS} claims,
-                and only claims that still have buyer questions.
+                Measured on the brand axis alone: {brandAxisOnly.join(", ")}. The buyer axis takes your{" "}
+                {MAX_BUYER_TOPICS} most heavily weighted claims that still have buyer questions.
               </p>
             )}
             <div className="stack" style={{ marginTop: ".7rem" }}>
@@ -232,7 +235,9 @@ export function Onboard({ liveAvailable, busy, onMeasure }: {
 
           <div className="card row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
             <span className="muted">
-              {intended === 0
+              {nothingToMeasure
+                ? "Nothing on their site survived quote validation, so there is nothing to measure yet. Add a claim below to measure it."
+                : intended === 0
                 ? "Nothing is weighted yet, so there is no intended positioning to score against."
                 : `${intended} claim${intended === 1 ? "" : "s"} weighted${saved ? " · saved" : ""}`}
             </span>
@@ -241,8 +246,10 @@ export function Onboard({ liveAvailable, busy, onMeasure }: {
                 {saving ? "Saving…" : "Save intent"}
               </button>
               <button className="primary" onClick={() => save(true)}
-                      disabled={saving || busy || !liveAvailable}
-                      title={liveAvailable ? "" : "Needs OPENAI_API_KEY"}>
+                      disabled={saving || busy || !liveAvailable || nothingToMeasure}
+                      title={nothingToMeasure
+                        ? "Nothing on their site survived quote validation. Add a claim first."
+                        : liveAvailable ? "" : "Needs OPENAI_API_KEY"}>
                 {busy ? "Measuring…" : `Measure ${company.profile.name}`}
               </button>
             </div>

@@ -382,3 +382,36 @@ def test_a_claim_you_never_weighted_is_not_filed_under_gaps():
                         claim_quotes=["set up in minutes"], claim_pages=3, claim_pages_total=6)
     zone, _ = drift.classify(claimed, 0.75, drift.claim_strength(claimed))
     assert zone not in drift.GAP_ZONES
+
+
+def test_a_claim_ai_contradicts_is_contested_even_when_unweighted():
+    """Every onboarded claim starts unweighted. Calling a contradicted one 'unprioritised' told the
+    customer AI repeats a claim AI was in fact contradicting, and hid it from the gap cards."""
+    claimed = Attribute(id="easy", label="Easy to learn", claim_evidence_ids=["pg1", "pg3", "pg5"],
+                        claim_quotes=["easy to learn"], claim_pages=3, claim_pages_total=6)
+    zone, owner = drift.classify(claimed, 0.0, drift.claim_strength(claimed), negative_rate=4 / 7)
+    assert (zone, owner) == ("contested", "contested_identity") and zone in drift.GAP_ZONES
+    # something the company never claimed and AI criticises stays imposed
+    never = Attribute(id="pricey", label="Expensive at scale", claim_pages=0, claim_pages_total=6)
+    assert drift.classify(never, 0.0, drift.claim_strength(never), negative_rate=4 / 7)[0] == "imposed"
+
+
+def test_the_buyer_axis_goes_to_the_most_heavily_weighted_claims():
+    """Truncation used to keep whichever four the extraction model emitted first."""
+    attrs = weighted(6)
+    for a, w in zip(attrs, [0.1, 0.1, 0.1, 0.1, 0.6, 1.0]):
+        a.intended_weight = w
+    topics, _ = ana.blind_probes_from_attributes(attrs, PROFILE)
+    assert [t.id for t in topics] == ["pos-a6", "pos-a5", "pos-a1", "pos-a2"]
+
+
+def test_a_company_with_no_surviving_claim_is_refused_before_any_paid_call(store, monkeypatch):
+    from providers import live
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    spent = []
+    monkeypatch.setattr(live, "preflight", lambda *a, **k: spent.append(1))
+    reports.save_company(mk_company(attrs=[]))
+    with pytest.raises(HTTPException) as e:
+        main.build_provider("live", company_id="abc123")
+    assert e.value.status_code == 400 and "nothing to measure" in e.value.detail
+    assert spent == []
