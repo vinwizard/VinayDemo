@@ -63,7 +63,7 @@ mode switch in the page: every measurement it starts is live.
 
 A live run asks every brand and buyer question once to the measured model with web search, and has
 the evaluator grade each answer — two calls per question — plus one round-two comparison question
-when a buyer answer names a competitor. Without a key, live mode
+when a buyer answer names a competitor, and one evaluator call at the end for the action plan. Without a key, live mode
 **errors** rather than falling back to fixtures — a fixture result under a live label would be a
 fabricated measurement.
 
