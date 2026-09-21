@@ -211,9 +211,10 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
           </div>
           <div>
             {/* Width is how OFTEN AI raises it; the red segment is how much of that was criticism.
-                Using echo_rate alone would draw a zero-width bar for an attribute AI only attacks. */}
+                echo_rate is endorsements only, so it would shrink an attribute AI mentions neutrally
+                (or only attacks) to nothing: the coloured bar is every non-critical mention. */}
             <div className="bar-track">
-              <div className="bar" style={{ width: `${pct(s.echo_rate)}%`, background: ZONE_FILL[s.zone] }} />
+              <div className="bar" style={{ width: `${pct(s.mention_rate) - pct(s.negative_rate)}%`, background: ZONE_FILL[s.zone] }} />
               <div className="bar neg" style={{ width: `${pct(s.negative_rate)}%` }} />
             </div>
             <div className="muted">
@@ -431,6 +432,9 @@ export function Compare({ a, b, runs = [] }: { a: Run; b: Run; runs?: RunSummary
   const name = (r: Run) => names[r.id]?.full ?? r.id;
   const labels = [...new Set([...a.attribute_scores, ...b.attribute_scores].map((s) => s.label))];
   const find = (r: Run, label: string) => r.attribute_scores.find((s) => s.label === label);
+  // Intended rows compare the endorsement rate that drives alignment; an imposed row has no
+  // positioning to land, so it compares how often AI raises it at all.
+  const shown = (s: AttributeScore) => pct(s.intended_weight ? s.echo_rate : s.mention_rate);
   const da = a.drift, db = b.drift;
   const delta = (x: number | null | undefined, y: number | null | undefined) =>
     x == null || y == null ? null : Math.round((y - x) * 10) / 10;
@@ -471,8 +475,8 @@ export function Compare({ a, b, runs = [] }: { a: Run; b: Run; runs?: RunSummary
           return (
             <div className="cmp" key={label}>
               <div>{label}</div>
-              <div>{sa ? <span className={`pill ${sa.zone}`}>{pct(sa.echo_rate)}%</span> : <span className="muted">—</span>}</div>
-              <div>{sb ? <span className={`pill ${sb.zone}`}>{pct(sb.echo_rate)}%</span> : <span className="muted">—</span>}</div>
+              <div>{sa ? <span className={`pill ${sa.zone}`}>{shown(sa)}%</span> : <span className="muted">—</span>}</div>
+              <div>{sb ? <span className={`pill ${sb.zone}`}>{shown(sb)}%</span> : <span className="muted">—</span>}</div>
               <div className="muted">
                 {!sa || !sb ? "only in one run" : moved ? `${ZONE_LABEL[sa.zone]} → ${ZONE_LABEL[sb.zone]}` : "unchanged"}
               </div>

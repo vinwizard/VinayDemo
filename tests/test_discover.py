@@ -116,7 +116,7 @@ def test_discovery_on_the_fixtures_duplicates_nothing_and_moves_no_number():
                        ("np-5", "per-seat costs become significant")),
               proposal("Expensive for big teams", ("np-6", "costly for large teams"),
                        ("np-5", "per-seat costs become significant"))]}
-    for s, expected in (("A", 21.4), ("B", 30.7)):
+    for s, expected in (("A", 21.4), ("B", 27.9)):
         prov = Discovering(s, proposals[s])
         run = graph.execute(graph.new_run(fixture.bundled_profile(s), prov), prov)
         assert run.drift.alignment == plain[s].drift.alignment == expected

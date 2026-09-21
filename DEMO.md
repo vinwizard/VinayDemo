@@ -56,7 +56,7 @@ This is the part a forward-deployed engineer gets paid for:
 
 **1:50 — prove it is not a slideshow (10s)**
 
-Open the second scenario's run from History. Alignment moves to 31% and "connected docs and databases"
+Open the second scenario's run from History. Alignment moves to 27.9% and "connected docs and databases"
 flips from landed to lost. Different fixture data, different diagnosis — the policy reads the evidence.
 If there is time, put the two runs side by side in the comparison view to show the per-attribute moves.
 

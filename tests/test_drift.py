@@ -175,3 +175,20 @@ def test_negative_mentions_are_subtracted_from_the_supportive_echo():
     assert s.mention_rate == 0.8 and s.negative_echoes == 3
     assert s.echo_rate < s.mention_rate  # the three criticisms must not read as endorsement
     assert s.echo_rate == 0.2 and s.zone == "contested"
+
+
+def test_neutral_mentions_do_not_land_an_intended_attribute():
+    """Five of five answers mention it neutrally, none endorse it: a mention is not conviction."""
+    a = mk(**INTENDED_STATED)
+    probes = [Probe(id=f"np-{i}", topic_id="perception", text="What is Notion?", kind="named",
+                    phase="baseline", purpose="p") for i in range(1, 6)]
+    answers = [Answer(probe_id=p.id, text="Notion is sometimes used as an AI-native workspace.",
+                      provenance="synthetic", status="ok") for p in probes]
+    evals = [QueryEvaluation(probe_id=p.id, valid=True, mentioned=True, strength=1, explanation="e")
+             for p in probes]
+    obs = {p.id: [AttributeObservation(attribute_id="x", quote="AI-native workspace", polarity="neutral")]
+           for p in probes}
+    s = drift.score_attributes([a], probes, answers, evals, obs)[0]
+    assert s.mention_rate == 1.0 and s.negative_echoes == 0
+    assert s.echo_rate == 0.0 and s.zone != "landed"
+    assert drift.alignment([s]) == 0.0

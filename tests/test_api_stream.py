@@ -44,7 +44,7 @@ def journey(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("scenario,alignment,landed", [
     ("A", 21.4, ["Connected docs and databases"]),
-    ("B", 30.7, ["Replaces multiple tools"]),
+    ("B", 27.9, ["Replaces multiple tools"]),
 ])
 def test_journey(journey, scenario, alignment, landed):
     evs = journey(scenario)
