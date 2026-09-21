@@ -78,7 +78,10 @@ def named_eligibility(probes: list[Probe], answers: list[Answer],
     Exclusions must be reported, not just applied: a timeout removes an answer that would otherwise
     have counted against you, so a silent exclusion inflates alignment. Callers surface the counts.
     """
-    named = [p for p in probes if p.kind == "named"]
+    # Baseline only. The adaptive comparison question is a named probe too, but it is chosen from
+    # results the baseline produced, so counting it here would let the follow-up round move the
+    # score it was selected by. It is reported as exploratory evidence instead.
+    named = [p for p in probes if p.kind == "named" and p.phase == "baseline"]
     ans = {a.probe_id: a for a in answers}
     ev = {e.probe_id: e for e in evals}
     kept, reasons = [], []
@@ -126,6 +129,7 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
             limits.append("No page-level claim data: cannot separate an authority gap from a messaging gap.")
         out.append(AttributeScore(
             attribute_id=a.id, label=a.label, intended_weight=a.intended_weight, claim_strength=cs,
+            claim_pages=a.claim_pages, claim_pages_total=a.claim_pages_total,
             n=n, echoes=echoes, echo_rate=er, negative_echoes=neg, mention_rate=mr,
             negative_rate=nr, zone=zone, owner=owner,
             quotes=[o.quote for _, o in hits][:3], probe_ids=sorted({pid for pid, _ in hits}),

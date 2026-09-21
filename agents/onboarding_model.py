@@ -22,6 +22,7 @@ KEY_ENV = "OPENAI_API_KEY"
 MODEL_ENV = "ONBOARDING_MODEL"
 DEFAULT_MODEL = "gpt-4o-mini"
 MAX_ATTRIBUTES = 8
+MIN_CLAIMS = 3   # below this the site states too little to measure drift against; callers refuse
 
 SCHEMA_HINT = """Return ONLY JSON:
 {

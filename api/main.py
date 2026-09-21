@@ -6,21 +6,26 @@ well as per node, so the browser sees real progress while a long batch is still 
 """
 import json
 import queue
+import re
 import threading
 import traceback
-from typing import Iterator
+import uuid
+from typing import Iterator, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 import fetching
 import graph
 from agents.evaluator_model import ModelEvaluator
-from agents.onboarding_model import OnboardingAgent
+from agents.onboarding_model import MIN_CLAIMS, OnboardingAgent
 from config import load_env, redacted_status
 from providers import fixture, live
-from reports import RUNS, load_run, save_run
+from providers.company import CompanyProvider
+from reports import RUNS, list_companies, load_company, load_run, save_company, save_run
+from schemas import Attribute, Company
 
 _LOADED = load_env()
 print(f"[config] {redacted_status(_LOADED)}")  # names only; a key value is never printed
@@ -56,13 +61,30 @@ def scenarios():
     return out
 
 
-def build_provider(scenario: str, mode: str):
-    """-> (provider, profile, expected_answers, run_mode). Live mode needs a key; it never falls back
-    silently to fixtures, because a fixture result labelled live would be a fabricated measurement."""
-    base = fixture.FixtureProvider(scenario)
-    profile = fixture.bundled_profile(scenario)
-    if mode != "live":
-        return base, profile, len(base.named_probes()) + graph.MAX_BASELINE + graph.MAX_FOLLOWUP, "demo_replay"
+NO_REPLAY = ("{name} was onboarded from its own website, so there are no authored answers to "
+             "replay — demo mode can only replay the two bundled scenarios. Measuring a real "
+             f"company means asking a real model, which needs {live.KEY_ENV}.")
+
+
+def build_provider(mode: str, scenario: Optional[str] = None, company_id: Optional[str] = None):
+    """-> (provider, profile, expected_answers, run_mode). Either a bundled scenario or a saved company.
+
+    Live mode needs a key; it never falls back silently to fixtures, because a fixture result
+    labelled live would be a fabricated measurement.
+    """
+    if company_id:
+        try:
+            base = CompanyProvider(load_company(company_id))
+        except (FileNotFoundError, ValueError):
+            raise HTTPException(404, f"No onboarded company {company_id!r}")
+        if mode != "live":
+            raise HTTPException(400, NO_REPLAY.format(name=base.profile.name))
+    else:
+        base = fixture.FixtureProvider(scenario)
+        if mode != "live":
+            return (base, base.profile,
+                    len(base.named_probes()) + graph.MAX_BASELINE + graph.MAX_FOLLOWUP, "demo_replay")
+    profile = base.profile
     if not live.available():
         raise HTTPException(400, f"Live mode needs {live.KEY_ENV}. {live.status()}")
     try:
@@ -77,13 +99,13 @@ def build_provider(scenario: str, mode: str):
     return prov, profile, len(blind) + len(base.named_probes()), "live_api"
 
 
-def run_events(scenario: str, mode: str = "demo") -> Iterator[str]:
+def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = None) -> Iterator[str]:
     """Executes one run on a worker thread, yielding SSE as the graph progresses."""
-    if scenario not in fixture.SCENARIOS:
+    if not company_id and scenario not in fixture.SCENARIOS:
         yield sse("error", {"message": f"unknown scenario {scenario!r}"})
         return
     try:
-        prov, profile, expected, run_mode = build_provider(scenario, mode)
+        prov, profile, expected, run_mode = build_provider(mode, scenario, company_id)
     except HTTPException as e:
         yield sse("error", {"message": str(e.detail)})
         return
@@ -134,8 +156,8 @@ def run_events(scenario: str, mode: str = "demo") -> Iterator[str]:
 
 
 @app.get("/api/stream")
-def stream(scenario: str = "A", mode: str = "demo"):
-    return StreamingResponse(run_events(scenario, mode), media_type="text/event-stream",
+def stream(scenario: str = "A", mode: str = "demo", company: Optional[str] = None):
+    return StreamingResponse(run_events(scenario, mode, company), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
@@ -169,18 +191,41 @@ def get_run(run_id: str):
         raise HTTPException(404, f"run {run_id} not found")
 
 
+CRAWL_PAGES = 6
+
+
+def company_payload(c: Company) -> dict:
+    p = c.profile
+    return dict(
+        id=c.id, created_at=c.created_at,
+        profile=dict(name=p.name, domain=p.domain, aliases=p.aliases,
+                     customer_types=p.customer_types,
+                     one_liner=p.positioning_points[0].text if p.positioning_points else None,
+                     warnings=p.warnings),
+        pages=c.pages,
+        named_probes=[pr.text for pr in CompanyProvider(c).named_probes()],
+        attributes=[dict(id=a.id, label=a.label, description=a.description, aliases=a.aliases,
+                         claim_quotes=a.claim_quotes, claim_pages=a.claim_pages,
+                         claim_pages_total=a.claim_pages_total,
+                         buyer_questions=a.buyer_questions, intended_weight=a.intended_weight,
+                         note=a.note)
+                    for a in c.attributes],
+        warnings=c.warnings)
+
+
 @app.get("/api/onboard")
 def onboard(url: str, name: str = ""):
-    """Agent 1: crawl a company's own pages and extract the CLAIMED layer.
+    """Agent 1: crawl a company's own pages, extract the CLAIMED layer, and save the company.
 
     Returns claimed attributes with descriptions, verbatim quotes and page counts DERIVED from
     those quotes. Intent weights are deliberately absent — what a company wants to be known for is
-    the customer's input and is not derivable from their own marketing copy.
+    the customer's input, arrives only through PATCH, and is not derivable from their own
+    marketing copy.
     """
     if not live.available():
         raise HTTPException(400, f"Onboarding needs {live.KEY_ENV} for the extraction model.")
     try:
-        pages = fetching.fetch_site(url, max_pages=3)
+        pages = fetching.fetch_site(url, max_pages=CRAWL_PAGES)
     except fetching.UnsafeURL as e:
         raise HTTPException(400, f"Refused: {e}")
     except fetching.FetchError as e:
@@ -190,18 +235,87 @@ def onboard(url: str, name: str = ""):
         profile, attrs, warnings = OnboardingAgent().run(name, domain, pages)
     except ValueError as e:
         raise HTTPException(502, f"Extraction failed: {e}")
-    return dict(
-        profile=dict(name=profile.name, domain=profile.domain, aliases=profile.aliases,
-                     customer_types=profile.customer_types,
-                     one_liner=profile.positioning_points[0].text if profile.positioning_points else None,
-                     warnings=profile.warnings),
-        pages=[dict(url=u, chars=len(t)) for u, t in pages],
-        attributes=[dict(id=a.id, label=a.label, description=a.description, aliases=a.aliases,
-                         claim_quotes=a.claim_quotes, claim_pages=a.claim_pages,
-                         claim_pages_total=a.claim_pages_total,
-                         buyer_questions=a.buyer_questions, intended_weight=a.intended_weight)
-                    for a in attrs],
-        warnings=warnings)
+    if len(attrs) < MIN_CLAIMS:
+        # Better to say the site is too thin than to publish a percentage resting on one sentence.
+        raise HTTPException(422, f"Only {len(attrs)} claim(s) on {domain} survived quote validation "
+                                 f"across {len(pages)} page(s); {MIN_CLAIMS} is the minimum. There is "
+                                 "not enough stated positioning here to measure drift against.")
+    company = Company(id=uuid.uuid4().hex[:10], profile=profile, attributes=attrs,
+                      pages=[u for u, _ in pages], warnings=warnings)
+    save_company(company)
+    return company_payload(company)
+
+
+class AddedAttribute(BaseModel):
+    """Something the customer wants to be known for that their own copy never states."""
+    label: str = Field(min_length=2, max_length=80)
+    description: Optional[str] = Field(default=None, max_length=400)
+    intended_weight: float = Field(default=0.0, ge=0, le=1)
+
+
+class CompanyPatch(BaseModel):
+    weights: dict[str, float] = {}
+    added: list[AddedAttribute] = []
+
+
+@app.get("/api/companies")
+def companies():
+    out = []
+    for path in list_companies():
+        try:
+            c = load_company(path.stem)
+        except Exception:
+            continue
+        out.append(dict(id=c.id, name=c.profile.name, domain=c.profile.domain,
+                        created_at=c.created_at, pages=len(c.pages),
+                        attributes=len(c.attributes),
+                        intended=sum(1 for a in c.attributes if a.intended)))
+    return out
+
+
+def _company(company_id: str) -> Company:
+    try:
+        return load_company(company_id)
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(404, f"No onboarded company {company_id!r}")
+
+
+@app.get("/api/companies/{company_id}")
+def get_company(company_id: str):
+    return company_payload(_company(company_id))
+
+
+@app.patch("/api/companies/{company_id}")
+def patch_company(company_id: str, patch: CompanyPatch):
+    """The customer's own input: how much each claim matters, plus claims their copy never makes.
+
+    Intent is never derived and never defaulted. A slider left at its resting zero leaves the
+    attribute unintended, so an untouched form cannot invent an aspiration the customer never
+    expressed.
+    """
+    c = _company(company_id)
+    by_id = {a.id: a for a in c.attributes}
+    for aid, weight in patch.weights.items():
+        if aid not in by_id:
+            raise HTTPException(400, f"unknown attribute {aid!r}")
+        if not 0 <= weight <= 1:
+            raise HTTPException(400, f"weight for {aid!r} must be between 0 and 1")
+        by_id[aid].intended_weight = round(weight, 2) or None
+    for raw in patch.added:
+        aid = base = re.sub(r"[^a-z0-9]+", "_", raw.label.lower()).strip("_") or "added"
+        for n in range(2, 99):
+            if aid not in by_id:
+                break
+            aid = f"{base}_{n}"
+        attr = Attribute(id=aid, label=raw.label.strip(), description=raw.description,
+                         intended_weight=round(raw.intended_weight, 2) or None,
+                         # zero pages state it — that is the finding, not missing data
+                         claim_pages=0, claim_pages_total=len(c.pages),
+                         note="Added by you. Your own pages never state it, so AI has nothing to repeat.")
+        by_id[aid] = attr
+        c.attributes.append(attr)
+    save_company(c)
+    return company_payload(c)
 
 
 @app.get("/api/health")

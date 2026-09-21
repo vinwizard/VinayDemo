@@ -7,7 +7,7 @@ import api.main as main
 
 
 def test_setup_failure_is_streamed_without_the_exception_detail(monkeypatch):
-    def boom(scenario, mode):
+    def boom(mode, scenario=None, company_id=None):
         raise RuntimeError("boom: sk-secret")
 
     monkeypatch.setattr(main, "build_provider", boom)

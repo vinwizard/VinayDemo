@@ -211,6 +211,8 @@ class AttributeScore(BaseModel):
     label: str
     intended_weight: Optional[float] = None
     claim_strength: Optional[float] = None  # fraction of known pages stating it
+    claim_pages: int = 0                    # carried through so a percentage can show its counts
+    claim_pages_total: int = 0
     n: int = 0                              # eligible named-probe answers
     echoes: int = 0                         # answers where AI associated it with the target
     echo_rate: Optional[float] = None       # non-negative echoes: criticism excluded, a neutral mention counts
@@ -241,6 +243,23 @@ class DriftReport(BaseModel):
     unstated_intent: list[str] = []
     scores: list[AttributeScore] = []
     limitations: list[str] = []
+
+
+class Company(BaseModel):
+    """One onboarded company: what its own pages claim, plus what the customer says they intend.
+
+    A company used to BE a fixture filename, so only the two bundled demos could be measured. This
+    is the saved form of an onboarding crawl, and it is the other thing `build_provider` can start
+    from. It holds no answers: a company onboarded from a URL has none, which is exactly why
+    measuring one needs a live provider.
+    """
+    id: str
+    schema_version: int = SCHEMA_VERSION
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
+    profile: CompanyProfile
+    attributes: list[Attribute] = []
+    pages: list[str] = []      # the URLs actually fetched; claim_pages_total counts these
+    warnings: list[str] = []
 
 
 class Run(BaseModel):

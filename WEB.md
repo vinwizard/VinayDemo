@@ -79,17 +79,20 @@ VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -m uvicorn api.main:app -
 | --- | --- |
 | `GET /api/health` | liveness + known scenarios |
 | `GET /api/scenarios` | scenario list with each company's intended attributes and claim strength |
-| `GET /api/stream?scenario=A` | SSE: `node`, `answer`, `done`, `error` events while the graph runs |
+| `GET /api/stream?scenario=A` or `?company=<id>` | SSE: `node`, `answer`, `done`, `error` events while the graph runs. A company is always `mode=live` |
 | `GET /api/runs` | run history, newest first |
 | `GET /api/runs/{id}` | one full run, including the drift report |
-| `GET /api/onboard?url=` | Agent 1: crawl up to 3 of a company's own pages and extract the **claimed** layer (attributes, verbatim quotes, derived page counts). Needs the same key as live mode; intent weights are the user's input and are never returned |
+| `GET /api/onboard?url=&name=` | Agent 1: crawl up to 6 of a company's own pages, extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. Needs the same key as live mode. Refuses with 422 when fewer than three claims survive quote validation, rather than scoring a site that states almost nothing |
+| `GET /api/companies` · `GET /api/companies/{id}` | onboarded companies, newest first, and one in full |
+| `PATCH /api/companies/{id}` | the customer's own input: `{weights: {id: 0..1}, added: [{label, description, intended_weight}]}`. Intent arrives only here — never derived from their copy, and a weight of 0 leaves the attribute unintended |
 
 Comparison is done client-side from two `GET /api/runs/{id}` responses — no extra endpoint.
 
 ## Views
 
 - **Measure** — pick a scenario, see intended attributes and how much of their own copy states each, run it, watch the live feed and progress bar
-- **Report** — alignment headline, five zone counters (landed, lost claim, contested, never stated, imposed), the claim-vs-echo drift map, "whose problem is each gap" cards, evidence behind a disclosure
+- **Onboard a company** — name, website, "Read their site": the claims it found as full statements with their supporting quote and the page count beside every percentage, an intent slider per claim starting at zero, and a row to add a claim their copy never states. Measuring from here is live-only and the screen says so
+- **Report** — alignment headline, five zone counters (landed, lost claim, contested, never stated, imposed), the claim-vs-echo drift map, "whose problem is each gap" cards, "who AI named instead" (competitors discovered from the blind answers, plus the round-two comparison question built from those names), evidence behind a disclosure
 - **History** — every saved run from `data/runs/`, click to open
 - **Compare** — two runs side by side with the alignment delta and per-attribute zone changes (`lost claim → landed`)
 
@@ -108,8 +111,12 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
 
 - No tests for the React app; the API has one, over the stream endpoint's setup-error path (`tests/test_api_stream.py`)
 - Streamlit `app.py` still prints raw probe and node ids; it is scheduled for deletion rather than relabelling
-- Report-surface attribute descriptions render nothing because `AttributeScore` carries no
-  `description` field; to be resolved by the onboarding task
+- Report-surface attribute descriptions still render nothing: `AttributeScore` carries no
+  `description` field. The onboarding task added `claim_pages`/`claim_pages_total` there but left
+  this one open
+- Emergent attribute discovery from answers (an attribute nobody declared) is still not implemented;
+  filed as `vd-discover`
+- `/api/onboard` and `PATCH /api/companies/{id}` are unauthenticated, like the rest of the API
 - `_useful_description` in `agents/onboarding_model.py` strips the description to `[a-z ]` but
   matches the label unnormalized, so a label containing a hyphen, digit or ampersand ("AI-native
   workspace") can never be found and the restatement check degrades to a bare word count; filed as a

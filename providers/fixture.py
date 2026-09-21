@@ -48,6 +48,11 @@ class FixtureProvider:
         self.data = load(scenario)
         self.title = self.data["title"]
 
+    @property
+    def profile(self) -> CompanyProfile:
+        """Same accessor CompanyProvider exposes, so a caller need not know which it holds."""
+        return CompanyProfile(**self.data["profile"])
+
     def check_profile(self, profile: CompanyProfile):
         """Arbitrary or structurally edited companies must never receive the bundled report."""
         if structural_fingerprint(profile) != structural_fingerprint(CompanyProfile(**self.data["profile"])):

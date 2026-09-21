@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { AttributeScore, DriftReport, Run, RunSummary } from "./api";
 import { OWNER_TEXT, OWNER_TITLE, ZONE_LABEL, ZONE_ORDER } from "./api";
-import { probeLabels, provenanceLabel, runLabels } from "./labels";
+import { probeLabels, provenanceLabel, runLabels, statedOn } from "./labels";
 
 const ZONE_FILL: Record<string, string> = {
   landed: "var(--landed)",
@@ -57,7 +57,7 @@ function EvidenceBubble({ s, run }: { s: AttributeScore; run?: Run }) {
       <dl>
         <dt>Zone</dt><dd>{ZONE_LABEL[s.zone]} — {OWNER_TITLE[s.owner]}</dd>
         <dt>How much of your site says it</dt>
-        <dd>{s.claim_strength == null ? "no page data" : `states it on ${pct(s.claim_strength)}% of known pages`}</dd>
+        <dd>{s.claim_strength == null ? "no page data" : `states it on ${statedOn(s.claim_pages, s.claim_pages_total)}`}</dd>
         <dt>How often AI says it</dt>
         <dd>{s.echoes} of {s.n} eligible answers{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}</dd>
         {s.intended_weight != null && <><dt>Intent weight</dt><dd>{s.intended_weight}</dd></>}
@@ -117,7 +117,7 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
             <div className="bar-track">
               <div className="bar" style={{ width: `${pct(s.claim_strength)}%`, background: "#8c959f" }} />
             </div>
-            <div className="muted">{pct(s.claim_strength)}% of pages</div>
+            <div className="muted">{statedOn(s.claim_pages, s.claim_pages_total)}</div>
           </div>
           <div>
             {/* Width is how OFTEN AI raises it; the red segment is how much of that was criticism.
@@ -159,7 +159,7 @@ export function GapCards({ scores }: { scores: AttributeScore[] }) {
           </div>
           <p style={{ margin: ".4rem 0 0" }}>{OWNER_TEXT[s.owner]}</p>
           <p className="muted" style={{ margin: ".3rem 0 0" }}>
-            {s.claim_strength == null ? "no page data" : `${pct(s.claim_strength)}% of your known pages state it`}
+            {s.claim_strength == null ? "no page data" : `${statedOn(s.claim_pages, s.claim_pages_total)} state it`}
             {" · "}AI echoed it in {s.echoes} of {s.n} brand answers
             {s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}
           </p>
@@ -179,6 +179,56 @@ export function GapCards({ scores }: { scores: AttributeScore[] }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Who AI offered instead, and what it said when asked to compare.
+ *
+ * Nobody supplied these names: a buyer question describes what the company does without naming it,
+ * so every brand in the answer is one the model chose. The engine has always extracted them and
+ * checked them verbatim against the answer text; until now nothing displayed them.
+ */
+export function Competitors({ run }: { run: Run }) {
+  const byTopic = new Map(run.topics.map((t) => [t.id, t.label]));
+  const rows = run.topic_evaluations
+    .filter((te) => te.phase === "baseline" && te.top_competitors.length > 0)
+    .map((te) => ({ topic: byTopic.get(te.topic_id) ?? te.topic_id, names: te.top_competitors }));
+  const comparison = run.probes.find((p) => p.kind === "named" && p.phase === "followup");
+  const answer = comparison && run.answers.find((a) => a.probe_id === comparison.id);
+  if (!rows.length) {
+    return (
+      <div className="card muted">
+        No competitor was named in any buyer answer, so there was nothing to compare against and no
+        comparison question was asked.
+      </div>
+    );
+  }
+  return (
+    <div className="card">
+      <h3>Who AI named instead</h3>
+      <p className="muted" style={{ margin: ".3rem 0 .6rem" }}>
+        Discovered, not asked for: these are the brands the model volunteered when a buyer described
+        what you do without naming you.
+      </p>
+      <table>
+        <thead><tr><th>Buyer topic</th><th>Recommended instead</th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.topic}><td>{r.topic}</td><td>{r.names.join(", ")}</td></tr>
+          ))}
+        </tbody>
+      </table>
+      {comparison && (
+        <>
+          <h4 className="muted" style={{ marginTop: "1rem" }}>
+            Follow-up question, built from those names (exploratory — not counted in alignment)
+          </h4>
+          <strong>{comparison.text}</strong>
+          <p className="muted" style={{ marginBottom: 0 }}>{answer?.text ?? "no answer"}</p>
+        </>
+      )}
     </div>
   );
 }

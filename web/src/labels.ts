@@ -16,6 +16,15 @@ export const PROVENANCE_LABEL: Record<string, string> = {
 export const provenanceLabel = (v: string | null | undefined) =>
   (v && PROVENANCE_LABEL[v]) || v || "unknown";
 
+/**
+ * "50% of pages (3 of 6)". A percentage of six pages is not the same claim as a percentage of
+ * sixty, so the count travels with it everywhere the share is shown.
+ */
+export function statedOn(pages: number, total: number): string {
+  if (!total) return "no page data";
+  return `${Math.round((pages / total) * 100)}% of pages (${pages} of ${total})`;
+}
+
 /** `Probe.kind`: what the question does, not what the enum is called. */
 export const PROBE_KIND_LABEL: Record<string, string> = {
   named: "names your brand",
