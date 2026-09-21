@@ -168,11 +168,12 @@ class LiveProvider:
         self._transport = transport or default_transport
         self.evaluator = evaluator          # None -> answers come back unlabelled ("needs review")
         self.calls = 0
+        self.skipped_questions: list[str] = []
 
     def plan(self, profile: CompanyProfile) -> tuple[list[Topic], list[Probe]]:
         """Both axes: attribute-derived blind probes (placebo) plus the perception container."""
         from agents.ana import blind_probes_from_attributes
-        topics, blind = blind_probes_from_attributes(self._attributes, profile)
+        topics, blind, self.skipped_questions = blind_probes_from_attributes(self._attributes, profile)
         perception = Topic(id="perception", label="Brand perception", kind="perception",
                            buyer_need="How AI characterises the brand when asked about it directly",
                            positioning_point_ids=[], fit="strong")

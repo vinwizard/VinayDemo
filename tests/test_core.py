@@ -238,6 +238,32 @@ def test_invalid_quote_flagged():
     assert not e.valid and e.strength is None and any("Invalid evidence quote" in w for w in e.warnings)
 
 
+# An answer naming the brand is the only kind with a quote to check, so a check that fails on a copy
+# slip deletes positive evidence and never a zero. Both slips below are from live Notion runs.
+EMPHASISED = "- **Notion AI**: Enhances internal processes like documentation."
+CAPITALISED = "Applications such as Asana, ClickUp, or Notion allow you to monitor work."
+
+
+@pytest.mark.parametrize("text,quote,counts", [
+    (EMPHASISED, "Notion AI: Enhances internal processes", True),        # only the ** dropped
+    (CAPITALISED, "applications such as Asana, ClickUp, or Notion", True),  # only the case changed
+    (EMPHASISED, "Notion AI enhances internal processes", False),        # punctuation changed
+    (EMPHASISED, "Notion AI: Enhances documentation", False),            # words skipped
+])
+def test_a_quote_differing_only_in_emphasis_or_case_counts(text, quote, counts):
+    e = evaluation.evaluate(PROBE, synth(text, mentioned=True, recommended=True, evidence_quotes=[quote]),
+                            PROFILE)
+    assert e.valid is counts and (e.strength == 2 if counts else e.strength is None)
+
+
+def test_the_brand_name_counts_when_the_aliases_omit_it():
+    """Onboarding asks for *other* names, so a saved profile can hold ["Notion Labs"] and not "Notion"."""
+    profile = PROFILE.model_copy(update=dict(aliases=["Notion Labs"]))
+    e = evaluation.evaluate(PROBE, synth("- **Notion**: the best team wiki.", mentioned=True, recommended=True,
+                                         evidence_quotes=["**Notion**: the best team wiki"]), profile)
+    assert e.valid and e.mentioned and e.strength == 2
+
+
 def test_competitor_must_appear_in_text():
     e = evaluation.evaluate(PROBE, synth("Use Confluence.", competitor_recommendations=["Asana"]), PROFILE)
     assert not e.valid
@@ -289,6 +315,19 @@ def test_brand_named_only_inside_a_citation_is_not_a_mention():
     e = evaluation.evaluate(PROBE, synth(text, mentioned=True, evidence_quotes=["Notion vs Confluence"]),
                             PROFILE)
     assert not e.valid and any("only inside a citation" in w for w in e.warnings)
+
+
+@pytest.mark.parametrize("text,addressed", [
+    ("How does your platform improve our team's shipping speed?", True),
+    ("What specific AI integrations do you offer?", True),
+    ("What types of tasks can these agents automate?", True),
+    ("How does the platform minimize distractions during project cycles?", True),
+    ("What is the best issue tracker for a small software team?", False),
+    ("Which workspace app answers questions about your own documents?", False),  # generic "your"
+    ("Can you suggest affordable project tools for a team of three?", False),    # asks the chatbot
+])
+def test_a_buyer_question_addressing_the_vendor_is_caught(text, addressed):
+    assert bool(ana.vendor_address(text)) is addressed
 
 
 @pytest.mark.parametrize("text", ["Is Notion good for wikis?", "What does notion.so offer?", "Compare notion AI tools",

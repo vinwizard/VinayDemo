@@ -208,7 +208,7 @@ def test_weighting_more_claims_than_there_are_topics_still_plans_a_valid_run():
     """Truncating to MAX_TOPICS must drop the questions too, or every probe of the 5th claim is an
     orphan and `validate_and_freeze` kills the run with an unreadable id-shaped error."""
     attrs = weighted(6)
-    topics, probes = ana.blind_probes_from_attributes(attrs, PROFILE)
+    topics, probes, _ = ana.blind_probes_from_attributes(attrs, PROFILE)
     assert len(topics) == ana.MAX_TOPICS
     assert {p.topic_id for p in probes} == {t.id for t in topics}
     assert len(probes) == ana.MAX_TOPICS * ana.PER_TOPIC <= graph.MAX_BASELINE
@@ -234,6 +234,32 @@ def test_onboard_vetting_drops_brand_leaking_buyer_questions_and_says_so():
     warnings = main.vet_questions(PROFILE, attrs)
     assert attrs[0].buyer_questions == ["Which tool sets up fastest?"]
     assert any("named you" in w and "Fast to set up" in w for w in warnings)
+
+
+def test_onboard_vetting_drops_a_buyer_question_addressing_the_vendor_and_says_so():
+    """Put to a vendor, "your platform" was answered as ShipStation. Refused, like a brand leak."""
+    q = "How does your platform improve our team's shipping speed?"
+    attrs = [Attribute(id="fast", label="Ships fast",
+                       buyer_questions=["What issue tracker suits a team that ships weekly?", q])]
+    warnings = main.vet_questions(PROFILE, attrs)
+    assert attrs[0].buyer_questions == ["What issue tracker suits a team that ships weekly?"]
+    assert any("addressed the vendor" in w and "your platform" in w for w in warnings)
+    # and one saved before this check existed is not asked
+    attrs[0].buyer_questions.append(q)
+    _, probes, skipped = ana.blind_probes_from_attributes(
+        [attrs[0].model_copy(update=dict(intended_weight=1.0))], PROFILE)
+    assert [p.text for p in probes] == ["What issue tracker suits a team that ships weekly?"]
+    assert skipped == ["fast-2 (your platform)"]
+
+
+@pytest.mark.parametrize("q", ["What issue tracker helps plan your product roadmap?",
+                               "Best tool to document your company processes?"])
+def test_the_buyers_own_product_or_company_is_not_the_vendor(q):
+    """"your product" / "your company" here are the buyer's own: a real category question, kept."""
+    assert ana.vendor_address(q) == []
+    attrs = [Attribute(id="docs", label="Docs", buyer_questions=[q])]
+    main.vet_questions(PROFILE, attrs)
+    assert attrs[0].buyer_questions == [q]
 
 
 def test_onboard_vetting_says_how_many_brand_questions_are_left():
@@ -304,7 +330,7 @@ def test_a_repeated_buyer_question_is_dropped_before_the_company_is_saved():
     warnings = main.vet_questions(PROFILE, attrs)
     assert attrs[1].buyer_questions == ["Which tool keeps a backlog tidy?"]
     assert any("repeated one already asked" in w and "Task management" in w for w in warnings)
-    topics, probes = ana.blind_probes_from_attributes(attrs, PROFILE)
+    topics, probes, _ = ana.blind_probes_from_attributes(attrs, PROFILE)
     assert ana.validate_probes(probes, topics, PROFILE) == []
 
 
@@ -411,7 +437,7 @@ def test_the_buyer_axis_goes_to_the_most_heavily_weighted_claims():
     attrs = weighted(6)
     for a, w in zip(attrs, [0.1, 0.1, 0.1, 0.1, 0.6, 1.0]):
         a.intended_weight = w
-    topics, _ = ana.blind_probes_from_attributes(attrs, PROFILE)
+    topics, _, _ = ana.blind_probes_from_attributes(attrs, PROFILE)
     assert [t.id for t in topics] == ["pos-a6", "pos-a5", "pos-a1", "pos-a2"]
 
 

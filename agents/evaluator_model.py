@@ -89,7 +89,7 @@ def build_prompt(probe: Probe, answer: Answer, attributes: list[Attribute],
                       + (f" (also phrased as: {', '.join(a.aliases)})" if a.aliases else "")
                       for a in attributes)
     lines = "\n".join(f"[{i}] {line}" for i, line in enumerate(answer_lines(answer.text), start=1))
-    return PROMPT.format(name=profile.name, aliases=", ".join(profile.aliases or [profile.name]),
+    return PROMPT.format(name=profile.name, aliases=", ".join(profile.names()),
                          attrs=attrs, question=probe.text, answer=lines, schema=SCHEMA_HINT)
 
 

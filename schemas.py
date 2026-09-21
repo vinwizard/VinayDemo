@@ -43,6 +43,11 @@ class CompanyProfile(BaseModel):
     def all_domains(self) -> list[str]:
         return sorted({self.domain, *self.owned_domains})
 
+    def names(self) -> list[str]:
+        """Every name that counts as a mention. The name itself always does: onboarding asks for
+        *other* names, so aliases like ["Notion Labs"] used to replace "Notion" rather than add to it."""
+        return list(dict.fromkeys([self.name, *self.aliases]))
+
 
 class Attribute(BaseModel):
     """One thing a brand can be known for. The unit of positioning drift.
