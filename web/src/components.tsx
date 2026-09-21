@@ -192,11 +192,13 @@ export function DriftMap({ scores, run }: { scores: AttributeScore[]; run?: Run 
             <div>{s.label}</div>
             {s.description && <div className="muted desc">{s.description}</div>}
             <div className="muted">
-              {s.intended_weight
-                ? `intent ${s.intended_weight}`
-                : s.claim_pages > 0 || (s.claim_strength ?? 0) > 0
-                  ? "on your site, not weighted"
-                  : "not claimed by you"}
+              {s.discovered
+                ? "discovered from the answers"
+                : s.intended_weight
+                  ? `intent ${s.intended_weight}`
+                  : s.claim_pages > 0 || (s.claim_strength ?? 0) > 0
+                    ? "on your site, not weighted"
+                    : "not claimed by you"}
             </div>
           </div>
           <div>
@@ -240,6 +242,7 @@ function GapCard({ s }: { s: AttributeScore }) {
         <span className={`pill ${s.zone}`}>{OWNER_TITLE[s.owner]}</span>
       </div>
       <p style={{ margin: ".4rem 0 0" }}>{OWNER_TEXT[s.owner]}</p>
+      {s.discovered && <p className="muted" style={{ margin: ".3rem 0 0" }}>Discovered from the answers.</p>}
       <p className="muted" style={{ margin: ".3rem 0 0" }}>
         {share ? `${share} state it` : "no page data"}
         {" · "}AI echoed it in {s.echoes} of {s.n} brand answers

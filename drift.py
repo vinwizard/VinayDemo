@@ -139,6 +139,10 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
             continue  # unclaimed and barely mentioned: not a finding, and never padding for the report
         zone, owner = classify(a, er, cs, nr)
         limits = []
+        if a.discovered:
+            limits.append("Discovered from the answers: neither you nor your site supplied this. A model "
+                          f"proposed it after reading all {n} answers together; it is kept because "
+                          f"{echoes} of them say it in words quoted verbatim.")
         if zone == "contested":
             limits.append(f"AI raised this in {echoes} of {n} answers and was negative in {neg} of them; "
                           "the score counts the mentions that were not critical, whether they "
@@ -148,7 +152,8 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
         if a.intended and cs is None:
             limits.append("No page-level claim data: cannot separate an authority gap from a messaging gap.")
         out.append(AttributeScore(
-            attribute_id=a.id, label=a.label, intended_weight=a.intended_weight, claim_strength=cs,
+            attribute_id=a.id, label=a.label, discovered=a.discovered,
+            intended_weight=a.intended_weight, claim_strength=cs,
             claim_pages=a.claim_pages, claim_pages_total=a.claim_pages_total,
             n=n, echoes=echoes, echo_rate=er, negative_echoes=neg, mention_rate=mr,
             negative_rate=nr, zone=zone, owner=owner,

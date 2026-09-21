@@ -14,6 +14,13 @@ Three layers are kept deliberately separate:
 | **Claimed** | What your own public copy actually says | Evidence-backed |
 | **Perceived** | What AI says when asked | Measured probes |
 
+Perception can also add attributes nobody declared. In a live run, after the brand answers come
+back, one model call reads all of them together and proposes other ways they describe the brand.
+Code keeps a proposal only when its quote is verbatim in the answer it cites, at least two different
+eligible answers raise it, and it does not rephrase an attribute already being measured
+(`evaluation.discover_attributes`). Nobody intended or claimed a kept one, so it lands as *imposed*,
+marked "discovered from the answers".
+
 The gap between **claimed** and **perceived** is an *authority gap* — you say it and the models do not
 repeat it. The gap between **intended** and **claimed** is a *messaging gap* — AI does not say it because
 you never clearly said it either. A claim AI does repeat, mostly to contradict it, is *contested* — a

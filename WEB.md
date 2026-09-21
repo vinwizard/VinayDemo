@@ -169,8 +169,6 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
 - Report-surface attribute descriptions still render nothing: `AttributeScore` carries no
   `description` field. The onboarding task added `claim_pages`/`claim_pages_total` there but left
   this one open
-- Emergent attribute discovery from answers (an attribute nobody declared) is still not implemented;
-  filed as `vd-discover`
 - `/api/onboard` and `PATCH /api/companies/{id}` are unauthenticated, like the rest of the API
 - Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)
 - No production build wiring — Vite dev server only, so nothing is deployable from here yet
