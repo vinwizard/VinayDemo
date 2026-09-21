@@ -5,7 +5,7 @@ Three layers, kept separate on purpose:
   claimed   — what their own public copy actually states (evidence-backed)
   perceived — what AI associated with them in eligible named-probe answers
 
-The zone is intended x perceived. The owner uses the claimed layer to say *whose* problem it is,
+The zone is intended x perceived, or claimed x perceived when nothing is weighted (the claim lens). The owner uses the claimed layer to say *whose* problem it is,
 which is the whole point: a gap where the company never stated the claim is not an AI problem.
 """
 from typing import Optional
@@ -41,18 +41,27 @@ def claim_strength(a: Attribute) -> Optional[float]:
     return None if not a.claim_pages_total else round(a.claim_pages / a.claim_pages_total, 3)
 
 
-def relevant(a: Attribute, mention_rate: Optional[float]) -> bool:
+def is_claimed(a: Attribute) -> bool:
+    cs = claim_strength(a)
+    return bool(a.claim_evidence_ids) or (cs is not None and cs > 0)
+
+
+def relevant(a: Attribute, mention_rate: Optional[float], claim_lens: bool = False) -> bool:
     """Intended attributes always appear. An attribute nobody claimed AND AI barely says is noise.
+
+    With no intent at all (the claim lens) every claim is the reference instead, so every claim
+    appears: a claim AI never repeats is the lost-claim finding, not noise.
 
     Deliberately keyed on MENTIONS, not supportive echoes: an unclaimed attribute AI raises only to
     criticise ("expensive at scale") is the most reportable imposed identity there is, and keying
     this on the supportive rate would silently delete it from the report.
     """
-    return a.intended or (mention_rate is not None and mention_rate >= IMPOSED_MIN)
+    return (a.intended or (claim_lens and is_claimed(a))
+            or (mention_rate is not None and mention_rate >= IMPOSED_MIN))
 
 
 def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float],
-             negative_rate: Optional[float] = None) -> tuple[str, str]:
+             negative_rate: Optional[float] = None, claim_lens: bool = False) -> tuple[str, str]:
     """Zone x owner. Pure function of the three layers; deliberately has no access to an LLM.
 
     The model already judged each mention's polarity (agents/evaluation.py extract_attributes); this
@@ -65,25 +74,31 @@ def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float],
     `contested`, checked before the absence zones because "AI says the opposite" is a different
     problem from "AI never says it", and at the low CONTESTED_MIN bar for the same reason
     IMPOSED_MIN is low.
+
+    `claim_lens` is the reading when nothing in the run is weighted: the company's own claims stand
+    in for intent, so a claim AI does not endorse is a lost claim — an authority gap when the site
+    states it clearly, a messaging gap when it barely does — and nothing reads "unprioritised",
+    which only means something relative to weights. Intent is never derived from the copy, so
+    `unstated_intent` (you want it, your site never says it) exists only once weights are set.
     """
     echoed = echo_rate is not None and echo_rate >= ECHO_THRESHOLD
     stated = cs is not None and cs >= CLAIM_THRESHOLD
     contested = negative_rate is not None and negative_rate >= CONTESTED_MIN
     claimed = bool(a.claim_evidence_ids) or (cs is not None and cs > 0)
-    if a.intended and echoed:
+    target = claimed if claim_lens else a.intended
+    if target and echoed:
         return "landed", "none"
     # Contradiction of anything the company states on its own site, weighted or not: "AI says the
     # opposite of what you claim" is literally true of an unweighted claim too, and it outranks
     # being unweighted, so this is tested before `unprioritised` below.
     if (a.intended or claimed) and contested:
         return "contested", "contested_identity"
-    if a.intended and stated:
+    if target and stated:
         return "lost_claim", "authority_gap"
-    if a.intended:
-        return "unstated_intent", "messaging_gap"
-    # Claimed but never weighted. This never arose in the fixtures — every unintended fixture
-    # attribute has claim_pages=0 — yet it is the DEFAULT state of every onboarded attribute until
-    # the customer moves a slider. `imposed` means AI asserts something the company never claimed
+    if target:
+        return ("lost_claim" if claim_lens else "unstated_intent"), "messaging_gap"
+    # Claimed but not weighted while other claims are (the claim lens never gets here). This never
+    # arose in the fixtures — every unintended fixture attribute has claim_pages=0. `imposed` means AI asserts something the company never claimed
     # ANYWHERE, so a claim their own site makes with a validated quote behind it can never be
     # imposed, whatever the echo rate: keying this on the echo too would leave the ordinary
     # [IMPOSED_MIN, ECHO_THRESHOLD) band reading "AI asserts this about you without you claiming it"
@@ -122,6 +137,7 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
     """observations: probe_id -> validated observations (quotes already checked verbatim upstream)."""
     kept, _, _ = named_eligibility(probes, answers, evals)
     n = len(kept)
+    claim_lens = not any(a.intended for a in attributes)
 
     out = []
     for a in attributes:
@@ -138,9 +154,9 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
         nr = rate(neg, n)
         er = rate(pos, n)
         cs = claim_strength(a)
-        if not relevant(a, mr):
+        if not relevant(a, mr, claim_lens):
             continue  # unclaimed and barely mentioned: not a finding, and never padding for the report
-        zone, owner = classify(a, er, cs, nr)
+        zone, owner = classify(a, er, cs, nr, claim_lens)
         limits = []
         if a.discovered:
             limits.append("Discovered from the answers: neither you nor your site supplied this. A model "
@@ -156,6 +172,12 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
             limits.append(f"Only {n} eligible brand-question answer(s); perception is not measurable.")
         if a.intended and cs is None:
             limits.append("No page-level claim data: cannot separate an authority gap from a messaging gap.")
+        na = {}
+        if er is None:
+            na["echo_rate"] = "No eligible brand-question answer, so there is nothing AI could have repeated."
+        if cs is None:
+            na["claim_strength"] = ("Found in the answers, not on the site: no page was checked for it."
+                                    if a.discovered else "No pages were fetched for this claim.")
         out.append(AttributeScore(
             attribute_id=a.id, label=a.label, discovered=a.discovered,
             intended_weight=a.intended_weight, claim_strength=cs,
@@ -163,7 +185,7 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
             n=n, echoes=echoes, echo_rate=er, negative_echoes=neg, mention_rate=mr,
             negative_rate=nr, zone=zone, owner=owner,
             quotes=[o.quote for _, o in hits][:3], probe_ids=sorted({pid for pid, _ in hits}),
-            limitations=limits))
+            limitations=limits, na_reasons=na))
     return out
 
 
@@ -176,9 +198,32 @@ def alignment(scores: list[AttributeScore]) -> Optional[float]:
     return round(100 * sum(s.intended_weight * s.echo_rate for s in rows) / total, 1)
 
 
+def claim_echo(attributes: list[Attribute], kept: list[str],
+               observations: dict[str, list[AttributeObservation]]) -> tuple[Optional[float], Optional[str]]:
+    """-> (score, why it is null). The headline that needs no human input: of what the site claims,
+    weighted by prominence (pages stating it), how much AI repeats supportively.
+
+    Positive observations only, the same rule as `echo_rate`: a neutral mention is not conviction.
+    Taken over every claim, not only the rows the report shows, so hiding a quiet unweighted claim
+    from the drift map can never flatter this number. Discovered attributes are not claims.
+    """
+    n = len(kept)
+    if n < MIN_NAMED:
+        return None, f"Only {n} eligible brand answer(s) (minimum {MIN_NAMED}), so AI's view is not measurable."
+    rows = [(a.claim_pages, sum(any(o.attribute_id == a.id and o.polarity == "positive"
+                                    for o in observations.get(pid, [])) for pid in kept))
+            for a in attributes if not a.discovered and a.claim_pages > 0]
+    total = sum(pages for pages, _ in rows)
+    if not total:
+        return None, "No claim was found stated on any fetched page, so there is nothing to echo."
+    return round(100 * sum(pages * pos / n for pages, pos in rows) / total, 1), None
+
+
 def build_report(scores: list[AttributeScore], provenance: str, n_blind: int,
                  visibility: Optional[float], asked: int = 0,
-                 excluded_reasons: Optional[list[str]] = None) -> DriftReport:
+                 excluded_reasons: Optional[list[str]] = None,
+                 echo: tuple[Optional[float], Optional[str]] = (None, "Not computed for this report."),
+                 lens: str = "intent") -> DriftReport:
     n = scores[0].n if scores else 0
     reasons = list(excluded_reasons or [])
     asked = asked or n
@@ -195,11 +240,28 @@ def build_report(scores: list[AttributeScore], provenance: str, n_blind: int,
         limits.append("Simulated: attribute observations come from authored fixtures, not a measured chatbot.")
     if n < MIN_NAMED:
         limits.append(f"Only {n} eligible brand answer(s) (minimum {MIN_NAMED}); alignment withheld.")
+    na = {}
+    if lens == "claim":
+        # Every n/a says why. This one is a choice, not a failure: intent is the customer's input.
+        align = None
+        na["alignment"] = ("No claim is weighted as intended, so there is no intended positioning to "
+                           "align against. Claim echo is the headline; setting intent weights on the "
+                           "finished run adds alignment by re-scoring its saved answers.")
+    else:
+        align = alignment(scores) if n >= MIN_NAMED else None
+        if align is None:
+            na["alignment"] = (f"Only {n} eligible brand answer(s) (minimum {MIN_NAMED}), so alignment "
+                               "is withheld." if n < MIN_NAMED else
+                               "No weighted claim has a measurable echo rate.")
+    if echo[0] is None:
+        na["claim_echo"] = echo[1] or "Not computed."
+    if visibility is None:
+        na["visibility"] = "No buyer question produced an eligible answer, so visibility is not measured."
     return DriftReport(
         provenance=provenance, n_named=n, n_blind=n_blind, named_asked=asked,
-        excluded_named=len(reasons), excluded_reasons=reasons,
-        alignment=alignment(scores) if n >= MIN_NAMED else None,
-        visibility=visibility, scores=scores, limitations=limits,
+        excluded_named=len(reasons), excluded_reasons=reasons, lens=lens,
+        claim_echo=echo[0], alignment=align,
+        visibility=visibility, scores=scores, limitations=limits, na_reasons=na,
         landed=by("landed"), lost_claims=by("lost_claim"), contested=by("contested"),
         imposed=by("imposed"), unstated_intent=by("unstated_intent"),
         unprioritised=by("unprioritised"))

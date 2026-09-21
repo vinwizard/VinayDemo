@@ -89,6 +89,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
   const intended = Object.values(weights).filter((w) => w > 0).length;
   // Mirrors ana.blind_probes_from_attributes: only weighted claims that still HAVE buyer questions
   // are eligible, heaviest first (a stable sort, so ties keep their order), cut at MAX_BUYER_TOPICS.
+  // With nothing weighted the engine picks the most-stated claims instead, so nothing is named here.
   // Everything else weighted is measured on the brand axis alone, and is named, not just counted.
   const weighted = company.attributes.filter((a) => (weights[a.id] ?? 0) > 0);
   const onBuyerAxis = new Set(
@@ -105,8 +106,8 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
   return (
     <div className="stack">
       <p className="lede">
-        Move the slider on each claim you actually want to be known for. A slider left at zero stays
-        at zero: we never guess an intention you did not state.
+        Optional: move the slider on each claim you actually want to be known for. A slider left at
+        zero stays at zero: we never guess an intention you did not state.
       </p>
 
       <div className="claims">
@@ -192,7 +193,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
           {nothingToMeasure
             ? "Nothing on their site survived quote validation, so there is nothing to measure yet. Add a claim above to measure it."
             : intended === 0
-            ? "Nothing is weighted yet, so there is no intended positioning to score against."
+            ? `Nothing weighted: measuring compares what your site claims with what AI says, with buyer questions for your ${MAX_BUYER_TOPICS} most-stated claims. Weights are optional.`
             : `${intended} claim${intended === 1 ? "" : "s"} weighted${saved ? " · saved" : ""}`}
         </span>
         <div className="row">

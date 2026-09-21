@@ -27,6 +27,8 @@ export interface AttributeScore {
   quotes: string[];
   probe_ids: string[];
   limitations: string[];
+  /** Field name -> why that number is null. */
+  na_reasons?: Record<string, string>;
 }
 
 export interface DriftReport {
@@ -36,6 +38,10 @@ export interface DriftReport {
   named_asked: number;
   excluded_named: number;
   excluded_reasons: string[];
+  /** claim: nothing weighted, the site's own claims are the reference. intent: weights exist. */
+  lens?: "claim" | "intent";
+  /** Headline: prominence-weighted share of the site's claims AI repeats supportively. */
+  claim_echo?: number | null;
   alignment: number | null;
   visibility: number | null;
   landed: string[];
@@ -46,6 +52,8 @@ export interface DriftReport {
   unprioritised: string[];
   scores: AttributeScore[];
   limitations: string[];
+  /** Field name -> why that number is null. */
+  na_reasons?: Record<string, string>;
 }
 
 export interface Topic {
@@ -115,6 +123,7 @@ export interface RunSummary {
   status: string;
   company: string;
   alignment: number | null;
+  claim_echo?: number | null;
   visibility: number | null;
   landed: number;
   lost: number;

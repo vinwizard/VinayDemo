@@ -205,6 +205,7 @@ def list_all():
         out.append(dict(id=r.id, created_at=r.created_at, scenario=r.scenario, status=r.status,
                         company=r.profile.name,
                         alignment=d.alignment if d else None,
+                        claim_echo=d.claim_echo if d else None,
                         visibility=d.visibility if d else None,
                         landed=len(d.landed) if d else 0,
                         lost=len(d.lost_claims) if d else 0,
@@ -400,6 +401,44 @@ def added_buyer_questions(company: Company, raw: AddedAttribute) -> tuple[list[s
     return kept, warnings
 
 
+def check_weights(attributes: list[Attribute], weights: dict[str, float]) -> None:
+    by_id = {a.id: a for a in attributes}
+    for aid, weight in weights.items():
+        if aid not in by_id:
+            raise HTTPException(400, f"unknown attribute {aid!r}")
+        if not 0 <= weight <= 1:
+            raise HTTPException(400, f"weight for {aid!r} must be between 0 and 1")
+        if by_id[aid].added_by_user and weight < ADDED_MIN_WEIGHT:
+            raise HTTPException(400, f"{by_id[aid].label!r} is a claim you added, so it is intended by "
+                                     f"construction and cannot drop below {ADDED_MIN_WEIGHT}. Delete it "
+                                     "instead if you no longer want it measured.")
+
+
+class RescoreRequest(BaseModel):
+    weights: dict[str, float] = {}
+
+
+@app.post("/api/runs/{run_id}/rescore")
+def rescore_run(run_id: str, req: RescoreRequest):
+    """Lens 2 after the fact: intent weights on a finished run, re-scored from its saved answers.
+
+    No provider is built and no model is asked — the weights only change arithmetic. Weights not
+    named keep their value, and a weight of 0 unweights a claim; with none left the run reads
+    through the claim lens again. The run is saved in place.
+    """
+    try:
+        run = load_run(run_id)
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(404, f"run {run_id} not found")
+    check_weights(run.attributes, req.weights)
+    try:
+        graph.rescore(run, req.weights)
+    except graph.ValidationError as e:
+        raise HTTPException(409, str(e))
+    save_run(run)
+    return json.loads(run.model_dump_json())
+
+
 @app.get("/api/companies")
 def companies():
     out = []
@@ -441,16 +480,9 @@ def patch_company(company_id: str, patch: CompanyPatch):
     if offline_seed(company_id):
         raise HTTPException(400, OFFLINE_FIXED)
     c = _company(company_id)
+    check_weights(c.attributes, patch.weights)
     by_id = {a.id: a for a in c.attributes}
     for aid, weight in patch.weights.items():
-        if aid not in by_id:
-            raise HTTPException(400, f"unknown attribute {aid!r}")
-        if not 0 <= weight <= 1:
-            raise HTTPException(400, f"weight for {aid!r} must be between 0 and 1")
-        if by_id[aid].added_by_user and weight < ADDED_MIN_WEIGHT:
-            raise HTTPException(400, f"{by_id[aid].label!r} is a claim you added, so it is intended by "
-                                     f"construction and cannot drop below {ADDED_MIN_WEIGHT}. Delete it "
-                                     "instead if you no longer want it measured.")
         by_id[aid].intended_weight = round(weight, 2) or None
     for raw in patch.added:
         aid = base = re.sub(r"[^a-z0-9]+", "_", raw.label.lower()).strip("_") or "added"

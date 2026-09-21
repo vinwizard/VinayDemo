@@ -234,11 +234,15 @@ class AttributeScore(BaseModel):
     quotes: list[str] = []      # verbatim, from answers
     probe_ids: list[str] = []
     limitations: list[str] = []
+    na_reasons: dict[str, str] = {}  # field name -> why that number is null
 
 
 class DriftReport(BaseModel):
-    """The single-screen result. Alignment is over intended attributes only."""
+    """The single-screen result. Claim echo needs no input; alignment is over intended attributes only."""
     provenance: Provenance
+    # claim: nothing weighted, the site's own claims are the reference. intent: weights exist.
+    lens: Literal["claim", "intent"] = "intent"
+    claim_echo: Optional[float] = None      # 0-100, prominence-weighted supportive echo of claims
     n_named: int = 0           # eligible named-probe answers behind the perception layer
     n_blind: int = 0           # eligible blind-probe answers behind the visibility layer
     named_asked: int = 0       # how many were attempted, so a reader can see what was lost
@@ -254,6 +258,7 @@ class DriftReport(BaseModel):
     unprioritised: list[str] = []
     scores: list[AttributeScore] = []
     limitations: list[str] = []
+    na_reasons: dict[str, str] = {}  # field name -> why that number is null
 
 
 class Company(BaseModel):
@@ -290,6 +295,9 @@ class Run(BaseModel):
     findings: list[GapFinding] = []
     attributes: list[Attribute] = []
     attribute_scores: list[AttributeScore] = []
+    # validated observations per named probe id, kept so a re-score never needs the model again
+    observations: dict[str, list[AttributeObservation]] = {}
+    drift_notes: list[str] = []  # limitations measure_drift adds beyond the report's own
     drift: Optional[DriftReport] = None
     log: list[str] = []
     status: str = "planned"

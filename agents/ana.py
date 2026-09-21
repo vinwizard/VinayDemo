@@ -68,7 +68,8 @@ def attribute_leaks(text: str, attributes: list[Attribute]) -> list[str]:
 
 def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyProfile
                                  ) -> tuple[list[Topic], list[Probe], list[str]]:
-    """The placebo test: one buyer topic per intended attribute, questions that never name the brand.
+    """The placebo test: one buyer topic per intended (or, unweighted, most-stated) claim, questions
+    that never name the brand.
 
     If a company claims to be X, a buyer asking for X should find them. Asking the question the
     company's own positioning implies — with no brand name, in a fresh context — is a stronger test
@@ -81,10 +82,15 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
     """
     topics, probes, dropped, skipped = [], [], [], []
     # Heaviest intent first, so truncation to MAX_TOPICS keeps the claims the customer cares about
-    # most rather than whichever the extraction model emitted first. The sort is stable: equal
-    # weights keep stored order, so the same company always plans the same questions.
-    eligible = sorted((x for x in attributes if x.intended and x.buyer_questions),
-                      key=lambda x: -x.intended_weight)
+    # most rather than whichever the extraction model emitted first. With nothing weighted the run
+    # still goes ahead (the claim lens): the claims stated on the most pages go first instead. The
+    # sort is stable: ties keep stored order, so the same company always plans the same questions.
+    if any(x.intended for x in attributes):
+        eligible = sorted((x for x in attributes if x.intended and x.buyer_questions),
+                          key=lambda x: -x.intended_weight)
+    else:
+        eligible = sorted((x for x in attributes if x.buyer_questions and (x.claimed or x.claim_pages)),
+                          key=lambda x: -x.claim_pages)
     for a in eligible:
         topic = Topic(id=f"pos-{a.id}", label=a.label, kind="buyer",
                       buyer_need=f"A buyer looking for: {a.label.lower()}",

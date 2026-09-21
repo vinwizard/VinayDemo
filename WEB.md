@@ -106,10 +106,11 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 | `GET /api/stream?company=<id>` or `?scenario=A&mode=demo` | SSE while the graph runs: `node` (with `planned` question counts per stage, discovered `competitors` and the run `mode`), `answer` (the question, the first 320 characters of its answer, provenance and whether a web search ran), `done` (the full run), `error`. A company is always `mode=live`, apart from the offline fallback above. The page only ever measures companies; `?scenario=` remains for the fixture path |
 | `GET /api/runs` | run history, newest first |
 | `GET /api/runs/{id}` | one full run, including the drift report |
+| `POST /api/runs/{id}/rescore` | lens 2 after the fact: `{weights: {id: 0..1}}` sets intent on a finished run and re-scores its saved answers — no provider is built and no model is asked. Unnamed weights keep their value; 0 unweights; with nothing weighted the run reads through the claim lens again. Saved in place |
 | `GET /api/onboard/stream?url=&name=` | the same onboarding as SSE: `pages` (the URLs the crawl fetched) as soon as the crawl lands, then `company` once extraction is saved, or `error`. The page uses this one |
 | `GET /api/onboard?url=&name=` | Agent 1: crawl up to 6 of a company's own pages, extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. Needs the same key as live mode. A company is always saved, never refused: a site where fewer than three claims survive quote validation carries a prominent warning that it states too little for a reliable claim percentage, and the existing insufficient-evidence rules withhold the scores rather than the company |
 | `GET /api/companies` · `GET /api/companies/{id}` | onboarded companies, newest first, and one in full |
-| `PATCH /api/companies/{id}` | the customer's own input: `{weights: {id: 0..1}, added: [{label, description, intended_weight}]}`. Intent arrives only here — never derived from their copy, and a weight of 0 leaves an extracted attribute unintended. An **added** claim is intended by construction, so its weight cannot go below 0.1 |
+| `PATCH /api/companies/{id}` | the customer's own input: `{weights: {id: 0..1}, added: [{label, description, intended_weight}]}`. Intent arrives only here (or on `rescore`) — never derived from their copy, and a weight of 0 leaves an extracted attribute unintended. Weights are optional: a company measured with none runs the claim lens. An **added** claim is intended by construction, so its weight cannot go below 0.1 |
 | `DELETE /api/companies/{id}/attributes/{attr}` | removes a claim the customer added. Refuses for a claim extracted from their own pages: that one is evidence, and excluding it from scoring is what its zero slider is for |
 
 Comparison is done client-side from two `GET /api/runs/{id}` responses — no extra endpoint.
@@ -134,10 +135,14 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   "named in buyer answers" (every product named in a buyer answer that counts toward the scores,
   beside the part of the answer that names it, ranked only when a name repeats across answers, plus the round-two
   comparison question built from those names), and the evidence, limitations and log behind a
-  disclosure. **Unprioritised** is the zone for a claim the company's own pages state and AI repeats,
-  but which the customer never weighted — the default state of every onboarded attribute until a
-  slider moves, and the one case where "imposed" would otherwise accuse AI of asserting something the
-  company demonstrably claims
+  disclosure. Two lenses: with no weight set the report reads through the **claim lens** — buyer
+  questions go to the claims stated on the most pages, **claim echo** (of what the site claims,
+  weighted by pages stating it, how much AI repeats supportively) is the headline, zones read
+  against the claims (landed / lost claim / contested / imposed), and alignment is absent with its
+  reason in `drift.na_reasons`. Once weights exist the **intent lens** adds alignment and the
+  unstated-intent messaging gap. **Unprioritised** is an intent-lens zone for a claim the company's
+  own pages state and AI repeats, but which the customer did not weight — the one case where
+  "imposed" would otherwise accuse AI of asserting something the company demonstrably claims
 - **History** — every saved run from `data/runs/`; click one to open its report in place
 - **Compare** — two runs side by side with the alignment delta and per-attribute zone changes (`lost claim → landed`)
 
