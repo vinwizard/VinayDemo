@@ -375,6 +375,7 @@ def build_gap_report(s: State):
         run.log.append(f"Action plan: {len(run.win_back)} fix(es) kept, "
                        f"{len(run.win_back_notes)} note(s) on what was dropped.")
     simulate_retrieval(run, s["provider"])
+    map_positioning(run, s["provider"])
     run.status = "complete"
     run.log.append(f"Gap report built: {len(run.findings)} findings.")
     return {"run": run}
@@ -398,6 +399,24 @@ def simulate_retrieval(run: Run, provider) -> None:
                     else "Retrieval simulation") + f": {run.retrieval.passages} passages from {run.retrieval.pages} "
                    f"pages; your best passage trails the cited page on "
                    f"{sum(r.rival.score > r.yours.score for r in rows)} of {len(rows)} buyer questions.")
+
+
+def map_positioning(run: Run, provider) -> None:
+    """The positioning map (positioning.py): after every score, moving none. A provider without it
+    asks nothing; a failure is stated, never fatal."""
+    build = getattr(provider, "positioning", None)
+    if build is None:
+        return
+    try:
+        run.positioning = build(run)
+    except Exception as e:
+        run.log.append(f"Positioning map failed ({type(e).__name__}); nothing was placed.")
+        return
+    if run.positioning is not None:
+        m = run.positioning
+        run.log.append(("Positioning map sample (authored, not computed)" if m.provenance == "synthetic"
+                        else "Positioning map") + (f": {len(m.points)} points placed." if m.points
+                                                   else f": not drawn. {m.reason}"))
 
 
 def route_after_evaluate(s: State) -> str:

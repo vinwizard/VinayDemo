@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { KeyboardEvent, ReactNode } from "react";
 import type {
-  Answer, AttributeScore, Demand, DriftReport, Probe, QueryEvaluation, RetrievalRow, Run, ScoredPassage, SearchTry,
+  Answer, AttributeScore, Demand, DriftReport, MapPoint, Probe, QueryEvaluation, RetrievalRow, Run, ScoredPassage, SearchTry,
   WinBackAction, RunSummary, VisibilitySet, Zone,
 } from "./api";
 import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_ORDER, ZONES, reaskRun, rescoreRun } from "./api";
@@ -517,6 +517,7 @@ export function Report({ run, onRescored, weightNote }: {
             <>
               <CitedSources run={run} />
               <ShareOfVoice run={run} />
+              <PositioningMapView run={run} />
               <Competitors run={run} />
               <Discovered run={run} />
             </>
@@ -1002,6 +1003,168 @@ function ShareOfVoice({ run }: { run: Run }) {
         ))}
       </div>
     </Section>
+  );
+}
+
+const MAP_W = 360, MAP_H = 300, MAP_PAD = 36, MAP_FONT = 12, AXIS_FONT = 11;
+type Box = [number, number, number, number];
+
+/** Axis ends in plain words, drawn inside the map's edges: [text, x, y, text-anchor]. An x-axis end
+ * sits just above its axis line, or just below it when a dot is in the way. */
+type End = readonly [string, number, number, "start" | "middle" | "end"];
+const axisEnds = (x: string[], y: string[], dots: { x: number; y: number; r: number }[]): End[] => {
+  const clear = (t: string, ex: number, ey: number, a: string) => {
+    const b = boxOf(t, ex, ey, a, AXIS_FONT);
+    return !dots.some((d) => d.x + d.r > b[0] && d.x - d.r < b[2] && d.y + d.r > b[1] && d.y - d.r < b[3]);
+  };
+  const side = (t: string, ex: number, a: "start" | "end"): End =>
+    [t, ex, clear(t, ex, MAP_H / 2 - 6, a) ? MAP_H / 2 - 6 : MAP_H / 2 + 15, a];
+  return [
+    ...(y.length ? [[`↑ ${y[1]}`, MAP_W / 2, 14, "middle"], [`↓ ${y[0]}`, MAP_W / 2, MAP_H - 6, "middle"]] as const : []),
+    ...(x.length ? [side(`← ${x[0]}`, 4, "start"), side(`${x[1]} →`, MAP_W - 4, "end")] : []),
+  ];
+};
+
+const boxOf = (text: string, x: number, y: number, anchor: string, font: number): Box => {
+  const w = text.length * font * 0.56, left = anchor === "start" ? x : anchor === "end" ? x - w : x - w / 2;
+  return [left, y - font, left + w, y + 3];
+};
+
+/** Each dot's label beside it, trying right, left, above, below; null where none fits (it gets a number). */
+function placeLabels(dots: { x: number; y: number; r: number; text: string }[], taken: Box[]) {
+  const boxes = [...taken, ...dots.map((d): Box => [d.x - d.r, d.y - d.r, d.x + d.r, d.y + d.r])];
+  const free = (b: Box) => b[0] >= 2 && b[2] <= MAP_W - 2 && b[1] >= 2 && b[3] <= MAP_H - 2
+    && !boxes.some((o) => b[0] < o[2] && o[0] < b[2] && b[1] < o[3] && o[1] < b[3]);
+  return dots.map((d) => {
+    const w = d.text.length * MAP_FONT * 0.56, h = MAP_FONT + 3, g = d.r + 4;
+    for (const [x, y] of [[d.x + g, d.y - h / 2], [d.x - g - w, d.y - h / 2], [d.x - w / 2, d.y - g - h], [d.x - w / 2, d.y + g]]) {
+      const b: Box = [x, y, x + w, y + h];
+      if (free(b)) { boxes.push(b); return { x, y: y + h - 3.5 }; }
+    }
+    return null;
+  });
+}
+
+/** What one dot was built from, verbatim, and how close it sits to the brand as AI describes it. */
+function PointDetail({ p, brand, sample }: { p: MapPoint; brand: string; sample: boolean }) {
+  const n = p.sentences.length;
+  return (
+    <>
+      <strong className="pop-title">
+        {p.kind === "seen" ? `${brand}, as AI describes it` : p.kind === "intended" ? `${brand}, as your site describes it`
+          : `${p.name}, as AI describes it`}
+      </strong>
+      <p className="muted">
+        {sample && <><span className="tag sample">sample</span> Placed by hand, not computed. </>}
+        {p.kind === "seen" ? `Built from ${plural(n, "sentence")} in AI's answers about ${brand}.`
+          : p.kind === "intended" ? `Built from ${plural(n, "positioning line")} on your site.`
+          : `Built from ${plural(n, "sentence")} in buyer answers that name ${p.name}.`}
+      </p>
+      {p.similarity != null && (
+        <p>Similarity to how AI describes {brand}: <strong>{p.similarity.toFixed(2)}</strong> (1 is the same
+          meaning, 0 unrelated).</p>
+      )}
+      {p.sentences.map((s) => <p key={s} className="quote">{s}</p>)}
+    </>
+  );
+}
+
+/**
+ * The positioning map (positioning.py): the brand as AI describes it, as its site describes it and
+ * each rival, flattened to two axes by meaning. One arrow is the drift. Every dot, and its name in
+ * the legend, opens the sentences it was built from. A picture of similarity, never a score.
+ */
+function PositioningMapView({ run }: { run: Run }) {
+  const m = run.positioning;
+  if (!m) return null;
+  const brand = run.profile.name, sample = m.provenance !== "live_api";
+  const found = m.reason ? "not drawn"
+    : `AI places ${brand} closest to ${listed(m.closest)}`
+      + (m.toward ? `; your site aims further toward “${m.toward}”` : "; your site aims somewhere else on the map");
+  const body = () => {
+    if (m.reason) return <p className="muted" style={{ margin: 0 }}>{m.reason}</p>;
+    const order = { seen: 0, intended: 1, rival: 2 };
+    const pts = [...m.points].sort((a, b) => order[a.kind] - order[b.kind] || (b.similarity ?? 0) - (a.similarity ?? 0));
+    const mx = Math.max(...pts.map((p) => Math.abs(p.x)), 1e-9), my = Math.max(...pts.map((p) => Math.abs(p.y)), 1e-9);
+    const scale = Math.min((MAP_W / 2 - MAP_PAD) / mx, (MAP_H / 2 - MAP_PAD) / my);
+    const dots = pts.map((p) => ({
+      p, x: MAP_W / 2 + p.x * scale, y: MAP_H / 2 - p.y * scale, r: p.kind === "rival" ? 7 : 9,
+      text: p.kind === "intended" ? "your aim" : p.name,
+    }));
+    const ends = axisEnds(m.x_axis, m.y_axis, dots);
+    const labels = placeLabels(dots, ends.map(([t, x, y, a]) => boxOf(t, x, y, a, AXIS_FONT)));
+    let k = 0;
+    const num = labels.map((l) => (l ? null : ++k));
+    const [seen, aim] = dots;
+    const dx = aim.x - seen.x, dy = aim.y - seen.y, len = Math.hypot(dx, dy);
+    const ux = dx / len, uy = dy / len, tip = [aim.x - ux * (aim.r + 2), aim.y - uy * (aim.r + 2)];
+    const title = (d: (typeof dots)[number]) => d.p.kind === "seen" ? `${brand}, as AI describes it`
+      : d.p.kind === "intended" ? `${brand}, as your site describes it` : `${d.p.name}, as AI describes it`;
+    return (
+      <>
+        <p className="muted" style={{ margin: 0 }}>
+          {sample && <>{SAMPLE_NOTE} The dots were placed by hand. </>}
+          A <Term k="positioning_map"
+                  note={m.explained != null && `These two axes show ${Math.round(m.explained * 100)}% of the differences between the dots; the rest is flattened away.`}>
+            similarity picture</Term>, not a measurement: dots close together were described in similar words.
+          The arrow runs from where AI places {brand} to where your site aims. Tap a dot for the sentences behind it.
+        </p>
+        <div className="pmap">
+          <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} aria-hidden="true">
+            <line className="pmap-axis" x1={MAP_W / 2} y1={0} x2={MAP_W / 2} y2={MAP_H} />
+            <line className="pmap-axis" x1={0} y1={MAP_H / 2} x2={MAP_W} y2={MAP_H / 2} />
+            {len > seen.r + aim.r + 4 && (
+              <>
+                <line className="pmap-drift" x1={seen.x + ux * (seen.r + 2)} y1={seen.y + uy * (seen.r + 2)}
+                      x2={tip[0] - ux * 8} y2={tip[1] - uy * 8} />
+                <polygon className="pmap-head" points={`${tip[0]},${tip[1]} ${tip[0] - ux * 10 - uy * 5},${tip[1] - uy * 10 + ux * 5} ${tip[0] - ux * 10 + uy * 5},${tip[1] - uy * 10 - ux * 5}`} />
+              </>
+            )}
+            {dots.map((d, i) => (
+              <g key={`${d.p.kind}-${d.p.name}`}>
+                <circle className={`pmap-dot ${d.p.kind}`} cx={d.x} cy={d.y} r={num[i] ? 8 : d.r} />
+                {num[i] && <text className="pmap-num" x={d.x} y={d.y + 3.5} textAnchor="middle">{num[i]}</text>}
+                {labels[i] && <text className={`pmap-label ${d.p.kind}`} x={labels[i]!.x} y={labels[i]!.y}>{d.text}</text>}
+              </g>
+            ))}
+            {ends.map(([t, x, y, a]) => <text key={t} className="pmap-end" x={x} y={y} textAnchor={a}>{t}</text>)}
+          </svg>
+          {dots.map((d) => (
+            <span key={`${d.p.kind}-${d.p.name}`} className="pmap-hit"
+                  style={{ left: `${(100 * d.x) / MAP_W}%`, top: `${(100 * d.y) / MAP_H}%` }}>
+              <Popover wide label={title(d)} className="pmap-tap"
+                       trigger={<span className="sr-only">{title(d)}</span>}>
+                <PointDetail p={d.p} brand={brand} sample={sample} />
+              </Popover>
+            </span>
+          ))}
+        </div>
+        <ul className="pmap-legend">
+          {dots.map((d, i) => (
+            <li key={`${d.p.kind}-${d.p.name}`}>
+              <Popover wide label={title(d)} className="chip"
+                       trigger={<>
+                         <span className={`pmap-swatch ${d.p.kind}`} aria-hidden="true">{num[i] ?? ""}</span>
+                         {d.p.kind === "seen" ? `${brand}, as AI sees it` : d.p.kind === "intended" ? "Your aim, from your site" : d.p.name}
+                       </>}>
+                <PointDetail p={d.p} brand={brand} sample={sample} />
+              </Popover>
+            </li>
+          ))}
+        </ul>
+        {!m.x_axis.length && !m.y_axis.length && (
+          <p className="muted" style={{ margin: 0 }}>
+            No claim lines up with either axis, so they have no name: read only which dots sit close together.
+          </p>
+        )}
+        {m.notes.map((n) => <p key={n} className="muted" style={{ margin: 0 }}>{n}</p>)}
+      </>
+    );
+  };
+  return (
+    <Block open={!window.matchMedia(PHONE).matches} title="Positioning map" found={found}>
+      {body()}
+    </Block>
   );
 }
 

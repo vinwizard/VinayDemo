@@ -164,6 +164,13 @@ export const GLOSSARY = {
       + "AI's own searches for it, from 0 (unrelated) to 1 (the same meaning). The AI tends to read "
       + "and cite the closest passages, so a higher score makes a citation likelier, never certain.",
   },
+  positioning_map: {
+    term: "Positioning map",
+    def: "A picture of how alike things sound, not a measurement. We turn what AI says about you, what "
+      + "it says about each rival and what your own site says into numbers by meaning, then flatten "
+      + "them onto two axes. Dots close together were described in similar words; the arrow runs from "
+      + "where AI places you to where your site aims.",
+  },
 } satisfies Record<string, { term: string; def: string }>;
 
 export type TermKey = keyof typeof GLOSSARY;

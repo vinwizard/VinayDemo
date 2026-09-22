@@ -506,3 +506,27 @@ tr.pick:hover { background: #f5f8fc; cursor: pointer; }
 details.skipped > summary { cursor: pointer; min-height: 40px; display: flex; align-items: center; }
 details.skipped ul { margin: .2rem 0 0; padding-left: 1.1rem; font-size: .85rem; }
 @media (max-width: 600px) { .score-bar { grid-template-columns: 6.4rem 1fr 2.2rem; } }
+
+/* ---------------------------------------------------------------- positioning map */
+.pmap { position: relative; width: 100%; max-width: 520px; aspect-ratio: 360 / 300; margin: .8rem auto .5rem;
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.pmap svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pmap-axis { stroke: var(--border); stroke-width: 1; }
+.pmap-end { font-size: 11px; fill: var(--muted); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.pmap-drift { stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; }
+.pmap-head { fill: var(--accent); }
+.pmap-dot.seen { fill: var(--accent); }
+.pmap-dot.intended { fill: var(--surface); stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 3 2; }
+.pmap-dot.rival { fill: #8c96a3; }
+.pmap-num { font-size: 10px; font-weight: 600; fill: #fff; }
+.pmap-label { font-size: 12px; fill: var(--text); }
+.pmap-label.seen, .pmap-label.intended { font-weight: 650; fill: var(--accent); }
+.pmap-hit { position: absolute; width: 40px; height: 40px; transform: translate(-50%, -50%); }
+.pmap-tap.pop-trigger { width: 100%; height: 100%; border-radius: 50%; }
+.pmap-tap.pop-trigger:hover, .pmap-tap.pop-trigger[aria-expanded="true"] { background: rgb(59 91 219 / 14%); }
+.pmap-legend { list-style: none; padding: 0; margin: 0 0 .5rem; display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center; }
+.pmap-legend .chip.pop-trigger { min-height: 40px; font-weight: 450; }
+.pmap-swatch { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%;
+               font-size: 9px; font-weight: 650; color: #fff; background: #8c96a3; flex: none; }
+.pmap-swatch.seen { background: var(--accent); }
+.pmap-swatch.intended { background: var(--surface); border: 2px dashed var(--accent); }

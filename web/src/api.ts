@@ -191,6 +191,8 @@ export interface Run {
   win_back_notes?: string[];
   /** Simulated retrieval and the fixes re-scored; absent on runs saved before it existed. */
   retrieval?: RetrievalSim | null;
+  /** The positioning map; absent on runs saved before it existed. */
+  positioning?: PositioningMap | null;
   /** The company's site audit when the run started; absent on replays and older runs. */
   audit?: SiteAudit | null;
   log: string[];
@@ -209,6 +211,18 @@ export interface RetrievalRow {
 export interface RetrievalSim {
   provenance: string; model: string | null; pages: number; passages: number;
   rows: RetrievalRow[]; skipped: string[];
+}
+
+/** One dot on the positioning map: the mean embedding of the sentences it was built from. */
+export interface MapPoint {
+  name: string; kind: "seen" | "intended" | "rival"; x: number; y: number;
+  sentences: string[]; similarity: number | null;
+}
+/** Where AI places the brand, its rivals and where it aims (positioning.py): a similarity picture, no score. */
+export interface PositioningMap {
+  provenance: string; model: string | null; points: MapPoint[];
+  x_axis: string[]; y_axis: string[]; explained: number | null;
+  closest: string[]; toward: string | null; reason: string | null; notes: string[];
 }
 
 /** Two panels the API reads off a run's counted baseline answers (insights.py). `reason` says why one is empty. */
