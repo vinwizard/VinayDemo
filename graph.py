@@ -118,6 +118,7 @@ def plan_buyer(s: State):
     run.probes = probes + run.probes
     buyer = [p for p in probes if p.phase == "baseline"]
     fronts = {t.front for t in topics if t.kind == "buyer" and t.front}
+    run.missing_fronts = dict(getattr(provider, "missing_fronts", {}))
     if fronts:
         sc = next((sc for sc in scores if placed and sc.attribute_id == placed.id), None)
         endorsed = round((sc.echo_rate or 0) * sc.n) if sc else 0
@@ -130,7 +131,6 @@ def plan_buyer(s: State):
         if "both" in fronts:
             run.log.append(f"Where AI places {run.profile.name} ({placed.label}) is the category its site "
                            f"aims for ({run.profile.core_category}), so one set of buyer questions was asked.")
-        run.missing_fronts = dict(getattr(provider, "missing_fronts", {}))
     else:
         run.log.append(f"Question planner prepared {len(buyer)} buyer questions from the claims.")
     for note in [*getattr(provider, "notes", []), *run.missing_fronts.values()]:
@@ -263,11 +263,6 @@ def measure_drift(s: State):
             if any(p.kind == "blind" for p in run.probes) else
             "No buyer question was asked — no claim has a buyer question — so the buyer axis was "
             "not measured and no competitor could be discovered.")
-    if run.mode == "live_api" and not run.profile.core_category and not any(t.front for t in run.topics):
-        run.drift_notes.append(
-            "No core category is saved for this company (onboarded before categories existed), so "
-            "buyer questions follow its claims alone and no control question was asked. Set the "
-            "category on the claims screen to measure it.")
     score_drift(run)
     run.log.append(f"Drift measured over {run.drift.n_named} brand answers: claim echo "
                    f"{run.drift.claim_echo if run.drift.claim_echo is not None else 'n/a'}, alignment "

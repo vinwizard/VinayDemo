@@ -128,6 +128,23 @@ def test_a_front_with_no_questions_says_why_not_that_its_category_is_missing(mon
     assert run.drift.missing_fronts == {}
 
 
+def test_missing_front_reasons_reach_the_report_when_no_front_survives(monkeypatch):
+    # a category saved without questions and no endorsement: only the claims are asked
+    monkeypatch.setattr(Judge, "label", lambda self, probe, answer, attributes, profile: dict(
+        mentioned=profile.name in answer.text, recommended=False, negative_mention=False,
+        competitor_recommendations=[], evidence_quotes=[], on_topic=True, attributes=[]))
+    profile = F.profile.model_copy(update=dict(core_category=AIMING, category_questions=[]))
+    prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="test-model",
+                             transport=lambda *_: {"output": [{"type": "message", "content": [
+                                 {"type": "output_text", "text": "Coda fits."}]}]}, evaluator=Judge())
+    prov.concurrency = 1
+    run = graph.execute(graph.new_run(profile, prov, mode="live_api"), prov)
+    assert not any(t.front for t in run.topics)
+    assert set(run.drift.missing_fronts) == {"placed", "aiming"}
+    assert "no buyer questions are saved" in run.drift.missing_fronts["aiming"]
+    assert run.drift.missing_fronts["aiming"] in run.drift.limitations
+
+
 def test_every_try_is_asked_saved_and_scored_and_the_range_comes_from_them(monkeypatch, tmp_path):
     """Regression: the live run showed one saved answer per buyer question beside "3 tries"."""
     monkeypatch.setattr(reports, "RUNS", tmp_path)
