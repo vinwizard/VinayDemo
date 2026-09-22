@@ -133,6 +133,8 @@ def plan_buyer(s: State):
                            f"aims for ({run.profile.core_category}), so one set of buyer questions was asked.")
     else:
         run.log.append(f"Question planner prepared {len(buyer)} buyer questions from the claims.")
+    run.demand_notes = list(getattr(provider, "demand_notes", []))
+    run.log += run.demand_notes
     for note in [*getattr(provider, "notes", []), *run.missing_fronts.values()]:
         run.log.append(note)
         run.drift_notes.append(note)

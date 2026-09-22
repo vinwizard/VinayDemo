@@ -50,6 +50,7 @@ PRICES = {
     "gpt-4.1": (2.00, 8.00),
     "gpt-5-mini": (0.25, 2.00),
     "gpt-5": (1.25, 10.00),
+    "text-embedding-3-small": (0.02, 0.00),   # demand.py groups real buyer searches with it
 }
 UNKNOWN_PRICE = (5.00, 40.00)        # a model missing from the table is charged above all of them
 SEARCH_CALL_USD = 0.025              # per web_search_call, the highest per-call rate OpenAI has listed
@@ -346,6 +347,8 @@ def cost(model: str, response) -> tuple[float, dict]:
     """-> (usd, ledger fields) from the usage the response reports; estimated when it reports none."""
     usage = _get(response, "usage") if response is not None else None
     tin, tout = (_get(usage, "input_tokens"), _get(usage, "output_tokens")) if usage is not None else (None, None)
+    if tin is None and isinstance(_get(usage, "prompt_tokens"), int):   # an embedding reports only its input
+        tin, tout = _get(usage, "prompt_tokens"), 0
     estimated = not isinstance(tin, int) or not isinstance(tout, int) or model not in PRICES
     if not isinstance(tin, int) or not isinstance(tout, int):
         tin, tout = UNKNOWN_USAGE
@@ -372,14 +375,30 @@ def _create(timeout: int, **kwargs):
     return OpenAI(api_key=os.environ[KEY_ENV], timeout=timeout).responses.create(**kwargs)
 
 
+def _embed(timeout: int, **kwargs):
+    """The one line in the app that asks OpenAI for embeddings. Tests replace it."""
+    from openai import OpenAI
+    return OpenAI(api_key=os.environ[KEY_ENV], timeout=timeout).embeddings.create(**kwargs)
+
+
+def openai_embedding(timeout: int, **kwargs):
+    """embeddings.create, metered exactly like openai_response."""
+    return _metered(_embed, timeout, kwargs)
+
+
 def openai_response(timeout: int, **kwargs):
-    """responses.create, refused before the call when the acting pass may not spend, and charged
+    """responses.create, metered: see _metered."""
+    return _metered(_create, timeout, kwargs)
+
+
+def _metered(call, timeout: int, kwargs: dict):
+    """A model call refused before the call when the acting pass may not spend, and charged
     to it after. A call that fails without an HTTP status (a timeout, a dropped connection) may
     still have been billed, so it is charged the unknown-usage estimate."""
     pass_id = SPENDER.get()
     check(pass_id)
     try:
-        response = _create(timeout, **kwargs)
+        response = call(timeout, **kwargs)
     except Exception as e:
         if pass_id and getattr(e, "status_code", None) is None:
             charge(pass_id, kwargs["model"], None)
