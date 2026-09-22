@@ -222,6 +222,10 @@ input[type="range"] { accent-color: var(--accent); width: 9rem; }
 .figures { display: flex; gap: .3rem 2rem; flex-wrap: wrap; order: 3; flex-basis: 100%; }
 .fig { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .35rem; }
 .fig-value { font-size: 1.35rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.fig-value .ci { font-size: .75rem; }
+/* The ± is small on purpose; its tap area is not: at least 40px on a phone. */
+.pop-trigger:has(.ci) { position: relative; margin-left: .3rem; }
+.pop-trigger:has(.ci)::after { content: ""; position: absolute; inset: -8px -10px; }
 .fig-value small { font-size: .8rem; color: var(--muted); font-weight: 500; }
 .fig.potential .fig-value { color: var(--accent); font-size: 1.6rem; }
 .fig-label { font-size: .8rem; color: var(--muted); }

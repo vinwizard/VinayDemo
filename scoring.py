@@ -1,4 +1,5 @@
 """Deterministic arithmetic (.claude/skills/evaluation-and-scoring). No model judgment lives here."""
+import random
 import re
 from collections import Counter
 from typing import Optional
@@ -32,6 +33,60 @@ def visibility_over_tries(per_try: list[list[int]]) -> tuple[Optional[float], Op
     if not scores:
         return None, None
     return round(sum(scores) / len(scores), 1), [min(scores), max(scores)]
+
+
+# Bootstrap 95% intervals, with a fixed seed so the same saved answers always give the same interval.
+BOOT_RESAMPLES, BOOT_SEED = 2000, 7
+MIN_INTERVAL_ANSWERS = 5  # fewer eligible brand answers than this: too few for an interval
+
+
+def interval(draws: list[float]) -> list[float]:
+    """The middle 95% of the bootstrap draws, as [low, high]."""
+    xs = sorted(draws)
+    return [round(xs[int(0.025 * len(xs))], 1), round(xs[int(0.975 * len(xs)) - 1], 1)]
+
+
+def visibility_draws(per_question: list[list[int]], key: str = "") -> Optional[list[float]]:
+    """Bootstrap draws of visibility: resample the questions, then each chosen question's tries.
+
+    per_question: one list per buyer question of its tries' strengths. None when no question has a
+    second try (one try shows nothing of how answers vary between asks) or fewer than two questions
+    were scored. `key` seeds each set apart, so two fronts are resampled independently.
+    """
+    qs = [q for q in per_question if q]
+    if len(qs) < 2 or max(map(len, qs)) < 2:
+        return None
+    rng = random.Random(f"{BOOT_SEED}:{key}")
+    out = []
+    for _ in range(BOOT_RESAMPLES):
+        picked = [rng.choice(qs) for _ in qs]
+        out.append(visibility_score([rng.choice(q) for q in picked for _ in q]))
+    return out
+
+
+def gap_verdict(a: list[float], b: list[float]) -> tuple[list[float], bool]:
+    """-> (95% interval of a minus b, draw by draw; whether it excludes 0: a real gap)."""
+    lo, hi = interval([x - y for x, y in zip(a, b)])
+    return [lo, hi], lo > 0 or hi < 0
+
+
+def echo_draws(kept: list[str], weights: dict[str, float],
+               endorsed: dict[str, set[str]]) -> Optional[list[float]]:
+    """Bootstrap draws of a weighted echo score (claim echo, alignment), resampling brand answers.
+
+    kept: eligible brand answer ids; weights: attribute id -> its weight in the score; endorsed:
+    answer id -> the attributes it endorsed. None below MIN_INTERVAL_ANSWERS or with no weight.
+    """
+    total = sum(weights.values())
+    if len(kept) < MIN_INTERVAL_ANSWERS or not total:
+        return None
+    rng = random.Random(f"{BOOT_SEED}:echo")
+    out = []
+    for _ in range(BOOT_RESAMPLES):
+        picked = [rng.choice(kept) for _ in kept]
+        out.append(100 * sum(w * sum(a in endorsed.get(p, ()) for p in picked)
+                             for a, w in weights.items()) / (total * len(picked)))
+    return out
 
 
 MIN_CONTROL_VENDORS = 2  # a control answer naming fewer tools than this does not know the category

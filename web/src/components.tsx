@@ -134,12 +134,36 @@ function gapSentence(d: DriftReport, brand: string): string | null {
   return null;
 }
 
+/** "±5.4" beside a number: its bootstrap 95% confidence interval, one hover or tap away. */
+function Ci({ iv, of }: { iv?: [number, number] | null; of: string }) {
+  if (!iv) return null;
+  return (
+    <Term k="confidence_interval" note={`${of}: between ${iv[0]} and ${iv[1]}, 95% confident.`}>
+      <small className="ci">±{Math.round((iv[1] - iv[0]) * 5) / 10}</small>
+    </Term>
+  );
+}
+
+/** The gap's significance test in words: real, or not distinguishable with this sample. */
+function GapVerdict({ d }: { d: DriftReport }) {
+  if (d.gap_real == null || !d.gap_interval) return null;
+  const [lo, hi] = d.gap_interval;
+  return (
+    <>
+      {" "}
+      <Term k="significant_gap" note={`The gap is between ${lo} and ${hi} points, 95% confident.`}>
+        {d.gap_real ? "The gap is real, 95% confident." : "Not distinguishable with this sample."}
+      </Term>
+    </>
+  );
+}
+
 /** Buyer visibility, never a bare number when the control question says it is not to be trusted. */
-function Visibility({ d }: { d: Vis }) {
+function Visibility({ d, iv }: { d: Vis; iv?: [number, number] | null }) {
   if (d.visibility == null) return <>n/a</>;
   return (
     <>
-      {d.visibility}<small> / 100</small>
+      {d.visibility}<small> / 100</small><Ci iv={iv} of="Visibility" />
       {d.low_confidence && (
         <Term k="low_confidence" note={d.low_confidence}><span className="tag warn">low confidence</span></Term>
       )}
@@ -164,7 +188,9 @@ function Figures({ d, brand }: { d: DriftReport; brand: string }) {
     <>
     <div className="figures">
       <div className="fig potential">
-        <span className="fig-value">{h.potential == null ? "n/a" : `${h.potential}%`}</span>
+        <span className="fig-value">
+          {h.potential == null ? "n/a" : <>{h.potential}%<Ci iv={d[`${h.field}_interval`]} of={`${h.label} today`} /></>}
+        </span>
         <span className="fig-label">
           {h.potential == null ? h.label : <Term k="untapped_potential">untapped potential</Term>}
         </span>
@@ -172,17 +198,17 @@ function Figures({ d, brand }: { d: DriftReport; brand: string }) {
       </div>
       {fronts.length ? fronts.map((v) => (
         <div className="fig" key={v.front}>
-          <span className="fig-value"><Visibility d={v} /></span>
+          <span className="fig-value"><Visibility d={v} iv={v.interval} /></span>
           <span className="fig-label"><FrontLabel v={v} /></span>
           <span className="fig-sub">
-            {v.category} · {v.visibility == null ? "not measured" : <Term k="tries">{triesText(v)}</Term>}
+            {v.category} · {v.visibility == null ? "not measured" : <Term k="tries" note={v.interval_note}>{triesText(v)}</Term>}
           </span>
         </div>
       )) : (
         <div className="fig">
-          <span className="fig-value"><Visibility d={d} /></span>
+          <span className="fig-value"><Visibility d={d} iv={d.visibility_interval} /></span>
           <span className="fig-label"><Term k="buyer_visibility">buyer visibility</Term></span>
-          <span className="fig-sub">{d.visibility == null ? d.na_reasons?.visibility : <Term k="tries">{triesText(d)}</Term>}</span>
+          <span className="fig-sub">{d.visibility == null ? d.na_reasons?.visibility : <Term k="tries" note={d.na_reasons?.visibility_interval}>{triesText(d)}</Term>}</span>
         </div>
       )}
       <div className="fig">
@@ -190,7 +216,7 @@ function Figures({ d, brand }: { d: DriftReport; brand: string }) {
         <span className="fig-label"><Term k="lost_claim">{lost === 1 ? "claim" : "claims"} to win back</Term></span>
       </div>
     </div>
-    {fronts.length > 0 && gap && <p className="gap-line">{gap}</p>}
+    {fronts.length > 0 && gap && <p className="gap-line">{gap}<GapVerdict d={d} /></p>}
     </>
   );
 }
@@ -1163,10 +1189,10 @@ function BuyerQuestions({ run }: { run: Run }) {
               + ` context: buyer visibility is the average of the ${tries} tries, shown with its range.`
             : replay ? " A sample run replays one authored answer per question: 1 try." : " Each was asked once."}
         </p>
-        {fronts.length > 0 && d && gapSentence(d, brand) && <p style={{ margin: 0 }}>{gapSentence(d, brand)}</p>}
+        {fronts.length > 0 && d && gapSentence(d, brand) && <p style={{ margin: 0 }}>{gapSentence(d, brand)}<GapVerdict d={d} /></p>}
         {!fronts.length && vis != null && (
           <p style={{ margin: 0 }}>
-            <strong>Buyer visibility <Visibility d={d!} /></strong> <span className="muted">— {triesText(d!)}</span>
+            <strong>Buyer visibility <Visibility d={d!} iv={d!.visibility_interval} /></strong> <span className="muted">— {triesText(d!)}</span>
           </p>
         )}
         {!fronts.length && d?.low_confidence && (
@@ -1184,7 +1210,7 @@ function BuyerQuestions({ run }: { run: Run }) {
           return (
             <div className="front-group" key={v.front}>
               <h4 style={{ margin: ".4rem 0 0" }}>
-                <FrontLabel v={v} /> · {v.category} — <Visibility d={v} />{" "}
+                <FrontLabel v={v} /> · {v.category} — <Visibility d={v} iv={v.interval} />{" "}
                 <span className="muted">{v.visibility == null ? "not measured" : triesText(v)}</span>
               </h4>
               <div className="qlist">{ps.map(card)}</div>

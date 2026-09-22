@@ -10,7 +10,8 @@ import drift
 from agents import ana, evaluation, win_back
 from labels import probe_name
 from schemas import Run, VisibilitySet
-from scoring import low_confidence, score_topic, visibility_over_tries
+from scoring import (MIN_INTERVAL_ANSWERS, echo_draws, gap_verdict, interval, low_confidence, score_topic, visibility_draws,
+                     visibility_over_tries)
 
 MAX_BASELINE = 12
 MAX_NAMED = 8
@@ -304,6 +305,28 @@ def score_drift(run: Run) -> None:
                                    echo=drift.claim_echo(run.attributes, kept, run.observations),
                                    lens=lens)
     run.drift.tries, run.drift.visibility_range = tries, spread
+    per_question = lambda ids: [[e.strength for e in counted if e.probe_id == i] for i in ids]
+    NO_TRIES = "1 try per question, so there is no interval: repeat asks show how much answers vary."
+    if run.drift.visibility is not None:
+        if draws := visibility_draws(per_question([p.id for p in blind])):
+            run.drift.visibility_interval = interval(draws)
+        else:
+            run.drift.na_reasons["visibility_interval"] = NO_TRIES
+    # Claim echo and alignment: resample the brand answers the numbers were computed over.
+    endorsed = {pid: {o.attribute_id for o in (run.observations or {}).get(pid, []) if o.polarity == "positive"}
+                for pid in kept}
+    for field, weights in (
+            ("claim_echo", {a.id: a.claim_pages for a in run.attributes if not a.discovered and a.claim_pages > 0}),
+            ("alignment", {s.attribute_id: s.intended_weight for s in run.attribute_scores
+                           if s.intended_weight and s.echo_rate is not None})):
+        if getattr(run.drift, field) is None:
+            continue
+        if draws := echo_draws(kept, weights, endorsed):
+            setattr(run.drift, f"{field}_interval", interval(draws))
+        else:
+            run.drift.na_reasons[f"{field}_interval"] = (
+                f"Too few answers for an interval: {len(kept)} brand answer(s), at least "
+                f"{MIN_INTERVAL_ANSWERS} needed.")
     if run.drift.visibility is None and not blind:
         run.drift.na_reasons["visibility"] = ("No buyer question was asked: no claim had a buyer "
                                               "question, so visibility is not measured.")
@@ -311,6 +334,7 @@ def score_drift(run: Run) -> None:
     # unlabelled set (front None), so its numbers are the run's own.
     topic = {t.id: t for t in run.topics}
     fronts = list(dict.fromkeys(topic[p.topic_id].front for p in blind if p.topic_id in topic))
+    draws = {}
     for front in fronts:
         ids = {p.id for p in blind if topic[p.topic_id].front == front}
         mine = [e for e in counted if e.probe_id in ids]
@@ -324,6 +348,12 @@ def score_drift(run: Run) -> None:
         vs = VisibilitySet(front=front, category=category, visibility=vis, tries=tries,
                            visibility_range=rng, n_blind=len(mine), questions=len(ids),
                            control_probe_id=control.id if control else None)
+        draws[front] = visibility_draws(per_question(sorted(ids)), key=str(front))
+        if vis is not None:
+            if draws[front]:
+                vs.interval = interval(draws[front])
+            else:
+                vs.interval_note = NO_TRIES
         if control and vis is not None:
             vs.low_confidence = low_confidence(run.profile.name, category or "",
                                                ev.get(control.id), answers.get(control.id))
@@ -337,6 +367,10 @@ def score_drift(run: Run) -> None:
     run.drift.aiming_category = aiming.category if aiming else None
     if "placed" in by_front and "aiming" in by_front and None not in (placed.visibility, aiming.visibility):
         run.drift.visibility_gap = round(placed.visibility - aiming.visibility, 1)
+        if draws.get("placed") and draws.get("aiming"):
+            run.drift.gap_interval, run.drift.gap_real = gap_verdict(draws["placed"], draws["aiming"])
+        else:
+            run.drift.na_reasons["visibility_gap_interval"] = NO_TRIES
     run.drift.limitations += run.drift_notes
 
 

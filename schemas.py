@@ -290,6 +290,8 @@ class VisibilitySet(BaseModel):
     questions: int = 0          # buyer questions asked in this set, each once
     control_probe_id: Optional[str] = None
     low_confidence: Optional[str] = None  # why this set's number is not to be trusted, or None
+    interval: Optional[list[float]] = None  # bootstrap 95% interval of `visibility` (scoring.visibility_draws)
+    interval_note: Optional[str] = None     # why there is no interval
 
 
 class DriftReport(BaseModel):
@@ -315,6 +317,12 @@ class DriftReport(BaseModel):
     placed_category: Optional[str] = None
     aiming_category: Optional[str] = None
     visibility_gap: Optional[float] = None  # placed minus aiming, when both were measured
+    # Bootstrap 95% intervals (scoring.interval); why one is missing is na_reasons["<field>_interval"].
+    visibility_interval: Optional[list[float]] = None
+    gap_interval: Optional[list[float]] = None
+    gap_real: Optional[bool] = None         # the gap's interval excludes 0
+    claim_echo_interval: Optional[list[float]] = None
+    alignment_interval: Optional[list[float]] = None
     missing_fronts: dict[str, str] = {}     # "placed"/"aiming" -> why that front was not measured
     landed: list[str] = []
     lost_claims: list[str] = []

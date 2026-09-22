@@ -57,6 +57,13 @@ export interface DriftReport {
   aiming_category?: string | null;
   /** Where AI places you minus where you aim to be, when both were measured. */
   visibility_gap?: number | null;
+  /** Bootstrap 95% confidence intervals [low, high]; why one is missing: na_reasons["<field>_interval"]. */
+  visibility_interval?: [number, number] | null;
+  gap_interval?: [number, number] | null;
+  /** The gap's interval excludes 0: a real gap, not the noise of this sample. */
+  gap_real?: boolean | null;
+  claim_echo_interval?: [number, number] | null;
+  alignment_interval?: [number, number] | null;
   /** "placed" / "aiming" -> why that front was not measured. */
   missing_fronts?: Record<string, string>;
   landed: string[];
@@ -86,6 +93,9 @@ export interface VisibilitySet {
   questions: number;
   control_probe_id?: string | null;
   low_confidence?: string | null;
+  /** Bootstrap 95% confidence interval of `visibility`, or why there is none. */
+  interval?: [number, number] | null;
+  interval_note?: string | null;
 }
 
 export interface Topic {
