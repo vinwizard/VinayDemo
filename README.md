@@ -112,7 +112,7 @@ demo with no key or internet, start the API with `VISEXP_OFFLINE_REPLAY=1` and t
 company replays the bundled Notion sample, labelled as such. Stop either process with `Ctrl+C`.
 [`WEB.md`](WEB.md) has the details, live mode and the API reference.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 355 passing,
+Tests: `conda activate visexp && python -m pytest -q` (offline; 400 passing,
 incl. one journey per bundled scenario end to end through the `/api/stream` event stream, the API over
 HTTP via fastapi's TestClient, the live adapter under an injected
 transport — including how it classifies a refused key or a region block — no API key, no network).
@@ -152,6 +152,7 @@ Then repeat the create step above.
 | Profound capability links | Official pages, checked the same night |
 | Live model calls | **Implemented** in `providers/live.py` (OpenAI Responses API + web search) — needs `OPENAI_API_KEY`; setup in [`WEB.md`](WEB.md) |
 | URL fetching for arbitrary companies | **Real** — `fetching.py` crawls up to 6 public pages (SSRF-safe) for the API's `/api/onboard`, which needs an OpenAI key |
+| Can AI read your site? | **Real, no model** — `audit.py` re-fetches the claim pages as a no-JavaScript crawler, reads robots.txt, JSON-LD, headings and llms.txt, and looks the brand up on Wikidata/Wikipedia; tests replay recorded responses (`tests/audit_fixtures/`) |
 | Measuring an onboarded company | **Live only.** A company crawled from a URL has no authored answers, so there is nothing to replay: it needs `OPENAI_API_KEY`. The two bundled scenarios still run offline with no key |
 
 ## Layout
@@ -166,6 +167,7 @@ schemas.py        Pydantic contracts
 agents/           onboarding.py (Agent 1), ana.py (Agent 2), evaluation.py (Agent 3 + Profound mapping table)
 providers/        fixture.py (replay), company.py (an onboarded company), imported.py (research snapshots), live.py
 scoring.py        arithmetic only
+audit.py          can AI read the site: robots.txt, no-JS text, markup, speed, Wikidata/Wikipedia; no model
 reports.py        JSON/Markdown export, import, data/runs and data/companies persistence (under DATA_DIR if set)
 ```
 

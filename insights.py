@@ -1,8 +1,9 @@
-"""Two report panels read off a saved run: which sites AI cites (and beside which brands), and share
-of voice. No model calls.
+"""Report panels read off a saved run: which sites AI cites (and beside which brands), share of
+voice, and what AI searched. No model calls.
 
-Both count only baseline answers that count toward the scores (`scoring.eligible`), so an excluded
-or exploratory answer can never move them, and every empty panel carries the reason it is empty.
+Sources and share of voice count only baseline answers that count toward the scores
+(`scoring.eligible`), so an excluded or exploratory answer can never move them. Searches is not a
+score and reads every buyer answer that came back. Every empty panel carries the reason it is empty.
 """
 import re
 from collections import Counter
@@ -129,5 +130,53 @@ def share_of_voice(run: Run) -> dict:
                 reason=reason)
 
 
+def _same_search(q: str) -> str:
+    """Near-duplicate searches share a key: case, years and punctuation ignored."""
+    return " ".join(re.sub(r"[^\w\s]|\b(?:19|20)\d\d\b", " ", q.lower()).split())
+
+
+def searches(run: Run) -> dict:
+    """The web searches the model ran for the buyer questions (every try), near-duplicates grouped.
+
+    Not a score: every buyer answer that came back is read, counted or not. The Responses API does
+    not say which search found which page, so a group's pages are the ones cited in the answers that
+    ran it, and `owned_pages` are those on the brand's own site.
+    """
+    buyer = {p.id for p in run.probes if p.kind == "blind" and p.phase == "baseline"}
+    got = [a for a in [*run.answers, *run.repeat_answers] if a.probe_id in buyer and a.status == "ok"]
+    recorded = [a for a in got if a.searches is not None]
+    domains = run.profile.all_domains()
+    groups: dict[str, dict] = {}
+    questions: dict[str, list[dict]] = {}  # probe id -> each try's searches and cited pages
+    for a in sorted(recorded, key=lambda a: a.try_no):
+        owned = [u for u in a.citations if domain_matches(u, domains)]
+        questions.setdefault(a.probe_id, []).append(dict(try_no=a.try_no, searches=a.searches,
+                                                         pages=a.citations, owned_pages=owned))
+        spellings: dict[str, list[str]] = {}
+        for q in a.searches:
+            if _same_search(q):
+                spellings.setdefault(_same_search(q), []).append(q)
+        for key, qs in spellings.items():
+            g = groups.setdefault(key, dict(query=qs[0], variants=[], answers=0, questions=[], pages=[],
+                                            owned_pages=[]))
+            g["answers"] += 1
+            for field, items in (("variants", qs), ("questions", [a.probe_id]), ("pages", a.citations),
+                                 ("owned_pages", owned)):
+                g[field] += [x for x in items if x not in g[field]]
+    rows = sorted(groups.values(), key=lambda g: -g["answers"])  # stable: ties keep first-seen order
+    for g in rows:
+        g["variants"].remove(g["query"])
+    reason = None
+    if not got:
+        reason = "No buyer question was answered, so there were no searches to read."
+    elif not recorded:
+        reason = "Which searches the AI ran was not recorded for this run."
+    elif not rows:
+        reason = f"The AI answered all {len(recorded)} buyer answers without searching the web."
+    return dict(answers=len(recorded), searched_answers=sum(bool(a.searches) for a in recorded),
+                runs=sum(len(a.searches or []) for a in recorded), searches=rows, questions=questions,
+                owned=sum(bool(g["owned_pages"]) for g in rows), reason=reason)
+
+
 def insights(run: Run) -> dict:
-    return dict(sources=cited_sources(run), voice=share_of_voice(run))
+    return dict(sources=cited_sources(run), voice=share_of_voice(run), searches=searches(run))

@@ -23,6 +23,7 @@ import ssl
 from html.parser import HTMLParser
 from typing import Optional
 from urllib.parse import urljoin, urlparse
+from urllib.robotparser import RobotFileParser
 
 TIMEOUT = 10
 MAX_BYTES = 1024 * 1024
@@ -30,6 +31,7 @@ MAX_CHARS = 12_000
 MAX_REDIRECTS = 2
 USER_AGENT = "PositioningDrift/0.1 (+research; contact via repository)"
 ALLOWED_SCHEMES = ("http", "https")
+HTML = "text/html,application/xhtml+xml"
 
 
 class UnsafeURL(ValueError):
@@ -92,6 +94,9 @@ def validate(url: str) -> tuple[str, str, int, str]:
 
 class _Text(HTMLParser):
     SKIP = {"script", "style", "noscript", "svg", "head"}
+    # tags that start a new block of text: headings and paragraphs split passages (retrieval.py)
+    BLOCK = {"p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "div", "section", "article", "br", "tr",
+             "blockquote", "header", "footer", "nav", "main", "aside", "dd", "dt", "figcaption"}
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -101,36 +106,70 @@ class _Text(HTMLParser):
     def handle_starttag(self, tag, attrs):
         if tag in self.SKIP:
             self._skip += 1
+        elif tag in self.BLOCK:
+            self.parts.append("\n")
 
     def handle_endtag(self, tag):
         if tag in self.SKIP and self._skip:
             self._skip -= 1
+        elif tag in self.BLOCK:
+            self.parts.append("\n")
 
     def handle_data(self, data):
         if not self._skip and data.strip():
             self.parts.append(data.strip())
 
 
-def extract_text(html: str) -> str:
+def _parts(html: str) -> list[str]:
     p = _Text()
     try:
         p.feed(html)
     except Exception:
         pass                                # malformed markup: keep whatever parsed
-    return re.sub(r"\s+", " ", " ".join(p.parts)).strip()[:MAX_CHARS]
+    return p.parts
 
 
-def _get(scheme: str, host: str, port: int, path: str) -> tuple[int, dict, bytes]:
+def extract_text(html: str) -> str:
+    return re.sub(r"\s+", " ", " ".join(_parts(html))).strip()[:MAX_CHARS]
+
+
+def extract_blocks(html: str, max_chars: int = 3 * MAX_CHARS) -> list[str]:
+    """The page's readable text as blocks — one per heading, paragraph or list item — in order."""
+    blocks, total = [], 0
+    for b in " ".join(_parts(html)).split("\n"):
+        b = re.sub(r"\s+", " ", b).strip()
+        if b and total < max_chars:
+            blocks.append(b)
+            total += len(b)
+    return blocks
+
+
+def robots_allow(url: str, timeout: float = TIMEOUT) -> bool:
+    """Whether the site's robots.txt lets this fetcher read `url`. No robots.txt (a 4xx) allows
+    everything; one that cannot be read raises, and the caller skips the page."""
+    u = urlparse(url)
+    try:
+        _, body = fetch_raw(f"{u.scheme}://{u.netloc}/robots.txt", timeout)
+    except FetchError as e:
+        if re.search(r"HTTP 4\d\d", str(e)):
+            return True
+        raise
+    rules = RobotFileParser()
+    rules.parse(body.splitlines())
+    return rules.can_fetch(USER_AGENT, url)
+
+
+def _get(scheme: str, host: str, port: int, path: str, timeout: float = TIMEOUT,
+         accept: str = HTML) -> tuple[int, dict, bytes]:
     ip = resolve_public(host, port)          # validated, and we connect to THIS address
-    sock = socket.create_connection((ip, port), timeout=TIMEOUT)
+    sock = socket.create_connection((ip, port), timeout=timeout)
     try:
         if scheme == "https":
             ctx = ssl.create_default_context()
             sock = ctx.wrap_socket(sock, server_hostname=host)   # SNI + cert check use the name
-        conn = http.client.HTTPConnection(host, port, timeout=TIMEOUT)
+        conn = http.client.HTTPConnection(host, port, timeout=timeout)
         conn.sock = sock
-        conn.request("GET", path, headers={"Host": host, "User-Agent": USER_AGENT,
-                                           "Accept": "text/html,application/xhtml+xml"})
+        conn.request("GET", path, headers={"Host": host, "User-Agent": USER_AGENT, "Accept": accept})
         r = conn.getresponse()
         return r.status, dict(r.getheaders()), r.read(MAX_BYTES)
     finally:
@@ -140,25 +179,32 @@ def _get(scheme: str, host: str, port: int, path: str) -> tuple[int, dict, bytes
             pass
 
 
-def fetch_raw(url: str) -> tuple[str, str]:
-    """-> (final_url, raw_html). Follows at most MAX_REDIRECTS, revalidating every hop."""
+def request(url: str, timeout: float = TIMEOUT, accept: str = HTML) -> tuple[str, int, str, str]:
+    """-> (final_url, status, content_type, body). Follows at most MAX_REDIRECTS, revalidating every
+    hop. Any final status comes back rather than raising: a 404 robots.txt is an answer, not a failure."""
     current = url
     for _ in range(MAX_REDIRECTS + 1):
         scheme, host, port, path = validate(current)
-        status, headers, body = _get(scheme, host, port, path)
+        status, headers, body = _get(scheme, host, port, path, timeout, accept)
         if status in (301, 302, 303, 307, 308):
             location = headers.get("Location") or headers.get("location")
             if not location:
                 raise FetchError(f"{status} with no Location header")
             current = urljoin(current, location)   # revalidated at the top of the next iteration
             continue
-        if status != 200:
-            raise FetchError(f"HTTP {status} for {current}")
         ctype = (headers.get("Content-Type") or headers.get("content-type") or "").lower()
-        if "html" not in ctype and "text" not in ctype:
-            raise FetchError(f"unsupported content type {ctype!r}")
-        return current, body.decode("utf-8", errors="replace")
+        return current, status, ctype, body.decode("utf-8", errors="replace")
     raise FetchError(f"too many redirects from {url}")
+
+
+def fetch_raw(url: str, timeout: float = TIMEOUT) -> tuple[str, str]:
+    """-> (final_url, raw_html)."""
+    final, status, ctype, html = request(url, timeout)
+    if status != 200:
+        raise FetchError(f"HTTP {status} for {final}")
+    if "html" not in ctype and "text" not in ctype:
+        raise FetchError(f"unsupported content type {ctype!r}")
+    return final, html
 
 
 def fetch(url: str) -> tuple[str, str]:

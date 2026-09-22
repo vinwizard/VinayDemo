@@ -156,6 +156,19 @@ def parse_response(response) -> tuple[str, list[str], bool]:
     return "\n".join(t for t in text_parts if t).strip(), citations, searched
 
 
+def searches_of(response) -> list[str]:
+    """The queries the model actually searched, in order: every web_search_call "search" action.
+    Other actions (opening or finding in a page) carry no query and are not searches."""
+    out = []
+    for item in _output_items(response):
+        action = _item(item, "action") if _item(item, "type") == "web_search_call" else None
+        if action is not None and _item(action, "type") == "search":
+            for q in [_item(action, "query"), *(_item(action, "queries") or [])]:
+                if isinstance(q, str) and q.strip() and q.strip() not in out:
+                    out.append(q.strip())
+    return out
+
+
 def default_transport(messages: list[dict], model: str, timeout: int):
     import access  # metered: refused at a pass's cap, charged to it after
     return access.openai_response(timeout, model=model, tools=[{"type": "web_search"}], input=messages)
@@ -173,7 +186,8 @@ class LiveProvider:
     def __init__(self, attributes: list[Attribute], named_probes: list[Probe],
                  profile: Optional[CompanyProfile] = None, model: Optional[str] = None,
                  transport: Optional[Callable] = None, evaluator=None,
-                 writer: Optional[Callable] = None):
+                 writer: Optional[Callable] = None, demand: Optional[Callable] = None,
+                 retrieval: Optional[Callable] = None):
         if not attributes:
             raise ValueError("live run needs the attribute set being measured")
         self._attributes = attributes
@@ -182,6 +196,12 @@ class LiveProvider:
         self.model = model or model_name()
         self.tries = buyer_tries()
         self._transport = transport or default_transport
+        # run -> RetrievalSim. The real one fetches pages and embeds them, so an injected transport
+        # (a test) gets none unless it injects one too.
+        if retrieval is None and transport is None:
+            import retrieval as sim
+            retrieval = sim.simulate
+        self.retrieval = retrieval
         self.evaluator = evaluator          # None -> answers come back unlabelled ("needs review")
         self.calls = 0
         self.skipped_questions: list[str] = []
@@ -190,15 +210,36 @@ class LiveProvider:
         # (label, description, n) -> buyer questions for the category where AI places the company,
         # which is often one nobody wrote questions for (an attribute discovered in the answers)
         self._writer = writer or (lambda label, description, n: buyer_questions_for(label, description, n=n))
+        # demand.ground, or None: every buyer question is the model-written one, as before grounding
+        self._demand = demand
+        self.demand_notes: list[str] = []
 
     def plan(self, profile: CompanyProfile, placed: Optional[Attribute] = None
              ) -> tuple[list[Topic], list[Probe]]:
         """Buyer questions on two fronts, each with its control question: where AI places the
         company (`placed`, read off the brand answers) and the site's core category. The claims'
         own buyer questions fill whatever budget the fronts leave: all of it with neither front."""
-        from agents.ana import SET_QUESTIONS, blind_probes_for_fronts
-        self.notes = []
+        from agents.ana import SET_QUESTIONS, blind_probes_for_fronts, same_category
+        self.notes, self.demand_notes = [], []
+        real: dict[str, object] = {}              # question text -> the real demand it came from
+
+        def ground(category: str) -> list[str]:
+            """Real searches for the category, heaviest group first; [] with a stated reason if none."""
+            if not self._demand:
+                return []
+            found, note = self._demand(category, profile, SET_QUESTIONS)
+            self.demand_notes.append(note)
+            real.update({q.strip().lower(): d for q, d in found})
+            return [q for q, _ in found]
+
+        aiming = profile.core_category
+        if aiming:
+            # real ones first: the fronts keep the first SET_QUESTIONS, so written ones only fill a shortfall
+            profile = profile.model_copy(update=dict(
+                category_questions=[*ground(aiming), *profile.category_questions]))
         questions = list(placed.buyer_questions) if placed else []
+        if placed and not (aiming and same_category(placed.label, aiming)):
+            questions = [*ground(placed.label), *questions]
         if placed and len(questions) < SET_QUESTIONS:
             try:
                 questions += self._writer(placed.label, placed.description, SET_QUESTIONS - len(questions))
@@ -207,6 +248,7 @@ class LiveProvider:
                                   f"({type(e).__name__}); its own {len(questions)} were asked.")
         topics, blind, self.skipped_questions, self.missing_fronts = blind_probes_for_fronts(
             profile, placed, questions, self._attributes)
+        blind = [p.model_copy(update=dict(demand=real.get(p.text.strip().lower()))) for p in blind]
         return topics, blind
 
     def attributes(self) -> list[Attribute]:
@@ -245,7 +287,8 @@ class LiveProvider:
         if not text:
             return Answer(**base, text="", status="error", error="empty response",
                           search_executed=searched)
-        answer = Answer(**base, text=text, citations=citations, search_executed=searched, status="ok")
+        answer = Answer(**base, text=text, citations=citations, search_executed=searched, status="ok",
+                        searches=searches_of(raw))
         if self.evaluator is not None and self._profile is not None:
             # Agent 3 runs here, on a separate model, seeing the company. The measured call above
             # has already returned, so nothing about the target could have reached it.

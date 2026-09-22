@@ -22,9 +22,12 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 import access
+import audit
+import demand
 import fetching
 import graph
 import reports
+import retrieval
 from insights import insights
 from agents.ana import SET_QUESTIONS, brand_leaks, discovered_competitors, vendor_address
 from agents.evaluator_model import ModelEvaluator
@@ -183,7 +186,7 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
     except live.PreflightFailed as e:   # its message is safe to show: no provider body, no key
         raise HTTPException(400, str(e))
     prov = live.LiveProvider(base.attributes(), base.named_probes(), profile=profile,
-                             evaluator=ModelEvaluator())
+                             evaluator=ModelEvaluator(), demand=demand.ground)
     # The buyer questions are planned from the brand answers, so their number is not known yet: count
     # the full buyer budget, each question once per try, plus one control per front. A run that asks
     # fewer is caught up by its node events' `planned` counts; the overrun is held by the clamp.
@@ -217,6 +220,8 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
         traceback.print_exc()                        # the detail stays on the server console
         yield sse("error", {"message": f"Setup failed before the run started: {type(e).__name__}"})
         return
+    # the audit as it stands now travels with the run, so a report shows what AI could read then
+    site_audit = load_company(company_id).audit if company_id and not offline_seed(company_id) else None
     q: queue.Queue = queue.Queue()
     state = {"done": 0}
     # id -> label, so the live feed can say "Buyer question 2 — Team knowledge bases" instead of
@@ -242,6 +247,7 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
         access.SPENDER.set(pass_id(holder))   # this thread's model calls are charged to the pass
         try:
             run = graph.new_run(profile, prov, mode=run_mode)
+            run.audit = site_audit
             for node, run in graph.stream(run, prov):
                 topic_labels.update({t.id: t.label for t in run.topics})
                 stage, agent = graph.STAGES[node]
@@ -429,7 +435,8 @@ def company_payload(c: Company) -> dict:
                          buyer_questions=a.buyer_questions, intended_weight=a.intended_weight,
                          added_by_user=a.added_by_user, note=a.note)
                     for a in c.attributes],
-        warnings=c.warnings, checks=[k.model_dump() for k in c.checks], replay=offline_seed(c.id))
+        warnings=c.warnings, checks=[k.model_dump() for k in c.checks], replay=offline_seed(c.id),
+        audit=c.audit.model_dump() if c.audit else None)
 
 
 def onboard_steps(url: str, name: str, holder: Holder = None) -> Iterator[tuple[str, dict]]:
@@ -470,6 +477,7 @@ def onboard_steps(url: str, name: str, holder: Holder = None) -> Iterator[tuple[
                            "little for a reliable claim percentage — read every page share with care.")
     warnings += vet_questions(profile, attrs)
     company.warnings = warnings
+    company.audit = audit.run(company)   # plain fetches, no model: never raises, never billed
     save_company(company)
     if holder:
         access.own("company", company.id, holder["id"], profile.name)
@@ -597,6 +605,49 @@ def rescore_run(run_id: str, req: RescoreRequest, request: Request = None):
     return run_payload(run)
 
 
+class ReaskRequest(BaseModel):
+    probe_id: str
+
+
+@app.post("/api/runs/{run_id}/reask")
+def reask_run(run_id: str, req: ReaskRequest, request: Request = None):
+    """Test a fix: ask one buyer question again with the rewritten passage and the cited page as its
+    only sources. One metered call, a simulation that moves no score; refused without a pass."""
+    holder = holder_of(request)
+    pid = pass_id(holder)
+    if not access.visible("run", run_id, pid):
+        raise HTTPException(404, f"run {run_id} not found")
+    try:
+        run = load_run(run_id)
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(404, f"run {run_id} not found")
+    refuse_in_public("asking the model again", holder)
+    if run.mode != "live_api":
+        raise HTTPException(400, "Only a live run can be asked again: this sample's passages were written by hand.")
+    if not live.available():
+        raise HTTPException(400, f"Asking again needs {live.KEY_ENV}. {live.status()}")
+    row = next((r for r in (run.retrieval.rows if run.retrieval else []) if r.probe_id == req.probe_id), None)
+    if row is None or row.fixed is None:
+        raise HTTPException(404, "No fix to test for that buyer question.")
+    try:
+        with access.spending(pid):
+            answer = retrieval.reask(run, row, live.model_name())
+    except access.Refused as e:
+        raise HTTPException(403, e.message)
+    except Exception as e:
+        raise HTTPException(502, f"Asking again failed: {live.safe_error(e)}")
+    try:
+        run = load_run(run_id)
+    except (FileNotFoundError, ValueError):
+        pass
+    for r in run.retrieval.rows if run.retrieval else []:
+        if r.probe_id == req.probe_id:
+            r.reask = answer
+    if run.id != SHOWCASE_RUN and (not public_demo() or (pid and access.owner("run", run_id) == pid)):
+        save_run(run)
+    return run_payload(run)
+
+
 @app.get("/api/companies")
 def companies(request: Request = None):
     out, pid = [], pass_id(holder_of(request))
@@ -699,6 +750,20 @@ def delete_attribute(company_id: str, attribute_id: str, request: Request = None
         raise HTTPException(400, f"{attr.label!r} was extracted from the company's own pages, not added "
                                  "by you. Leave its intent slider at zero to exclude it from scoring.")
     c.attributes = [a for a in c.attributes if a.id != attribute_id]
+    save_company(c)
+    return company_payload(c)
+
+
+@app.post("/api/companies/{company_id}/audit")
+def reaudit(company_id: str, request: Request = None):
+    """Check again whether AI can read the site: the same plain fetches as onboarding, no model."""
+    holder = holder_of(request)
+    refuse_in_public("checking a site again", holder)
+    if offline_seed(company_id):
+        raise HTTPException(400, OFFLINE_FIXED)
+    refuse_unowned(company_id, holder)
+    c = _company(company_id)
+    c.audit = audit.run(c)
     save_company(c)
     return company_payload(c)
 

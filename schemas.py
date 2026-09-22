@@ -140,6 +140,19 @@ class Topic(BaseModel):
     fit_evidence_ids: list[str] = []
 
 
+class DemandPhrase(BaseModel):
+    text: str                                    # verbatim, as the source returned it
+    source: Literal["autocomplete", "reddit"]
+
+
+class Demand(BaseModel):
+    """Where a buyer question came from when it is grounded in real demand (demand.py): the real
+    search phrase it asks and every real phrasing grouped with it. Not search volume."""
+    phrase: str                     # the group's most central real phrase, verbatim
+    source: Literal["autocomplete", "reddit"]
+    phrasings: list[DemandPhrase]   # the whole group, the phrase included; its size is the weight
+
+
 class Probe(BaseModel):
     id: str
     topic_id: str
@@ -149,6 +162,7 @@ class Probe(BaseModel):
     phase: Literal["baseline", "followup", "control"]
     purpose: str
     parent_probe_ids: list[str] = []
+    demand: Optional[Demand] = None  # set only when the question is a real search (demand.py)
 
 
 class Answer(BaseModel):
@@ -166,6 +180,9 @@ class Answer(BaseModel):
     evaluator_labels: Optional[dict] = None  # model-produced labels; live only
     evaluator_model: Optional[str] = None
     try_no: int = 1  # which ask of the same question this is; buyer questions are asked several times
+    # The web searches the answering model ran, in order (web_search_call "search" actions).
+    # None: not recorded (a run saved before this field, or a source that cannot see them).
+    searches: Optional[list[str]] = None
 
     @property
     def labels(self) -> Optional[dict]:
@@ -359,6 +376,83 @@ class WinBackAction(BaseModel):
     provenance: Provenance
 
 
+class ScoredPassage(BaseModel):
+    """One passage of a page and how closely it matches a question, by embedding similarity."""
+    url: str
+    text: str
+    score: float  # cosine similarity, 2 decimals: a simulation of retrieval, not a citation odds
+    query: str    # the buyer question or fan-out search it matched best
+
+
+class Reask(BaseModel):
+    """The buyer question asked once more, with the rewritten passage and the rival's as the only
+    sources. A simulation: it never feeds a score."""
+    named: bool
+    answer: str
+    model: str
+    collected_at: str
+
+
+class RetrievalRow(BaseModel):
+    """One buyer question: your best passage against the best passage of a page AI cited for it,
+    and your best passage once the win-back rewrite is in the page."""
+    probe_id: str
+    queries: int = 1                        # the question plus the fan-out searches scored
+    yours: Optional[ScoredPassage] = None
+    rival: Optional[ScoredPassage] = None   # None: no page cited for it could be read
+    fixed: Optional[ScoredPassage] = None   # None: no win-back fix targets this question
+    fix_attribute_id: Optional[str] = None
+    reask: Optional[Reask] = None
+
+
+class RetrievalSim(BaseModel):
+    """A mini version of how an AI search picks what to read (retrieval.py). Moves no score."""
+    provenance: Provenance
+    model: Optional[str] = None     # the embedding model; None for the authored sample
+    pages: int = 0                  # pages split into passages
+    passages: int = 0
+    rows: list[RetrievalRow] = []
+    skipped: list[str] = []         # plain sentences: what was not read, and why
+
+
+AuditStatus = Literal["pass", "fail", "unknown"]
+
+
+class AuditCheck(BaseModel):
+    """One red/green line of the retrievability audit, with its root cause as a plain sentence."""
+    key: str                  # crawlers | raw_text | markup | headings | speed | llms_txt | no_js
+    status: AuditStatus       # unknown = could not check, never a guess
+    detail: str
+
+
+class ClaimAudit(BaseModel):
+    attribute_id: str
+    label: str
+    page_url: Optional[str] = None  # the page checked: the first that states it and AI can read; None = none states it
+    checks: list[AuditCheck] = []
+    advice: list[str] = []          # never a failure: other pages that state it but AI cannot read, heading tips
+
+
+class EntitySource(BaseModel):
+    """What one outside source that AI leans on for facts says about the company, if anything."""
+    source: str                           # Wikipedia | Wikidata | Crunchbase | G2 | LinkedIn
+    status: Literal["found", "missing", "not_checked"]
+    summary: str                          # one plain sentence, including how we looked
+    says: Optional[str] = None            # its own short description, verbatim
+    url: Optional[str] = None
+
+
+class SiteAudit(BaseModel):
+    """Could AI even read the site, and where else it could learn about the company.
+
+    Plain fetches and parsing (audit.py), no model: every line is a deterministic check.
+    """
+    checked_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
+    site: list[AuditCheck] = []
+    claims: list[ClaimAudit] = []
+    entities: list[EntitySource] = []
+
+
 class Company(BaseModel):
     """One onboarded company: what its own pages claim, plus what the customer says they intend.
 
@@ -375,6 +469,7 @@ class Company(BaseModel):
     pages: list[str] = []      # the URLs actually fetched; claim_pages_total counts these
     warnings: list[str] = []
     checks: list[ClaimCheck] = []
+    audit: Optional[SiteAudit] = None  # None: onboarded before the audit existed
 
 
 class Run(BaseModel):
@@ -402,8 +497,13 @@ class Run(BaseModel):
     observations: Optional[dict[str, list[AttributeObservation]]] = None  # None: saved before re-scoring
     drift_notes: list[str] = []  # limitations measure_drift adds beyond the report's own
     missing_fronts: dict[str, str] = {}  # set by plan_buyer, copied to the drift report
+    demand_notes: list[str] = []  # per front: how many buyer questions are real searches, or why none
     drift: Optional[DriftReport] = None
     win_back: list[WinBackAction] = []  # how to win it back; additive, never feeds a score
     win_back_notes: list[str] = []      # why a proposed action was dropped, or none was proposed
+    retrieval: Optional[RetrievalSim] = None  # simulated retrieval and the fix re-scored; no score
+    # The company's retrievability audit as it stood when the run started; None for replays and
+    # companies onboarded before the audit existed.
+    audit: Optional[SiteAudit] = None
     log: list[str] = []
     status: str = "planned"

@@ -58,6 +58,13 @@ export const GLOSSARY = {
       + "the one they endorsed most often. Half of the buyer questions ask about this category, with no "
       + "brand named, to see whether AI also brings the company up there on its own.",
   },
+  real_demand: {
+    term: "Real demand",
+    def: "A buyer question taken from what people actually search, not written by AI: Google's "
+      + "autocomplete suggestions for the category (and Reddit threads, when Reddit allows it). Similar "
+      + "searches are grouped by meaning and the biggest groups are asked first. It shows the questions "
+      + "are real, not how many people search them.",
+  },
   where_aiming: {
     term: "Where you aim to be",
     def: "The category the company's own homepage says it is in (the core category). Half of the buyer "
@@ -120,6 +127,60 @@ export const GLOSSARY = {
     term: "Unweighted echo",
     def: "The company's site says this and the AI repeats it, but the company did not mark it as "
       + "something it wants to be known for. Not a problem, just not a priority yet.",
+  },
+  crawlers: {
+    term: "AI crawlers",
+    def: "The bots AI companies send to read the web: GPTBot, OAI-SearchBot and ChatGPT-User (OpenAI), "
+      + "PerplexityBot, ClaudeBot (Anthropic) and Google-Extended (Google's AI switch). A site's robots.txt "
+      + "file can turn any of them away, and then that AI cannot read the page.",
+  },
+  raw_text: {
+    term: "Readable without JavaScript",
+    def: "Most AI crawlers download a page's HTML and never run its JavaScript, so words that appear only "
+      + "after scripts run are invisible to them. We read your pages the same way.",
+  },
+  markup: {
+    term: "Structured data",
+    def: "Machine-readable labels (schema.org) inside a page that say what it is, such as a company, a "
+      + "product or an FAQ, so AI does not have to guess.",
+  },
+  headings: {
+    term: "Clear headings",
+    def: "One main heading (H1) plus subheadings that split the page into passages. AI answers are built "
+      + "from passages; a subheading phrased as a buyer's question is a bonus, never a requirement.",
+  },
+  speed: {
+    term: "Speed",
+    def: "How long the page took to arrive, measured once from our server. Crawlers work to a time limit "
+      + "and skip pages that are slow. One reading, not an average.",
+  },
+  llms_txt: {
+    term: "llms.txt",
+    def: "A plain-text file at the root of a site that points AI tools to its important pages. A new, "
+      + "optional convention: few AI tools read it yet.",
+  },
+  no_js: {
+    term: "Script-only pages",
+    def: "Pages that show almost no text until JavaScript runs. An AI crawler that skips scripts sees "
+      + "them as nearly empty.",
+  },
+  fact_sources: {
+    term: "Where AI gets its facts",
+    def: "Besides your own site, AI models learn about companies from reference sites, above all "
+      + "Wikipedia and Wikidata. A company with no Wikidata entry is often one AI simply does not know.",
+  },
+  fan_out: {
+    term: "Fan-out search",
+    def: "Before an AI with web search answers a question, it rewrites it into a few short web searches "
+      + "of its own and reads the pages they return. Those searches are its fan-out. A site the searches "
+      + "never turn up is rarely the one the AI cites.",
+  },
+  retrieval_score: {
+    term: "Retrieval score",
+    def: "A simulation of what an AI search reads first. We split your pages, and the pages the AI "
+      + "cited, into short passages and score how closely each one matches the buyer question and the "
+      + "AI's own searches for it, from 0 (unrelated) to 1 (the same meaning). The AI tends to read "
+      + "and cite the closest passages, so a higher score makes a citation likelier, never certain.",
   },
 } satisfies Record<string, { term: string; def: string }>;
 

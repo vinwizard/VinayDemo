@@ -26,6 +26,8 @@ Leaks are rejected in code (`agents/ana.py`: `attribute_leaks`, `vendor_address`
 The measured model gets only the neutral question in a fresh context, never the company
 profile. Buyer questions are planned after the brand answers, on two fronts with their own
 visibility and control question: where AI places the company and its core category (WEB.md).
+Live runs ask real searches first (`demand.py`: autocomplete, grouped by embedding), written ones
+fill the rest; tests never reach that network (`tests/conftest.py`).
 They are asked `BUYER_TRIES` times; tries 2+ live in `run.repeat_answers`, so
 `run.answers` stays one answer per probe for every other consumer (WEB.md, "Why a rerun gives a
 different number").
@@ -45,9 +47,12 @@ verbatim in the answer they cite, and nothing is invented to fill a gap.
 - Detailed rules load on demand from `.claude/skills/`: `product-workflow` (agents, graph, state),
   `evidence-modes` (providers, provenance, budgets), `evaluation-and-scoring` (scoring, Profound
   mapping, acceptance checks), `build-history` (the original overnight brief and milestone log).
-- Every OpenAI call goes through `access.openai_response`: it refuses at an access pass's cap, charges
-  the pass from reported usage, and fails closed on the public demo when no pass is set. A new model
-  call site must use it. Passes, admin and hosting: README "Deploy to Render".
+- Tests never touch the network: `audit.py` (the no-model site check) fetches only through
+  `audit.get`, which `tests/conftest.py` refuses unless a test records responses.
+- Every OpenAI call goes through `access.openai_response` (embeddings: `access.openai_embedding`,
+  via `demand.py` and `embeddings.py`): it refuses at an access pass's cap, charges the pass from
+  reported usage, and fails closed on the public demo when no pass is set. A new model call site
+  must use it. Passes, admin and hosting: README "Deploy to Render".
 - Independent portfolio demo — not a Profound product or integration.
 
 ## Maintaining this file

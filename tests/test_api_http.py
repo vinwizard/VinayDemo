@@ -145,6 +145,17 @@ def test_an_empty_patch_derives_no_intent(client):
     assert weights(r.json())[UNWEIGHTED] is None       # untouched stays unintended
 
 
+def test_checking_the_site_again_saves_an_audit_without_a_model_or_the_network(client):
+    assert client.get(f"/api/companies/{CO}").json()["audit"] is None   # onboarded before the audit
+    r = client.post(f"/api/companies/{CO}/audit")
+    assert r.status_code == 200
+    saved = client.get(f"/api/companies/{CO}").json()["audit"]
+    assert saved == r.json()["audit"]
+    # conftest refuses every fetch: each line says it could not check rather than guessing
+    assert {c["status"] for c in saved["site"]} == {"unknown"}
+    assert {e["status"] for e in saved["entities"]} == {"not_checked"}
+
+
 def test_zero_on_an_extracted_claim_means_not_intended_and_persists(client):
     r = client.patch(f"/api/companies/{CO}", json={"weights": {CLAIM: 0, UNWEIGHTED: 0.3}})
     assert r.status_code == 200

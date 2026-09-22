@@ -329,7 +329,8 @@ def comparison_probe(profile: CompanyProfile, names: list[str], parents: list[st
 
 
 def baseline_hash(probes: list[Probe]) -> str:
-    base = [p.model_dump() for p in probes if p.phase in ("baseline", "control")]
+    # exclude_none: a probe with no real-demand grounding hashes exactly as it did before `demand` existed
+    base = [p.model_dump(exclude_none=True) for p in probes if p.phase in ("baseline", "control")]
     return hashlib.sha256(json.dumps(base, sort_keys=True).encode()).hexdigest()
 
 
