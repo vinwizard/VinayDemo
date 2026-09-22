@@ -13,6 +13,7 @@ import {
 } from "./labels";
 import { GLOSSARY } from "./glossary";
 import { Popover, Term } from "./popover";
+import { WhyAIMisses } from "./audit";
 
 const ZONE_FILL: Record<Zone, string> = {
   landed: "var(--landed)",
@@ -449,9 +450,9 @@ export function Report({ run, onRescored, weightNote }: {
   const count: Record<ReportTab, number | undefined> = {
     overview: claims.length,
     "win-back": winBackPlan(run).actions.length,
+    why: run.audit?.claims.filter((c) => c.checks.some((k) => k.status === "fail")).length,
     buyer: run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline").length,
     brand: run.probes.filter((p) => p.kind === "named" && p.phase === "baseline").length,
-    why: undefined,
     sources: run.insights?.sources.sources.length,
   };
 
@@ -510,7 +511,7 @@ export function Report({ run, onRescored, weightNote }: {
             </>
           )}
           {tab === "buyer" && <BuyerQuestions run={run} />}
-          {tab === "why" && <><WhatItSearched run={run} /><TestAFix run={run} reasks={reasks} onReasked={reasked} /></>}
+          {tab === "why" && <><WhatItSearched run={run} /><WhyAIMisses run={run} /><TestAFix run={run} reasks={reasks} onReasked={reasked} /></>}
           {tab === "brand" && <BrandQuestions run={run} />}
           {tab === "sources" && (
             <>
