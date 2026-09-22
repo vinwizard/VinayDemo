@@ -9,16 +9,32 @@ import json
 import re
 from collections import Counter
 
+from config import setting
 from schemas import (AdaptiveDecision, Attribute, AttributeScore, CompanyProfile, Probe,
                      QueryEvaluation, Topic, TopicEvaluation)
 
-MAX_TOPICS = 4
+# Buyer questions per front, asked ONCE each. The old budget spent three tries on six questions a
+# side; re-asking one question moved visibility a few points while different questions disagreed by
+# tens, so the same money buys a far tighter confidence interval spent on more questions instead.
+# A small sample of them is still re-asked for the wobble estimate (providers/live.REPEAT_SAMPLE).
+QUESTIONS_ENV = "BUYER_QUESTIONS"
+DEFAULT_QUESTIONS = 12
 PER_TOPIC = 3
 CONTROL_TOPIC = "control"
 MAX_FOLLOWUP_TOPICS = 2
 PER_FOLLOWUP_TOPIC = 2
 MAX_COMPARED = 3
 COMPARISON_PROBE_ID = "np-cmp"
+
+
+def set_questions() -> int:
+    """BUYER_QUESTIONS: buyer questions per front, at least one topic's worth."""
+    return setting(QUESTIONS_ENV, DEFAULT_QUESTIONS, floor=PER_TOPIC)
+
+
+def max_topics() -> int:
+    """The whole buyer topic budget: `set_questions()` a front, both fronts, in topics of PER_TOPIC."""
+    return 2 * -(-set_questions() // PER_TOPIC)
 
 
 def leak_terms(profile: CompanyProfile) -> list[str]:
@@ -68,7 +84,7 @@ def attribute_leaks(text: str, attributes: list[Attribute]) -> list[str]:
 
 
 def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyProfile,
-                                 limit: int = MAX_TOPICS) -> tuple[list[Topic], list[Probe], list[str]]:
+                                 limit: int = 0) -> tuple[list[Topic], list[Probe], list[str]]:
     """The placebo test: buyer topics whose questions never name the brand, one per intended (or,
     unweighted, most-stated) claim, at most `limit` of them. blind_probes_for_fronts gives them
     whatever buyer budget the fronts leave: all of it with neither front, half with only one.
@@ -82,6 +98,7 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
     never rewritten. A question addressed to the vendor is skipped, not fatal; the third return value
     names the skipped question ids so the run log can say why a topic is missing.
     """
+    limit = limit or max_topics()
     topics, probes, dropped, skipped = [], [], [], []
 
     def ask(topic: Topic, key: str, questions: list[str], purpose: str, first: int = 1) -> None:
@@ -101,7 +118,7 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
         if kept:
             topics.append(topic)
 
-    # Heaviest intent first, so truncation to MAX_TOPICS keeps the claims the customer cares about
+    # Heaviest intent first, so truncation to `limit` keeps the claims the customer cares about
     # most rather than whichever the extraction model emitted first. With nothing weighted the run
     # still goes ahead (the claim lens): the claims stated on the most pages go first instead. The
     # sort is stable: ties keep stored order, so the same company always plans the same questions.
@@ -159,10 +176,6 @@ def perception_topic() -> Topic:
 
 
 # ---------------------------------------------------------------- two fronts, side by side
-SET_TOPICS = MAX_TOPICS // 2          # the buyer budget is split evenly between the two fronts
-SET_QUESTIONS = SET_TOPICS * PER_TOPIC
-
-
 def same_category(a: str, b: str) -> bool:
     """Case-insensitive, and near-duplicates too: "AI search visibility" is the category "AI search
     visibility tracking". Same only when every content word of one is in the other, so "Project
@@ -229,7 +242,7 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
                 continue
             seen.add(q.strip().lower())
             kept.append(q)
-        kept = kept[:SET_QUESTIONS]
+        kept = kept[:set_questions()]
         fit = "strong" if front != "placed" or placed.claimed else "partial"
         # the placed front is what AI says, not what the site claims: only its own claim evidence
         points = [] if front == "placed" else [pp.id for pp in profile.positioning_points[:1]]
@@ -253,7 +266,7 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
             missing[f] = (f"{where} was not measured: {why}."
                           + (" Set the category again on the claims screen to write them."
                              if f == "aiming" and not questions else ""))
-    if left := MAX_TOPICS - sum(t.kind == "buyer" for t in topics):
+    if left := max_topics() - sum(t.kind == "buyer" for t in topics):
         claims, claim_probes, claim_skipped = blind_probes_from_attributes(
             [a for a in attributes if not placed or a.id != placed.id], profile, left)
         skipped += claim_skipped
@@ -282,8 +295,8 @@ def validate_probes(probes: list[Probe], topics: list[Topic], profile: CompanyPr
     errors = []
     topic_ids = {t.id for t in topics}
     buyer = [t for t in topics if t.kind == "buyer"]
-    if len(buyer) > MAX_TOPICS:
-        errors.append(f"{len(buyer)} buyer topics exceeds {MAX_TOPICS}")
+    if len(buyer) > (cap := max_topics()):
+        errors.append(f"{len(buyer)} buyer topics exceeds {cap}")
     for t in buyer:
         if t.fit == "unsupported":
             errors.append(f"topic {t.id} has no supported fit")

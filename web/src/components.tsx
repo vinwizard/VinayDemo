@@ -93,12 +93,22 @@ function Section({ title, found, children }: { title: ReactNode; found: ReactNod
 }
 
 /** A whole run's buyer visibility or one front's: the same fields on both. */
-type Vis = Pick<DriftReport, "visibility" | "tries" | "visibility_range" | "low_confidence">;
+type Vis = Pick<DriftReport, "visibility" | "tries" | "repeat_sample" | "visibility_range" | "low_confidence">;
 
-/** How often each buyer question was asked, and the spread across those tries. */
-const triesText = (d: Vis) => (d.tries ?? 1) > 1 && d.visibility_range
-  ? `range ${d.visibility_range[0]}–${d.visibility_range[1]} across ${d.tries} tries`
-  : "1 try per question";
+/** The wobble, for the number's own popover: how much the re-asked questions moved between asks.
+ * Null when nothing was asked twice, so there is nothing honest to say about it. */
+const wobbleText = (d: Vis) => (d.tries ?? 1) > 1 && d.repeat_sample && d.visibility_range
+  ? `${plural(d.repeat_sample, "of these questions was", "of these questions were")} asked ${d.tries}`
+    + ` times over. On their own they scored between ${d.visibility_range[0]} and`
+    + ` ${d.visibility_range[1]}, so asking the very same question again moves it about that much.`
+  : null;
+
+/** The one range under the number: where it would land if the whole run were repeated. */
+const rangeText = (iv?: [number, number] | null) => iv ? `could be ${iv[0]}–${iv[1]} if we asked again` : null;
+
+/** The same sentence for the printed summary, where nothing can be hovered. */
+const printedRange = (d: Vis, iv?: [number, number] | null) =>
+  [rangeText(iv), wobbleText(d)].filter(Boolean).map((t) => ` — ${t}`).join("");
 
 const FRONT_TERM = { placed: "where_placed", aiming: "where_aiming" } as const;
 
@@ -148,6 +158,14 @@ function Ci({ iv, of }: { iv?: [number, number] | null; of: string }) {
   );
 }
 
+/** The ONE range under a visibility number: where it would land if the whole run were repeated.
+ * The per-question wobble is not a second range — it lives in the number's own popover. */
+function Range({ d, iv, note }: { d: Vis; iv?: [number, number] | null; note?: string | null }) {
+  if (d.visibility == null) return <>not measured</>;
+  const text = rangeText(iv);
+  return <Term k="confidence_interval" note={text ? undefined : note}>{text ?? "one run, no range yet"}</Term>;
+}
+
 /** The gap's significance test in words: real, not distinguishable, or too few questions to call. */
 function GapVerdict({ d }: { d: DriftReport }) {
   const withheld = d.na_reasons?.visibility_gap_interval;
@@ -166,12 +184,15 @@ function GapVerdict({ d }: { d: DriftReport }) {
   );
 }
 
-/** Buyer visibility, never a bare number when the control question says it is not to be trusted. */
-function Visibility({ d, iv }: { d: Vis; iv?: [number, number] | null }) {
+/** Buyer visibility, never a bare number when the control question says it is not to be trusted.
+ * `explain` puts what the number means, and how much one question wobbles between asks, one hover
+ * or tap away on the number itself — so the summary beneath it shows one range, not two. */
+function Visibility({ d, explain }: { d: Vis; explain?: boolean }) {
   if (d.visibility == null) return <>n/a</>;
+  const score = <>{d.visibility}<small> / 100</small></>;
   return (
     <>
-      {d.visibility}<small> / 100</small><Ci iv={iv} of="Visibility" />
+      {explain ? <Term k="buyer_visibility" note={wobbleText(d)}>{score}</Term> : score}
       {d.low_confidence && (
         <Term k="low_confidence" note={d.low_confidence}><span className="tag warn">low confidence</span></Term>
       )}
@@ -210,17 +231,18 @@ function Figures({ d, brand }: { d: DriftReport; brand: string }) {
       </div>
       {fronts.length ? fronts.map((v) => (
         <div className="fig" key={v.front}>
-          <span className="fig-value"><Visibility d={v} iv={v.interval} /></span>
+          <span className="fig-value"><Visibility d={v} explain /></span>
           <span className="fig-label"><FrontLabel v={v} /></span>
-          <span className="fig-sub">
-            {v.category} · {v.visibility == null ? "not measured" : <Term k="tries" note={v.interval_note}>{triesText(v)}</Term>}
-          </span>
+          <span className="fig-sub">{v.category} · <Range d={v} iv={v.interval} note={v.interval_note} /></span>
         </div>
       )) : (
         <div className="fig">
-          <span className="fig-value"><Visibility d={d} iv={d.visibility_interval} /></span>
+          <span className="fig-value"><Visibility d={d} explain /></span>
           <span className="fig-label"><Term k="buyer_visibility">buyer visibility</Term></span>
-          <span className="fig-sub">{d.visibility == null ? d.na_reasons?.visibility : <Term k="tries" note={d.na_reasons?.visibility_interval}>{triesText(d)}</Term>}</span>
+          <span className="fig-sub">
+            {d.visibility == null ? d.na_reasons?.visibility
+              : <Range d={d} iv={d.visibility_interval} note={d.na_reasons?.visibility_interval} />}
+          </span>
         </div>
       )}
       <div className="fig">
@@ -631,7 +653,7 @@ function ExecSummary({ run }: { run: Run }) {
             <span key={v.front}>
               <strong>{v.front === "both" ? "Where AI places you = where you aim to be"
                 : GLOSSARY[FRONT_TERM[v.front as "placed" | "aiming"]].term} ({v.category}):</strong>{" "}
-              <Visibility d={v} />{v.visibility != null && ` — ${triesText(v)}`}
+              <Visibility d={v} />{v.visibility != null && printedRange(v, v.interval)}
               {v.low_confidence && <><br /><span className="muted">{v.low_confidence}</span></>}
               <br />
             </span>
@@ -641,7 +663,8 @@ function ExecSummary({ run }: { run: Run }) {
       ) : (
         <p className="exec-vis">
           <strong>Buyer visibility:</strong> <Visibility d={d} />
-          {d.visibility == null ? ` — ${d.na_reasons?.visibility ?? "not measured"}` : ` — ${triesText(d)}`}
+          {d.visibility == null ? ` — ${d.na_reasons?.visibility ?? "not measured"}`
+            : printedRange(d, d.visibility_interval)}
           {d.low_confidence && <><br /><span className="muted">{d.low_confidence}</span></>}
         </p>
       )}
@@ -1753,9 +1776,12 @@ function BuyerQuestions({ run }: { run: Run }) {
   const all = base.flatMap(countedTries);
   const namedIn = all.filter((e) => e.mentioned).length;
   const recIn = all.filter((e) => e.recommended).length;
-  const excluded = base.length * tries - all.length;
+  // only the repeat-sampled questions have more than one try, so the total is asks, not questions x tries
+  const asks = base.reduce((n, p) => n + triesOf(p).length, 0);
+  const excluded = asks - all.length;
+  const sampled = base.filter((p) => triesOf(p).length > 1).length;
   const verdict = (p: Probe) => {
-    if (tries > 1) {
+    if (triesOf(p).length > 1) {
       const got = countedTries(p), k = got.filter((e) => e.mentioned).length;
       if (!got.length) return <span className="tag warn">excluded from scores</span>;
       const tone = k === 0 ? "lost_claim" : k === got.length ? "landed" : "unprioritised";
@@ -1800,7 +1826,8 @@ function BuyerQuestions({ run }: { run: Run }) {
     <>
       <Section title={<Term k="buyer_question">Buyer questions</Term>}
                found={!base.length ? na(d?.na_reasons, "visibility")
-                 : `${base.length} asked${tries > 1 ? ` × ${tries} tries` : " · 1 try each"}`
+                 : `${plural(base.length, "question")} asked once`
+                   + (sampled ? `, ${sampled} of them ${tries} times over` : "")
                    + ` · named you in ${namedIn} of ${all.length} answers${recIn ? ` · recommended you in ${recIn}` : ""}`
                    + (excluded ? ` · ${excluded} excluded` : "")}>
         <p className="muted" style={{ margin: 0 }}>
@@ -1808,9 +1835,12 @@ function BuyerQuestions({ run }: { run: Run }) {
           bringing {brand} up is room to be found.
           {fronts.length > 1 && ` They are asked on two fronts, half each: the category AI’s brand answers`
             + ` already place ${brand} in, and the category its own site aims for.`}
-          {tries > 1
-            ? ` The model answers the same question differently each time, so each was asked ${tries} times in a fresh`
-              + ` context: buyer visibility is the average of the ${tries} tries, shown with its range.`
+          {sampled > 0
+            ? ` The model answers differently each time, so`
+              + ` ${plural(sampled, "of these questions was", "of these questions were")} asked ${tries} times`
+              + ` over in a fresh context, to show how much one question wobbles. Every question counts once`
+              + ` towards the score however often it was asked: the budget goes on asking more different`
+              + ` questions, which is what narrows the range.`
             : replay ? " A sample run replays one authored answer per question: 1 try." : " Each was asked once."}
         </p>
         {(realAsked > 0 || !!run.demand_notes?.length) && (
@@ -1823,7 +1853,8 @@ function BuyerQuestions({ run }: { run: Run }) {
         {fronts.length > 0 && d && gapSentence(d, brand) && <p style={{ margin: 0 }}>{gapSentence(d, brand)}<GapVerdict d={d} /></p>}
         {!fronts.length && vis != null && (
           <p style={{ margin: 0 }}>
-            <strong>Buyer visibility <Visibility d={d!} iv={d!.visibility_interval} /></strong> <span className="muted">— {triesText(d!)}</span>
+            <strong>Buyer visibility <Visibility d={d!} explain /></strong>{" "}
+            <span className="muted">— <Range d={d!} iv={d!.visibility_interval} note={d!.na_reasons?.visibility_interval} /></span>
           </p>
         )}
         {!fronts.length && d?.low_confidence && (
@@ -1841,8 +1872,8 @@ function BuyerQuestions({ run }: { run: Run }) {
           return (
             <div className="front-group" key={v.front}>
               <h4 style={{ margin: ".4rem 0 0" }}>
-                <FrontLabel v={v} /> · {v.category} — <Visibility d={v} iv={v.interval} />{" "}
-                <span className="muted">{v.visibility == null ? "not measured" : triesText(v)}</span>
+                <FrontLabel v={v} /> · {v.category} — <Visibility d={v} explain />{" "}
+                <span className="muted">— <Range d={v} iv={v.interval} note={v.interval_note} /></span>
               </h4>
               <div className="qlist">{ps.map(card)}</div>
               {ctl && <Control run={run} p={ctl} v={v} />}
@@ -2135,7 +2166,8 @@ function HowWeChecked({ run }: { run: Run }) {
       && !/^\d+ of \d+ brand answers were excluded/.test(l)),
   ];
   const buyer = run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline").length;
-  const tries = d.tries ?? 1;
+  const tries = d.tries ?? 1, sampled = d.repeat_sample ?? 0;
+  const buyerAsks = buyer + sampled * (tries - 1);
   return (
     <section className="card checks-panel">
       <h3>How we checked this report</h3>
@@ -2147,8 +2179,9 @@ function HowWeChecked({ run }: { run: Run }) {
         </li>
         {buyer > 0 && (
           <li>
-            <strong>{d.n_blind} of {buyer * tries}</strong> <Term k="buyer_question">buyer question</Term> answers
-            counted ({plural(buyer, "question")}{tries > 1 ? ` × ${tries} tries each` : ", asked once each"}).
+            <strong>{d.n_blind} of {buyerAsks}</strong> <Term k="buyer_question">buyer question</Term> answers
+            counted ({plural(buyer, "question")} asked once
+            {sampled > 0 && `, ${sampled} of them ${tries} times over`}).
           </li>
         )}
         <Count summary={<>

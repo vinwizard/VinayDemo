@@ -43,11 +43,14 @@ export interface DriftReport {
   /** Headline: prominence-weighted share of the site's claims AI repeats supportively. */
   claim_echo?: number | null;
   alignment: number | null;
-  /** Mean of the per-try buyer visibility scores. */
+  /** Buyer visibility: the mean over questions, each worth the mean of its own tries. */
   visibility: number | null;
-  /** How many times each buyer question was asked. Absent on runs saved before repeats: asked once. */
+  /** How many times a repeat-sampled question was asked. Absent on runs saved before repeats: once. */
   tries?: number;
-  /** [lowest, highest] per-try visibility. */
+  /** How many buyer questions were asked more than once. */
+  repeat_sample?: number;
+  /** The wobble, not a second estimate: [lowest, highest] visibility of the repeat-sampled
+   * questions alone, try by try. How sure the whole number is lives in `visibility_interval`. */
   visibility_range?: [number, number] | null;
   /** Why this visibility is not trusted (its control question), or null. Set with one set only. */
   low_confidence?: string | null;
@@ -82,7 +85,7 @@ export interface DriftReport {
  * own core category. both: the same category, asked once. null: one unlabelled set (replay). */
 export type Front = "placed" | "aiming" | "both" | null;
 
-/** Buyer visibility on one front, with its own tries, range and control question. */
+/** Buyer visibility on one front, with its repeat sample, wobble and control question. */
 export interface VisibilitySet {
   front?: Front;
   category?: string | null;
@@ -91,6 +94,7 @@ export interface VisibilitySet {
   visibility_range?: [number, number] | null;
   n_blind: number;
   questions: number;
+  repeat_sample?: number;
   control_probe_id?: string | null;
   low_confidence?: string | null;
   /** Bootstrap 95% confidence interval of `visibility`, or why there is none. */
@@ -433,6 +437,11 @@ export interface Health {
   /** The model that answers the questions, and the separate one that judges them; null without a key. */
   measured_model: string | null;
   evaluator_model: string | null;
+  /** Every measured call is made with tool_choice forcing the web_search tool. */
+  forced_search: boolean;
+  /** Buyer questions per front, how many of them are re-asked, and how many times. */
+  buyer_questions: number;
+  repeat_sample: number;
   buyer_tries: number;
 }
 

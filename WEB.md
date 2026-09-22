@@ -54,22 +54,40 @@ Put your key in `.env` at the repo root (gitignored, never committed):
 
 ```
 OPENAI_API_KEY=sk-...
-MEASURED_MODEL=gpt-4.1   # optional: the model that ANSWERS the questions (default gpt-4.1)
-BUYER_TRIES=3            # optional: how many times each buyer question is asked (default 3)
 ```
+
+Everything else has a working default. The full list, and what each one changes:
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | — | The only required one. Without it live mode errors rather than replaying fixtures. |
+| `MEASURED_MODEL` | `gpt-5.6-luna` | The model that ANSWERS the buyer and brand questions: the one being measured. It must accept the Responses API `web_search` tool. The default is the cheapest recent model that does ($0.20/$1.20 per 1M tokens, knowledge to Feb 2026). `gpt-4.1` was the old default and its training stops in 2024, so it answered about brands it had never heard of. |
+| `EVALUATOR_MODEL` | `gpt-4.1-mini` | The separate model that grades those answers. It reads text it is handed and needs no search. Keep it different from `MEASURED_MODEL`: a model grading its own output has a self-preference bias, and `/api/health` flags it with `same_model_warning`. |
+| `ONBOARDING_MODEL` | `gpt-4.1-mini` | Reads a company's own pages and extracts what they claim, and writes buyer questions for a category. |
+| `BUYER_QUESTIONS` | `12` | How many buyer questions are asked **per front**, once each. More distinct questions is what narrows the confidence interval; the two fronts together are the whole buyer budget. |
+| `REPEAT_SAMPLE` | `2` | How many of those questions are also asked `BUYER_TRIES` times, to show how much one question wobbles between asks. `0` turns repeats off, and with them the wobble and the confidence interval. |
+| `BUYER_TRIES` | `3` | How many times each **repeat-sampled** question is asked. Every other question is asked once. |
+| `DATA_DIR` | bundled `data/` | Where runs, companies and the access database are kept. On Render, the mount path of a disk, or a redeploy wipes them. |
+| `VISEXP_PUBLIC_DEMO` | unset | Hosted demo: saved replays for everyone, live runs only for a pass holder. |
+| `SESSION_SECRET`, `ADMIN_PASSWORD`, `CONTACT_EMAIL` | — | Access passes and the admin page: README "Deploy to Render". |
+| `VISEXP_OFFLINE_REPLAY` | unset | Measuring the preloaded company replays the bundled sample instead of calling a model. |
 
 `MEASURED_MODEL` replaced `LIVE_MODEL`, which is no longer read: an old `.env` that still pins
 `LIVE_MODEL=gpt-4o-mini` would otherwise have kept the model that named obscure tools for a category
-leader's own category. The model that answers and the model that judges (`EVALUATOR_MODEL`) are
-separate settings, and every live report names both ("answered by gpt-4.1, judged by gpt-4.1-mini");
-`/api/health` reports `measured_model`, `evaluator_model` and `buyer_tries`.
+leader's own category. Every live report names both models ("answered by gpt-5.6-luna, judged by
+gpt-4.1-mini"); `/api/health` reports `measured_model`, `evaluator_model`, `forced_search`,
+`buyer_questions`, `repeat_sample` and `buyer_tries`.
+
+Any model you point `MEASURED_MODEL` or `EVALUATOR_MODEL` at should be in `access.PRICES`, or the
+spend meter charges it `UNKNOWN_PRICE` — deliberately above every listed model, so a pass is never
+under-charged for a model nobody priced.
 
 Restart the API. It prints `[config] loaded from .env: OPENAI_API_KEY=<set>` — names only, never
 values. Check `curl -s http://127.0.0.1:8000/api/health` for `"live_available": true`. There is no
 mode switch in the page: every measurement it starts is live.
 
 A live run asks every brand question once, then plans its buyer questions from those answers, and
-asks every buyer question `BUYER_TRIES` times to the measured model with web search, plus one
+asks each of them once to the measured model — `REPEAT_SAMPLE` of them `BUYER_TRIES` times — plus one
 **control question** per front, and has the evaluator grade each
 answer — two calls per ask — plus one round-two comparison question when a buyer answer names a
 competitor, and one evaluator call at the end for the action plan. Without a key, live mode
@@ -86,6 +104,12 @@ shown, because a 401 body quotes part of the key back.
 Set `EVALUATOR_MODEL` to a different model from `MEASURED_MODEL`: a model grading its own output has
 a self-preference bias.
 
+**Search is required, not offered.** Every measured call carries `tool_choice` forcing the
+`web_search` tool (`live.TOOL_CHOICE`), because an answer written from memory is excluded from live
+scores (`scoring.eligible`) — paid for and then thrown away. A response that still comes back with no
+`web_search_call` is asked once more; if the second try does not search either, the answer is kept
+and marked ungrounded exactly as before. Grounding is still read off the response, never assumed.
+
 #### Why a rerun gives a different number, and what the report does about it
 
 The measured model answers the same question differently every time — web search returns different
@@ -96,13 +120,13 @@ things make the buyer number trustworthy anyway:
 
 - **Visibility is measured on two fronts, side by side.** Brand questions are answered and read
   first (`graph.plan_brand` → `perceive`), then `graph.plan_buyer` asks buyer questions about two
-  categories, half the buyer budget each (`ana.SET_QUESTIONS`, same total as one set):
+  categories, `BUYER_QUESTIONS` each (`ana.set_questions`):
   **where AI places you** — the attribute, claimed or discovered, that the most valid brand answers
   endorsed (`ana.placed_attribute`; ties go to the claim stated on more pages; its questions are the
   claim's own, topped up by the onboarding model) — and **where you aim to be**, the site's core
-  category (`profile.core_category`, named at onboarding from the one-line description, six blind
+  category (`profile.core_category`, named at onboarding from the one-line description, blind
   questions written for it, correctable on the claims screen). Each front has its own visibility,
-  range across tries and control question (`drift.sets`), and `drift.visibility_gap` is placed minus
+  repeat sample, wobble and control question (`drift.sets`), and `drift.visibility_gap` is placed minus
   aiming: "known for AI search visibility, not yet seen as an AI marketing platform" is the finding.
   When both are the same category (`ana.same_category`: one's content words all in the other's) one
   set is asked and the run says so; with only one front measured (the same category, no endorsed
@@ -123,20 +147,29 @@ things make the buyer number trustworthy anyway:
   scraping Google, so the one is stated when it fails and the other is not used. Nothing is a
   volume estimate. With no usable searches the front keeps its written questions and
   `run.demand_notes` says why. Tests never touch the network (`tests/conftest.py`).
-- **Each buyer question is asked `BUYER_TRIES` times** (default 3), each in a fresh context. Buyer
-  visibility is the mean of the per-try visibility scores, per front, shown with its range ("33.3 /
-  100 · range 16.7–50 across 3 tries"), and each question shows how stable it was ("named in 2 of 3
-  tries") and every try's answer.
-  Brand questions are asked once. Extra asks are stored in `run.repeat_answers` /
+- **The budget goes on distinct questions, with a sample re-asked.** Every buyer question is asked
+  once; `REPEAT_SAMPLE` of them (default 2, spread evenly through the plan order so each front
+  contributes one — `graph.repeat_sampled`) are asked `BUYER_TRIES` times, each in a fresh context.
+  Re-asking one question moves visibility by a few points while different questions disagree by
+  tens, so questions — not tries — are what narrows the interval, and the same money buys a tighter
+  number. Buyer visibility is the mean over **questions**, each question worth the mean of its own
+  tries (`scoring.visibility_by_question`): a question asked three times still gets one vote, or the
+  sample would drag the whole number towards whatever those two questions happen to say.
+  The re-asked questions show how stable they were ("named in 2 of 3 tries") with every try's answer,
+  and their per-try spread is the **wobble** (`drift.visibility_range`) — reported from that sample
+  alone, and shown inside the number's popover rather than beside it, so the summary carries one
+  range and not two. Brand questions are asked once. Extra asks are stored in `run.repeat_answers` /
   `repeat_evaluations`, so everything else — topic scores, sources, share of voice, the action plan —
   reads the first try exactly as before. A replayed sample has one authored answer per question, so
-  it is 1 try and its numbers do not move.
+  nothing is re-asked, there is no wobble to show, and its numbers do not move.
 - **Every number says how sure it is.** `scoring` bootstraps a 95% confidence interval (2,000
   resamples, fixed seed, so a saved run always shows the same interval) and the report shows it as a
   small low–high range beside the number (the headline's in untapped-potential terms, 100 minus the
   score's range), what it means one tap away. Visibility resamples the buyer questions, then each
-  chosen question's tries (`visibility_draws`), from `MIN_INTERVAL_ANSWERS` (5) scored questions up;
-  one try has no interval, so a replayed sample says "1 try per question, so there is no interval".
+  chosen question's tries (`visibility_draws`, weighting each question once exactly as the score
+  does), from `MIN_INTERVAL_ANSWERS` (5) scored questions up; with nothing re-asked there is no
+  interval, so a replayed sample says "No question was asked twice". This is the range the summary
+  shows, in plain words ("could be 16.7–50 if we asked again").
   The gap between fronts is bootstrapped draw by draw (`gap_verdict`): an interval that excludes 0
   reads "The gap is real, 95% confident" (`drift.gap_real`), otherwise "Not distinguishable with this
   sample". When either front has no interval, or one whose width is zero (its answers never varied),

@@ -35,16 +35,17 @@ export const GLOSSARY = {
       + "scores half, a recommendation full. A separate measure: it does not move the headline.",
   },
   tries: {
-    term: "Tries and range",
-    def: "An AI gives a different answer each time it is asked, so each buyer question is asked several "
-      + "times, each in a fresh conversation. Buyer visibility is the average of those tries; the range "
-      + "is the lowest and highest single try.",
+    term: "Same question, asked again",
+    def: "An AI gives a different answer each time it is asked. Every buyer question is asked once, and "
+      + "a couple of them are asked three times over to show how much one question wobbles between "
+      + "asks. Each question counts once towards buyer visibility however often it was asked.",
   },
   confidence_interval: {
     term: "Confidence interval",
-    def: "How far a number could move if we asked again. We re-draw the same answers 2,000 times at "
-      + "random (a bootstrap) and keep the middle 95% of the results: if we repeated the whole run, the "
-      + "number would very likely land in that range, shown as low–high beside it.",
+    def: "How far a number could move if we ran the whole thing again. We re-draw the same answers "
+      + "2,000 times at random (a bootstrap) and keep the middle 95% of the results: the number would "
+      + "very likely land somewhere in that range. It is wide when the questions disagree with each "
+      + "other, which is why asking more different questions narrows it.",
   },
   significant_gap: {
     term: "Real gap",

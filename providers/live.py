@@ -15,22 +15,36 @@ from datetime import datetime, timezone
 from typing import Callable, Optional
 
 from agents.onboarding_model import buyer_questions_for
+from config import setting
 from schemas import Answer, Attribute, CompanyProfile, Probe, Topic
 
 KEY_ENV = "OPENAI_API_KEY"
 # The model that ANSWERS the questions — the one being measured. The judge is separate
-# (EVALUATOR_MODEL, agents/evaluator_model.py). gpt-4o-mini with web search named obscure tools for a
-# category leader's own category (a saved tryprofound.com run), so the default is gpt-4.1. Note: the
-# *-search-preview models are Chat Completions only and 400 here ("not supported with the Responses
-# API"), and gpt-4.1-nano rejects the web_search tool. gpt-4o-mini, gpt-4.1-mini, gpt-4o and gpt-5*
-# all take it.
+# (EVALUATOR_MODEL, agents/evaluator_model.py). It must (a) accept the Responses API web_search tool
+# and (b) know the present: gpt-4.1's training stops in 2024, so asked about a 2025-founded brand it
+# searched for — and reasoned about — a world that brand was not in yet.
+# Checked against OpenAI's model reference on 2026-09-22: gpt-5.6-luna lists web_search among its
+# tools, has a 2026-02-16 knowledge cutoff, costs $0.20/$1.20 per 1M tokens (a tenth of gpt-4.1's
+# input, a sixth of its output) and is in the pinned SDK's own model list (openai==3.16.2), so the
+# installed client accepts it. gpt-6-luna is cheaper still ($0.10/$0.50, 2026-05-18 cutoff) but the
+# pinned SDK predates it; set MEASURED_MODEL to it once the SDK is bumped.
+# Note: the *-search-preview models are Chat Completions only and 400 here ("not supported with the
+# Responses API"), and gpt-4.1-nano rejects the web_search tool.
 MODEL_ENV = "MEASURED_MODEL"
-DEFAULT_MODEL = "gpt-4.1"
-# Each buyer question is asked this many times, fresh each time: one ask is one draw from a model
-# that answers differently on every run, so visibility is the mean with its range. Brand questions
-# are asked once.
+DEFAULT_MODEL = "gpt-5.6-luna"
+# Search is REQUIRED, not merely offered: an answer the model wrote from memory is excluded from
+# live scores (scoring.eligible), so an optional search means paying for calls that are then thrown
+# away. "required" forces a call to the one tool this adapter passes, which is web_search.
+TOOL_CHOICE = "required"
+# The buyer budget, spent on distinct questions rather than repeats. Re-asking one question moves
+# the number by a few points; different questions disagree by tens, so questions — not tries — are
+# what narrows the confidence interval. BUYER_QUESTIONS per front are asked once each; REPEAT_SAMPLE
+# of them are also asked BUYER_TRIES times, which is all the wobble estimate needs.
+# BUYER_QUESTIONS lives in agents/ana.py, where the questions are planned.
 TRIES_ENV = "BUYER_TRIES"
 DEFAULT_TRIES = 3
+SAMPLE_ENV = "REPEAT_SAMPLE"
+DEFAULT_SAMPLE = 2
 
 LIMITS = dict(max_unique_probes=16, max_probe_retries=4, max_model_attempts=40, concurrency=3,
               per_call_timeout_s=90, investigation_deadline_s=600)
@@ -50,17 +64,20 @@ def model_name() -> str:
 
 
 def buyer_tries() -> int:
-    """BUYER_TRIES, at least 1; anything unreadable is the default rather than a crash at run time."""
-    try:
-        return max(1, int(os.environ.get(TRIES_ENV) or DEFAULT_TRIES))
-    except ValueError:
-        return DEFAULT_TRIES
+    """BUYER_TRIES: how many times a repeat-sampled buyer question is asked. At least 1."""
+    return setting(TRIES_ENV, DEFAULT_TRIES, floor=1)
+
+
+def repeat_sample() -> int:
+    """REPEAT_SAMPLE: how many buyer questions are asked BUYER_TRIES times instead of once. 0 turns
+    repeats off, and with them the wobble estimate."""
+    return setting(SAMPLE_ENV, DEFAULT_SAMPLE)
 
 
 def status() -> str:
     if not os.environ.get(KEY_ENV):
         return f"Disabled: no {KEY_ENV} configured."
-    return f"Ready: OpenAI Responses API, model {model_name()}, web_search enabled."
+    return f"Ready: OpenAI Responses API, model {model_name()}, web_search required on every answer."
 
 
 def available() -> bool:
@@ -115,8 +132,8 @@ def preflight(model: Optional[str] = None, transport: Optional[Callable] = None)
         if status == 400:
             raise ModelUnsupported(
                 f"Model {model!r} cannot be used: it does not accept the Responses API web_search "
-                f"tool. Set {MODEL_ENV} to one that does (gpt-4.1, gpt-4o-mini, gpt-4.1-mini, gpt-4o, "
-                f"gpt-5-mini, gpt-5.5). Note the *-search-preview models are Chat Completions only. "
+                f"tool. Set {MODEL_ENV} to one that does (gpt-5.6-luna, gpt-5.4-mini, gpt-5.5, "
+                f"gpt-4.1-mini, gpt-4.1). Note the *-search-preview models are Chat Completions only. "
                 f"({safe_error(e)})") from e
         raise
 
@@ -171,7 +188,10 @@ def searches_of(response) -> list[str]:
 
 def default_transport(messages: list[dict], model: str, timeout: int):
     import access  # metered: refused at a pass's cap, charged to it after
-    return access.openai_response(timeout, model=model, tools=[{"type": "web_search"}], input=messages)
+    # tool_choice is the whole point of forcing search: with "auto" the model decides, and the
+    # answers it decides not to search for are paid for and then excluded from the score.
+    return access.openai_response(timeout, model=model, tools=[{"type": "web_search"}],
+                                  tool_choice=TOOL_CHOICE, input=messages)
 
 
 class LiveProvider:
@@ -195,6 +215,7 @@ class LiveProvider:
         self._profile = profile
         self.model = model or model_name()
         self.tries = buyer_tries()
+        self.repeat_sample = repeat_sample()
         self._transport = transport or default_transport
         # run -> RetrievalSim. The real one fetches pages and embeds them, so an injected transport
         # (a test) gets none unless it injects one too.
@@ -223,30 +244,31 @@ class LiveProvider:
         """Buyer questions on two fronts, each with its control question: where AI places the
         company (`placed`, read off the brand answers) and the site's core category. The claims'
         own buyer questions fill whatever budget the fronts leave: all of it with neither front."""
-        from agents.ana import SET_QUESTIONS, blind_probes_for_fronts, same_category
+        from agents.ana import blind_probes_for_fronts, same_category, set_questions
         self.notes, self.demand_notes = [], []
+        per_front = set_questions()
         real: dict[str, object] = {}              # question text -> the real demand it came from
 
         def ground(category: str) -> list[str]:
             """Real searches for the category, heaviest group first; [] with a stated reason if none."""
             if not self._demand:
                 return []
-            found, note = self._demand(category, profile, SET_QUESTIONS)
+            found, note = self._demand(category, profile, per_front)
             self.demand_notes.append(note)
             real.update({q.strip().lower(): d for q, d in found})
             return [q for q, _ in found]
 
         aiming = profile.core_category
         if aiming:
-            # real ones first: the fronts keep the first SET_QUESTIONS, so written ones only fill a shortfall
+            # real ones first: the fronts keep the first `per_front`, so written ones only fill a shortfall
             profile = profile.model_copy(update=dict(
                 category_questions=[*ground(aiming), *profile.category_questions]))
         questions = list(placed.buyer_questions) if placed else []
         if placed and not (aiming and same_category(placed.label, aiming)):
             questions = [*ground(placed.label), *questions]
-        if placed and len(questions) < SET_QUESTIONS:
+        if placed and len(questions) < per_front:
             try:
-                questions += self._writer(placed.label, placed.description, SET_QUESTIONS - len(questions))
+                questions += self._writer(placed.label, placed.description, per_front - len(questions))
             except Exception as e:                  # stated, never swallowed: the front is smaller
                 self.notes.append(f"Buyer questions for {placed.label} could not be written "
                                   f"({type(e).__name__}); its own {len(questions)} were asked.")
@@ -275,17 +297,30 @@ class LiveProvider:
         ask = getattr(self.evaluator, "win_back", None)  # a stub evaluator may not offer it
         return ask(prompt) if ask else None
 
-    def answer(self, probe: Probe, try_no: int = 1) -> Answer:
+    def _call(self, probe: Probe) -> tuple[object, Optional[Exception]]:
+        """One measured call: -> (response, None) or (None, the exception it raised)."""
         self.calls += 1
+        try:
+            return self._transport(measured_prompt(probe), self.model,
+                                   LIMITS["per_call_timeout_s"]), None
+        except Exception as e:                      # surfaced as a failed answer, never swallowed
+            return None, e
+
+    def answer(self, probe: Probe, try_no: int = 1) -> Answer:
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         base = dict(probe_id=probe.id, provenance="live_api", provider=self.name,
                     model=self.model, collected_at=now, try_no=try_no)
-        try:
-            raw = self._transport(measured_prompt(probe), self.model,
-                                  LIMITS["per_call_timeout_s"])
-        except Exception as e:                      # surfaced as a failed answer, never swallowed
-            kind = "timeout" if "timeout" in type(e).__name__.lower() else "error"
-            return Answer(**base, text="", status=kind, error=safe_error(e),
+        raw, err = self._call(probe)
+        if raw is not None and not parse_response(raw)[2]:
+            # tool_choice asked for a search and none ran. One retry: a model that skips a forced
+            # tool once usually searches on the next draw, and an ungrounded answer is excluded from
+            # the score anyway (scoring.eligible), so the first call is already spent for nothing.
+            again, _ = self._call(probe)
+            if again is not None and parse_response(again)[2]:
+                raw, err = again, None
+        if raw is None:
+            kind = "timeout" if "timeout" in type(err).__name__.lower() else "error"
+            return Answer(**base, text="", status=kind, error=safe_error(err),
                           search_executed=False)
         text, citations, searched = parse_response(raw)
         if not text:

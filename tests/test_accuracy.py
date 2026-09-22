@@ -1,5 +1,6 @@
-"""Buyer visibility you can trust: the core category is always asked about, each buyer question is
-asked several times with the range shown, and a control question decides whether a 0 means anything.
+"""Buyer visibility you can trust: the core category is always asked about, the buyer budget goes on
+distinct questions with a sample re-asked for the wobble, and a control question decides whether a 0
+means anything.
 
 No key, no network: transports and the evaluator are injected.
 """
@@ -16,7 +17,7 @@ import reports
 from agents import ana, onboarding_model
 from providers import fixture, live
 from schemas import Company, QueryEvaluation, Answer
-from scoring import MIN_CONTROL_VENDORS, low_confidence, visibility_over_tries
+from scoring import MIN_CONTROL_VENDORS, low_confidence, visibility_by_question, visibility_over_tries
 
 F = fixture.FixtureProvider("A")
 CATEGORY = "connected workspace software"
@@ -30,7 +31,7 @@ def with_category(questions=CAT_QS, category=CATEGORY):
 # ---------------------------------------------------------------- 1. the core category is always asked
 def test_without_a_category_or_a_placed_front_buyer_topics_follow_the_claims_as_before():
     old = ana.blind_probes_from_attributes(F.attributes(), F.profile)
-    assert all(t.id.startswith("pos-") for t in old[0]) and len(old[0]) == ana.MAX_TOPICS
+    assert all(t.id.startswith("pos-") for t in old[0]) and len(old[0]) == 4  # the claims with questions
     prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=F.profile, model="m")
     topics, blind = prov.plan(F.profile)
     assert not [p for p in blind if p.phase == "control"] and "control" not in {t.kind for t in topics}
@@ -50,7 +51,16 @@ def test_the_control_question_is_never_also_a_scored_question():
 
 
 # ---------------------------------------------------------------- 3 & 4. repeats, range, control
-def test_visibility_over_tries_is_the_mean_with_the_range():
+def test_visibility_weighs_every_question_once_however_often_it_was_asked():
+    """A question re-asked three times must not get three votes, or the repeat sample would drag
+    the whole number towards whatever those two questions happen to say."""
+    assert visibility_by_question([[2, 2, 2], [0], [0], [0]]) == 25.0
+    assert visibility_by_question([[2, 0, 1], [2]]) == 75.0   # (1 + 2) / 2 of a possible 2
+    assert visibility_by_question([[1], []]) == 50.0          # a question with no answer is not a zero
+    assert visibility_by_question([]) is None
+
+
+def test_the_range_beside_the_number_is_the_per_try_wobble():
     assert visibility_over_tries([[2, 0, 0], [0, 0, 0], [1, 1, 0]]) == (22.2, [0.0, 33.3])
     assert visibility_over_tries([[2, 1, 0]]) == (50.0, [50.0, 50.0])   # one try is its own range
     assert visibility_over_tries([[1], []]) == (50.0, [50.0, 50.0])       # an empty try is not a zero
@@ -71,7 +81,7 @@ class Judge:
         return []
 
 
-def live_run(buyer_text, control_text, tries=3, monkeypatch=None):
+def live_run(buyer_text, control_text, tries=3, sample=2, questions=6, monkeypatch=None):
     """buyer_text(ask number of that question) -> answer text. Named questions get a plain answer."""
     asked = Counter()
     profile = with_category()
@@ -86,26 +96,42 @@ def live_run(buyer_text, control_text, tries=3, monkeypatch=None):
                            {"type": "message", "content": [{"type": "output_text", "text": text}]}]}
 
     monkeypatch.setenv(live.TRIES_ENV, str(tries))
+    monkeypatch.setenv(live.SAMPLE_ENV, str(sample))
+    monkeypatch.setenv(ana.QUESTIONS_ENV, str(questions))
     prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="test-model",
                              transport=transport, evaluator=Judge())
     prov.concurrency = 1
     return graph.execute(graph.new_run(profile, prov, mode="live_api"), prov), asked
 
 
-def test_each_buyer_question_is_asked_three_times_and_brand_questions_once(monkeypatch):
+def test_the_budget_buys_questions_once_each_with_a_small_repeat_sample(monkeypatch):
+    """The captain's change: one try on many questions, three tries on a couple, so the same money
+    narrows the confidence interval instead of re-asking what barely moves."""
     run, asked = live_run(lambda n: "Notion fits." if n == 2 else "Coda fits.", "Linear, Asana and Coda.",
                           monkeypatch=monkeypatch)
     buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
-    assert all(asked[p.text] == 3 for p in buyer)
+    sampled = graph.repeat_sampled(buyer, 2)
+    assert len(sampled) == 2 and all(asked[p.text] == 3 for p in sampled)
+    assert all(asked[p.text] == 1 for p in buyer if p not in sampled)
     assert all(asked[p.text] == 1 for p in run.probes if p.kind == "named" or p.phase == "control")
-    assert len(run.answers) == len(run.probes) and len(run.repeat_answers) == 2 * len(buyer)
-    assert Counter(a.try_no for a in run.repeat_evaluations) == {2: len(buyer), 3: len(buyer)}
+    assert len(run.answers) == len(run.probes) and len(run.repeat_answers) == 2 * len(sampled)
+    assert Counter(a.try_no for a in run.repeat_evaluations) == {2: 2, 3: 2}
     d = run.drift
-    # named on every second ask only: tries score 0, 50, 0
-    assert (d.tries, d.visibility, d.visibility_range) == (3, 16.7, [0.0, 50.0])
-    assert d.n_blind == 3 * len(buyer)
+    # every question is named on its second ask only: the once-asked ones score 0, the sampled two
+    # score 1 of 3 tries each, and the wobble is read off those two alone
+    assert (d.tries, d.repeat_sample, d.visibility_range) == (3, 2, [0.0, 50.0])
+    assert d.visibility == 2.8 and d.n_blind == len(buyer) + 2 * len(sampled)
     named = Counter(e.probe_id for e in run.evaluations + run.repeat_evaluations if e.mentioned)
-    assert set(named.values()) == {1}   # "named in 1 of 3 tries" for every question
+    assert set(named.values()) == {1}   # "named in 1 of 3 tries" on the sampled ones
+
+
+def test_repeat_asks_are_spread_across_the_fronts_not_taken_off_the_front_of_the_list():
+    """The fronts are contiguous in plan order, so the first two questions are the same category."""
+    buyer = [f"q{i}" for i in range(12)]
+    assert graph.repeat_sampled(buyer, 2) == ["q0", "q6"]
+    assert graph.repeat_sampled(buyer, 3) == ["q0", "q4", "q8"]
+    assert graph.repeat_sampled(buyer, 0) == [] and graph.repeat_sampled([], 2) == []
+    assert graph.repeat_sampled(["q0"], 5) == ["q0"]      # never more questions than there are
 
 
 def test_the_control_question_never_moves_visibility(monkeypatch):
@@ -113,8 +139,8 @@ def test_the_control_question_never_moves_visibility(monkeypatch):
     control = next(p for p in run.probes if p.phase == "control")
     assert next(e for e in run.evaluations if e.probe_id == control.id).mentioned
     aiming = run.drift.sets[0]
-    assert (aiming.front, aiming.visibility, aiming.n_blind) == ("aiming", 0.0, 3 * 6)
-    assert run.drift.visibility == 0.0 and run.drift.n_blind == 3 * 12   # the claims fill the other half
+    assert (aiming.front, aiming.visibility, aiming.n_blind) == ("aiming", 0.0, 6 + 2)
+    assert run.drift.visibility == 0.0 and run.drift.n_blind == 12 + 4   # the claims fill the other half
     # the model knows the brand as a category leader and still never offers it to buyers: a real 0
     assert run.drift.low_confidence is None
     assert control.id not in {e.probe_id for e in run.repeat_evaluations}
@@ -163,18 +189,30 @@ def test_offline_replay_is_one_try_and_its_numbers_do_not_move(scenario, alignme
     run = graph.execute(graph.new_run(p.profile, p), p)
     d = run.drift
     assert (d.alignment, d.visibility, d.n_blind) == (alignment, 54.2, 12)
-    assert (d.tries, d.visibility_range, d.low_confidence) == (1, [54.2, 54.2], None)
+    # one authored answer per question: nothing was re-asked, so there is no wobble to show
+    assert (d.tries, d.repeat_sample, d.visibility_range, d.low_confidence) == (1, 0, None, None)
     assert run.repeat_answers == [] and not [x for x in run.probes if x.phase == "control"]
 
 
 # ---------------------------------------------------------------- 2. the answering model is a setting
-def test_the_answering_model_defaults_to_gpt_4_1_and_is_priced_exactly(monkeypatch):
+def test_the_answering_model_defaults_to_a_recent_searching_model_and_is_priced_exactly(monkeypatch):
+    """gpt-4.1's training stopped in 2024, so it answered about brands it had never heard of. The
+    default is a 2026 model that takes web_search and costs a fraction of it."""
     monkeypatch.delenv(live.MODEL_ENV, raising=False)
-    assert live.model_name() == "gpt-4.1" and live.MODEL_ENV == "MEASURED_MODEL"
-    assert "gpt-4.1" in access.PRICES
+    assert live.model_name() == "gpt-5.6-luna" and live.MODEL_ENV == "MEASURED_MODEL"
+    assert access.PRICES["gpt-5.6-luna"] < access.PRICES["gpt-4.1"]
     assert all(access.UNKNOWN_PRICE[i] > max(p[i] for p in access.PRICES.values()) for i in (0, 1))
     monkeypatch.setenv(live.MODEL_ENV, "gpt-4o")
     assert live.model_name() == "gpt-4o"
+
+
+def test_every_model_the_app_can_be_pointed_at_is_priced(monkeypatch):
+    """A model missing from the table is metered at UNKNOWN_PRICE, which would bill a pass for far
+    more than it spent; the defaults and the models the error message offers must all be listed."""
+    from agents import evaluator_model, onboarding_model
+    offered = {live.DEFAULT_MODEL, evaluator_model.DEFAULT_MODEL, onboarding_model.DEFAULT_MODEL,
+               "gpt-5.6-luna", "gpt-5.4-mini", "gpt-5.5", "gpt-4.1-mini", "gpt-4.1"}
+    assert offered <= set(access.PRICES)
 
 
 @pytest.mark.parametrize("raw,tries", [(None, 3), ("5", 5), ("0", 1), ("lots", 3)])
@@ -185,23 +223,43 @@ def test_buyer_tries_setting(monkeypatch, raw, tries):
     assert live.buyer_tries() == tries
 
 
-def test_health_names_the_answering_model_the_judge_and_the_tries(monkeypatch):
+@pytest.mark.parametrize("raw,sample", [(None, 2), ("4", 4), ("0", 0), ("some", 2)])
+def test_repeat_sample_setting(monkeypatch, raw, sample):
+    monkeypatch.delenv(live.SAMPLE_ENV, raising=False)
+    if raw is not None:
+        monkeypatch.setenv(live.SAMPLE_ENV, raw)
+    assert live.repeat_sample() == sample and live.SAMPLE_ENV == "REPEAT_SAMPLE"
+
+
+@pytest.mark.parametrize("raw,per_front", [(None, 12), ("20", 20), ("1", 3), ("many", 12)])
+def test_buyer_questions_setting(monkeypatch, raw, per_front):
+    monkeypatch.delenv(ana.QUESTIONS_ENV, raising=False)
+    if raw is not None:
+        monkeypatch.setenv(ana.QUESTIONS_ENV, raw)
+    assert ana.set_questions() == per_front and ana.QUESTIONS_ENV == "BUYER_QUESTIONS"
+    assert graph.max_baseline() == 2 * ana.PER_TOPIC * -(-per_front // ana.PER_TOPIC)
+
+
+def test_health_names_both_models_the_budget_and_that_search_is_forced(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    monkeypatch.delenv(live.MODEL_ENV, raising=False)
-    monkeypatch.delenv(live.TRIES_ENV, raising=False)
+    for env in (live.MODEL_ENV, live.TRIES_ENV, live.SAMPLE_ENV, ana.QUESTIONS_ENV):
+        monkeypatch.delenv(env, raising=False)
     h = main.health()
-    assert (h["measured_model"], h["buyer_tries"]) == ("gpt-4.1", 3)
+    assert (h["measured_model"], h["buyer_tries"]) == ("gpt-5.6-luna", 3)
+    assert (h["buyer_questions"], h["repeat_sample"], h["forced_search"]) == (12, 2, True)
     assert h["evaluator_model"] and h["evaluator_model"] != h["measured_model"]
 
 
-def test_progress_counts_every_ask():
+def test_progress_counts_every_ask(monkeypatch):
+    monkeypatch.setenv(ana.QUESTIONS_ENV, "6")
     run = graph.new_run(with_category(), F)
     prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=with_category(), model="m")
     run.topics, blind = prov.plan(run.profile)
     run.probes = blind + F.named_probes()
-    planned = main.progress(run, 3)["planned"]
-    # no brand answer yet: the category's own front and the claims, 12 questions x 3 tries + one control
-    assert planned["buyer"] == 3 * 12 + 1 and planned["brand"] == len(F.named_probes())
+    planned = main.progress(run, 3, 2)["planned"]
+    # no brand answer yet: the category's own front and the claims, 12 questions once each, two of
+    # them twice more, plus one control
+    assert planned["buyer"] == 12 + 2 * 2 + 1 and planned["brand"] == len(F.named_probes())
 
 
 # ---------------------------------------------------------------- onboarding and the claims screen

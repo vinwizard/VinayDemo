@@ -296,15 +296,16 @@ class AttributeScore(BaseModel):
 
 
 class VisibilitySet(BaseModel):
-    """Buyer visibility on one front: the questions about one category, with their own tries,
-    range and control question. Arithmetic in graph.score_drift; never pooled across provenance."""
+    """Buyer visibility on one front: the questions about one category, with their repeat sample,
+    wobble and control question. Arithmetic in graph.score_drift; never pooled across provenance."""
     front: Optional[Literal["placed", "aiming", "both"]] = None
     category: Optional[str] = None
     visibility: Optional[float] = None
-    tries: int = 1
-    visibility_range: Optional[list[float]] = None
+    tries: int = 1              # how many times a repeat-sampled question was asked
+    visibility_range: Optional[list[float]] = None  # the wobble: see DriftReport.visibility_range
     n_blind: int = 0            # eligible buyer answers, every try counted
     questions: int = 0          # buyer questions asked in this set, each once
+    repeat_sample: int = 0      # how many of them were also asked `tries` times
     control_probe_id: Optional[str] = None
     low_confidence: Optional[str] = None  # why this set's number is not to be trusted, or None
     interval: Optional[list[float]] = None  # bootstrap 95% interval of `visibility` (scoring.visibility_draws)
@@ -323,9 +324,12 @@ class DriftReport(BaseModel):
     excluded_named: int = 0
     excluded_reasons: list[str] = []
     alignment: Optional[float] = None       # 0-100, weighted echo of intended attributes
-    visibility: Optional[float] = None      # 0-100, mean of the per-try blind-probe scores
-    tries: int = 1                          # how many times each buyer question was asked
-    visibility_range: Optional[list[float]] = None  # [lowest, highest] per-try visibility
+    visibility: Optional[float] = None      # 0-100, mean over buyer questions (scoring.visibility_by_question)
+    tries: int = 1                          # how many times a repeat-sampled question was asked
+    repeat_sample: int = 0                  # how many buyer questions were asked more than once
+    # The wobble, NOT a second estimate of the run: [lowest, highest] visibility of the repeat-sampled
+    # questions alone, try by try. How sure the whole number is lives in `visibility_interval`.
+    visibility_range: Optional[list[float]] = None
     # Why a buyer visibility with no brand mention is not trusted (scoring.low_confidence), or None.
     low_confidence: Optional[str] = None
     # Buyer visibility per front, side by side: where AI places the company and where it aims to be.

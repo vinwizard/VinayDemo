@@ -28,9 +28,12 @@ profile. Buyer questions are planned after the brand answers, on two fronts with
 visibility and control question: where AI places the company and its core category (WEB.md).
 Live runs ask real searches first (`demand.py`: autocomplete, grouped by embedding), written ones
 fill the rest; tests never reach that network (`tests/conftest.py`).
-They are asked `BUYER_TRIES` times; tries 2+ live in `run.repeat_answers`, so
-`run.answers` stays one answer per probe for every other consumer (WEB.md, "Why a rerun gives a
-different number").
+Each is asked once; `REPEAT_SAMPLE` of them are also asked `BUYER_TRIES` times for the wobble, and
+tries 2+ live in `run.repeat_answers`, so `run.answers` stays one answer per probe for every other
+consumer. Every measured call forces the web_search tool (`live.TOOL_CHOICE`) and retries once when
+none ran, because an ungrounded answer is paid for and then excluded. Budget and model settings are
+env-driven with defaults; the whole table is in WEB.md ("Live mode", "Why a rerun gives a different
+number").
 
 ## Authored evidence is never presented as measured
 

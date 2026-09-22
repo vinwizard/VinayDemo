@@ -29,7 +29,7 @@ import graph
 import reports
 import retrieval
 from insights import insights
-from agents.ana import SET_QUESTIONS, brand_leaks, discovered_competitors, vendor_address
+from agents.ana import brand_leaks, discovered_competitors, set_questions, vendor_address
 from agents.evaluator_model import ModelEvaluator
 from agents.onboarding import NAMED_TEMPLATES, named_probes_for
 from agents.onboarding_model import MIN_CLAIMS, OnboardingAgent, buyer_questions_for
@@ -168,7 +168,7 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
         base = fixture.FixtureProvider(scenario)
         if mode != "live":
             return (base, base.profile,
-                    len(base.named_probes()) + graph.MAX_BASELINE + graph.MAX_FOLLOWUP, "demo_replay")
+                    len(base.named_probes()) + graph.max_baseline() + graph.MAX_FOLLOWUP, "demo_replay")
     refuse_in_public("measuring with a live model", holder)
     profile = base.profile
     if not live.available():
@@ -188,19 +188,20 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
     prov = live.LiveProvider(base.attributes(), base.named_probes(), profile=profile,
                              evaluator=ModelEvaluator(), demand=demand.ground)
     # The buyer questions are planned from the brand answers, so their number is not known yet: count
-    # the full buyer budget, each question once per try, plus one control per front. A run that asks
-    # fewer is caught up by its node events' `planned` counts; the overrun is held by the clamp.
-    asks = graph.MAX_BASELINE * prov.tries + 2
+    # the full buyer budget once each, plus the repeat-sampled questions' extra tries, plus one
+    # control per front. A run that asks fewer is caught up by its node events' `planned` counts.
+    asks = graph.max_baseline() + prov.repeat_sample * (prov.tries - 1) + 2
     return prov, profile, asks + len(base.named_probes()), "live_api"
 
 
-def progress(run, tries: int = 1) -> dict:
+def progress(run, tries: int = 1, repeat_sample: int = 0) -> dict:
     """What a run has planned so far, in the counts the staged progress names: every ask, so a
-    buyer question asked three times counts three."""
+    repeat-sampled buyer question asked three times counts three."""
     planned = {"buyer": 0, "brand": 0, "followup": 0}
     for p in run.probes:
-        planned["followup" if p.phase == "followup" else "brand" if p.kind == "named" else "buyer"] += \
-            tries if p.kind == "blind" and p.phase == "baseline" else 1
+        planned["followup" if p.phase == "followup" else "brand" if p.kind == "named" else "buyer"] += 1
+    buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
+    planned["buyer"] += len(graph.repeat_sampled(buyer, repeat_sample)) * (tries - 1)
     return dict(mode=run.mode, planned=planned,
                 competitors=discovered_competitors(run.topic_evaluations))
 
@@ -253,7 +254,7 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
                 stage, agent = graph.STAGES[node]
                 q.put(("node", dict(node=node, stage=stage, agent=agent,
                                     log=run.log[-1] if run.log else "",
-                                    **progress(run, getattr(prov, "tries", 1)))))
+                                    **progress(run, getattr(prov, "tries", 1), getattr(prov, "repeat_sample", 0)))))
             if not public_demo():
                 save_run(run)
             elif holder and run.mode == "live_api":   # a pass's replay of the seed is not its run
@@ -405,7 +406,7 @@ def set_category(company: Company, category: Optional[str]) -> list[str]:
                 "so where you aim to be is not measured and your claims' buyer questions are asked instead."]
     try:
         generated = buyer_questions_for(category, "Any product in this category, for the buyer's "
-                                        "own situation.", n=SET_QUESTIONS)
+                                        "own situation.", n=set_questions())
     except Exception as e:
         traceback.print_exc()
         return [f"Buyer questions for the core category could not be written ({type(e).__name__}), "
@@ -782,6 +783,9 @@ def health(request: Request = None):
             "contact_email": access.contact_email(),
             "storage": access.storage(),
             "measured_model": measured, "evaluator_model": evaluator,
+            # every measured call is made with tool_choice forcing the web_search tool
+            "forced_search": live.TOOL_CHOICE != "auto",
+            "buyer_questions": set_questions(), "repeat_sample": live.repeat_sample(),
             "buyer_tries": live.buyer_tries(),
             # a model grading its own output has a self-preference bias worth surfacing
             "same_model_warning": bool(measured and evaluator and measured == evaluator)}

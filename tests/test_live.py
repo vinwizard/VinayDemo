@@ -50,6 +50,64 @@ def test_transport_receives_nothing_but_the_neutral_prompt():
     assert seen["model"] == "test-model"
 
 
+# --- search is required of the model, not merely offered ---------------------
+def test_the_request_forces_the_web_search_tool(monkeypatch):
+    """An answer written from memory is excluded from live scores, so a call that did not search is
+    money spent for nothing. tool_choice makes the tool the only way to answer."""
+    import access
+    sent = {}
+    monkeypatch.setenv(access.KEY_ENV, "test-key")
+    monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.update(kw) or response())
+    live.default_transport(live.measured_prompt(PROBE), "test-model", 30)
+    assert sent["tools"] == [{"type": "web_search"}]
+    assert sent["tool_choice"] == live.TOOL_CHOICE == "required"
+
+
+def test_an_answer_that_still_did_not_search_is_asked_once_more():
+    calls = []
+
+    def flaky(messages, model, timeout):
+        calls.append(1)
+        return response(searched=len(calls) > 1, text=f"Answer {len(calls)}.")
+
+    p = provider(transport=flaky)
+    a = p.answer(PROBE)
+    assert len(calls) == 2 and p.calls == 2
+    assert a.search_executed is True and a.text == "Answer 2." and a.status == "ok"
+
+
+def test_the_retry_is_tried_once_and_the_answer_is_then_ungrounded_as_before():
+    calls = []
+
+    def never(messages, model, timeout):
+        calls.append(1)
+        return response(searched=False)
+
+    p = provider(transport=never)
+    a = p.answer(PROBE)
+    assert len(calls) == 2 and a.search_executed is False and a.status == "ok"
+
+
+def test_a_retry_that_fails_keeps_the_ungrounded_answer_rather_than_losing_it():
+    calls = []
+
+    def once_then_boom(messages, model, timeout):
+        calls.append(1)
+        if len(calls) > 1:
+            raise RuntimeError("connection reset")
+        return response(searched=False, text="From memory.")
+
+    a = provider(transport=once_then_boom).answer(PROBE)
+    assert a.status == "ok" and a.text == "From memory." and a.search_executed is False
+
+
+def test_a_grounded_answer_is_never_asked_twice():
+    calls = []
+    p = provider(transport=lambda *_: (calls.append(1), response())[1])
+    p.answer(PROBE)
+    assert len(calls) == 1
+
+
 # --- grounding is read, never assumed ---------------------------------------
 def test_search_executed_true_only_when_web_search_call_present():
     a = provider(transport=lambda *_: response(searched=True)).answer(PROBE)

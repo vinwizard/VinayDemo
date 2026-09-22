@@ -10,14 +10,33 @@ import drift
 from agents import ana, evaluation, win_back
 from labels import probe_name
 from schemas import Run, VisibilitySet
-from scoring import (MIN_INTERVAL_ANSWERS, echo_draws, gap_verdict, interval, low_confidence, score_topic, visibility_draws,
-                     visibility_over_tries)
+from scoring import (MIN_INTERVAL_ANSWERS, echo_draws, gap_verdict, interval, low_confidence, score_topic,
+                     visibility_by_question, visibility_draws, visibility_over_tries)
 
-MAX_BASELINE = 12
 MAX_NAMED = 8
 MAX_FOLLOWUP = 4
 MAX_ADAPTIVE_ROUNDS = 1
 RECURSION_LIMIT = 20
+
+
+def max_baseline() -> int:
+    """The whole buyer budget: BUYER_QUESTIONS a front, both fronts (agents/ana.py)."""
+    return ana.max_topics() * ana.PER_TOPIC
+
+
+def repeat_sampled(buyer: list, n: int) -> list:
+    """The `n` buyer questions that are asked BUYER_TRIES times instead of once.
+
+    Evenly spaced through the planned order rather than the first `n`, because the fronts are
+    contiguous there: with two fronts and the default sample of 2, one question comes from each, so
+    the wobble is not read off one category alone. Deterministic, so a resumed run re-asks the same
+    questions and `try_no` keeps meaning the same thing.
+    """
+    if n <= 0 or not buyer:
+        return []
+    step = len(buyer) / min(n, len(buyer))
+    return [buyer[int(i * step)] for i in range(min(n, len(buyer)))]
+
 
 STAGES = {  # node -> (UI stage, logical agent). Both strings are shown to the reader verbatim.
     "plan_brand": ("Topic planning", "Agent 2 · Question planner"),
@@ -150,8 +169,8 @@ def validate_and_freeze(s: State):
     errors = ana.validate_probes(run.probes, run.topics, run.profile)
     errors += ana.validate_named_probes(run.probes, [a for a in run.attributes if not a.discovered])
     blind = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
-    if len(blind) > MAX_BASELINE:
-        errors.append(f"{len(blind)} baseline questions exceeds {MAX_BASELINE}")
+    if len(blind) > (cap := max_baseline()):
+        errors.append(f"{len(blind)} baseline questions exceeds {cap}")
     named = [p for p in run.probes if p.kind == "named"]
     if len(named) > MAX_NAMED:
         errors.append(f"{len(named)} named questions exceeds {MAX_NAMED}")
@@ -168,12 +187,14 @@ def execute_or_replay(s: State):
     run, provider = s["run"], s["provider"]
     done = {a.probe_id for a in run.answers}
     todo = [p for p in run.probes if p.id not in done]
-    # Every baseline buyer question is asked `tries` times, each in a fresh context. Replay has one
+    # Every baseline buyer question is asked once; a small deterministic sample of them is asked
+    # `tries` times, each in a fresh context, which is what the wobble estimate needs. Replay has one
     # authored answer per question, so a fixture provider has no `tries` and is asked once.
     tries = getattr(provider, "tries", 1)
     have = {(a.probe_id, a.try_no) for a in run.repeat_answers}
-    again = [(p, t) for p in run.probes if p.kind == "blind" and p.phase == "baseline"
-             for t in range(2, tries + 1) if (p.id, t) not in have]
+    buyer_probes = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
+    sampled = repeat_sampled(buyer_probes, getattr(provider, "repeat_sample", 0))
+    again = [(p, t) for p in sampled for t in range(2, tries + 1) if (p.id, t) not in have]
     jobs = [(p, 1) for p in todo] + again
     ask = lambda p, t: provider.answer(p) if t == 1 else provider.answer(p, try_no=t)
     # Live answers are two slow calls each (measured + evaluator). Serially that is ~8 minutes for a
@@ -196,7 +217,8 @@ def execute_or_replay(s: State):
     # the log must not claim "replayed from fixtures" for answers a real provider produced
     verb = "Replayed" if all(a.provenance == "synthetic" for a in new) else "Collected"
     src = "fixtures" if verb == "Replayed" else f"{provider.name} ({getattr(provider, 'model', '?')})"
-    extra = f", plus {len(again)} repeat asks of the buyer questions ({tries} tries each)" if again else ""
+    extra = (f", plus {len(again)} repeat asks of {len(sampled)} sampled buyer question(s) "
+             f"({tries} tries each)") if again else ""
     run.log.append(f"{verb} {len(todo)} {phase} answers{extra} from {src} ({failed} failed).")
     return {"run": run}
 
@@ -288,8 +310,17 @@ def score_drift(run: Run) -> None:
     counted = [e for e in [ev[p.id] for p in blind if p.id in ev] + run.repeat_evaluations
                if e.probe_id in buyer_ids and e.valid and e.strength is not None]
     tries = max([1] + [e.try_no for e in run.repeat_evaluations])
-    visibility, spread = visibility_over_tries(
-        [[e.strength for e in counted if e.try_no == t] for t in range(1, tries + 1)])
+    # Which questions were re-asked is read off the answers that came back, not recomputed: the
+    # wobble must describe the questions actually sampled, even on a run saved under other settings.
+    repeated = {e.probe_id for e in run.repeat_evaluations} & buyer_ids
+    per_question = lambda ids: [[e.strength for e in counted if e.probe_id == i] for i in ids]
+    # Visibility weighs every question once (scoring.visibility_by_question); the range beside it is
+    # the WOBBLE — the same repeat-sampled questions scored try by try — not a second estimate of
+    # the whole run, which is what the confidence interval below is for.
+    visibility = visibility_by_question(per_question([p.id for p in blind]))
+    _, spread = visibility_over_tries(
+        [[e.strength for e in counted if e.probe_id in repeated and e.try_no == t]
+         for t in range(1, tries + 1)])
     # provenance is read off the answers that actually fed the perception layer — never hardcoded,
     # or a live run would publish its drift report under a synthetic label (and vice versa)
     named_provenance = {answers[p.id].provenance for p in run.probes
@@ -307,12 +338,13 @@ def score_drift(run: Run) -> None:
                                    echo=drift.claim_echo(run.attributes, kept, run.observations),
                                    lens=lens)
     run.drift.tries, run.drift.visibility_range = tries, spread
-    per_question = lambda ids: [[e.strength for e in counted if e.probe_id == i] for i in ids]
+    run.drift.repeat_sample = len(repeated)
 
     def no_interval(qs: list[list[int]]) -> str:
         qs = [q for q in qs if q]
         if qs and max(map(len, qs)) < 2:
-            return "1 try per question, so there is no interval: repeat asks show how much answers vary."
+            return ("No question was asked twice, so there is no interval: a sample of repeat asks "
+                    "is what shows how much the same question varies.")
         return (f"Too few buyer questions for an interval: {len(qs)} scored, at least "
                 f"{MIN_INTERVAL_ANSWERS} needed.")
     if run.drift.visibility is not None:
@@ -347,8 +379,10 @@ def score_drift(run: Run) -> None:
     for front in fronts:
         ids = {p.id for p in blind if topic[p.topic_id].front == front}
         mine = [e for e in counted if e.probe_id in ids]
-        vis, rng = visibility_over_tries(
-            [[e.strength for e in mine if e.try_no == t] for t in range(1, tries + 1)])
+        vis = visibility_by_question(per_question(sorted(ids)))
+        _, rng = visibility_over_tries(
+            [[e.strength for e in mine if e.probe_id in repeated and e.try_no == t]
+             for t in range(1, tries + 1)])
         control = next((p for p in run.probes if p.phase == "control"
                         and topic.get(p.topic_id) and topic[p.topic_id].front == front), None)
         # front None beside labelled fronts is the claims' own questions: no one category
@@ -356,6 +390,7 @@ def score_drift(run: Run) -> None:
             None if len(fronts) > 1 else run.profile.core_category
         vs = VisibilitySet(front=front, category=category, visibility=vis, tries=tries,
                            visibility_range=rng, n_blind=len(mine), questions=len(ids),
+                           repeat_sample=len(ids & repeated),
                            control_probe_id=control.id if control else None)
         qs = per_question(sorted(ids))
         draws[front] = visibility_draws(qs, key=str(front))

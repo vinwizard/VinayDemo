@@ -26,9 +26,23 @@ def visibility_score(strengths: list[int]) -> Optional[float]:
     return None if not strengths else round(100 * sum(strengths) / (2 * len(strengths)), 1)
 
 
+def visibility_by_question(per_question: list[list[int]]) -> Optional[float]:
+    """Buyer visibility: the mean over QUESTIONS, each question worth the mean of its own tries.
+
+    Questions carry equal weight however many times they were asked, so re-asking a sample of them
+    (providers/live.REPEAT_SAMPLE) sharpens the wobble estimate without giving those questions
+    three votes. A question with no eligible answer is left out rather than counted as zero.
+    """
+    values = [sum(q) / len(q) for q in per_question if q]
+    return None if not values else round(100 * sum(values) / (2 * len(values)), 1)
+
+
 def visibility_over_tries(per_try: list[list[int]]) -> tuple[Optional[float], Optional[list[float]]]:
     """-> (mean of the per-try visibility scores, [lowest, highest]). A try with no eligible answer
-    has no score and is left out rather than counted as zero; one try is its own mean and range."""
+    has no score and is left out rather than counted as zero; one try is its own mean and range.
+
+    Used for the wobble: the same questions re-asked, scored try by try.
+    """
     scores = [v for v in map(visibility_score, per_try) if v is not None]
     if not scores:
         return None, None
@@ -49,10 +63,12 @@ def interval(draws: list[float]) -> list[float]:
 def visibility_draws(per_question: list[list[int]], key: str = "") -> Optional[list[float]]:
     """Bootstrap draws of visibility: resample the questions, then each chosen question's tries.
 
-    per_question: one list per buyer question of its tries' strengths. None when no question has a
-    second try (one try shows nothing of how answers vary between asks) or fewer than
-    MIN_INTERVAL_ANSWERS questions were scored. `key` seeds each set apart, so two fronts are
-    resampled independently.
+    per_question: one list per buyer question of its tries' strengths. Drawn exactly as
+    `visibility_by_question` scores, so a question re-asked three times still counts once — the
+    interval is dominated by how much DIFFERENT questions disagree, which is where the width
+    actually comes from. None when no question has a second try (one try shows nothing of how
+    answers vary between asks) or fewer than MIN_INTERVAL_ANSWERS questions were scored. `key`
+    seeds each set apart, so two fronts are resampled independently.
     """
     qs = [q for q in per_question if q]
     if len(qs) < MIN_INTERVAL_ANSWERS or max(map(len, qs)) < 2:
@@ -61,7 +77,7 @@ def visibility_draws(per_question: list[list[int]], key: str = "") -> Optional[l
     out = []
     for _ in range(BOOT_RESAMPLES):
         picked = [rng.choice(qs) for _ in qs]
-        out.append(visibility_score([rng.choice(q) for q in picked for _ in q]))
+        out.append(visibility_by_question([[rng.choice(q) for _ in q] for q in picked]))
     return out
 
 
@@ -189,6 +205,8 @@ def score_topic(topic: Topic, phase: str, answers: list[Answer], evals: list[Que
 if __name__ == "__main__":
     assert visibility_score([2, 1, 0]) == 50.0 and visibility_score([]) is None
     assert visibility_over_tries([[2, 0], [0, 0], [1, 0]]) == (25.0, [0.0, 50.0])
+    assert visibility_by_question([[2, 2, 2], [0], [1]]) == 50.0   # one vote per question
+    assert visibility_by_question([[1], []]) == 50.0 and visibility_by_question([]) is None
     assert domain_matches("https://help.notion.com/x", ["notion.com"])
     assert not domain_matches("https://notion.com.evil.net", ["notion.com"])
     assert not domain_matches("https://mynotion.com", ["notion.com"])
