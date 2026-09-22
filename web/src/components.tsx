@@ -418,13 +418,7 @@ export function Report({ run, onRescored, weightNote }: {
   const top = useRef<HTMLDivElement>(null);
   const [tab, setTabState] = useState<ReportTab>(tabFromHash);
   const [reasks, setReasks] = useState<Record<string, RetrievalRow["reask"]>>({});
-  const reasked = (probe: string, got: RetrievalRow["reask"]) => {
-    setReasks((m) => ({ ...m, [`${run.id}:${probe}`]: got }));
-    if (onRescored && run.retrieval) onRescored({
-      ...run,
-      retrieval: { ...run.retrieval, rows: run.retrieval.rows.map((x) => (x.probe_id === probe ? { ...x, reask: got } : x)) },
-    });
-  };
+  const reasked = (probe: string, got: RetrievalRow["reask"]) => setReasks((m) => ({ ...m, [`${run.id}:${probe}`]: got }));
   useEffect(() => {
     const follow = () => setTabState(tabFromHash());
     window.addEventListener("hashchange", follow);
