@@ -423,6 +423,33 @@ class RetrievalSim(BaseModel):
     skipped: list[str] = []         # plain sentences: what was not read, and why
 
 
+class MapPoint(BaseModel):
+    """One dot on the positioning map: the mean embedding of the sentences it was built from."""
+    name: str
+    kind: Literal["seen", "intended", "rival"]  # the brand as AI describes it, as its site does, a rival
+    x: float
+    y: float
+    sentences: list[str] = []            # verbatim, from the answers or the site
+    similarity: Optional[float] = None   # cosine to the brand as AI describes it; None on that point
+
+
+class PositioningMap(BaseModel):
+    """Where AI places the brand, its rivals, and where the brand aims to be (positioning.py): a
+    similarity picture in 2D, never a measurement. Moves no score."""
+    provenance: Provenance
+    model: Optional[str] = None      # the embedding model; None for the authored sample
+    # what the arrow's head is built from: the claims the customer weighted, or the site's positioning
+    aim: Literal["intended", "site"] = "site"
+    points: list[MapPoint] = []
+    x_axis: list[str] = []           # [left end, right end] in plain words; [] = unlabelled
+    y_axis: list[str] = []           # [bottom end, top end]
+    explained: Optional[float] = None  # share of the spread between the points the two axes show
+    closest: list[str] = []          # rivals nearest the brand as AI describes it, nearest first
+    toward: Optional[str] = None     # the axis end the aim lies toward, when an axis is labelled
+    reason: Optional[str] = None     # why no map was drawn
+    notes: list[str] = []            # what was left out, in plain sentences
+
+
 AuditStatus = Literal["pass", "fail", "unknown"]
 
 
@@ -510,6 +537,7 @@ class Run(BaseModel):
     win_back: list[WinBackAction] = []  # how to win it back; additive, never feeds a score
     win_back_notes: list[str] = []      # why a proposed action was dropped, or none was proposed
     retrieval: Optional[RetrievalSim] = None  # simulated retrieval and the fix re-scored; no score
+    positioning: Optional[PositioningMap] = None  # the positioning map; a picture, no score
     # The company's retrievability audit as it stood when the run started; None for replays and
     # companies onboarded before the audit existed.
     audit: Optional[SiteAudit] = None

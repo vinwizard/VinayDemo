@@ -401,6 +401,17 @@ def rescore(run: Run, weights: dict[str, float]) -> Run:
     for aid, w in weights.items():
         by_id[aid].intended_weight = round(w, 2) or None
     score_drift(run)
+    if run.positioning is not None and run.positioning.provenance == "live_api":
+        import embeddings
+        import positioning
+        try:
+            run.positioning = positioning.build(run, embed=embeddings.cached)
+        except Exception as e:
+            note = ("Not redrawn for the new weights: a text it needs was never embedded, and a re-score asks "
+                    "no model." if isinstance(e, KeyError) else "Not redrawn for the new weights.")
+            if note not in run.positioning.notes:
+                run.positioning.notes.append(note)
+            run.log.append(f"Positioning map not redrawn on re-score ({type(e).__name__}); the previous map is kept.")
     run.drift.limitations.append("Re-scored after the run with intent weights: the questions were "
                                  "planned when it was measured and were not re-asked.")
     run.log.append("Re-scored with intent weights on the saved answers; no model was asked. "
@@ -420,6 +431,7 @@ def build_gap_report(s: State):
         run.log.append(f"Action plan: {len(run.win_back)} fix(es) kept, "
                        f"{len(run.win_back_notes)} note(s) on what was dropped.")
     simulate_retrieval(run, s["provider"])
+    map_positioning(run, getattr(s["provider"], "positioning", None))
     run.status = "complete"
     run.log.append(f"Gap report built: {len(run.findings)} findings.")
     return {"run": run}
@@ -443,6 +455,23 @@ def simulate_retrieval(run: Run, provider) -> None:
                     else "Retrieval simulation") + f": {run.retrieval.passages} passages from {run.retrieval.pages} "
                    f"pages; your best passage trails the cited page on "
                    f"{sum(r.rival.score > r.yours.score for r in rows)} of {len(rows)} buyer questions.")
+
+
+def map_positioning(run: Run, build) -> None:
+    """The positioning map (positioning.py): after every score, moving none. A provider without it
+    asks nothing; a failure is stated, never fatal."""
+    if build is None:
+        return
+    try:
+        run.positioning = build(run)
+    except Exception as e:
+        run.log.append(f"Positioning map failed ({type(e).__name__}); nothing was placed.")
+        return
+    if run.positioning is not None:
+        m = run.positioning
+        run.log.append(("Positioning map sample (authored, not computed)" if m.provenance == "synthetic"
+                        else "Positioning map") + (f": {len(m.points)} points placed." if m.points
+                                                   else f": not drawn. {m.reason}"))
 
 
 def route_after_evaluate(s: State) -> str:

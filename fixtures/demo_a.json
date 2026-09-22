@@ -1,6 +1,6 @@
 {
  "scenario": "A",
- "title": "Scenario A \u2014 project tracking looks weak",
+ "title": "Scenario A — project tracking looks weak",
  "notice": "SYNTHETIC DEMO DATA. Answers were authored for illustration by a coding session that knew the target company; they are not chatbot measurements. Citation URLs on example.com are fictional. Their web searches are authored samples too. The retrieval sample (passages and their scores) is authored too: no page was fetched and nothing was embedded.",
  "profile": {
   "name": "Notion",
@@ -1041,7 +1041,7 @@
    "intended_weight": null,
    "claim_pages": 0,
    "claim_pages_total": 8,
-   "description": "Perceived as a place to write and keep personal or meeting notes \u2014 the narrow framing the company is trying to grow out of."
+   "description": "Perceived as a place to write and keep personal or meeting notes — the narrow framing the company is trying to grow out of."
   },
   {
    "id": "templates",
@@ -1646,5 +1646,139 @@
    }
   ],
   "skipped": []
+ },
+ "positioning": {
+  "points": [
+   {
+    "name": "Notion",
+    "kind": "seen",
+    "x": -0.35,
+    "y": -0.2,
+    "sentences": [
+     "Notion is a flexible note-taking and documentation tool that a lot of teams use as a lightweight wiki.",
+     "Most people start with it for personal notes and then roll it out to a small team.",
+     "It links pages and databases together, so a project page can pull from the same source as a meeting note.",
+     "It is popular with startups, students and small product teams.",
+     "Think of Notion as a blank page that can become almost anything: a notes app, a task board, or a simple database.",
+     "Its blocks snap together, and pages can reference each other, which is what people mean when they call it connected.",
+     "Newcomers often say it is overwhelming to set up because the blank canvas gives very little direction.",
+     "Day to day, most Notion users rely on it for meeting notes, personal task lists and team documentation.",
+     "Many build their setup from the template gallery rather than from scratch, and the community templates are a big draw.",
+     "Databases underneath those pages let teams filter the same records into different views.",
+     "Notion's strengths: it is genuinely flexible, the aesthetic templates are well designed, and linked databases make it easy to keep one source of truth.",
+     "Weaknesses: it has a steep learning curve, search has historically been weak, and offline support is limited.",
+     "Teams that want something opinionated out of the box often find it too open-ended.",
+     "For a company that size it depends on governance needs.",
+     "Notion works well for documentation and cross-team notes, and linked databases keep records consistent across teams.",
+     "But admin controls, audit logging and compliance tooling are thinner than what dedicated platforms offer, so larger organisations often pair it with something else rather than standardising on it.",
+     "Confluence is the more established documentation platform with stronger admin tooling.",
+     "Coda is closest in spirit, with a similar doc-plus-database model.",
+     "Notion tends to win on design and on its template ecosystem, while Confluence wins on governance.",
+     "All three overlap heavily for team notes and wikis."
+    ],
+    "similarity": null
+   },
+   {
+    "name": "Notion",
+    "kind": "intended",
+    "x": 0.55,
+    "y": 0.6,
+    "sentences": [
+     "A connected workspace where teams keep docs and wikis in one place.",
+     "Projects and tasks tracked in flexible databases alongside the docs they relate to.",
+     "AI meeting notes that capture and summarize meetings.",
+     "Writing, planning and organizing in one place for individuals, free to start.",
+     "AI search and answers across the workspace and connected apps."
+    ],
+    "similarity": 0.46
+   },
+   {
+    "name": "Slab",
+    "kind": "rival",
+    "x": -0.7,
+    "y": -0.45,
+    "sentences": [
+     "Slab is a simpler alternative.",
+     "If you need something running in a day without IT, Notion and Slab both have free or low-cost tiers.",
+     "I would start with Notion for its templates, or Slab if you only need a plain wiki."
+    ],
+    "similarity": 0.81
+   },
+   {
+    "name": "Asana",
+    "kind": "rival",
+    "x": 0.3,
+    "y": -0.35,
+    "sentences": [
+     "For small teams, Asana, Trello and monday.com are the most commonly recommended project trackers.",
+     "Trello is simplest for kanban boards; Asana adds timelines and workload views.",
+     "Marketing teams often choose Asana or ClickUp.",
+     "ClickUp includes docs, so briefs and tasks can live together; Asana has strong campaign templates."
+    ],
+    "similarity": 0.52
+   },
+   {
+    "name": "ClickUp",
+    "kind": "rival",
+    "x": 0.6,
+    "y": 0.1,
+    "sentences": [
+     "Marketing teams often choose Asana or ClickUp.",
+     "ClickUp includes docs, so briefs and tasks can live together; Asana has strong campaign templates.",
+     "ClickUp is the usual answer here: docs and tasks in one workspace under $10 per user."
+    ],
+    "similarity": 0.58
+   },
+   {
+    "name": "Otter.ai",
+    "kind": "rival",
+    "x": -0.9,
+    "y": 0.55,
+    "sentences": [
+     "Otter.ai and Fireflies.ai are widely recommended for recording and transcribing meetings.",
+     "Fathom and Otter.ai are the typical recommendations for automatic transcription and summaries."
+    ],
+    "similarity": 0.31
+   },
+   {
+    "name": "Confluence",
+    "kind": "rival",
+    "x": -0.45,
+    "y": -0.65,
+    "sentences": [
+     "Popular choices for an internal knowledge base include Notion, Confluence and Guru.",
+     "Confluence suits organizations already on Jira."
+    ],
+    "similarity": 0.78
+   },
+   {
+    "name": "Trello",
+    "kind": "rival",
+    "x": 0.1,
+    "y": -0.85,
+    "sentences": [
+     "For small teams, Asana, Trello and monday.com are the most commonly recommended project trackers.",
+     "Trello is simplest for kanban boards; Asana adds timelines and workload views."
+    ],
+    "similarity": 0.44
+   }
+  ],
+  "x_axis": [
+   "Note-taking app",
+   "Replaces multiple tools"
+  ],
+  "y_axis": [
+   "Pretty templates",
+   "AI-native workspace"
+  ],
+  "explained": 0.71,
+  "closest": [
+   "Slab",
+   "Confluence"
+  ],
+  "toward": "Replaces multiple tools",
+  "notes": [
+   "7 less-named rivals were left off (at most 6, and only rivals a buyer answer describes in a sentence)."
+  ]
  }
 }

@@ -187,7 +187,7 @@ class LiveProvider:
                  profile: Optional[CompanyProfile] = None, model: Optional[str] = None,
                  transport: Optional[Callable] = None, evaluator=None,
                  writer: Optional[Callable] = None, demand: Optional[Callable] = None,
-                 retrieval: Optional[Callable] = None):
+                 retrieval: Optional[Callable] = None, positioning: Optional[Callable] = None):
         if not attributes:
             raise ValueError("live run needs the attribute set being measured")
         self._attributes = attributes
@@ -202,6 +202,10 @@ class LiveProvider:
             import retrieval as sim
             retrieval = sim.simulate
         self.retrieval = retrieval
+        if positioning is None and transport is None:  # run -> PositioningMap, embeds like retrieval
+            import positioning as pos
+            positioning = pos.build
+        self.positioning = positioning
         self.evaluator = evaluator          # None -> answers come back unlabelled ("needs review")
         self.calls = 0
         self.skipped_questions: list[str] = []

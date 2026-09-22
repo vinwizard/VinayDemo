@@ -313,7 +313,15 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     other — `insights.source_kind`, a short site list plus the address) behind a toggle. It reuses
     the saved citations; no model call. Then **share of voice** (answers recommending the brand beside the three
     most-recommended competitors, on the buyer questions that count; a tie for first beyond those
-    three is counted in the headline, "A, B, C and 2 others 3 each"), **who AI named instead**
+    three is counted in the headline, "A, B, C and 2 others 3 each"), the **positioning map**
+    (`run.positioning`, `positioning.py`: the brand as its brand answers describe it, where it
+    wants to be (the claims weighted, by weight) or, with no weights, where its site aims (its
+    positioning points), and up to six rivals as the buyer-answer sentences naming them describe
+    them, each the mean embedding of its sentences, projected to 2D by PCA in plain Python; an axis
+    is named by the claims lining up with it, else left unnamed; an arrow is the drift, and every
+    dot opens its sentences. A similarity picture that moves no score; a re-score redraws it from
+    cached embeddings only, else keeps the old map with a note; the samples carry hand-placed
+    points, labelled as such), **who AI named instead**
     (every product named in a buyer answer that counts, beside the line that names it — the first
     three shown, the rest behind a toggle — plus the round-two comparison question) and **discovered identities** (cards that open the same claim popover).
 

@@ -1,6 +1,6 @@
 {
  "scenario": "B",
- "title": "Scenario B \u2014 personal organization looks weak",
+ "title": "Scenario B — personal organization looks weak",
  "notice": "SYNTHETIC DEMO DATA. Answers were authored for illustration by a coding session that knew the target company; they are not chatbot measurements. Citation URLs on example.com are fictional. Their web searches are authored samples too. The retrieval sample (passages and their scores) is authored too: no page was fetched and nothing was embedded.",
  "profile": {
   "name": "Notion",
@@ -1048,7 +1048,7 @@
    "intended_weight": null,
    "claim_pages": 0,
    "claim_pages_total": 8,
-   "description": "Perceived as a place to write and keep personal or meeting notes \u2014 the narrow framing the company is trying to grow out of."
+   "description": "Perceived as a place to write and keep personal or meeting notes — the narrow framing the company is trying to grow out of."
   },
   {
    "id": "project_mgmt",
@@ -1614,5 +1614,136 @@
    }
   ],
   "skipped": []
+ },
+ "positioning": {
+  "points": [
+   {
+    "name": "Notion",
+    "kind": "seen",
+    "x": 0.2,
+    "y": -0.1,
+    "sentences": [
+     "Notion is an all-in-one workspace that bundles docs, tasks and lightweight databases into a single product.",
+     "Teams adopt it to cut down the number of subscriptions they pay for.",
+     "It suits startups and mid-sized product teams.",
+     "Notion is the tool people reach for when they are tired of paying for four different apps.",
+     "It covers notes, a task board and a simple wiki in one place.",
+     "Some teams run their whole roadmap inside it as a project tracker.",
+     "Most Notion teams use it for sprint planning, task boards and status updates, with documentation alongside.",
+     "It consolidates several tools into one subscription, which is usually the reason it was adopted.",
+     "Notion's strength is breadth: one product instead of several.",
+     "Its weaknesses are performance on very large workspaces and cost, since pricing adds up once every seat is paid.",
+     "Cross-page links exist but are easy to let rot.",
+     "At 200 people the calculus changes.",
+     "Notion still replaces several smaller tools, but per-seat costs become significant and admin tooling is thin.",
+     "Many companies at that size keep it for docs and move planning elsewhere.",
+     "Confluence is stricter and better governed.",
+     "Coda is the closest competitor.",
+     "Notion is the one teams pick when they want to collapse their stack, though it can get costly for large teams as headcount grows.",
+     "Pricing tiers were reworked and the task features got more attention, so more teams now treat Notion as a project management tool rather than only a notes app.",
+     "Database relations were improved as well.",
+     "Teams consolidating a sprawl of subscriptions get the most from Notion."
+    ],
+    "similarity": null
+   },
+   {
+    "name": "Notion",
+    "kind": "intended",
+    "x": 0.7,
+    "y": 0.3,
+    "sentences": [
+     "A connected workspace where teams keep docs and wikis in one place.",
+     "Projects and tasks tracked in flexible databases alongside the docs they relate to.",
+     "AI meeting notes that capture and summarize meetings.",
+     "Writing, planning and organizing in one place for individuals, free to start.",
+     "AI search and answers across the workspace and connected apps."
+    ],
+    "similarity": 0.63
+   },
+   {
+    "name": "Guru",
+    "kind": "rival",
+    "x": -0.3,
+    "y": -0.55,
+    "sentences": [
+     "Common knowledge base tools include Confluence, Guru and Slab.",
+     "Confluence is the default for companies on Atlassian, and Guru is recommended for verified, card-based knowledge.",
+     "For a same-day setup without IT, Slab and Guru are the usual recommendations; both have guided onboarding."
+    ],
+    "similarity": 0.62
+   },
+   {
+    "name": "Slab",
+    "kind": "rival",
+    "x": -0.45,
+    "y": -0.35,
+    "sentences": [
+     "Common knowledge base tools include Confluence, Guru and Slab.",
+     "Slab is a simpler alternative.",
+     "For a same-day setup without IT, Slab and Guru are the usual recommendations; both have guided onboarding.",
+     "Slab is the easiest if you only need a plain wiki."
+    ],
+    "similarity": 0.64
+   },
+   {
+    "name": "Asana",
+    "kind": "rival",
+    "x": 0.55,
+    "y": -0.5,
+    "sentences": [
+     "For small teams, Notion, Trello and Asana are common picks.",
+     "Asana is an option if you need heavier workload management."
+    ],
+    "similarity": 0.71
+   },
+   {
+    "name": "Otter.ai",
+    "kind": "rival",
+    "x": -0.2,
+    "y": 0.75,
+    "sentences": [
+     "For capturing and sharing meeting notes, Notion is recommended if you want notes to live with your other team docs; Otter.ai is better if you mostly need raw transcripts.",
+     "Fathom and Otter.ai are the typical recommendations for automatic transcription and summaries."
+    ],
+    "similarity": 0.35
+   },
+   {
+    "name": "Obsidian",
+    "kind": "rival",
+    "x": -0.8,
+    "y": 0.1,
+    "sentences": [
+     "Evernote, Obsidian and Todoist are frequently recommended for personal organization.",
+     "Obsidian suits people who like the notion of a linked \"second brain\"; Todoist is best for to-dos.",
+     "Obsidian is the usual recommendation for offline, cross-platform personal notes at no cost; Microsoft OneNote is a free alternative."
+    ],
+    "similarity": 0.49
+   },
+   {
+    "name": "Microsoft OneNote",
+    "kind": "rival",
+    "x": -0.9,
+    "y": 0.4,
+    "sentences": [
+     "Students often use Microsoft OneNote for class notes and GoodNotes for handwritten notes on a tablet.",
+     "Obsidian is the usual recommendation for offline, cross-platform personal notes at no cost; Microsoft OneNote is a free alternative."
+    ],
+    "similarity": 0.42
+   }
+  ],
+  "x_axis": [
+   "Note-taking app",
+   "Replaces multiple tools"
+  ],
+  "y_axis": [],
+  "explained": 0.64,
+  "closest": [
+   "Asana",
+   "Slab"
+  ],
+  "toward": "Replaces multiple tools",
+  "notes": [
+   "7 less-named rivals were left off (at most 6, and only rivals a buyer answer describes in a sentence)."
+  ]
  }
 }

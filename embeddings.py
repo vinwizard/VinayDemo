@@ -44,13 +44,25 @@ def _vector(item) -> list[float]:
     return item["embedding"] if isinstance(item, dict) else item.embedding
 
 
+def _stored(keys: list[str]) -> dict[str, list[float]]:
+    if not keys:
+        return {}
+    with _cache() as c:
+        return {k: array("f", v).tolist() for k, v in c.execute(
+            f"SELECT key, v FROM vectors WHERE key IN ({','.join('?' * len(set(keys)))})", list(set(keys)))}
+
+
+def cached(texts: list[str], model: str = MODEL) -> list[list[float]]:
+    """One vector per text, in order, from the cache only: never sends a text. KeyError if one is missing."""
+    keys = [_key(model, t) for t in texts]
+    have = _stored(keys)
+    return [have[k] for k in keys]
+
+
 def embed(texts: list[str], model: str = MODEL) -> list[list[float]]:
     """One vector per text, in order. Only texts not already cached are sent."""
     keys = [_key(model, t) for t in texts]
-    with _cache() as c:
-        have = {k: array("f", v).tolist() for k, v in c.execute(
-            f"SELECT key, v FROM vectors WHERE key IN ({','.join('?' * len(set(keys)))})", list(set(keys)))} \
-            if keys else {}
+    have = _stored(keys)
     todo = list(dict.fromkeys(t for t, k in zip(texts, keys) if k not in have))
     for i in range(0, len(todo), BATCH):
         batch = todo[i:i + BATCH]
