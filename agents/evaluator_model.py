@@ -302,6 +302,10 @@ class ModelEvaluator:
             return None
         return actions
 
+    def reword(self, prompt: str) -> str:
+        """Raw rewording of real search phrases into questions; demand._reword vets every one."""
+        return self._ask(prompt)
+
     def _ask(self, prompt: str) -> str:
         self.calls += 1
         return self._transport(prompt, self.model, self.timeout)

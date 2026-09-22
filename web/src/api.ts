@@ -97,6 +97,17 @@ export interface Topic {
   fit: string;
 }
 
+/** Where a buyer question came from when it is a real search, not one AI wrote. */
+export interface Demand {
+  /** The real search it was built from, verbatim. */
+  phrase: string;
+  source: "autocomplete" | "reddit";
+  /** The model reworded the search into this question. */
+  rewritten: boolean;
+  /** Every real phrasing grouped with it, the phrase included. */
+  phrasings: { text: string; source: "autocomplete" | "reddit" }[];
+}
+
 export interface Probe {
   id: string;
   topic_id: string;
@@ -104,6 +115,7 @@ export interface Probe {
   kind: "blind" | "named";
   phase: string;
   purpose: string;
+  demand?: Demand | null;
 }
 
 export interface Answer {
@@ -164,6 +176,8 @@ export interface Run {
   profile: { name: string; domain: string; logo_url?: string | null; core_category?: string | null };
   topics: Topic[];
   probes: Probe[];
+  /** Per front: how many buyer questions are real searches, or why none are. Absent before grounding. */
+  demand_notes?: string[];
   answers: Answer[];
   evaluations: QueryEvaluation[];
   /** Buyer questions asked again (try 2 onward); absent on runs saved before repeats. */

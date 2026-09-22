@@ -1,0 +1,10 @@
+{
+ "_note": "AUTHORED, not recorded: Reddit's public search JSON returned HTTP 403 to this client when the demand harvester was built. Same listing shape (data.children[].data.title) as reddit.com/search.json, titles written for the test.",
+ "kind": "Listing",
+ "data": {"children": [
+  {"kind": "t3", "data": {"title": "Which project management software do you actually use for a small team?"}},
+  {"kind": "t3", "data": {"title": "We switched project management software and here is our story"}},
+  {"kind": "t3", "data": {"title": "Is there free project management software that isn't terrible?"}},
+  {"kind": "t3", "data": {"title": "What gardening gloves do you recommend?"}}
+ ]}
+}

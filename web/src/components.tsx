@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { KeyboardEvent, ReactNode } from "react";
-import type { Answer, AttributeScore, DriftReport, Probe, QueryEvaluation, Run, WinBackAction, RunSummary, VisibilitySet, Zone } from "./api";
+import type { Answer, AttributeScore, Demand, DriftReport, Probe, QueryEvaluation, Run, WinBackAction, RunSummary, VisibilitySet, Zone } from "./api";
 import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_ORDER, ZONES, rescoreRun } from "./api";
 import { ADDED_MIN_WEIGHT, Slider } from "./claims";
 import {
@@ -1050,6 +1050,35 @@ function CitedSources({ run }: { run: Run }) {
   );
 }
 
+const SOURCE = { autocomplete: "Google", reddit: "Reddit" } as const;
+
+/** "real demand · Google": the question is a real search; the popover lists its group's phrasings. */
+function DemandBadge({ d }: { d: Demand }) {
+  const n = d.phrasings.length;
+  return (
+    // inside a <summary>: a tap on the badge opens the popover, not the answer
+    <span className="demand" onClick={(e) => e.preventDefault()}>
+      <Popover label="Real demand" className="demand-badge" trigger={<>real demand · {SOURCE[d.source]}</>}>
+        <strong className="pop-title">{GLOSSARY.real_demand.term}</strong>
+        <p>
+          {d.rewritten
+            ? <>People search “{d.phrase}” on {SOURCE[d.source]}. AI only reworded it into a question.</>
+            : <>People {d.source === "reddit" ? "ask exactly this on Reddit" : "search exactly this on Google"}.</>}
+        </p>
+        {n > 1 && (
+          <>
+            <p className="muted">{n} real searches that mean the same, grouped together:</p>
+            <ul className="demand-list">
+              {d.phrasings.map((ph) => <li key={ph.text}>{ph.text} <span className="muted">· {SOURCE[ph.source]}</span></li>)}
+            </ul>
+          </>
+        )}
+        <p className="muted">This shows the question is real, not how often it is searched.</p>
+      </Popover>
+    </span>
+  );
+}
+
 /** One question as a compact row; opening it shows the full answer and what the scorer made of it. */
 function QuestionRow({ p, name, answer, verdict, tags, note, replay, after }: {
   p: Probe; name: string; answer?: Answer; verdict?: ReactNode; tags?: ReactNode; note?: ReactNode;
@@ -1059,7 +1088,7 @@ function QuestionRow({ p, name, answer, verdict, tags, note, replay, after }: {
     <details className="qrow">
       <summary>
         <span className="muted" title={p.id}>{name}</span>
-        <span className="qrow-text">{p.text}</span>
+        <span className="qrow-text">{p.text}{p.demand && <DemandBadge d={p.demand} />}</span>
         {verdict}
       </summary>
       <div className="qrow-body">
@@ -1086,6 +1115,7 @@ function BuyerQuestions({ run }: { run: Run }) {
   const base = run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline");
   const follow = run.probes.filter((p) => p.kind === "blind" && p.phase === "followup");
   const control = run.probes.find((p) => p.phase === "control");
+  const realAsked = base.filter((p) => p.demand).length;
   const tries = d?.tries ?? 1;
   // Every try of one question, first try first: [answer, evaluation] pairs.
   const repeatAnswers = new Map((run.repeat_answers ?? []).map((a) => [`${a.probe_id}#${a.try_no}`, a]));
@@ -1163,6 +1193,13 @@ function BuyerQuestions({ run }: { run: Run }) {
               + ` context: buyer visibility is the average of the ${tries} tries, shown with its range.`
             : replay ? " A sample run replays one authored answer per question: 1 try." : " Each was asked once."}
         </p>
+        {(realAsked > 0 || !!run.demand_notes?.length) && (
+          <p style={{ margin: 0 }}>
+            {realAsked ? `${realAsked} of ${base.length} are ` : "None of them are "}
+            <Term k="real_demand" note={run.demand_notes?.join(" ")}>real searches</Term>
+            {realAsked ? (realAsked < base.length ? "; AI wrote the rest." : ".") : ": AI wrote them all."}
+          </p>
+        )}
         {fronts.length > 0 && d && gapSentence(d, brand) && <p style={{ margin: 0 }}>{gapSentence(d, brand)}</p>}
         {!fronts.length && vis != null && (
           <p style={{ margin: 0 }}>
