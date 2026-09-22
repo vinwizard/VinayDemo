@@ -1,8 +1,9 @@
-"""/admin: the owner's page for access passes. Server-rendered forms, no JavaScript.
+"""/admin: the owner's page for access passes. Server-rendered forms; the only script is the copy button.
 
 Behind ADMIN_PASSWORD (constant-time compare, rate-limited) and a signed admin cookie that is
-SameSite=Strict, so another site cannot post these forms with it. A new link is shown once, in the
-response to the POST that made it, and never stored: only its hash is.
+SameSite=Strict, so another site cannot post these forms with it. Each pass's current link is shown
+in its row with a copy button; a pass whose code was stored only hashed (before codes were kept)
+says so and needs a regenerate. A red banner shows when the pass database is not on a persistent disk.
 """
 from html import escape
 from typing import Optional
@@ -39,6 +40,7 @@ button { font: inherit; padding: 4px 10px; border-radius: 4px; border: 1px solid
          background: var(--accent); color: var(--on-accent); cursor: pointer; }
 button.quiet { background: transparent; color: var(--accent); }
 button.danger { border-color: var(--warn); background: transparent; color: var(--warn); }
+.alert { border-color: var(--warn); color: var(--warn); }
 .link { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all;
         user-select: all; padding: 8px; border: 1px dashed var(--accent); border-radius: 4px; }
 """
@@ -67,7 +69,24 @@ def action(pass_id: str, name: str, label: str, css: str = "quiet", extra: str =
             f"<input type=hidden name=do value={name}>{extra}<button class={css}>{label}</button></form>")
 
 
-def dashboard(new_link: Optional[tuple[str, str]] = None, note: str = "") -> HTMLResponse:
+def link_cell(p: dict, base: str) -> str:
+    if p["revoked"] or not p["code_hash"]:
+        return ""
+    if not p["code"]:
+        return "<div class=muted>link hidden - regenerate to see it</div>"
+    url = escape(f"{base}/?pass={p['code']}")
+    return (f"<div class=link>{url}</div><button class=quiet type=button "
+            f"onclick=\"navigator.clipboard.writeText(this.previousElementSibling.textContent)"
+            f".then(() => this.textContent = 'Copied')\">Copy link</button>")
+
+
+def dashboard(request: Request, note: str = "") -> HTMLResponse:
+    base = f"{request.headers.get('x-forwarded-proto', request.url.scheme)}://{request.headers.get('host', request.url.netloc)}"
+    store = access.storage()
+    alert = ("" if store["persistent"] else
+             f"<div class='card alert'><strong>Passes are not on a persistent disk — the next deploy will "
+             f"delete every pass, link and spend record.</strong><p>{escape(store['reason'])} "
+             f"{escape(access.STORAGE_FIX)}</p></div>")
     rows = []
     for p in access.all_passes():
         state = ("<span class=warn>revoked</span>" if p["revoked"]
@@ -77,23 +96,17 @@ def dashboard(new_link: Optional[tuple[str, str]] = None, note: str = "") -> HTM
         cap = f"<input type=number name=cap min=0 step=0.5 value='{p['cap_usd']:g}' aria-label='New cap'>"
         rows.append(
             f"<tr><td><strong>{escape(p['label'])}</strong><div class=muted>{escape(p['id'])}</div></td>"
-            f"<td>{state}</td><td>${p['spent_usd']:.2f} of ${p['cap_usd']:.2f}</td>"
+            f"<td>{state}{link_cell(p, base)}</td><td>${p['spent_usd']:.2f} of ${p['cap_usd']:.2f}</td>"
             f"<td>{runs}<div class=muted>{companies}</div></td>"
             f"<td>{when(p['first_visit'])}</td><td>{when(p['last_visit'])}</td><td>"
             + action(p["id"], "link", "Regenerate link" if p["code_hash"] else "Generate link", "")
             + action(p["id"], "cap", "Set cap", extra=cap)
             + ("" if p["revoked"] or not p["code_hash"] else action(p["id"], "revoke", "Revoke", "danger"))
             + "</td></tr>")
-    banner = ""
-    if new_link:
-        label, url = new_link
-        banner = (f"<div class=card><p>Personal link for <strong>{escape(label)}</strong> — copy it now, "
-                  f"it is not shown again. Any earlier link for this pass has stopped working.</p>"
-                  f"<div class=link>{escape(url)}</div></div>")
     visits = "".join(f"<tr><td>{when(v['at'])}</td><td>{escape(v['label'])}</td><td>{escape(v['event'])}</td></tr>"
                      for v in access.recent_visits())
     return page(
-        banner + (f"<p class=warn>{escape(note)}</p>" if note else "")
+        alert + (f"<p class=warn>{escape(note)}</p>" if note else "")
         + "<div class=card><table><tr><th>Pass</th><th>Link</th><th>Spent</th><th>Runs · companies</th>"
           "<th>First visit</th><th>Last visit</th><th></th></tr>" + "".join(rows) + "</table></div>"
         + "<div class=card><h2>New pass</h2><form method=post action=/admin/action>"
@@ -115,7 +128,7 @@ def signed_in(request: Request) -> bool:
 
 @router.get("/admin", response_class=HTMLResponse)
 def admin(request: Request):
-    return dashboard() if signed_in(request) else login_page()
+    return dashboard(request) if signed_in(request) else login_page()
 
 
 @router.post("/admin/login")
@@ -153,20 +166,18 @@ async def act(request: Request):
     if do == "create":
         label, cap = f.get("label", "").strip()[:80], cap_value(f.get("cap"))
         if not label or cap is None:
-            return dashboard(note="A pass needs a name and a cap between $0 and $1000.")
+            return dashboard(request, note="A pass needs a name and a cap between $0 and $1000.")
         pass_id = access.create_pass(label, cap)
         do = "link"                      # a new pass is only useful with its link
     p = access.get_pass(pass_id)
     if p is None:
-        return dashboard(note="No such pass.")
-    if do == "link":
-        code = access.issue_code(pass_id)
-        base = f"{request.headers.get('x-forwarded-proto', request.url.scheme)}://{request.headers.get('host', request.url.netloc)}"
-        return dashboard(new_link=(p["label"], f"{base}/?pass={code}"))
-    if do == "cap":
+        return dashboard(request, note="No such pass.")
+    if do == "link":                     # the old link and its sessions stop working
+        access.issue_code(pass_id)
+    elif do == "cap":
         cap = cap_value(f.get("cap"))
         if cap is None:
-            return dashboard(note="A cap is a number of dollars between 0 and 1000.")
+            return dashboard(request, note="A cap is a number of dollars between 0 and 1000.")
         access.set_cap(pass_id, cap)
     elif do == "revoke":
         access.revoke(pass_id)

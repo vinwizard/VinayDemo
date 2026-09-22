@@ -193,13 +193,15 @@ estimate, never zero. A run or onboarding that reaches the cap stops with a mess
 
 - **Admin**: `<site>/admin`, behind `ADMIN_PASSWORD`. It lists every pass — spent against cap, runs and
   companies, first and last visit — and a log of recent visits (pass name, event, time; no IP
-  address). Create a pass with a name and cap, **Generate link** (shown once; copy it then),
-  **Regenerate link** (the old link and every session opened with it stop working), **Set cap** to top
-  up, **Revoke** to switch a pass off.
+  address). Create a pass with a name and cap, **Generate link** (the link stays in its row with a
+  **Copy link** button), **Regenerate link** (the old link and every session opened with it stop
+  working), **Set cap** to top up, **Revoke** to switch a pass off. A pass made before links were kept
+  shows "link hidden - regenerate to see it".
 - **Names**: [`passes.json`](passes.json) seeds `person 1` … `person 5` at $5 each. Edit a `label` there
   and redeploy to rename someone; keep the `id`. A file's cap applies only when its pass is first
-  created — after that the admin page owns the cap. Codes are never in the repo, only their hashes on
-  the disk.
+  created — after that the admin page owns the cap. Seeding never deletes or resets a pass, so one
+  made in the admin page survives restarts like a seeded one. Codes are never in the repo, only in
+  the pass database on the disk.
 - **Contact**: visitors without a pass, pass holders and a capped pass are all told to email
   `CONTACT_EMAIL` (default in [`access.py`](access.py)) for a link or a higher cap.
 
@@ -212,7 +214,11 @@ estimate, never zero. A run or onboarding that reaches the cap stops with a mess
    passes, spend, the visit log, runs and companies survive a redeploy. A disk needs a paid instance
    (`plan: starter`), and a service with a disk cannot scale past one instance, which is what the pass
    database expects.
-5. Open `<site>/admin`, sign in, and **Generate link** for each person.
+5. **Check your storage**: `<site>/api/health` must show `"storage": {"persistent": true, ...}`. If it
+   is `false`, the admin page shows a red banner (and the startup log a warning) saying why: passes
+   then vanish on the next deploy. Fix it by giving the service a disk (Settings → Disks) and setting
+   `DATA_DIR` to exactly that disk's mount path, e.g. `/var/data`.
+6. Open `<site>/admin`, sign in, and **Generate link** for each person.
 
 Use a **separate OpenAI key for this demo**, in its own OpenAI project with a monthly budget set, as
 a backstop: the caps here are enforced by this app, and a budget on the key holds even if something

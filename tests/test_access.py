@@ -124,19 +124,70 @@ def test_admin_needs_the_password_and_is_rate_limited(env):
     assert c.post("/admin/login", data={"password": "hunter2-long-password"}).status_code == 429
 
 
-def test_admin_creates_a_pass_shows_its_link_once_and_tops_up(env):
+def admin():
     c = browser()
     assert c.post("/admin/login", data={"password": "hunter2-long-password"}).status_code == 200
+    return c
+
+
+def test_admin_creates_a_pass_keeps_showing_its_link_and_tops_up(env):
+    c = admin()
     page = c.post("/admin/action", data={"do": "create", "label": "Ada", "cap": "10"}).text
     code = page.split("/?pass=")[1].split("<")[0]
     ada = next(p for p in access.all_passes() if p["label"] == "Ada")
-    assert ada["cap_usd"] == 10 and ada["code_hash"] == access._hash(code) and code not in c.get("/admin").text
+    assert ada["cap_usd"] == 10 and ada["code_hash"] == access._hash(code)
+    assert f"https://testserver/?pass={code}" in c.get("/admin").text and "Copy link" in c.get("/admin").text
     assert browser().post("/api/access/exchange", json={"code": code}).status_code == 200
     c.post("/admin/action", data={"do": "cap", "pass_id": ada["id"], "cap": "12.5"})
     c.post("/admin/action", data={"do": "revoke", "pass_id": "person-2"})
     passes = {p["id"]: p for p in access.all_passes()}
     assert passes[ada["id"]]["cap_usd"] == 12.5 and passes["person-2"]["revoked"] == 1
     assert "opened link" in c.get("/admin").text
+
+
+def test_regenerate_replaces_the_shown_link_and_a_hash_only_pass_says_regenerate(env):
+    c, old, _ = with_pass()
+    page = admin().post("/admin/action", data={"do": "link", "pass_id": "person-1"}).text
+    new = page.split("/?pass=")[1].split("<")[0]
+    assert new != old and old not in page and c.get("/api/access").json()["pass"] is None
+    assert browser().post("/api/access/exchange", json={"code": new}).status_code == 200
+    with access.db() as db:                          # a pass made before codes were kept
+        db.execute("UPDATE passes SET code = NULL WHERE id = 'person-1'")
+    assert "link hidden - regenerate to see it" in admin().get("/admin").text
+
+
+def test_seeding_on_start_never_touches_admin_made_passes_their_spend_or_links(env, monkeypatch):
+    c = admin()
+    c.post("/admin/action", data={"do": "create", "label": "test", "cap": "7"})
+    mine = next(p for p in access.all_passes() if p["label"] == "test")
+    access.issue_code("person-1")
+    access.set_cap("person-1", 9)
+    monkeypatch.setattr(access, "_create", lambda timeout, **kw: {"usage": USAGE, "output": []})
+    with access.spending(mine["id"]):
+        access.openai_response(30, model="gpt-4o-mini", input="hi")
+    before = {p["id"]: p for p in access.all_passes()}
+    access.seed_passes()
+    access.seed_passes()
+    assert {p["id"]: p for p in access.all_passes()} == before
+    assert before[mine["id"]]["code"] and before[mine["id"]]["spent_usd"] > 0
+
+
+def test_storage_is_persistent_only_on_a_writable_mounted_disk(env, monkeypatch, tmp_path):
+    disk = tmp_path / "disk"
+    disk.mkdir()
+    monkeypatch.delenv("DATA_DIR", raising=False)
+    assert "DATA_DIR is not set" in access.storage()["reason"]
+    monkeypatch.setenv("DATA_DIR", str(disk / "data"))
+    monkeypatch.setattr(access.os.path, "ismount", lambda p: False)
+    assert not access.storage()["persistent"] and "not on a mounted disk" in access.storage()["reason"]
+    page = admin().get("/admin").text
+    assert "not on a persistent disk" in page and "set DATA_DIR to exactly that mount path" in page
+    monkeypatch.setattr(access.os.path, "ismount", lambda p: str(p) == str(disk))  # a parent is the mount
+    assert access.storage()["persistent"]
+    assert browser().get("/api/health").json()["storage"]["persistent"] is True
+    assert "not on a persistent disk" not in admin().get("/admin").text
+    monkeypatch.setattr(access.os, "access", lambda p, mode: False)
+    assert "not writable" in access.storage()["reason"]
 
 
 # --- metering -------------------------------------------------------------------------------------
