@@ -187,13 +187,25 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   Below it, five tabs with counts (`role=tablist`, arrow keys, Home/End; the tab is kept in the URL
   hash, so `#report-buyer` opens Buyer questions; on a phone the strip scrolls sideways):
   - **Overview** — where the answers came from (measured live with the model, or the SYNTHETIC
-    DEMO banner for a replayed run), what the figures mean, a legend counting each zone in
-    opportunity wording, then every claim as a card (zone, a bar of how AI raises it, site share
-    and AI share). A card opens the **claim drawer** — a native modal dialog (Esc, backdrop or ✕
-    closes it; full screen on a phone): the site's verbatim quotes, what AI said with each
-    question's full answer, limitations, and the claim's win-back fix (only while it is a claim to win back or amplify). Then the optional
-    **weights** block, which calls `POST /api/runs/{id}/rescore` (no new AI calls; a 409 is shown
-    in the server's words), and the limitations and workflow log.
+    DEMO banner for a replayed run), what the figures mean, then one **chip per zone** with its
+    count (an empty zone is greyed). Hovering, tapping or focusing a chip opens a popover listing
+    that zone's claims — site share, AI share, the AI's own words, the questions that raised it,
+    the site's verbatim quotes and, while it is a claim to win back or amplify, its fix — scrolling
+    when there are many. When brand answers were left out, a plain-words box says how many the
+    headline rests on, why each was left out (mirroring `scoring.eligible`) and that this can only
+    flatter the score. Then the optional **weights** block, which calls `POST /api/runs/{id}/rescore`
+    (no new AI calls; a 409 is shown in the server's words), and **How we checked this report**:
+    counts derived from `drift.limitations` (answers counted and left out, answer readings dropped
+    and why, possible new traits kept and rejected, sample size), each list behind
+    a toggle. The workflow log is not on the page; it is in the run's JSON download.
+
+    One popover (`web/src/popover.tsx`) serves every in-place explanation: any "Brand question 2"
+    or "Buyer question 7" reference opens the question, whether it counted and the AI's answer,
+    with a link to its tab; every term the product invented (zone names, brand and buyer question,
+    untapped potential, buyer visibility, tries, low confidence…) has a dotted underline or ⓘ that
+    opens its definition from `web/src/glossary.ts`, the one place those definitions live. Hover
+    opens it on a desktop, a tap pins it, Enter moves focus into it, Esc closes it; on a phone it is
+    a bottom sheet.
   - **Win it back** — the action plan (per claim to win back or amplify, the page of theirs to
     change, a suggested rewrite and the buyer questions that did not recommend them which it should
     help with — one evaluator-model call at the end of a live run over the saved answers and pages,
@@ -212,7 +224,7 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     most-recommended competitors, on the buyer questions that count; a tie for first beyond those
     three is counted in the headline, "A, B, C and 2 others 3 each"), **who AI named instead**
     (every product named in a buyer answer that counts, beside the line that names it — the first
-    three shown, the rest behind a toggle — plus the round-two comparison question) and **discovered identities** (cards that open the same drawer).
+    three shown, the rest behind a toggle — plus the round-two comparison question) and **discovered identities** (cards that open the same claim popover).
 
   Every n/a shows the server's reason from `na_reasons`. Two lenses: with
   no weight set the report reads through the **claim lens** — buyer questions go to the claims

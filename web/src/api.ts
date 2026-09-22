@@ -102,6 +102,8 @@ export interface QueryEvaluation {
   negative_mention: boolean;
   competitor_recommendations: string[];
   explanation: string;
+  /** The validator's notes, e.g. "Off-topic answer." */
+  warnings?: string[];
   try_no?: number;
 }
 
