@@ -146,7 +146,7 @@ def test_a_shell_that_loads_its_code_from_script_files_is_script_only(monkeypatc
     result = audit.run(company())
     assert {c.key: c for c in result.site}["no_js"].status == "fail"
     gone = checks(result.claims[2])
-    assert "/app is mostly script" in gone["raw_text"].detail
+    assert "/app is a near-empty shell" in gone["raw_text"].detail
 
 
 def test_a_claim_on_several_pages_passes_on_the_readable_one_and_lists_the_blocked_one(monkeypatch):
@@ -173,3 +173,9 @@ def test_headings_pass_without_question_subheadings_and_questions_are_only_advic
     assert any("question" in a for a in advice)
     no_sub = audit.Page("https://www.acme.example/", html="<h1>Acme</h1><p>x</p>", seconds=0.2)
     assert {c.key: c for c in audit.page_checks(no_sub)}["headings"].status == "fail"
+
+
+def test_a_short_server_rendered_page_with_an_analytics_tag_is_not_script_only(monkeypatch):
+    monkeypatch.setattr(audit, "get", recorded({**SITE, "https://www.acme.example/app": rec("contact.html")}))
+    result = audit.run(company())
+    assert {c.key: c for c in result.site}["no_js"].status == "pass"

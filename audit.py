@@ -2,14 +2,14 @@
 
 Retrievability: for every claim onboarding kept, every page that still states it is checked the
 way an AI crawler meets it. The claim is checked on the first of them AI can read (robots.txt lets
-the AI crawlers in and the page is not mostly script) — are the claim's words in the plain HTML,
+the AI crawlers in and the page is not an empty script shell) — are the claim's words in the plain HTML,
 does the page carry schema.org structured data, a main heading and subheadings, and does it load in
 time; every other page that states it but is blocked or script-only is listed as advice. Site-wide:
-an llms.txt, and pages that are mostly script.
+an llms.txt, and pages that are empty shells filled in by script.
 
 The onboarding crawler (fetching.py) already reads raw HTML and never runs JavaScript, so every quote
 it verified was in the no-JS HTML by construction. The JavaScript check therefore asks whether the
-words are still there now, and flags pages whose visible text is thin next to their script.
+words are still there now, and flags near-empty pages that rely on script to fill them in.
 
 Entity grounding: Wikidata and Wikipedia through their public APIs (searched by brand name, tied to
 the company only by Wikidata's official-website link to its domain), plus the Crunchbase, G2 and
@@ -34,7 +34,7 @@ from schemas import AuditCheck, ClaimAudit, Company, EntitySource, SiteAudit
 
 TIMEOUT = 5
 SLOW_SECONDS = 3.0
-THIN_TEXT = 500          # visible characters below which a script-heavy page reads as empty
+THIN_TEXT = 100          # visible characters below which a page that relies on script is an empty shell
 AI_CRAWLERS = ("GPTBot", "OAI-SearchBot", "ChatGPT-User", "PerplexityBot", "ClaudeBot", "Google-Extended")
 OUR_AGENT = fetching.USER_AGENT.split("/")[0]
 WIKIDATA = "https://www.wikidata.org/w/api.php?"
@@ -235,13 +235,13 @@ def claim_audit(attr, pages: list[Page], robots) -> ClaimAudit:
             if p is not page and (bots := blocked_for(p.url, robots)):
                 out.advice.append(f"It is also on {_path(p.url)}, but robots.txt blocks {_join(bots)} there.")
             if p is not page and p.thin:
-                out.advice.append(f"It is also on {_path(p.url)}, but that page is mostly script, so AI "
-                                  "crawlers that skip scripts see little else on it.")
+                out.advice.append(f"It is also on {_path(p.url)}, but that page is a near-empty shell "
+                                  "filled in by JavaScript, so AI crawlers that skip scripts see little else on it.")
         if page.markup.h1 and page.markup.subheads and not any(h.endswith("?") for h in page.markup.subheads):
             out.advice.append("Try phrasing a subheading as the question a buyer would ask, like “How does it "
                               "work?”: AI answers questions, and a question-shaped heading marks the passage "
                               "that answers it.")
-        note = " Most of that page is script, though, so little else on it reaches AI." if page.thin else ""
+        note = " The rest of that page is filled in by JavaScript, though, so little else on it reaches AI." if page.thin else ""
         out.checks = [crawler_check(page.url, robots),
                       AuditCheck(key="raw_text", status="pass",
                                  detail="Its words are in the page's plain HTML, so AI that does not run "
@@ -254,7 +254,7 @@ def claim_audit(attr, pages: list[Page], robots) -> ClaimAudit:
     elif thin := [p for p in read if p.thin]:
         raw = AuditCheck(key="raw_text", status="fail",
                          detail=f"Its words are no longer in the plain HTML of any page we read, and "
-                                f"{_join([_path(p.url) for p in thin])} is mostly script, so the copy may now "
+                                f"{_join([_path(p.url) for p in thin])} is a near-empty shell filled in by script, so the copy may now "
                                 "appear only after JavaScript runs, which most AI crawlers never do.")
     else:
         raw = AuditCheck(key="raw_text", status="fail",
@@ -289,8 +289,8 @@ def no_js_check(pages: list[Page]) -> AuditCheck:
     if thin := [p for p in read if p.thin]:
         return AuditCheck(key="no_js", status="fail",
                           detail=f"{_join([_path(p.url) for p in thin])} shows under {THIN_TEXT} characters of "
-                                 "text without JavaScript, next to more script than text; AI crawlers that "
-                                 "skip scripts see a near-empty page.")
+                                 "text without JavaScript and relies on script to fill it in; AI crawlers "
+                                 "that skip scripts see a near-empty page.")
     return AuditCheck(key="no_js", status="pass",
                       detail=f"All {len(read)} page{'' if len(read) == 1 else 's'} we read show their text "
                              "without JavaScript.")

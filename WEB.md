@@ -237,7 +237,7 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     red/green mark per check for each claim's page (AI crawlers, text without JavaScript,
     structured data, headings, speed; a claim that passes all five is one green mark). The page
     checked is the first that states the claim and AI can read; any other page that states it but
-    blocks an AI crawler or is mostly script is listed under the claim as advice ("It is also on
+    blocks an AI crawler or is an empty script shell is listed under the claim as advice ("It is also on
     /pricing, but robots.txt blocks GPTBot there"), never as a failure. Headings pass on a main
     heading plus subheadings; phrasing one as a buyer's question is advice too. Then the whole site
     (llms.txt, pages without JavaScript) and **where AI gets its facts** (Wikipedia, Wikidata,
@@ -247,8 +247,8 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     is "not checked", with a one-tap search link to look by hand. It is the audit the run carried; runs from before it
     say so. The same section, closed, sits on the claims step with **Check again**. The onboarding
     crawler never ran JavaScript, so a quote it kept was in the plain HTML by construction: the
-    JavaScript mark says whether it still is, and pages with little text next to their script, or
-    that load their code from script files, are flagged.
+    JavaScript mark says whether it still is, and near-empty shells (under 100 characters of text,
+    filled in by inline script or script files) are flagged; a short page with an analytics tag is not.
   - **Buyer questions** and **Brand questions** — one compact row per question with its verdict
     ("recommended you", "did not name you yet", the claims it raised; with several tries, "named in
     2 of 3 tries"); a row opens to the full answer (every try's, for a buyer question) and the scorer's
