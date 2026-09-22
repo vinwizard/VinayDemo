@@ -52,9 +52,10 @@ FALLBACK_TOOL = {"type": "web_search"}
 # The record of the most recent successful `preflight`, for /api/health and status() only: the
 # step-down reason, in words safe to show, and whether any web_search tool is sent at all. A run
 # never reads it back — it uses the `Resolved` its own preflight returned, so a concurrent run's
-# preflight cannot retarget it. `_search` False is the last resort: the fallback model would not take the tool either, so answers
-# come back ungrounded and are excluded from the scores, which the report says plainly. No third
-# model is tried — quietly measuring something nobody chose would be worse than measuring nothing.
+# preflight cannot retarget it. `_search` False is the last resort: the fallback model would not
+# take the tool either, so answers come back ungrounded and are excluded from the scores, which the
+# report says plainly. No third model is tried — quietly measuring something nobody chose would be
+# worse than measuring nothing.
 _fallback: Optional[str] = None
 _search: bool = True
 # The buyer budget, spent on distinct questions rather than repeats. Re-asking one question moves

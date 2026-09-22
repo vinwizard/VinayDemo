@@ -74,8 +74,8 @@ Everything else has a working default. The full list, and what each one changes:
 
 `MEASURED_MODEL` replaced `LIVE_MODEL`, which is no longer read: an old `.env` that still pins
 `LIVE_MODEL=gpt-4o-mini` would otherwise have kept the model that named obscure tools for a category
-leader's own category. Every live report names both models ("answered by gpt-5.6-luna, judged by
-gpt-6-luna"); `/api/health` reports `measured_model`, `evaluator_model`, `forced_search`,
+leader's own category. Every live report names both models ("answered by gpt-6-luna, judged by
+gpt-4.1-mini"); `/api/health` reports `measured_model`, `evaluator_model`, `forced_search`,
 `buyer_questions`, `repeat_sample` and `buyer_tries`, plus `configured_measured_model`,
 `search_mode` and `model_fallback` when a step-down happened.
 
@@ -137,8 +137,9 @@ a run tries, in order: the configured model with `external_web_access`; then `li
 (`gpt-5-nano`) with plain `web_search`; then `gpt-5-nano` with **no tool at all**, where every answer
 comes back ungrounded and is excluded from the scores. Only a 400 steps down — that means the model
 or the tool shape was not accepted, not that the key, account or network is wrong. There is no third
-model: substituting one nobody chose would be a quieter failure than measuring nothing. Wherever it
-lands applies to the judge too, since both default to the same model. `/api/health` reports
+model: substituting one nobody chose would be a quieter failure than measuring nothing. The judge
+follows it only when the judge is on the refused model — by default it is, since both default to
+gpt-6-luna; a judge set separately is kept. `/api/health` reports
 `measured_model`, `evaluator_model`, `configured_measured_model`, `search_mode` and
 `model_fallback`, and the reason appears in the run log and the report's limitations.
 
