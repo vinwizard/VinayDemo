@@ -296,7 +296,9 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   today") — buyer visibility (on a live run, side by side: **Where AI places you** and **Where you
   aim to be**, each with its category, range, 95% confidence interval and any low-confidence badge, then
   one plain gap sentence ending in whether the gap is real), the count of claims to win back, and **Download summary (PDF)**.
-  Below it, five tabs with counts (`role=tablist`, arrow keys, Home/End; the tab is kept in the URL
+  Below it, five tabs, each badge saying what it counts in words ("3 claims", "31 questions") and
+  never a bare 0 (`web/src/badge.ts`: a tick where nothing is left to fix, else no badge;
+  `role=tablist`, arrow keys, Home/End; the tab is kept in the URL
   hash, so `#report-questions` opens Questions we asked AI, and the old `#report-buyer` and
   `#report-brand` links land there too; on a phone the strip scrolls sideways):
   - **Overview** — where the answers came from (measured live with the model, or the SYNTHETIC
@@ -319,12 +321,14 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     opens its definition from `web/src/glossary.ts`, the one place those definitions live. Hover
     opens it on a desktop, a tap pins it, Enter moves focus into it, Esc closes it; on a phone it is
     a bottom sheet.
-  - **Win it back** — the action plan (per claim to win back or amplify, the page of theirs to
+  - **Quick wins** (the tab once called Win it back; its badge and the pinned figure count the
+    claims with room to grow: claims to win back plus claims to amplify) — the action plan (per claim, the page of theirs to
     change, a suggested rewrite and the buyer questions that did not recommend them which it should
     help with — one evaluator-model call at the end of a live run over the saved answers and pages,
     authored and labelled sample in replay; `agents/win_back.py` drops any action whose page was
     not read, whose replaced copy is not verbatim on it, whose rewrite is marketing language, or
-    whose question was not asked, and says why; it moves no number), then "where the upside is"
+    whose question was not asked, and says why in a plain sentence under "Suggestions we could not
+    confirm"; it moves no number), then "where the upside is"
     cards for the biggest open claims.
   - **Questions we asked AI** — second, because the questions are the evidence for every number:
     the **unbranded questions** (the code's buyer questions) and **branded questions** (its brand
@@ -366,7 +370,7 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     5 s timeouts) are split into 80–150-word passages on heading and paragraph boundaries, embedded
     with `text-embedding-3-small` (`embeddings.py`: metered, cached on disk by text hash) and scored
     by cosine similarity against the question and its fan-out searches. Per question: your best
-    passage, the best passage of a page AI cited, and — where a "Win it back" fix targets the
+    passage, the best passage of a page AI cited, and — where a "Quick wins" fix targets the
     question — the rewrite spliced into its page (in place of the copy it replaces, else as a new
     passage) and scored again; tap a row for the passages. Every number is labelled a
     **retrieval score**, a similarity-based simulation, never a guarantee of citation, and moves no

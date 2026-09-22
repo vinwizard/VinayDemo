@@ -49,9 +49,10 @@ def test_unverifiable_actions_are_dropped_with_a_reason():
     ], run)
     assert [(k.attribute_id, k.question_ids) for k in kept] == [("ai_native", ["mtg-3"])]
     text = " | ".join(dropped)
-    for reason in ("not a claim to win back", "not among the pages read", "not on https://",
-                   "marketing language", "over 60 words", "'zz-9' is not an unbranded question",
-                   "already recommending you", "second action"):
+    for reason in ("not one of this run's claims with room to grow", "a page we did not read",
+                   "is not on https://", "marketing words", "longer than 60 words",
+                   "cited zz-9, which is not an unbranded question", "already recommending you",
+                   "a second suggestion"):
         assert reason in text
 
 
@@ -70,7 +71,7 @@ def test_live_path_uses_the_evaluator_and_a_failed_call_is_stated():
     win_back.plan(run, type("P", (), {"win_back": lambda self, prompt: ev.win_back(prompt)})())
     assert [w.provenance for w in run.win_back] == ["live_api"]
     assert PAGE in seen[0] and "mtg-3" in seen[0] and "[recommended]" in seen[0]
-    assert run.win_back_notes and "No verified action for" in run.win_back_notes[-1]
+    assert run.win_back_notes and "No suggested fix passed our checks for" in run.win_back_notes[-1]
 
     bad = ModelEvaluator(model="m", transport=lambda *_: "no json")
     run.win_back, run.win_back_notes = [], []
@@ -88,7 +89,7 @@ def test_malformed_field_types_are_dropped_not_crashing():
     ], run)
     assert kept == []
     text = " | ".join(dropped)
-    assert text.count("must be text") == 2 and text.count("must be a list") == 2
+    assert text.count("did not say which claim or page") == 2 and text.count("list of questions was malformed") == 2
 
 
 def test_a_real_sentence_late_on_the_page_and_with_a_dash_can_be_replaced():

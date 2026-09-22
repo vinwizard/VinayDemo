@@ -11,6 +11,7 @@ import {
   PROVENANCE_LABEL, ZONE_LABEL, ZONE_MEANING, claimShare, headline, plain, potentialText, probeLabels,
   provenanceLabel, runLabels, when,
 } from "./labels";
+import { tabBadge } from "./badge";
 import { GLOSSARY } from "./glossary";
 import { LINE, placeLabels, short } from "./maplabels";
 import { PHONE, Popover, Term } from "./popover";
@@ -214,10 +215,10 @@ const modelsOf = (run: Run) => {
 const untapped = (iv?: [number, number] | null): [number, number] | null =>
   iv ? [Math.round((100 - iv[1]) * 10) / 10, Math.round((100 - iv[0]) * 10) / 10] : null;
 
-/** The headline, buyer visibility and the claims to win back: pinned above every tab. */
+/** The headline, buyer visibility and the quick wins: pinned above every tab. */
 function Figures({ d, brand }: { d: DriftReport; brand: string }) {
   const h = headline(d);
-  const lost = d.lost_claims.length;
+  const wins = d.lost_claims.length + d.unstated_intent.length;  // the Quick wins tab's claims
   const fronts = frontsOf(d);
   const gap = gapSentence(d, brand);
   return (
@@ -248,10 +249,12 @@ function Figures({ d, brand }: { d: DriftReport; brand: string }) {
           </span>
         </div>
       )}
-      <div className="fig">
-        <span className="fig-value">{lost}</span>
-        <span className="fig-label"><Term k="lost_claim">{lost === 1 ? "claim" : "claims"} to win back</Term></span>
-      </div>
+      {wins > 0 && (
+        <div className="fig">
+          <span className="fig-value">{wins}</span>
+          <span className="fig-label"><Term k="quick_wins">{wins === 1 ? "quick win" : "quick wins"}</Term></span>
+        </div>
+      )}
     </div>
     {fronts.length > 0 && gap && <p className="gap-line">{gap}<GapVerdict d={d} /></p>}
     </>
@@ -444,7 +447,7 @@ function RunSource({ run }: { run: Run }) {
 }
 
 const TABS = [
-  ["overview", "Overview"], ["questions", "Questions we asked AI"], ["win-back", "Win it back"],
+  ["overview", "Overview"], ["questions", "Questions we asked AI"], ["win-back", "Quick wins"],
   ["why", "Why AI misses you"], ["sources", "Sources & rivals"],
 ] as const;
 
@@ -509,12 +512,14 @@ export function Report({ run, onRescored, weightNote }: {
   };
 
   const claims = run.attribute_scores.filter((s) => !s.discovered);
-  const count: Record<ReportTab, number | undefined> = {
-    overview: claims.length,
-    "win-back": winBackPlan(run).actions.length,
-    why: run.audit?.claims.filter((c) => c.checks.some((k) => k.status === "fail")).length,
-    questions: run.probes.filter((p) => p.phase === "baseline").length,
-    sources: run.insights?.sources.sources.length,
+  // Badges say what they count, in words, and never a bare 0 that reads as a grade: a tab with
+  // nothing to fix shows a tick, and one with nothing to list shows no badge.
+  const badge: Record<ReportTab, string | undefined> = {
+    overview: tabBadge(claims.length, "claim"),
+    questions: tabBadge(run.probes.filter((p) => p.phase === "baseline").length, "question"),
+    "win-back": tabBadge(winBackPlan(run).targets.length, "claim", "✓"),
+    why: tabBadge(run.audit?.claims.filter((c) => c.checks.some((k) => k.status === "fail")).length, "claim", "✓"),
+    sources: tabBadge(run.insights?.sources.sources.length, "site"),
   };
 
   return (
@@ -542,7 +547,7 @@ export function Report({ run, onRescored, weightNote }: {
                       aria-controls={`${uid}-panel-${t}`} tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)}
                       title={TAB_HINT[t]}>
                 {label}
-                {count[t] != null && <span className="rtab-count">{count[t]}</span>}
+                {badge[t] && <span className="rtab-count">{badge[t]}</span>}
               </button>
             ))}
           </div>
@@ -827,7 +832,7 @@ function ClaimDetail({ s, run }: { s: AttributeScore; run: Run }) {
       {s.limitations.map((l, i) => <p className="warn" key={i}>{l}</p>)}
       {fix && (
         <>
-          <h4>How to win it back</h4>
+          <h4>Quick win</h4>
           <FixCard a={fix} run={run} />
         </>
       )}
@@ -1642,7 +1647,7 @@ function TestAFix({ run, reasks, onReasked }: {
         {replay && <>Authored sample, not computed: the passages and scores were written by hand to show this panel. </>}
         We split your pages and the pages AI cited into short passages and scored how closely each
         matches the question and ChatGPT's searches for it: a <Term k="retrieval_score">retrieval score</Term> from
-        0 to 1. Then we put the suggested rewrite from “Win it back” into your page and scored it again.
+        0 to 1. Then we put the suggested rewrite from “Quick wins” into your page and scored it again.
         A simulation of what the AI reads first, not a promise of a citation. Tap a question for the passages.
       </p>
       <ul className="search-list">
@@ -1978,11 +1983,13 @@ function WinBack({ run }: { run: Run }) {
   const unplanned = targets.filter((s) => !planned.has(s.attribute_id));
   const questions = new Set(actions.flatMap((a) => a.question_ids)).size;
   return (
-    <Section title="How to win it back"
-           found={actions.length ? `${plural(actions.length, "fix", "fixes")} · ${plural(questions, "unbranded question")} to win`
-             : "no verified fix"}>
+    <Section title={<Term k="quick_wins">Quick wins</Term>}
+           found={`${plural(targets.length, "claim")} with room to grow · `
+             + (actions.length ? `${plural(actions.length, "fix", "fixes")} ready to check`
+                 + (questions ? ` · ${plural(questions, "unbranded question")} to win` : "")
+               : "no suggested fix passed our checks yet")}>
       <p className="muted" style={{ margin: 0 }}>
-        For each claim to win back or amplify: the page of yours to change, a suggested rewrite, and
+        For each claim with room to grow: the page of yours to change, a suggested rewrite, and
         the unbranded questions that did not recommend {run.profile.name} which it should help with. A
         draft — check every statement against the product before publishing, then measure again.
         It changes no number in this report.
@@ -1994,14 +2001,18 @@ function WinBack({ run }: { run: Run }) {
       )}
       {unplanned.length > 0 && (
         <p className="muted" style={{ margin: 0 }}>
-          No fix yet for {unplanned.map((s) => s.label).join(", ")}
-          {(run.win_back_notes ?? []).length > 0 ? " — it has no verified action (see below), or became a target when the run was re-scored." : " — no verified action was proposed for it."}
+          No suggested fix passed our checks yet for {unplanned.map((s) => s.label).join(", ")}
+          {(run.win_back_notes ?? []).length > 0 ? ": the reasons are below, or it became a claim with room to grow when the run was re-scored." : "."}
         </p>
       )}
       {(run.win_back_notes ?? []).length > 0 && (
         <>
-          <h4>Dropped as unverifiable</h4>
-          <ul>{run.win_back_notes!.map((n, i) => <li key={i} className="log">{n}</li>)}</ul>
+          <h4>Suggestions we could not confirm</h4>
+          <p className="muted" style={{ margin: 0 }}>
+            A suggestion is shown only if the page it names is one we read, the sentence it replaces is on
+            that page word for word, and the new copy states facts, not marketing words.
+          </p>
+          <ul>{run.win_back_notes!.map((n, i) => <li key={i}>{n}</li>)}</ul>
         </>
       )}
     </Section>

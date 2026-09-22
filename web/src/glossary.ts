@@ -10,7 +10,7 @@ export const GLOSSARY = {
   },
   buyer_question: {
     term: "Unbranded question",
-    def: "A question a buyer might ask an AI without naming the company, such as \"What tools help with X?\". "
+    def: "A question a buyer might ask an AI without naming the company, such as \"Which companies offer X?\". "
       + "It measures whether the AI brings the company up by itself. These answers drive buyer visibility.",
   },
   untapped_potential: {
@@ -116,6 +116,13 @@ export const GLOSSARY = {
   landed: {
     term: "Landed",
     def: "A claim the company wants to be known for, and the AI already says it. This is working.",
+  },
+  quick_wins: {
+    term: "Quick wins",
+    def: "Claims with room to grow: ones your site states that the AI does not repeat yet (claims to win "
+      + "back), and ones you want to be known for that your site barely says (claims to amplify). Each gets "
+      + "a suggested fix to your own pages, shown only if the page, the sentence it replaces and the new "
+      + "wording pass our checks. Draft copy: check it against the product before publishing.",
   },
   lost_claim: {
     term: "Claim to win back",

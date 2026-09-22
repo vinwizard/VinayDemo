@@ -283,7 +283,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
       <p className="muted" style={{ margin: 0 }}>
         {company.replay
           ? "Replays the bundled sample's authored answers — no model is asked and nothing is paid."
-          : <>Measuring asks a real AI model, with web search, every question below — about a minute of
+          : <>Measuring asks a real AI model, with web search, every question below — about six minutes of
             paid calls. It measures that model through its API at this moment, not the ChatGPT app.</>}
       </p>
     </div>
