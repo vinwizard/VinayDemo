@@ -10,6 +10,7 @@ import { GLOSSARY, type TermKey } from "./glossary";
 
 const PHONE = "(max-width: 600px)";
 const GAP = 6;
+const openStack: string[] = [];
 
 export function Popover({ trigger, children, label, className = "", wide }: {
   trigger: ReactNode; children: ReactNode; label: string; className?: string; wide?: boolean;
@@ -43,10 +44,12 @@ export function Popover({ trigger, children, label, className = "", wide }: {
              ...(up ? { bottom: window.innerHeight - b.top + GAP } : { top: b.bottom + GAP }) });
   }, [wide]);
 
-  useLayoutEffect(() => { if (open) place(); }, [open, place]);
+  const shown = !!open;
+  useLayoutEffect(() => { if (shown) place(); }, [shown, place]);
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); close(true); } };
+    if (!shown) return;
+    openStack.push(id);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && openStack.at(-1) === id) close(true); };
     // A press inside this panel, or inside a popover opened from it, sets `inside` on the way down
     // (React delivers portal events through the component tree) before this listener runs.
     const onDown = (e: PointerEvent) => {
@@ -59,12 +62,13 @@ export function Popover({ trigger, children, label, className = "", wide }: {
     window.addEventListener("resize", onMove);
     window.addEventListener("scroll", onMove, true);
     return () => {
+      openStack.splice(openStack.indexOf(id), 1);
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onDown);
       window.removeEventListener("resize", onMove);
       window.removeEventListener("scroll", onMove, true);
     };
-  }, [open, place, close]);
+  }, [shown, place, close, id]);
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   return (

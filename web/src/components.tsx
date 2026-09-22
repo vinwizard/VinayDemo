@@ -199,7 +199,7 @@ function QRef({ id, run }: { id: string; run: Run }) {
   const why = p.phase === "baseline" ? leftOut(a, e, run.profile.name) : null;
   const tab = p.kind === "named" && p.phase !== "followup" ? "brand" : p.kind === "named" ? "sources" : "buyer";
   return (
-    <Popover wide label={name} className="qref" trigger={name.replace(/ — .*/, "")}>
+    <Popover wide label={name} className="qref" trigger={name}>
       <strong className="pop-title">{name}</strong>
       <p className="muted">{questionKind(p, run.profile.name)}</p>
       <p><strong>Asked:</strong> {p.text}</p>
@@ -218,6 +218,7 @@ function QRef({ id, run }: { id: string; run: Run }) {
 function Linked({ text, run }: { text: string; run: Run }) {
   const byName = new Map<string, string>();
   for (const [id, n] of Object.entries(probeLabels(run.probes, run.topics))) {
+    byName.set(n, id);
     byName.set(n.replace(/ — .*/, ""), id);
     byName.set(id, id);
   }
@@ -1295,14 +1296,15 @@ const DISCOVERY = "Discovery — ";
 
 /** One dropped reading of an answer, as "Brand question 3 — the quote … did not match word for word". */
 function DroppedLine({ text, run }: { text: string; run: Run }) {
-  const m = /^(.*?): (?:Attribute (\S+): quote not verbatim|Unknown attribute id '([^']+)')/.exec(text);
+  const m = /^(.*?): (?:Attribute (\S+): quote (not verbatim|is from a citation)|Unknown attribute id '([^']+)')/.exec(text);
   if (!m) return <Linked text={text} run={run} />;
   const label = (id: string) => run.attribute_scores.find((s) => s.attribute_id === id)?.label ?? id.replaceAll("_", " ");
   return (
     <>
       <Linked text={m[1]} run={run} /> —{" "}
-      {m[2] ? <>the quote for “{label(m[2])}” did not match the answer word for word</>
-        : <>it named “{label(m[3])}”, a trait this run was not measuring</>}
+      {m[3] === "not verbatim" ? <>the quote for “{label(m[2])}” did not match the answer word for word</>
+        : m[3] ? <>the quote for “{label(m[2])}” came from a cited source, not the answer</>
+        : <>it named “{label(m[4])}”, a trait this run was not measuring</>}
     </>
   );
 }
@@ -1355,12 +1357,22 @@ function HowWeChecked({ run }: { run: Run }) {
   const lim = d.limitations;
   const dropped = lim.filter((l) => l.startsWith(DROPPED)).map((l) => l.slice(DROPPED.length));
   const notVerbatim = dropped.filter((l) => l.includes("quote not verbatim")).length;
+  const cited = dropped.filter((l) => l.includes("quote is from a citation")).length;
+  const unknown = dropped.filter((l) => l.includes("Unknown attribute id")).length;
+  const otherDrop = dropped.length - notVerbatim - cited - unknown;
   const discovery = lim.filter((l) => l.startsWith(DISCOVERY)).map((l) => l.slice(DISCOVERY.length));
-  const thin = discovery.filter((l) => / needs \d+/.test(l)).length;
+  const proposals = discovery.filter((l) => /^'.+?': /.test(l));
+  const rejected = proposals.filter((l) => !l.includes(": kept on its verbatim answers"));
+  const thin = rejected.filter((l) => / needs \d+/.test(l)).length;
+  const repeats = rejected.filter((l) => l.includes("same attribute as one already measured")).length;
+  const vague = rejected.length - thin - repeats;
   const kept = run.attribute_scores.filter((s) => s.discovered);
   const small = lim.some((l) => l.startsWith("Small sample"));
-  const other = lim.filter((l) => !l.startsWith(DROPPED) && !l.startsWith(DISCOVERY) && !l.startsWith("Small sample")
-    && !/^\d+ of \d+ brand answers were excluded/.test(l));
+  const other = [
+    ...discovery.filter((l) => !proposals.includes(l)).map((l) => l[0].toUpperCase() + l.slice(1)),
+    ...lim.filter((l) => !l.startsWith(DROPPED) && !l.startsWith(DISCOVERY) && !l.startsWith("Small sample")
+      && !/^\d+ of \d+ brand answers were excluded/.test(l)),
+  ];
   const buyer = run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline").length;
   const tries = d.tries ?? 1;
   return (
@@ -1381,16 +1393,19 @@ function HowWeChecked({ run }: { run: Run }) {
         <Count summary={<>
           <strong>{dropped.length}</strong> {dropped.length === 1 ? "reading" : "readings"} of the AI’s answers thrown away
           {notVerbatim > 0 && <>, {notVerbatim} because the quote did not match the answer word for word</>}
-          {dropped.length - notVerbatim > 0 && <>, {dropped.length - notVerbatim} for naming a trait this run was not measuring</>}.
+          {cited > 0 && <>, {cited} because the quote came from a cited source, not the answer</>}
+          {unknown > 0 && <>, {unknown} for naming a trait this run was not measuring</>}
+          {otherDrop > 0 && <>, {otherDrop} for another reason</>}.
           {" "}Nothing is counted without a word-for-word quote.
         </>} items={dropped.map((l, i) => <DroppedLine key={i} text={l} run={run} />)} />
-        {kept.length + discovery.length > 0 && (
+        {kept.length + rejected.length > 0 && (
           <Count summary={<>
-            <strong>{kept.length + discovery.length}</strong> possible new traits suggested by reading the answers
+            <strong>{kept.length + rejected.length}</strong> possible new traits suggested by reading the answers
             together; {kept.length} kept{kept.length > 0 && <> ({kept.map((s) => `“${s.label}”`).join(", ")})</>}
             {thin > 0 && <>, {thin} rejected for too little support</>}
-            {discovery.length - thin > 0 && <>, {discovery.length - thin} rejected as repeats of a trait already measured</>}.
-          </>} items={discovery.map((l, i) => <DiscoveryLine key={i} text={l} run={run} />)} />
+            {repeats > 0 && <>, {repeats} rejected as repeats of a trait already measured</>}
+            {vague > 0 && <>, {vague} rejected as too vague to tell apart from what is measured</>}.
+          </>} items={proposals.map((l, i) => <DiscoveryLine key={i} text={l} run={run} />)} />
         )}
         {other.length > 0 && (
           <Count summary={<>{plural(other.length, "more caveat")} to keep in mind</>}
