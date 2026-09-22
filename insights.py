@@ -73,8 +73,8 @@ def cited_sources(run: Run) -> dict:
     """Every site cited in a counted buyer or brand answer, ranked by how many answers cite it.
 
     On buyer answers each site also records which brands it was cited beside: the rivals the answer
-    named, and how many of those answers mentioned the brand. A site cited beside rivals in buyer
-    answers that never mention the brand is a `rival_only` source: the page to get onto."""
+    named, and how many of those answers mentioned the brand. A third-party site cited beside rivals in
+    buyer answers that never mention the brand is a `rival_only` source: the page to get onto."""
     tally: dict[str, dict] = {}
     n = cited = 0
     for kind, key in (("blind", "buyer"), ("named", "brand")):
@@ -97,7 +97,7 @@ def cited_sources(run: Run) -> dict:
     for r in rows:
         r["kind"] = source_kind(r["domain"], r["owned"], rival_keys)
         r["rivals"] = [dict(name=k, count=c) for k, c in r["rivals"].most_common()]
-    rival_only = sorted((r for r in rows if r["rivals"] and not r["with_brand"] and r["kind"] != "owned"),
+    rival_only = sorted((r for r in rows if r["rivals"] and not r["with_brand"] and r["kind"] not in ("owned", "rival")),
                         key=lambda r: (-r["buyer"], -len(r["rivals"])))
     reason = None
     if not n:

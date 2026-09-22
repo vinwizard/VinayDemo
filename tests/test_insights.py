@@ -1,4 +1,6 @@
 """Cited sources and share of voice, read off saved runs with no model calls."""
+import re
+
 import graph
 from insights import cited_sources, share_of_voice, source_kind
 from providers import fixture
@@ -65,6 +67,18 @@ def test_rival_only_sources_cite_rivals_in_buyer_answers_that_never_mention_the_
     assert by["example.com/demo-source-1"]["with_brand"] == 1
     assert "example.com/demo-source-1" not in src["rival_only"]
     assert by["notion.com"]["kind"] == "owned"
+
+
+def test_a_rivals_own_site_is_never_a_site_to_get_onto():
+    run = run_scenario("A")
+    gap = {r["domain"]: r for r in cited_sources(run)["sources"]}[cited_sources(run)["rival_only"][0]]
+    rival = gap["rivals"][0]["name"]
+    host = re.sub(r"[^a-z0-9]", "", rival.lower()) + ".com"
+    next(a for a in run.answers if a.probe_id == gap["probes"][0]).citations.append(f"https://{host}/")
+    src = cited_sources(run)
+    by = {r["domain"]: r for r in src["sources"]}
+    assert by[host]["kind"] == "rival" and by[host]["with_brand"] == 0
+    assert host not in src["rival_only"] and gap["domain"] in src["rival_only"]
 
 
 def test_source_kinds():

@@ -1064,7 +1064,7 @@ function CitationMap({ run, sources, gaps }: { run: Run; sources: Source[]; gaps
   const [hot, setHot] = useState<string | null>(null);
   const brand = run.profile.name;
   // The sites that skip the brand first, then the most-cited, kept in the list's order.
-  const keep = new Set([...sources.filter((r) => gaps.has(r.domain)), ...sources.filter((r) => r.buyer > 0)]
+  const keep = new Set([...new Set([...sources.filter((r) => gaps.has(r.domain)), ...sources.filter((r) => r.buyer > 0)])]
     .slice(0, MAP_SOURCES));
   const right = sources.filter((r) => keep.has(r));
   const weight = new Map<string, number>();
