@@ -249,7 +249,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
 
       {company.checks.length > 0 && <HowWeChecked checks={company.checks} />}
       {!company.replay && (
-        <SiteReadability audit={company.audit} siteSays={company.profile.one_liner}
+        <SiteReadability audit={company.audit} name={company.profile.name} siteSays={company.profile.one_liner}
                          onRecheck={() => reaudit(company.id).then(onCompany)} />
       )}
 

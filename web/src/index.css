@@ -465,6 +465,8 @@ tr.pick:hover { background: #f5f8fc; cursor: pointer; }
 .audit-rows li { display: flex; flex-direction: column; gap: .4rem; }
 .audit-page { color: var(--muted); font-size: .8rem; margin-left: .5rem; overflow-wrap: anywhere; }
 .checks-row { display: flex; flex-wrap: wrap; gap: .4rem; }
+.audit-advice { margin: 0; padding-left: 1.1rem; color: var(--muted); font-size: .85rem; }
+.audit-rows .audit-advice li { display: list-item; }
 .check.pop-trigger {
   display: inline-flex; align-items: center; gap: .35rem; min-height: 40px; padding: .3rem .75rem;
   border-radius: 999px; border: 1px solid; font-size: .85rem; font-weight: 550;

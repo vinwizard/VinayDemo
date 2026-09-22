@@ -375,8 +375,9 @@ class AuditCheck(BaseModel):
 class ClaimAudit(BaseModel):
     attribute_id: str
     label: str
-    page_url: Optional[str] = None  # the first fetched page that states it now; None = none does
+    page_url: Optional[str] = None  # the page checked: the first that states it and AI can read; None = none states it
     checks: list[AuditCheck] = []
+    advice: list[str] = []          # never a failure: other pages that state it but AI cannot read, heading tips
 
 
 class EntitySource(BaseModel):

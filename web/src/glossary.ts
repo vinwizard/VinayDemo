@@ -121,8 +121,8 @@ export const GLOSSARY = {
   },
   headings: {
     term: "Clear headings",
-    def: "One main heading (H1) plus subheadings phrased the way people ask questions. AI answers are "
-      + "built from passages, and a question-shaped heading marks the passage that answers it.",
+    def: "One main heading (H1) plus subheadings that split the page into passages. AI answers are built "
+      + "from passages; a subheading phrased as a buyer's question is a bonus, never a requirement.",
   },
   speed: {
     term: "Speed",
