@@ -168,7 +168,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
               What a buyer shops for when they need {company.profile.name}: where you aim to be. Half
               the buyer questions ask about it; the other half ask about the category AI’s answers
               about {company.profile.name} already place it in, so the two show side by side. A
-              control question asks AI for each category’s leading tools, so a low score can be
+              control question asks AI which companies lead each category, so a low score can be
               checked. Read from your one-line description — correct it if it is wrong.
             </p>
             <input id={`cat-${company.id}`} placeholder="e.g. payroll software for startups" value={category}

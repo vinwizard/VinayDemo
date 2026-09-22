@@ -335,7 +335,7 @@ export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }
               Each one is what a buyer would type with no brand named, on two fronts: the category
               the brand answers place {brandName} in, and the one its own site aims for. Does AI bring {brandName} up on its own?
               {!replay && " Each is asked more than once, because the same question gets a different"
-                + " answer each time; the control question asks for the category's leading tools."}
+                + " answer each time; the control question asks which companies lead the category."}
             </p>
             {(s5 !== "failed" || buyer.length > 0) && <AnswerList answers={buyer} replay={replay} />}
             {errorAt(s5)}
@@ -344,12 +344,12 @@ export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }
       </Stage>
 
 
-      <Stage n={6} title="Follow up on products AI named" state={s6}
+      <Stage n={6} title="Follow up on companies AI named" state={s6}
              summary={s6 === "skipped"
-               ? (p.node?.competitors.length ? "Skipped" : "Skipped — no buyer answer named another product")
+               ? (p.node?.competitors.length ? "Skipped" : "Skipped — no buyer answer named another company")
                : decided ? `${plural(planned?.followup ?? 0, "follow-up question")}${
                    p.node?.competitors.length ? ` · AI named ${p.node.competitors.join(", ")}` : ""}`
-               : "If a buyer answer names other products, ask AI to compare them"}>
+               : "If a buyer answer names other companies, ask AI to compare them"}>
         {decided && (s6 === "active" || s6 === "done") && (
           <div className="stack">
             {p.node?.competitors.length ? (

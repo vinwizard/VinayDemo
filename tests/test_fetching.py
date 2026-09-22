@@ -163,6 +163,16 @@ def test_stylesheets_are_not_pages_and_keywords_match_whole_words():
         "https://www.amgen.com/about/therapy-areas", "https://www.amgen.com/ai-and-data-science"]
 
 
+def test_one_page_per_site_section_before_a_second_from_the_same_one():
+    # amgen.com's first five matching links were all under /about/, so the page listing its
+    # medicines (/products) was never read and its own products could not count as mentions.
+    html = "".join(f'<a href="/about/{p}">x</a>' for p in ("history", "values", "leadership", "partners"))
+    html += '<a href="/products">Products</a><a href="/about/awards">x</a>'
+    assert fetching.same_origin_links("https://www.amgen.com/", html, limit=3) == [
+        "https://www.amgen.com/about/history", "https://www.amgen.com/products",
+        "https://www.amgen.com/about/values"]
+
+
 def test_a_page_must_be_html_though_robots_txt_may_be_plain_text(monkeypatch):
     stub_resolve(monkeypatch, "93.184.216.34")
     monkeypatch.setattr(fetching, "_get", lambda *a: (200, {"Content-Type": "text/css"}, b"body{color:red}"))

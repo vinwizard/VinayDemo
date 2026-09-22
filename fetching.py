@@ -227,9 +227,11 @@ USEFUL_WORD = re.compile(r"(?<![a-z0-9])(?:%s)s?(?![a-z0-9])" % "|".join(map(re.
 
 
 def same_origin_links(base_url: str, html_text: str, limit: int = 2) -> list[str]:
-    """Pick a couple of same-origin pages likely to carry positioning copy."""
+    """Pick a couple of same-origin pages likely to carry positioning copy: one per section of the
+    site (/about, /products…) before a second from the same one, so five /about/ pages cannot
+    crowd out the page that lists what the company sells."""
     base = urlparse(base_url if "://" in base_url else "https://" + base_url)
-    out, seen = [], {base.path.rstrip("/") or "/"}
+    first, more, seen, sections = [], [], {base.path.rstrip("/") or "/"}, set()
     for href in LINK.findall(html_text):
         target = urlparse(urljoin(f"{base.scheme}://{base.netloc}", href))
         if target.netloc != base.netloc or target.scheme not in ALLOWED_SCHEMES:
@@ -238,10 +240,10 @@ def same_origin_links(base_url: str, html_text: str, limit: int = 2) -> list[str
         if path in seen or not USEFUL_WORD.search(path.lower()):
             continue
         seen.add(path)
-        out.append(f"{target.scheme}://{target.netloc}{path}")
-        if len(out) >= limit:
-            break
-    return out
+        section = path.strip("/").split("/")[0]
+        (more if section in sections else first).append(f"{target.scheme}://{target.netloc}{path}")
+        sections.add(section)
+    return (first + more)[:limit]
 
 
 class _Icons(HTMLParser):

@@ -46,8 +46,8 @@ def run_fronts(monkeypatch, aiming=AIMING, placed_says=lambda n: "Notion fits.",
     def transport(messages, model, timeout):
         q = messages[-1]["content"]
         asked[q] += 1
-        text = ("Notion, Coda and Linear lead." if q == f"What are the leading tools for {PLACED.label}?"
-                else "Linear, Asana and Coda lead." if q.startswith("What are the leading tools")
+        text = ("Notion, Coda and Linear lead." if q == f"Which companies lead in {PLACED.label}?"
+                else "Linear, Asana and Coda lead." if q.startswith("Which companies lead in")
                 else placed_says(asked[q]) if q in placed_qs
                 else "Coda fits." if q in AIM_QS else "Notion is an AI-native workspace for teams.")
         return {"output": [{"type": "web_search_call"},
@@ -218,3 +218,26 @@ def test_onboarding_keeps_only_distinctive_aliases():
     p = build_profile({"name": "Profound", "aliases": ["AI Marketer", "Profound Agents", "AI Agents"]},
                       [], "tryprofound.com")
     assert p.aliases == ["Profound", "Profound Agents"]
+
+
+def test_the_placed_front_is_asked_as_a_buyer_category_not_a_claim_label():
+    # Amgen, 22 Sep 2026: AI placed it at the claim "Focus on key therapy areas". Searched, written
+    # about and controlled as if it were a category, it asked "Which software supports oncology
+    # treatment planning?" and "What are the leading tools for Focus on key therapy areas?".
+    profile = F.profile.model_copy(update=dict(core_category=AIMING, category_questions=AIM_QS))
+    written_for = []
+
+    def provider(category):
+        return live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="m",
+                                 transport=lambda *a: None, categorize=lambda label, description: category,
+                                 writer=lambda l, d, n: written_for.append(l) or WRITTEN[:n])
+    prov = provider("ai writing assistants for teams")
+    topics, probes = prov.plan(profile, PLACED)
+    assert {t.label for t in topics if t.front == "placed" and t.kind == "buyer"} == {"ai writing assistants for teams"}
+    assert written_for == ["ai writing assistants for teams"] and prov.notes == []
+    assert "Which companies lead in ai writing assistants for teams?" in {p.text for p in probes}
+    # a category that names the brand is not asked: the claim's label stands, and the report says why
+    leaky = provider("Notion alternatives")
+    topics, _ = leaky.plan(profile, PLACED)
+    assert {t.label for t in topics if t.front == "placed" and t.kind == "buyer"} == {PLACED.label}
+    assert any("No buyer category could be written" in n for n in leaky.notes)

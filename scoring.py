@@ -109,18 +109,18 @@ def echo_draws(kept: list[str], weights: dict[str, float],
     return out
 
 
-MIN_CONTROL_VENDORS = 2  # a control answer naming fewer tools than this does not know the category
+MIN_CONTROL_VENDORS = 2  # a control answer naming fewer companies than this does not know the category
 
 
 def low_confidence(brand: str, category: str, control: Optional[QueryEvaluation],
                    control_answer: Optional[Answer]) -> Optional[str]:
     """Why a set's buyer visibility is not to be trusted, or None.
 
-    The set's control question ("What are the leading tools for <category>?") decides it, whatever
+    The set's control question ("Which companies lead in <category>?") decides it, whatever
     the buyer answers scored — a brand named once by chance is still not known in the category:
       * the control could not be scored          -> low confidence: nothing to check the number against
       * it names fewer than MIN_CONTROL_VENDORS  -> low confidence: the model does not know the category
-      * it names tools but not the brand         -> low confidence: the model does not count the brand
+      * it names companies but not the brand     -> low confidence: the model does not count the brand
                                                     among the category's leaders, so buyer questions
                                                     were unlikely to surface it
       * it names the brand                       -> None: the model knows the brand as a leader, so
@@ -132,12 +132,12 @@ def low_confidence(brand: str, category: str, control: Optional[QueryEvaluation]
                 f"cannot be checked against what the answering model knows about the category.")
     vendors = control.competitor_recommendations
     if len(vendors) < MIN_CONTROL_VENDORS:
-        found = f"only {', '.join(vendors)}" if vendors else "no tool at all"
-        return (f"Asked for the leading tools for {category}, the answering model named {found}. It "
+        found = f"only {', '.join(vendors)}" if vendors else "no company at all"
+        return (f"Asked which companies lead in {category}, the answering model named {found}. It "
                 f"does not seem to know this category, so this number says more about the model "
                 f"than about {brand}.")
     if not control.mentioned:
-        return (f"Asked for the leading tools for {category}, the answering model named "
+        return (f"Asked which companies lead in {category}, the answering model named "
                 f"{', '.join(vendors[:5])} but not {brand}. It does not count {brand} among this "
                 f"category's leaders, so buyer questions were unlikely to surface it: low confidence, "
                 f"not a finding about how buyers see {brand}.")

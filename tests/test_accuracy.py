@@ -90,7 +90,7 @@ def live_run(buyer_text, control_text, tries=3, sample=2, questions=6, monkeypat
     def transport(messages, model, timeout):
         q = messages[-1]["content"]
         asked[q] += 1
-        text = (control_text if q.startswith("What are the leading tools") else
+        text = (control_text if q.startswith("Which companies lead in") else
                 buyer_text(asked[q]) if q in buyer else "A workspace tool.")
         return {"output": [{"type": "web_search_call"},
                            {"type": "message", "content": [{"type": "output_text", "text": text}]}]}
@@ -310,7 +310,7 @@ def test_onboarding_names_the_core_category(store, monkeypatch):
     monkeypatch.setattr(main.fetching, "fetch_site", lambda url, max_pages: ([("https://acme.example/", page)], None))
 
     def transport(prompt, model, timeout):
-        if "buyer is shopping" in prompt:
+        if "buyer knows no brand names" in prompt:
             return json.dumps({"buyer_questions": ["Which payroll software suits a small startup?"]})
         return json.dumps({"name": "Acme", "one_liner": "Payroll for startups.",
                            "core_category": "payroll software for startups", "attributes": []})

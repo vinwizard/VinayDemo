@@ -146,7 +146,7 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
 
 def control_probe(profile: CompanyProfile, category: str | None = None, pid: str = "ctl-1",
                   topic_id: str = CONTROL_TOPIC) -> Probe | None:
-    """The control: does the answering model know this category's leading tools at all?
+    """The control: does the answering model know which companies lead this category at all?
 
     A low buyer visibility means little when the model cannot name the category's leaders, or does
     not count the brand among them, so one blind question asks exactly that. It is never scored as
@@ -157,15 +157,17 @@ def control_probe(profile: CompanyProfile, category: str | None = None, pid: str
     if not category:
         return None
     return Probe(id=pid, topic_id=topic_id, kind="blind", phase="control",
-                 text=f"What are the leading tools for {category}?",
-                 purpose="Control: does the answering model know this category's leading tools? "
+                 # companies, not "tools": asked for the leading tools for biologic medicines,
+                 # the model named none at all
+                 text=f"Which companies lead in {category}?",
+                 purpose="Control: does the answering model know which companies lead this category? "
                          "Excluded from the visibility score.")
 
 
 def control_topic(profile: CompanyProfile, category: str | None = None, tid: str = CONTROL_TOPIC,
                   front: str | None = None) -> Topic:
     return Topic(id=tid, label=f"Control — {category or profile.core_category}", kind="control",
-                 front=front, buyer_need="Whether the answering model knows the category's leading tools",
+                 front=front, buyer_need="Whether the answering model knows the category's leading companies",
                  positioning_point_ids=[], fit="strong")
 
 
@@ -199,7 +201,8 @@ def placed_attribute(scores: list[AttributeScore], attributes: list[Attribute],
 
 
 def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
-                            placed_questions: list[str], attributes: list[Attribute] = ()
+                            placed_questions: list[str], attributes: list[Attribute] = (),
+                            placed_category: str | None = None
                             ) -> tuple[list[Topic], list[Probe], list[str], dict[str, str]]:
     """Buyer questions on both fronts: where AI places the company (`placed`, its questions already
     written) and where its homepage says it aims to be (the core category). -> (topics, probes with
@@ -209,15 +212,17 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
     Whatever budget the fronts leave goes to the claims' own buyer questions
     (blind_probes_from_attributes), an unlabelled group counted as neither front, so the sample
     never shrinks. Blind questions are vetted like any other: one that names the brand or addresses
-    the vendor is skipped, never rewritten.
+    the vendor is skipped, never rewritten. `placed_category` is where AI places the company as a
+    buyer would name it; without one the attribute's own label stands in.
     """
     aiming = profile.core_category
+    placed_as = placed_category or (placed.label if placed else None)
     fronts, missing = [], {}
-    if placed and aiming and same_category(placed.label, aiming):
+    if placed and aiming and same_category(placed_as, aiming):
         fronts.append(("both", aiming, [*profile.category_questions, *placed_questions]))
     else:
         if placed:
-            fronts.append(("placed", placed.label, placed_questions))
+            fronts.append(("placed", placed_as, placed_questions))
         else:
             missing["placed"] = (f"No brand answer endorsed any attribute, so there is no category where "
                                  f"AI already places {profile.name}.")

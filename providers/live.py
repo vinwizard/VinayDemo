@@ -14,7 +14,7 @@ import os
 from datetime import datetime, timezone
 from typing import Callable, NamedTuple, Optional
 
-from agents.onboarding_model import buyer_questions_for
+from agents.onboarding_model import buyer_category_for, buyer_questions_for
 from config import setting
 from schemas import Answer, Attribute, CompanyProfile, Probe, Topic
 
@@ -317,6 +317,7 @@ class LiveProvider:
                  profile: Optional[CompanyProfile] = None, model: Optional[str] = None,
                  transport: Optional[Callable] = None, evaluator=None,
                  writer: Optional[Callable] = None, demand: Optional[Callable] = None,
+                 categorize: Optional[Callable] = None,
                  retrieval: Optional[Callable] = None, positioning: Optional[Callable] = None,
                  resolved: Optional[Resolved] = None):
         if not attributes:
@@ -350,6 +351,9 @@ class LiveProvider:
         # (label, description, n) -> buyer questions for the category where AI places the company,
         # which is often one nobody wrote questions for (an attribute discovered in the answers)
         self._writer = writer or (lambda label, description, n: buyer_questions_for(label, description, n=n))
+        # (label, description) -> the buyer category for where AI places the company. Like
+        # retrieval, an injected transport (a test) gets none unless it injects one: the label stands.
+        self._categorize = categorize or (buyer_category_for if transport is None else None)
         # demand.ground, or None: every buyer question is the model-written one, as before grounding
         self._demand = demand
         self.demand_notes: list[str] = []
@@ -359,7 +363,7 @@ class LiveProvider:
         """Buyer questions on two fronts, each with its control question: where AI places the
         company (`placed`, read off the brand answers) and the site's core category. The claims'
         own buyer questions fill whatever budget the fronts leave: all of it with neither front."""
-        from agents.ana import blind_probes_for_fronts, same_category, set_questions
+        from agents.ana import blind_probes_for_fronts, brand_leaks, same_category, set_questions
         # A preflight step-down is a caveat on the whole report, not a server-log line: graph puts
         # `notes` into run.log AND run.drift_notes, so it reaches the report's limitations.
         self.notes = [self.fallback] if self.fallback else []
@@ -381,17 +385,27 @@ class LiveProvider:
             # real ones first: the fronts keep the first `per_front`, so written ones only fill a shortfall
             profile = profile.model_copy(update=dict(
                 category_questions=[*ground(aiming), *profile.category_questions]))
+        placed_as = placed.label if placed else None
+        if placed and self._categorize:
+            try:
+                got = self._categorize(placed.label, placed.description)
+                if brand_leaks(got, profile):
+                    raise ValueError(f"it named {profile.name}")
+                placed_as = got
+            except Exception as e:                  # stated: the attribute's label is asked about instead
+                self.notes.append(f"No buyer category could be written for where AI places "
+                                  f"{profile.name} ({placed.label}: {type(e).__name__}), so its label was used.")
         questions = list(placed.buyer_questions) if placed else []
-        if placed and not (aiming and same_category(placed.label, aiming)):
-            questions = [*ground(placed.label), *questions]
+        if placed and not (aiming and same_category(placed_as, aiming)):
+            questions = [*ground(placed_as), *questions]
         if placed and len(questions) < per_front:
             try:
-                questions += self._writer(placed.label, placed.description, per_front - len(questions))
+                questions += self._writer(placed_as, placed.description, per_front - len(questions))
             except Exception as e:                  # stated, never swallowed: the front is smaller
-                self.notes.append(f"Buyer questions for {placed.label} could not be written "
+                self.notes.append(f"Buyer questions for {placed_as} could not be written "
                                   f"({type(e).__name__}); its own {len(questions)} were asked.")
         topics, blind, self.skipped_questions, self.missing_fronts = blind_probes_for_fronts(
-            profile, placed, questions, self._attributes)
+            profile, placed, questions, self._attributes, placed_as)
         blind = [p.model_copy(update=dict(demand=real.get(p.text.strip().lower()))) for p in blind]
         return topics, blind
 

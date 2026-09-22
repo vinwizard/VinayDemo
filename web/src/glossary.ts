@@ -56,7 +56,7 @@ export const GLOSSARY = {
   },
   low_confidence: {
     term: "Low confidence",
-    def: "For each set of buyer questions we also ask the AI to name the leading tools in that category. "
+    def: "For each set of buyer questions we also ask the AI to name the companies that lead that category. "
       + "If it names too few, or does not name the company among them, the buyer visibility may say more "
       + "about what the AI knows than about how buyers see the company, so we flag it rather than trust it.",
   },
@@ -93,7 +93,7 @@ export const GLOSSARY = {
   share_of_voice: {
     term: "Share of voice",
     def: "Out of the buyer questions that count, how many answers recommended the company compared with "
-      + "the products the AI recommended most often instead.",
+      + "the companies the AI recommended most often instead.",
   },
   rival_only: {
     term: "Sites that skip you",

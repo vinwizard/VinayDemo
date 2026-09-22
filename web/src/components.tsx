@@ -295,10 +295,10 @@ const counts = (a: Answer, e: QueryEvaluation) => leftOut(a, e, "") == null;
 function questionKind(p: Probe, brand: string) {
   if (p.kind === "named") {
     return p.phase === "followup"
-      ? `The comparison question: it names ${brand} beside the products AI named instead. Exploratory — never counted in the scores.`
+      ? `The comparison question: it names ${brand} beside the companies AI named instead. Exploratory — never counted in the scores.`
       : `A brand question: it names ${brand} but never a claim, so whatever AI says ${brand} is known for, it said on its own.`;
   }
-  if (p.phase === "control") return "The control question: can the AI name this category’s leading tools at all? Never scored.";
+  if (p.phase === "control") return "The control question: can the AI name the companies that lead this category at all? Never scored.";
   if (p.phase === "followup") return `A follow-up buyer question: exploratory, never counted in the scores.`;
   return `A buyer question: it never names ${brand}, so it shows whether AI brings ${brand} up on its own.`;
 }
@@ -908,7 +908,7 @@ function mention(text: string, name: string): [string, string, string] | null {
 }
 
 /**
- * Every product named in a buyer answer, beside the line that names it, and what AI said when asked
+ * Every company named in a buyer answer, beside the line that names it, and what AI said when asked
  * to compare.
  *
  * A name here is only what the evidence supports: the model named it in an answer to a question that
@@ -952,10 +952,10 @@ export function Competitors({ run }: { run: Run }) {
       <Section title={title} found="none named">
         <p className="muted" style={{ margin: 0 }}>
         {!askedBuyerQuestions
-          ? "No buyer question was asked — nothing is weighted as intended — so the buyer axis was not measured and no other product could be named."
+          ? "No buyer question was asked — nothing is weighted as intended — so the buyer axis was not measured and no other company could be named."
           : replay
             ? "This sample scenario names no competitor in its authored buyer answers. Replay never asks the comparison question either: that round exists only in a live run."
-            : "No other product was named in any buyer answer that counts toward the scores, so there was nothing to compare against and no comparison question was asked."}
+            : "No other company was named in any buyer answer that counts toward the scores, so there was nothing to compare against and no comparison question was asked."}
         </p>
       </Section>
     );
@@ -964,7 +964,7 @@ export function Competitors({ run }: { run: Run }) {
   const namedTable = (shown: typeof rows) => (
     <table className="named">
       <thead>
-        <tr><th>Product</th>{repeats && <th>Answers</th>}<th>Buyer topic</th><th>Where the answer names it</th></tr>
+        <tr><th>Company</th>{repeats && <th>Answers</th>}<th>Buyer topic</th><th>Where the answer names it</th></tr>
       </thead>
       <tbody>
         {shown.map((r) => (
@@ -982,13 +982,13 @@ export function Competitors({ run }: { run: Run }) {
   );
   return (
     <Section title={title}
-           found={`${plural(rows.length, "product")} named${repeats ? ` · most often ${top.name} (${top.count})` : ""}`}>
+           found={`${plural(rows.length, "company", "companies")} named${repeats ? ` · most often ${top.name} (${top.count})` : ""}`}>
       <p className="muted" style={{ margin: "0 0 .6rem" }}>
         {replay
           ? "Authored sample data, not a measurement: no model volunteered these names. A live run"
             + " puts here the brands the model itself offered when a buyer described what you do"
             + " without naming you, and only a live run asks the comparison question below."
-          : `Every product the model named when a buyer asked about what ${run.profile.name} does`
+          : `Every company the model named when a buyer asked about what ${run.profile.name} does`
             + " without naming it. Being named is not being recommended, or being a competitor:"
             + " each sits beside the part of the answer that names it, so judge it yourself."}
         {" "}
@@ -999,7 +999,7 @@ export function Competitors({ run }: { run: Run }) {
       {namedTable(rows.slice(0, SHOWN_NAMED))}
       {rows.length > SHOWN_NAMED && (
         <details>
-          <summary className="muted">Show the other {plural(rows.length - SHOWN_NAMED, "product")}</summary>
+          <summary className="muted">Show the other {plural(rows.length - SHOWN_NAMED, "company", "companies")}</summary>
           {namedTable(rows.slice(SHOWN_NAMED))}
         </details>
       )}
@@ -1044,11 +1044,11 @@ function ShareOfVoice({ run }: { run: Run }) {
            found={`On ${v.questions} buyer questions, AI recommended ${v.brand} ${plural(v.brand_recommended, "time")} and ${rivalText}`}>
       <p className="muted" style={{ margin: 0 }}>
         {run.mode !== "live_api" && <>{SAMPLE_NOTE} </>}
-        How many of the {v.questions} buyer questions that count got an answer recommending each product. None
-        of those questions named {v.brand}; a mention without a recommendation does not count, and a product
+        How many of the {v.questions} buyer questions that count got an answer recommending each company. None
+        of those questions named {v.brand}; a mention without a recommendation does not count, and a company
         counts once per answer, however often it repeats.
       </p>
-      <div className="sov" role="list" aria-label={`Answers recommending each product, out of ${v.questions}`}>
+      <div className="sov" role="list" aria-label={`Answers recommending each company, out of ${v.questions}`}>
         {bars.map((b) => (
           <div key={b.name} role="listitem" className="sov-row" title={`${b.name}: recommended in ${b.count} of ${v.questions} answers`}>
             <span className={b.brand ? "sov-name brand" : "sov-name"}>{b.name}</span>
@@ -1899,7 +1899,7 @@ function BuyerQuestions({ run }: { run: Run }) {
 }
 
 /**
- * The control question of one set: can the answering model name this category's leading tools, and
+ * The control question of one set: can the answering model name the companies leading this category, and
  * does it count the brand among them? It is not a buyer question and never moves visibility; it only
  * says whether that set's number can be trusted.
  */
@@ -1909,7 +1909,7 @@ function Control({ run, p, v }: { run: Run; p: Probe; v: Vis }) {
   const flag = v.low_confidence;
   const ok = a && e && counts(a, e);
   const found = !ok ? "could not be scored"
-    : `named ${plural(e.competitor_recommendations.length + (e.mentioned ? 1 : 0), "tool")}`
+    : `named ${plural(e.competitor_recommendations.length + (e.mentioned ? 1 : 0), "company", "companies")}`
       + ` · ${e.mentioned ? `including ${run.profile.name}` : `not ${run.profile.name}`}`;
   return (
     <Section title="Control question"
@@ -1922,14 +1922,14 @@ function Control({ run, p, v }: { run: Run; p: Probe; v: Vis }) {
       {flag && <div className="callout warn-box" style={{ margin: 0 }}><strong>Low confidence.</strong> {flag}</div>}
       {!flag && ok && v.visibility === 0 && (
         <p style={{ margin: 0 }}>
-          The model names {run.profile.name} among this category’s leading tools, yet never brought it
+          The model names {run.profile.name} among the companies leading this category, yet never brought it
           up for a buyer: the 0 is a finding, not a gap in what the model knows.
         </p>
       )}
       <div className="qlist">
         <QuestionRow p={p} name="Control question" answer={a} replay={run.mode !== "live_api"}
                      note={ok && e.competitor_recommendations.length > 0 && (
-                       <span className="muted">Tools it named: {e.competitor_recommendations.join(", ")}</span>
+                       <span className="muted">Companies it named: {e.competitor_recommendations.join(", ")}</span>
                      )} />
       </div>
     </Section>
