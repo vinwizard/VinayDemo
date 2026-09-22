@@ -58,6 +58,13 @@ export const GLOSSARY = {
       + "the one they endorsed most often. Half of the buyer questions ask about this category, with no "
       + "brand named, to see whether AI also brings the company up there on its own.",
   },
+  real_demand: {
+    term: "Real demand",
+    def: "A buyer question taken from what people actually search, not written by AI: Google's "
+      + "autocomplete suggestions for the category (and Reddit threads, when Reddit allows it). Similar "
+      + "searches are grouped by meaning and the biggest groups are asked first. It shows the questions "
+      + "are real, not how many people search them.",
+  },
   where_aiming: {
     term: "Where you aim to be",
     def: "The category the company's own homepage says it is in (the core category). Half of the buyer "

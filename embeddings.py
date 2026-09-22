@@ -1,7 +1,7 @@
 """Text embeddings, metered and cached. Generic on purpose: any feature that compares texts by
 meaning (retrieval.py) reads them from here.
 
-Every call goes through `access.openai_embeddings`, so a pass pays for it and the public demo
+Every call goes through `access.openai_embedding`, so a pass pays for it and the public demo
 without a pass is refused. A vector is cached on disk by a hash of (model, text), so a re-run of the
 same pages costs nothing.
 """
@@ -54,7 +54,7 @@ def embed(texts: list[str], model: str = MODEL) -> list[list[float]]:
     todo = list(dict.fromkeys(t for t, k in zip(texts, keys) if k not in have))
     for i in range(0, len(todo), BATCH):
         batch = todo[i:i + BATCH]
-        response = access.openai_embeddings(TIMEOUT, model=model, input=batch)
+        response = access.openai_embedding(TIMEOUT, model=model, input=batch)
         data = response["data"] if isinstance(response, dict) else response.data
         vectors = [_vector(d) for d in data]
         with _cache() as c:

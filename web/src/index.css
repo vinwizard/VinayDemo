@@ -267,6 +267,11 @@ input[type="range"] { accent-color: var(--accent); width: 9rem; }
 .qrow > summary::before { content: "▸" / ""; color: var(--muted); width: .7rem; }
 .qrow[open] > summary::before { content: "▾" / ""; }
 .qrow-text { font-weight: 500; }
+.demand { margin-left: .45rem; white-space: nowrap; }
+.pop-trigger.demand-badge { position: relative; font-size: .7rem; font-weight: 600; color: var(--accent); background: var(--accent-soft);
+  border: 1px solid #c9d3f5; border-radius: 999px; padding: 0 .5rem; vertical-align: 1px; cursor: help; }
+.pop-trigger.demand-badge::after { content: ""; position: absolute; inset: -12px -4px; }  /* a 40px tap target */
+.demand-list { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .2rem; }
 .qrow-body, .qrow > .long-answer { padding: 0 .8rem .7rem 2.3rem; display: flex; flex-direction: column; gap: .35rem; }
 .source { margin: 0; font-size: .86rem; color: var(--muted); }
 .source strong { color: var(--landed); }

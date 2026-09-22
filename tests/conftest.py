@@ -1,13 +1,23 @@
-"""No test reaches the network or the real data directory through the retrieval simulation: the
-pages it would fetch are skipped, the embeddings call returns fixed vectors, and their cache lives in
-the test's own tmp_path. A test that exercises one of these replaces the stub itself."""
+"""No test reaches the network or the real data directory: the real-demand fetch refuses and its
+harvests cache in a temp dir; the retrieval simulation skips the pages it would fetch, the
+embeddings call returns fixed vectors, and their cache lives in the test's own tmp_path. A test
+that exercises one of these replaces the stub itself."""
 import hashlib
 
 import pytest
 
 import access
+import demand
 import embeddings
 import retrieval
+
+
+@pytest.fixture(autouse=True)
+def no_demand_network(tmp_path, monkeypatch):
+    def refuse(url):
+        raise ConnectionError("no network in tests")
+    monkeypatch.setattr(demand, "_fetch_json", refuse)
+    monkeypatch.setattr(demand, "_cache", lambda category, real=demand._cache: tmp_path / "demand" / real(category).name)
 
 
 def fake_vector(text: str) -> list[float]:
