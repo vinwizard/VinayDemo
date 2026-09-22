@@ -31,7 +31,9 @@ Two probe families measure two different things:
 - **Blind probes** never name the brand → **visibility**. Do you show up at all? They are asked on
   two fronts side by side — where AI already places you (what the brand answers endorse most) and
   where your site aims to be (its core category) — each asked three times (visibility is the mean,
-  shown with its range, because the same question gets a different answer on every run), and each
+  shown with its range and a bootstrap 95% confidence interval, because the same question gets a
+  different answer on every run; the gap between fronts says whether it is real, or that there are too few
+  questions to call it), and each
   front's control question flags it low confidence when the model does not count you among that
   category's leading tools.
   Details: "Why a rerun gives a different number" in [`WEB.md`](WEB.md).
@@ -112,7 +114,7 @@ demo with no key or internet, start the API with `VISEXP_OFFLINE_REPLAY=1` and t
 company replays the bundled Notion sample, labelled as such. Stop either process with `Ctrl+C`.
 [`WEB.md`](WEB.md) has the details, live mode and the API reference.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 400 passing,
+Tests: `conda activate visexp && python -m pytest -q` (offline; 407 passing,
 incl. one journey per bundled scenario end to end through the `/api/stream` event stream, the API over
 HTTP via fastapi's TestClient, the live adapter under an injected
 transport — including how it classifies a refused key or a region block — no API key, no network).
