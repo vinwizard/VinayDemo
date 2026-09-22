@@ -77,3 +77,12 @@ def test_searches_read_every_try_and_say_when_none_were_recorded():
     for a in [*run.answers, *run.repeat_answers]:
         a.searches = None
     assert "not recorded" in searches(run)["reason"]
+
+
+def test_searches_keep_every_spelling_run_within_one_answer():
+    run = run_scenario("B")
+    buyer = {p.id for p in run.probes if p.kind == "blind" and p.phase == "baseline"}
+    a = next(a for a in run.answers if a.probe_id in buyer and a.status == "ok")
+    a.searches = ["zz wiki 2025", "zz wiki 2026"]
+    g = next(g for g in searches(run)["searches"] if g["query"] == "zz wiki 2025")
+    assert g["variants"] == ["zz wiki 2026"] and g["answers"] == 1

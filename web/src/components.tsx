@@ -1077,11 +1077,14 @@ function tryStory(t: SearchTry) {
   );
 }
 
+const answeredOk = (run: Run, p: Probe) =>
+  [run.answers, run.repeat_answers ?? []].flat().some((a) => a.probe_id === p.id && a.status === "ok");
+
 /** What the model searched for one buyer question, every try, or that it was not recorded. */
 function Searched({ run, p }: { run: Run; p: Probe }) {
   const s = run.insights?.searches;
   const tries = s?.questions[p.id];
-  if (!s || run.answers.find((a) => a.probe_id === p.id)?.status !== "ok") return null;
+  if (!s || p.phase !== "baseline" || (!tries && !answeredOk(run, p))) return null;
   return (
     <div className="searched">
       <h4>What ChatGPT searched <Term k="fan_out" icon /></h4>
@@ -1110,7 +1113,7 @@ function WhatItSearched({ run }: { run: Run }) {
   const missed = buyer.filter((p) => first(p)?.pages.length && !first(p)!.owned_pages.length);
   const story = missed.find((p) => run.evaluations.find((e) => e.probe_id === p.id)?.mentioned === false)
     ?? missed[0] ?? buyer.find((p) => first(p)?.searches.length);
-  const found = s.reason ? "not recorded" : `ChatGPT ran ${plural(s.searches.length, "different search", "different searches")};`
+  const found = s.reason ? (s.answers ? "no web searches" : buyer.some((p) => answeredOk(run, p)) ? "not recorded" : "no buyer answers") : `ChatGPT ran ${plural(s.searches.length, "different search", "different searches")};`
     + ` your site was cited after ${s.owned ? s.owned : "none"} of them`;
   return (
     <Block open={!window.matchMedia(PHONE).matches} title="What ChatGPT searched" found={found}>

@@ -1,8 +1,9 @@
 """Report panels read off a saved run: which sites AI cites, share of voice, and what AI searched.
 No model calls.
 
-Both count only baseline answers that count toward the scores (`scoring.eligible`), so an excluded
-or exploratory answer can never move them, and every empty panel carries the reason it is empty.
+Sources and share of voice count only baseline answers that count toward the scores
+(`scoring.eligible`), so an excluded or exploratory answer can never move them. Searches is not a
+score and reads every buyer answer that came back. Every empty panel carries the reason it is empty.
 """
 import re
 from collections import Counter
@@ -103,11 +104,15 @@ def searches(run: Run) -> dict:
         owned = [u for u in a.citations if domain_matches(u, domains)]
         questions.setdefault(a.probe_id, []).append(dict(try_no=a.try_no, searches=a.searches,
                                                          pages=a.citations, owned_pages=owned))
-        for key, q in {_same_search(q): q for q in a.searches if _same_search(q)}.items():
-            g = groups.setdefault(key, dict(query=q, variants=[], answers=0, questions=[], pages=[],
+        spellings: dict[str, list[str]] = {}
+        for q in a.searches:
+            if _same_search(q):
+                spellings.setdefault(_same_search(q), []).append(q)
+        for key, qs in spellings.items():
+            g = groups.setdefault(key, dict(query=qs[0], variants=[], answers=0, questions=[], pages=[],
                                             owned_pages=[]))
             g["answers"] += 1
-            for field, items in (("variants", [q]), ("questions", [a.probe_id]), ("pages", a.citations),
+            for field, items in (("variants", qs), ("questions", [a.probe_id]), ("pages", a.citations),
                                  ("owned_pages", owned)):
                 g[field] += [x for x in items if x not in g[field]]
     rows = sorted(groups.values(), key=lambda g: -g["answers"])  # stable: ties keep first-seen order
