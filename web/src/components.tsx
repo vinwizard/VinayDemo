@@ -1211,8 +1211,9 @@ function PassageQuote({ title, p }: { title: string; p: ScoredPassage }) {
 }
 
 /** Ask the model once more with the rewritten passage and the cited page as its only sources. */
-function Reask({ run, r }: { run: Run; r: RetrievalRow }) {
-  const [got, setGot] = useState(r.reask);
+function Reask({ run, r, got, setGot }: {
+  run: Run; r: RetrievalRow; got: RetrievalRow["reask"]; setGot: (got: RetrievalRow["reask"]) => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (run.mode !== "live_api" || !r.fixed) return null;
@@ -1249,6 +1250,7 @@ function Reask({ run, r }: { run: Run; r: RetrievalRow }) {
  * and yours again with the win-back rewrite in the page. Similarity only, labelled as a simulation.
  */
 function TestAFix({ run }: { run: Run }) {
+  const [reasks, setReasks] = useState<Record<string, RetrievalRow["reask"]>>({});
   const sim = run.retrieval;
   if (!sim) return null;
   const replay = sim.provenance !== "live_api";
@@ -1293,7 +1295,8 @@ function TestAFix({ run }: { run: Run }) {
                         : r.yours && r.fixed.score > r.yours.score ? "The rewrite closes part of the gap."
                         : "The rewrite does not match this question more closely than your page already does."}
                     </p>
-                    <Reask run={run} r={r} />
+                    <Reask run={run} r={r} got={reasks[r.probe_id] ?? r.reask}
+                           setGot={(got) => setReasks((m) => ({ ...m, [r.probe_id]: got }))} />
                   </>
                 ) : <p className="muted">No suggested fix targets this question.</p>}
                 <p className="muted">Scored against {plural(r.queries, "search", "searches")}: the question and ChatGPT's own searches for it; the best match counts.</p>
