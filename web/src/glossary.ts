@@ -103,6 +103,12 @@ export const GLOSSARY = {
     def: "The company's site says this and the AI repeats it, but the company did not mark it as "
       + "something it wants to be known for. Not a problem, just not a priority yet.",
   },
+  fan_out: {
+    term: "Fan-out search",
+    def: "Before an AI with web search answers a question, it rewrites it into a few short web searches "
+      + "of its own and reads the pages they return. Those searches are its fan-out. A site the searches "
+      + "never turn up is rarely the one the AI cites.",
+  },
 } satisfies Record<string, { term: string; def: string }>;
 
 export type TermKey = keyof typeof GLOSSARY;

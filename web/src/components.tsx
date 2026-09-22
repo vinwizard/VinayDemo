@@ -1,7 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { KeyboardEvent, ReactNode } from "react";
-import type { Answer, AttributeScore, DriftReport, Probe, QueryEvaluation, Run, WinBackAction, RunSummary, VisibilitySet, Zone } from "./api";
+import type {
+  Answer, AttributeScore, DriftReport, Probe, QueryEvaluation, Run, SearchTry, WinBackAction, RunSummary, VisibilitySet, Zone,
+} from "./api";
 import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_ORDER, ZONES, rescoreRun } from "./api";
 import { ADDED_MIN_WEIGHT, Slider } from "./claims";
 import {
@@ -260,6 +262,7 @@ function QRef({ id, run }: { id: string; run: Run }) {
       <p className="muted">{questionKind(p, run.profile.name)}</p>
       <p><strong>Asked:</strong> {p.text}</p>
       {why && <p className="warn">Left out of the scores: {why}.</p>}
+      {p.kind === "blind" && p.phase === "baseline" && <Searched run={run} p={p} />}
       <h4>The AI’s answer</h4>
       <p className="muted long-answer">
         {a && run.mode !== "live_api" && <span className="tag sample">sample</span>}
@@ -381,7 +384,7 @@ function RunSource({ run }: { run: Run }) {
 
 const TABS = [
   ["overview", "Overview"], ["win-back", "Win it back"], ["buyer", "Buyer questions"],
-  ["brand", "Brand questions"], ["sources", "Sources & rivals"],
+  ["why", "Why AI misses you"], ["brand", "Brand questions"], ["sources", "Sources & rivals"],
 ] as const;
 
 /** A tab label's native tooltip, for the two tabs named after a term this product invented. */
@@ -445,6 +448,7 @@ export function Report({ run, onRescored, weightNote }: {
     "win-back": winBackPlan(run).actions.length,
     buyer: run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline").length,
     brand: run.probes.filter((p) => p.kind === "named" && p.phase === "baseline").length,
+    why: undefined,
     sources: run.insights?.sources.sources.length,
   };
 
@@ -502,6 +506,7 @@ export function Report({ run, onRescored, weightNote }: {
             </>
           )}
           {tab === "buyer" && <BuyerQuestions run={run} />}
+          {tab === "why" && <WhatItSearched run={run} />}
           {tab === "brand" && <BrandQuestions run={run} />}
           {tab === "sources" && (
             <>
@@ -1050,6 +1055,120 @@ function CitedSources({ run }: { run: Run }) {
   );
 }
 
+const PHONE = "(max-width: 600px)";
+
+/** A cited page without its scheme, "www." or trailing slash. */
+const page = (u: string) => u.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+
+/** Searches as “a”, “b” and “c”. */
+const quoted = (qs: string[]) => qs.map((q, i) => (
+  <span key={i}>{i ? (i === qs.length - 1 ? " and " : ", ") : ""}“{q}”</span>
+));
+
+/** One try in one sentence: what the model searched, how many pages it cited, and whether any was yours. */
+function tryStory(t: SearchTry) {
+  const own = t.owned_pages.length;
+  return (
+    <>
+      {t.searches.length ? <>ChatGPT searched {quoted(t.searches)}</> : "ChatGPT answered without searching"}
+      {t.pages.length ? ` and cited ${plural(t.pages.length, "page")}. ` : " and cited no pages."}
+      {t.pages.length > 0 && (own ? <strong className="own">{own} {own === 1 ? "was" : "were"} yours.</strong> : "None was yours.")}
+    </>
+  );
+}
+
+const answeredOk = (run: Run, p: Probe) =>
+  [run.answers, run.repeat_answers ?? []].flat().some((a) => a.probe_id === p.id && a.status === "ok");
+
+/** What the model searched for one buyer question, every try, or that it was not recorded. */
+function Searched({ run, p }: { run: Run; p: Probe }) {
+  const s = run.insights?.searches;
+  const tries = s?.questions[p.id];
+  if (!s || p.phase !== "baseline" || (!tries && !answeredOk(run, p))) return null;
+  return (
+    <div className="searched">
+      <h4>What ChatGPT searched <Term k="fan_out" icon /></h4>
+      {tries ? tries.map((t) => (
+        <p key={t.try_no}>
+          {run.mode !== "live_api" && <span className="tag sample">sample</span>}
+          {tries.length > 1 && <strong>Try {t.try_no}: </strong>}{tryStory(t)}
+        </p>
+      )) : <p className="muted">Not recorded for this run.</p>}
+    </div>
+  );
+}
+
+/**
+ * The model's own web searches for the buyer questions, near-duplicates grouped: a story from one
+ * question, then every search with the questions it came from and the pages cited after it.
+ */
+function WhatItSearched({ run }: { run: Run }) {
+  const s = run.insights?.searches;
+  if (!s) return null;
+  const replay = run.mode !== "live_api";
+  const buyer = run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline");
+  // The story: a question whose answer cited pages, none of them yours, preferring one that did not
+  // name you either; else the first with searches.
+  const first = (p: Probe) => s.questions[p.id]?.[0];
+  const missed = buyer.filter((p) => first(p)?.pages.length && !first(p)!.owned_pages.length);
+  const story = missed.find((p) => run.evaluations.find((e) => e.probe_id === p.id)?.mentioned === false)
+    ?? missed[0] ?? buyer.find((p) => first(p)?.searches.length);
+  const found = s.reason ? (s.answers ? "no web searches" : buyer.some((p) => answeredOk(run, p)) ? "not recorded" : "no buyer answers") : `ChatGPT ran ${plural(s.searches.length, "different search", "different searches")};`
+    + ` your site was cited after ${s.owned ? s.owned : "none"} of them`;
+  return (
+    <Block open={!window.matchMedia(PHONE).matches} title="What ChatGPT searched" found={found}>
+      {s.reason ? <p className="muted" style={{ margin: 0 }}>{s.reason}</p> : (
+        <>
+          <p className="muted" style={{ margin: 0 }}>
+            {replay && <>{SAMPLE_NOTE} The searches were written by hand too. </>}
+            To answer a buyer, the AI first runs a few <Term k="fan_out">web searches</Term> of its own.
+            A search that never leads to your site is where you go missing. Tap one for details.
+          </p>
+          {story && (
+            <p className="callout story">
+              {replay && <span className="tag sample">sample</span>}
+              When a buyer asked “{story.text}”, {tryStory(first(story)!)}
+            </p>
+          )}
+          <ul className="search-list">
+            {s.searches.map((g) => (
+              <li key={g.query}>
+                <Popover wide label={`Search: ${g.query}`} className="search-row"
+                         trigger={<>
+                           <span className="search-q">“{g.query}”</span>
+                           <span className="chip-count">{plural(g.answers, "answer")}</span>
+                           {g.owned_pages.length ? <span className="pill landed">your site</span>
+                             : <span className="pill neutral">not you</span>}
+                         </>}>
+                  <strong className="pop-title">“{g.query}”</strong>
+                  {g.variants.length > 0 && (
+                    <p className="muted">Also searched as {quoted(g.variants)}: the same search with another year or spelling.</p>
+                  )}
+                  <h4>Came from</h4>
+                  <p>{refs(g.questions, run)} · run in {plural(g.answers, "answer")}</p>
+                  <h4>Pages cited in {g.answers === 1 ? "that answer" : "those answers"}</h4>
+                  {g.pages.length ? (
+                    <ul className="page-list">
+                      {g.pages.map((u) => (
+                        <li key={u}>{page(u)}{g.owned_pages.includes(u) && <> <span className="pill landed">your site</span></>}</li>
+                      ))}
+                    </ul>
+                  ) : <p className="muted">None.</p>}
+                  <p className="muted">
+                    The AI does not say which search found which page, so this lists every page{" "}
+                    {g.answers === 1 ? "that answer" : "those answers"} cited
+                    {replay && ". Every example.com address is a fictional placeholder"}.
+                  </p>
+                </Popover>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </Block>
+  );
+}
+
 /** One question as a compact row; opening it shows the full answer and what the scorer made of it. */
 function QuestionRow({ p, name, answer, verdict, tags, note, replay, after }: {
   p: Probe; name: string; answer?: Answer; verdict?: ReactNode; tags?: ReactNode; note?: ReactNode;
@@ -1128,6 +1247,7 @@ function BuyerQuestions({ run }: { run: Run }) {
                    verdict={verdict(p)} replay={replay}
                    note={<>
                      {evals.get(p.id)?.explanation && <span className="muted">{evals.get(p.id)!.explanation}</span>}
+                     <Searched run={run} p={p} />
                      {shown.length > 1 && (
                        <span className="muted">
                          {shown.map(([a, e], i) => `Try ${i + 1}: ${tryWord(a, e)}`).join(" · ")}. Every try’s answer is below.
