@@ -163,6 +163,21 @@ def test_asking_again_supplies_both_passages_and_reads_whether_you_are_named(api
     assert c.post(f"/api/runs/{run.id}/reask", json={"probe_id": "kb-1"}).status_code == 404  # no fix
 
 
+def test_asking_again_keeps_weights_saved_while_the_model_answered(api, monkeypatch):
+    c, run = api
+    claim = run.attributes[0].id
+
+    def rescore_meanwhile(timeout, **kw):
+        c.post(f"/api/runs/{run.id}/rescore", json={"weights": {claim: 0.5}})
+        return {"output": [{"type": "message", "content": [{"type": "output_text", "text": "Try Notion."}]}]}
+
+    monkeypatch.setattr(access, "_create", rescore_meanwhile)
+    assert c.post(f"/api/runs/{run.id}/reask", json={"probe_id": "pt-1"}).status_code == 200
+    saved = reports.load_run(run.id)
+    assert next(a for a in saved.attributes if a.id == claim).intended_weight == 0.5
+    assert next(x for x in saved.retrieval.rows if x.probe_id == "pt-1").reask.named
+
+
 def test_asking_again_is_refused_without_a_pass_and_on_a_replay(api, monkeypatch):
     c, run = api
     monkeypatch.setattr(access, "_create", lambda *a, **k: pytest.fail("no model call expected"))

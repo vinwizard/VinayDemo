@@ -624,11 +624,18 @@ def reask_run(run_id: str, req: ReaskRequest, request: Request = None):
         raise HTTPException(404, "No fix to test for that buyer question.")
     try:
         with access.spending(pid):
-            row.reask = retrieval.reask(run, row, live.model_name())
+            answer = retrieval.reask(run, row, live.model_name())
     except access.Refused as e:
         raise HTTPException(403, e.message)
     except Exception as e:
         raise HTTPException(502, f"Asking again failed: {live.safe_error(e)}")
+    try:
+        run = load_run(run_id)
+    except (FileNotFoundError, ValueError):
+        pass
+    for r in run.retrieval.rows if run.retrieval else []:
+        if r.probe_id == req.probe_id:
+            r.reask = answer
     if run.id != SHOWCASE_RUN and (not public_demo() or (pid and access.owner("run", run_id) == pid)):
         save_run(run)
     return run_payload(run)
