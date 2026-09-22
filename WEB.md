@@ -121,11 +121,15 @@ things make the buyer number trustworthy anyway:
   it is 1 try and its numbers do not move.
 - **Every number says how sure it is.** `scoring` bootstraps a 95% confidence interval (2,000
   resamples, fixed seed, so a saved run always shows the same interval) and the report shows it as a
-  small "±" beside the number, the interval itself one tap away. Visibility resamples the buyer
-  questions, then each chosen question's tries (`visibility_draws`); one try has no interval, so a
-  replayed sample says "1 try per question, so there is no interval". The gap between fronts is
-  bootstrapped draw by draw (`gap_verdict`): an interval that excludes 0 reads "The gap is real, 95%
-  confident" (`drift.gap_real`), otherwise "Not distinguishable with this sample". Claim echo and
+  small low–high range beside the number (the headline's in untapped-potential terms, 100 minus the
+  score's range), what it means one tap away. Visibility resamples the buyer questions, then each
+  chosen question's tries (`visibility_draws`), from `MIN_INTERVAL_ANSWERS` (5) scored questions up;
+  one try has no interval, so a replayed sample says "1 try per question, so there is no interval".
+  The gap between fronts is bootstrapped draw by draw (`gap_verdict`): an interval that excludes 0
+  reads "The gap is real, 95% confident" (`drift.gap_real`), otherwise "Not distinguishable with this
+  sample". When either front has no interval, or one whose width is zero (its answers never varied),
+  the verdict is withheld: "Too few questions to call the gap", the reason in
+  `na_reasons["visibility_gap_interval"]`. Claim echo and
   alignment resample the brand answers (`echo_draws`), from `MIN_INTERVAL_ANSWERS` (5) answers up;
   below that the reason is in `na_reasons["<field>_interval"]`. `score_drift` computes them, so a
   rescore recomputes them.
@@ -210,7 +214,7 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   measured live or is a sample, the headline framed as upside — **untapped potential** (100 minus
   the score) with the real score beside it ("AI says 21.4% of what you want to be known for
   today") — buyer visibility (on a live run, side by side: **Where AI places you** and **Where you
-  aim to be**, each with its category, range, ± confidence interval and any low-confidence badge, then
+  aim to be**, each with its category, range, 95% confidence interval and any low-confidence badge, then
   one plain gap sentence ending in whether the gap is real), the count of claims to win back, and **Download summary (PDF)**.
   Below it, five tabs with counts (`role=tablist`, arrow keys, Home/End; the tab is kept in the URL
   hash, so `#report-buyer` opens Buyer questions; on a phone the strip scrolls sideways):

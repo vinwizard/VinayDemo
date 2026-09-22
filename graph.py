@@ -306,12 +306,19 @@ def score_drift(run: Run) -> None:
                                    lens=lens)
     run.drift.tries, run.drift.visibility_range = tries, spread
     per_question = lambda ids: [[e.strength for e in counted if e.probe_id == i] for i in ids]
-    NO_TRIES = "1 try per question, so there is no interval: repeat asks show how much answers vary."
+
+    def no_interval(qs: list[list[int]]) -> str:
+        qs = [q for q in qs if q]
+        if qs and max(map(len, qs)) < 2:
+            return "1 try per question, so there is no interval: repeat asks show how much answers vary."
+        return (f"Too few buyer questions for an interval: {len(qs)} scored, at least "
+                f"{MIN_INTERVAL_ANSWERS} needed.")
     if run.drift.visibility is not None:
-        if draws := visibility_draws(per_question([p.id for p in blind])):
+        qs = per_question([p.id for p in blind])
+        if draws := visibility_draws(qs):
             run.drift.visibility_interval = interval(draws)
         else:
-            run.drift.na_reasons["visibility_interval"] = NO_TRIES
+            run.drift.na_reasons["visibility_interval"] = no_interval(qs)
     # Claim echo and alignment: resample the brand answers the numbers were computed over.
     endorsed = {pid: {o.attribute_id for o in (run.observations or {}).get(pid, []) if o.polarity == "positive"}
                 for pid in kept}
@@ -348,12 +355,13 @@ def score_drift(run: Run) -> None:
         vs = VisibilitySet(front=front, category=category, visibility=vis, tries=tries,
                            visibility_range=rng, n_blind=len(mine), questions=len(ids),
                            control_probe_id=control.id if control else None)
-        draws[front] = visibility_draws(per_question(sorted(ids)), key=str(front))
+        qs = per_question(sorted(ids))
+        draws[front] = visibility_draws(qs, key=str(front))
         if vis is not None:
             if draws[front]:
                 vs.interval = interval(draws[front])
             else:
-                vs.interval_note = NO_TRIES
+                vs.interval_note = no_interval(qs)
         if control and vis is not None:
             vs.low_confidence = low_confidence(run.profile.name, category or "",
                                                ev.get(control.id), answers.get(control.id))
@@ -367,10 +375,13 @@ def score_drift(run: Run) -> None:
     run.drift.aiming_category = aiming.category if aiming else None
     if "placed" in by_front and "aiming" in by_front and None not in (placed.visibility, aiming.visibility):
         run.drift.visibility_gap = round(placed.visibility - aiming.visibility, 1)
-        if draws.get("placed") and draws.get("aiming"):
-            run.drift.gap_interval, run.drift.gap_real = gap_verdict(draws["placed"], draws["aiming"])
+        verdict = draws.get("placed") and draws.get("aiming") and gap_verdict(draws["placed"], draws["aiming"])
+        if verdict:
+            run.drift.gap_interval, run.drift.gap_real = verdict
         else:
-            run.drift.na_reasons["visibility_gap_interval"] = NO_TRIES
+            why = (placed.interval_note or aiming.interval_note
+                   or "the answers on one side never varied, so its interval has no width.")
+            run.drift.na_reasons["visibility_gap_interval"] = f"Too few questions to call the gap: {why}"
     run.drift.limitations += run.drift_notes
 
 

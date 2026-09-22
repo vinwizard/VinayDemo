@@ -28,9 +28,14 @@ def test_a_known_gap_is_real_and_no_gap_is_not():
     assert same[0][0] < 0 < same[0][1] and not same[1]
 
 
-def test_one_try_or_one_question_has_no_interval():
-    assert visibility_draws([[2], [0], [1]]) is None
-    assert visibility_draws([[2, 0, 1]]) is None
+def test_one_try_or_too_few_questions_has_no_interval():
+    assert visibility_draws([[2], [0], [1], [2], [0], [1]]) is None
+    assert visibility_draws(noisy(0.5, questions=4)) is None
+    assert visibility_draws(noisy(0.5, questions=5)) is not None
+
+
+def test_answers_that_never_vary_give_no_verdict():
+    assert gap_verdict(visibility_draws([[1, 1, 1]] * 6, "placed"), visibility_draws(noisy(0.1), "aiming")) is None
 
 
 def test_too_few_brand_answers_have_no_echo_interval():
@@ -50,11 +55,13 @@ def test_offline_replay_keeps_its_numbers_and_says_one_try_has_no_interval():
         assert "1 try" in d.na_reasons["visibility_interval"] == d.sets[0].interval_note
 
 
-def test_the_two_fronts_carry_intervals_and_a_real_gap_that_survive_a_rescore(monkeypatch):
+def test_fronts_whose_answers_never_vary_withhold_the_verdict_through_a_rescore(monkeypatch):
     run, _ = run_fronts(monkeypatch)
-    d = run.drift
-    placed, aiming = d.sets
-    assert (placed.interval, aiming.interval) == ([50.0, 50.0], [0.0, 0.0])
-    assert (d.gap_interval, d.gap_real) == ([50.0, 50.0], True)
-    graph.rescore(run, {a.id: 1.0 for a in run.attributes[:1]})
-    assert (run.drift.gap_interval, run.drift.gap_real, run.drift.sets[0].interval) == ([50.0, 50.0], True, [50.0, 50.0])
+    for rescored in (False, True):
+        if rescored:
+            graph.rescore(run, {a.id: 1.0 for a in run.attributes[:1]})
+        d = run.drift
+        placed, aiming = d.sets
+        assert (placed.interval, aiming.interval) == ([50.0, 50.0], [0.0, 0.0])
+        assert (d.gap_interval, d.gap_real) == (None, None)
+        assert d.na_reasons["visibility_gap_interval"].startswith("Too few questions to call the gap")

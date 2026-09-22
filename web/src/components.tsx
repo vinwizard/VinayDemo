@@ -134,26 +134,30 @@ function gapSentence(d: DriftReport, brand: string): string | null {
   return null;
 }
 
-/** "±5.4" beside a number: its bootstrap 95% confidence interval, one hover or tap away. */
+/** "0–10" beside a number: its bootstrap 95% confidence interval, explained one hover or tap away. */
 function Ci({ iv, of }: { iv?: [number, number] | null; of: string }) {
   if (!iv) return null;
   return (
     <Term k="confidence_interval" note={`${of}: between ${iv[0]} and ${iv[1]}, 95% confident.`}>
-      <small className="ci">±{Math.round((iv[1] - iv[0]) * 5) / 10}</small>
+      <small className="ci">{iv[0]}–{iv[1]}</small>
     </Term>
   );
 }
 
-/** The gap's significance test in words: real, or not distinguishable with this sample. */
+/** The gap's significance test in words: real, not distinguishable, or too few questions to call. */
 function GapVerdict({ d }: { d: DriftReport }) {
-  if (d.gap_real == null || !d.gap_interval) return null;
-  const [lo, hi] = d.gap_interval;
+  const withheld = d.na_reasons?.visibility_gap_interval;
+  if ((d.gap_real == null || !d.gap_interval) && !withheld) return null;
   return (
     <>
       {" "}
-      <Term k="significant_gap" note={`The gap is between ${lo} and ${hi} points, 95% confident.`}>
-        {d.gap_real ? "The gap is real, 95% confident." : "Not distinguishable with this sample."}
-      </Term>
+      {d.gap_real != null && d.gap_interval ? (
+        <Term k="significant_gap" note={`The gap is between ${d.gap_interval[0]} and ${d.gap_interval[1]} points, 95% confident.`}>
+          {d.gap_real ? "The gap is real, 95% confident." : "Not distinguishable with this sample."}
+        </Term>
+      ) : (
+        <Term k="significant_gap" note={withheld}>Too few questions to call the gap.</Term>
+      )}
     </>
   );
 }
@@ -178,6 +182,10 @@ const modelsOf = (run: Run) => {
   return { answered: list(all.map((a) => a.model)), judged: list(all.map((a) => a.evaluator_model)) };
 };
 
+/** A score's interval as untapped potential (100 minus the score), low to high. */
+const untapped = (iv?: [number, number] | null): [number, number] | null =>
+  iv ? [Math.round((100 - iv[1]) * 10) / 10, Math.round((100 - iv[0]) * 10) / 10] : null;
+
 /** The headline, buyer visibility and the claims to win back: pinned above every tab. */
 function Figures({ d, brand }: { d: DriftReport; brand: string }) {
   const h = headline(d);
@@ -189,7 +197,7 @@ function Figures({ d, brand }: { d: DriftReport; brand: string }) {
     <div className="figures">
       <div className="fig potential">
         <span className="fig-value">
-          {h.potential == null ? "n/a" : <>{h.potential}%<Ci iv={d[`${h.field}_interval`]} of={`${h.label} today`} /></>}
+          {h.potential == null ? "n/a" : <>{h.potential}%<Ci iv={untapped(d[`${h.field}_interval`])} of="Untapped potential" /></>}
         </span>
         <span className="fig-label">
           {h.potential == null ? h.label : <Term k="untapped_potential">untapped potential</Term>}

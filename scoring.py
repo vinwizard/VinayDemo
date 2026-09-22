@@ -37,7 +37,7 @@ def visibility_over_tries(per_try: list[list[int]]) -> tuple[Optional[float], Op
 
 # Bootstrap 95% intervals, with a fixed seed so the same saved answers always give the same interval.
 BOOT_RESAMPLES, BOOT_SEED = 2000, 7
-MIN_INTERVAL_ANSWERS = 5  # fewer eligible brand answers than this: too few for an interval
+MIN_INTERVAL_ANSWERS = 5  # fewer eligible brand answers, or scored buyer questions, than this: no interval
 
 
 def interval(draws: list[float]) -> list[float]:
@@ -50,11 +50,12 @@ def visibility_draws(per_question: list[list[int]], key: str = "") -> Optional[l
     """Bootstrap draws of visibility: resample the questions, then each chosen question's tries.
 
     per_question: one list per buyer question of its tries' strengths. None when no question has a
-    second try (one try shows nothing of how answers vary between asks) or fewer than two questions
-    were scored. `key` seeds each set apart, so two fronts are resampled independently.
+    second try (one try shows nothing of how answers vary between asks) or fewer than
+    MIN_INTERVAL_ANSWERS questions were scored. `key` seeds each set apart, so two fronts are
+    resampled independently.
     """
     qs = [q for q in per_question if q]
-    if len(qs) < 2 or max(map(len, qs)) < 2:
+    if len(qs) < MIN_INTERVAL_ANSWERS or max(map(len, qs)) < 2:
         return None
     rng = random.Random(f"{BOOT_SEED}:{key}")
     out = []
@@ -64,8 +65,11 @@ def visibility_draws(per_question: list[list[int]], key: str = "") -> Optional[l
     return out
 
 
-def gap_verdict(a: list[float], b: list[float]) -> tuple[list[float], bool]:
-    """-> (95% interval of a minus b, draw by draw; whether it excludes 0: a real gap)."""
+def gap_verdict(a: list[float], b: list[float]) -> Optional[tuple[list[float], bool]]:
+    """-> (95% interval of a minus b, draw by draw; whether it excludes 0: a real gap), or None when
+    either side's interval has zero width: answers that never varied cannot say how sure the gap is."""
+    if any(lo == hi for lo, hi in (interval(a), interval(b))):
+        return None
     lo, hi = interval([x - y for x, y in zip(a, b)])
     return [lo, hi], lo > 0 or hi < 0
 
