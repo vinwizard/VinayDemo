@@ -197,28 +197,33 @@ def request(url: str, timeout: float = TIMEOUT, accept: str = HTML) -> tuple[str
     raise FetchError(f"too many redirects from {url}")
 
 
-def fetch_raw(url: str, timeout: float = TIMEOUT) -> tuple[str, str]:
-    """-> (final_url, raw_html)."""
+def fetch_raw(url: str, timeout: float = TIMEOUT, types: tuple[str, ...] = ("html", "text")) -> tuple[str, str]:
+    """-> (final_url, raw_html). `types`: what the content type must contain. Any text by default,
+    for robots.txt; a page of the company's site passes ("html",), since text/css is text too."""
     final, status, ctype, html = request(url, timeout)
     if status != 200:
         raise FetchError(f"HTTP {status} for {final}")
-    if "html" not in ctype and "text" not in ctype:
+    if not any(t in ctype for t in types):
         raise FetchError(f"unsupported content type {ctype!r}")
     return final, html
 
 
 def fetch(url: str) -> tuple[str, str]:
-    """-> (final_url, extracted_text)."""
-    final, html = fetch_raw(url)
+    """-> (final_url, extracted_text). HTML only: a stylesheet or script is not a page."""
+    final, html = fetch_raw(url, types=("html",))
     text = extract_text(html)
     if not text:
         raise FetchError(f"no extractable text at {final}")
     return final, text
 
 
-LINK = re.compile(r'href=["\']([^"\']+)["\']', re.I)
+# Links a reader clicks, not every href: <link rel="stylesheet" href=...> is not a page.
+LINK = re.compile(r'<a\s[^>]*?(?<![\w-])href\s*=\s*["\']([^"\']+)["\']', re.I)
 USEFUL = ("product", "features", "platform", "solutions", "why", "about", "enterprise",
           "pricing", "customers", "use-case", "usecase", "ai")
+# A keyword counts only as a whole word of the path ("/ai-agents", "/products"), never inside one:
+# "ai" inside "/CorporateAffairs/" sent the crawler to five stylesheets on amgen.com.
+USEFUL_WORD = re.compile(r"(?<![a-z0-9])(?:%s)s?(?![a-z0-9])" % "|".join(map(re.escape, USEFUL)))
 
 
 def same_origin_links(base_url: str, html_text: str, limit: int = 2) -> list[str]:
@@ -230,7 +235,7 @@ def same_origin_links(base_url: str, html_text: str, limit: int = 2) -> list[str
         if target.netloc != base.netloc or target.scheme not in ALLOWED_SCHEMES:
             continue
         path = target.path.rstrip("/") or "/"
-        if path in seen or not any(k in path.lower() for k in USEFUL):
+        if path in seen or not USEFUL_WORD.search(path.lower()):
             continue
         seen.add(path)
         out.append(f"{target.scheme}://{target.netloc}{path}")
@@ -270,7 +275,7 @@ def icon_url(base_url: str, html_text: str) -> Optional[str]:
 def fetch_site(url: str, max_pages: int = 3) -> tuple[list[tuple[str, str]], Optional[str]]:
     """-> (pages, icon URL). Homepage plus up to two same-origin pages; individual page failures are
     skipped, not fatal. The icon comes from the homepage HTML already fetched — no extra request."""
-    final, html = fetch_raw(url)             # one request; HTML reused for text, links AND the icon
+    final, html = fetch_raw(url, types=("html",))  # one request; HTML reused for text, links AND the icon
     text = extract_text(html)
     if not text:
         raise FetchError(f"no extractable text at {final}")

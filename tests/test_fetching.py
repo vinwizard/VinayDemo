@@ -152,6 +152,26 @@ def test_only_same_origin_useful_links_are_followed():
     assert not any("careers" in l for l in links)
 
 
+def test_stylesheets_are_not_pages_and_keywords_match_whole_words():
+    # amgen.com, 22 Sep 2026: all five "pages" read were <link> stylesheets, because every href
+    # counted and "ai" matched inside "CorporateAffairs". Its real /about/ pages were never read.
+    html = ('<link rel="stylesheet" href="/-/media/Themes/CorporateAffairs/amgen-com/styles/main.css">'
+            '<a data-href="/about/ignored" href="/-/media/Themes/CorporateAffairs/brochure">brochure</a>'
+            '<a class="nav" href="/about/therapy-areas">Therapy areas</a>'
+            '<a href="/ai-and-data-science">AI</a>')
+    assert fetching.same_origin_links("https://www.amgen.com/", html, limit=5) == [
+        "https://www.amgen.com/about/therapy-areas", "https://www.amgen.com/ai-and-data-science"]
+
+
+def test_a_page_must_be_html_though_robots_txt_may_be_plain_text(monkeypatch):
+    stub_resolve(monkeypatch, "93.184.216.34")
+    monkeypatch.setattr(fetching, "_get", lambda *a: (200, {"Content-Type": "text/css"}, b"body{color:red}"))
+    with pytest.raises(FetchError, match="unsupported content type"):
+        fetching.fetch("https://example.com/main.css")
+    monkeypatch.setattr(fetching, "_get", lambda *a: (200, {"Content-Type": "text/plain"}, b"User-agent: *"))
+    assert fetching.fetch_raw("https://example.com/robots.txt")[1] == "User-agent: *"
+
+
 def test_icon_prefers_apple_touch_then_icon_then_favicon_and_only_http():
     base = "https://acme.example/home"
     both = '<link rel="icon" href="/f.ico"><link href="/touch.png" rel="apple-touch-icon">'
