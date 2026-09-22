@@ -184,7 +184,14 @@ export interface Run {
 export interface Insights {
   sources: {
     answers: number; cited_answers: number; reason: string | null;
-    sources: { domain: string; answers: number; buyer: number; brand: number; owned: boolean; target: boolean }[];
+    sources: {
+      domain: string; url: string; answers: number; buyer: number; brand: number; owned: boolean;
+      kind: "owned" | "rival" | "review" | "community" | "media" | "other";
+      /** On buyer answers: how many citing it mention the brand, the rivals named beside it, and which answers. */
+      with_brand: number; rivals: { name: string; count: number }[]; probes: string[];
+    }[];
+    /** Sites cited beside rivals in buyer answers that never mention the brand, most-cited first. */
+    rival_only: string[];
   };
   voice: {
     questions: number; brand: string; brand_recommended: number; reason: string | null;
