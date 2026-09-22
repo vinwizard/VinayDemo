@@ -180,6 +180,9 @@ class Answer(BaseModel):
     evaluator_labels: Optional[dict] = None  # model-produced labels; live only
     evaluator_model: Optional[str] = None
     try_no: int = 1  # which ask of the same question this is; buyer questions are asked several times
+    # The web searches the answering model ran, in order (web_search_call "search" actions).
+    # None: not recorded (a run saved before this field, or a source that cannot see them).
+    searches: Optional[list[str]] = None
 
     @property
     def labels(self) -> Optional[dict]:
