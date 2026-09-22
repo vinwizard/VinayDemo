@@ -1,9 +1,11 @@
 """Could AI even read your site, and where else does it learn about you? No model calls.
 
-Retrievability: for every claim onboarding kept, the first page that still states it is checked the
-way an AI crawler meets it — does robots.txt let the AI crawlers in, are the claim's words in the
-plain HTML, does the page carry schema.org structured data, a main heading and question-style
-subheadings, and does it load in time. Site-wide: an llms.txt, and pages that are mostly script.
+Retrievability: for every claim onboarding kept, every page that still states it is checked the
+way an AI crawler meets it. The claim is checked on the first of them AI can read (robots.txt lets
+the AI crawlers in and the page is not mostly script) — are the claim's words in the plain HTML,
+does the page carry schema.org structured data, a main heading and subheadings, and does it load in
+time; every other page that states it but is blocked or script-only is listed as advice. Site-wide:
+an llms.txt, and pages that are mostly script.
 
 The onboarding crawler (fetching.py) already reads raw HTML and never runs JavaScript, so every quote
 it verified was in the no-JS HTML by construction. The JavaScript check therefore asks whether the
@@ -35,7 +37,6 @@ SLOW_SECONDS = 3.0
 THIN_TEXT = 500          # visible characters below which a script-heavy page reads as empty
 AI_CRAWLERS = ("GPTBot", "OAI-SearchBot", "ChatGPT-User", "PerplexityBot", "ClaudeBot", "Google-Extended")
 OUR_AGENT = fetching.USER_AGENT.split("/")[0]
-QUESTION = re.compile(r"^(how|what|why|who|when|where|which|can|does|do|is|are|should)\b|\?$", re.I)
 WIKIDATA = "https://www.wikidata.org/w/api.php?"
 WIKIPEDIA = "https://en.wikipedia.org/w/api.php?"
 PROFILES = {
@@ -77,7 +78,7 @@ def robots_for(origin: str) -> Optional[tuple[RobotFileParser, bool]]:
 
 
 class _Markup(HTMLParser):
-    """Headings, JSON-LD blocks and how much inline script a page carries."""
+    """Headings, JSON-LD blocks, how much inline script a page carries and how many scripts it loads."""
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -85,10 +86,13 @@ class _Markup(HTMLParser):
         self.subheads: list[str] = []
         self.ld: list[str] = []
         self.script = 0
+        self.external = 0
         self._open: Optional[tuple[str, str]] = None
         self._buf: list[str] = []
 
     def handle_starttag(self, tag, attrs):
+        if tag == "script" and dict(attrs).get("src"):
+            self.external += 1
         if tag in ("h1", "h2", "h3", "script") and not self._open:
             self._open, self._buf = (tag, (dict(attrs).get("type") or "").lower()), []
 
@@ -140,7 +144,8 @@ class Page:
 
     @property
     def thin(self) -> bool:
-        return self.html is not None and len(self.text) < THIN_TEXT and self.markup.script > len(self.text)
+        return (self.html is not None and len(self.text) < THIN_TEXT
+                and (self.markup.script > len(self.text) or self.markup.external > 0))
 
 
 def read_page(url: str, robots) -> Page:
@@ -164,12 +169,15 @@ def _join(xs: list[str]) -> str:
     return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
 
 
+def blocked_for(url: str, robots) -> list[str]:
+    return [b for b in AI_CRAWLERS if not robots[0].can_fetch(b, url)] if robots else []
+
+
 def crawler_check(url: str, robots) -> AuditCheck:
     if robots is None:
         return AuditCheck(key="crawlers", status="unknown",
                           detail="The site's robots.txt did not load, so we cannot tell which AI crawlers may read this page.")
-    blocked = [b for b in AI_CRAWLERS if not robots[0].can_fetch(b, url)]
-    if blocked:
+    if blocked := blocked_for(url, robots):
         return AuditCheck(key="crawlers", status="fail",
                           detail=f"robots.txt blocks {_join(blocked)} from this page, so those AIs cannot read it.")
     return AuditCheck(key="crawlers", status="pass",
@@ -191,18 +199,18 @@ def page_checks(page: Page) -> list[AuditCheck]:
         out.append(AuditCheck(key="markup", status="fail",
                               detail="No schema.org structured data, so AI has to guess what this page is: a "
                                      "product, a company, an FAQ."))
-    questions = [h for h in m.subheads if QUESTION.search(h)]
     if not m.h1:
         out.append(AuditCheck(key="headings", status="fail",
                               detail="No main heading (H1), so the page's topic is left to guesswork."))
-    elif not questions:
+    elif not m.subheads:
         out.append(AuditCheck(key="headings", status="fail",
-                              detail="It has a main heading but no question-style subheadings (like “How does it "
-                                     "work?”), the shape people use when they ask AI."))
+                              detail="A main heading but no subheadings, so AI cannot tell where one passage "
+                                     "ends and the next begins."))
     else:
+        n = len(m.subheads)
         out.append(AuditCheck(key="headings", status="pass",
-                              detail=f"A main heading and {len(questions)} question-style subheading"
-                                     f"{'' if len(questions) == 1 else 's'}, such as “{questions[0]}”."))
+                              detail=f"A main heading and {n} subheading{'' if n == 1 else 's'}, such as "
+                                     f"“{m.subheads[0]}”, that split the page into passages AI can quote."))
     slow = page.seconds > SLOW_SECONDS
     out.append(AuditCheck(key="speed", status="fail" if slow else "pass",
                           detail=f"Loaded in {page.seconds:.1f} s, measured once from our server"
@@ -219,9 +227,20 @@ def _parse_json(raw: str):
 
 def claim_audit(attr, pages: list[Page], robots) -> ClaimAudit:
     read = [p for p in pages if p.html is not None]
-    page = next((p for p in read if any(q in p.text for q in attr.claim_quotes)), None)
+    stating = [p for p in read if any(q in p.text for q in attr.claim_quotes)]
+    page = next((p for p in stating if not blocked_for(p.url, robots) and not p.thin), stating[0] if stating else None)
     out = ClaimAudit(attribute_id=attr.id, label=attr.label, page_url=page.url if page else None)
     if page:
+        for p in stating:
+            if p is not page and (bots := blocked_for(p.url, robots)):
+                out.advice.append(f"It is also on {_path(p.url)}, but robots.txt blocks {_join(bots)} there.")
+            if p is not page and p.thin:
+                out.advice.append(f"It is also on {_path(p.url)}, but that page is mostly script, so AI "
+                                  "crawlers that skip scripts see little else on it.")
+        if page.markup.h1 and page.markup.subheads and not any(h.endswith("?") for h in page.markup.subheads):
+            out.advice.append("Try phrasing a subheading as the question a buyer would ask, like “How does it "
+                              "work?”: AI answers questions, and a question-shaped heading marks the passage "
+                              "that answers it.")
         note = " Most of that page is script, though, so little else on it reaches AI." if page.thin else ""
         out.checks = [crawler_check(page.url, robots),
                       AuditCheck(key="raw_text", status="pass",

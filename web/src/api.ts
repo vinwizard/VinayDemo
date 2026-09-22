@@ -316,7 +316,8 @@ export interface AuditCheck {
 export interface SiteAudit {
   checked_at: string;
   site: AuditCheck[];
-  claims: { attribute_id: string; label: string; page_url: string | null; checks: AuditCheck[] }[];
+  claims: { attribute_id: string; label: string; page_url: string | null; checks: AuditCheck[];
+            advice?: string[] }[];  // advice is absent on audits saved before it existed
   entities: { source: string; status: "found" | "missing" | "not_checked"; summary: string;
               says: string | null; url: string | null }[];
 }

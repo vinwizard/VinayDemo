@@ -168,7 +168,7 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 | `GET /api/companies` · `GET /api/companies/{id}` | onboarded companies, newest first, and one in full |
 | `PATCH /api/companies/{id}` | the customer's own input: `{weights: {id: 0..1}, added: [{label, description, intended_weight}]}`. Intent arrives only here (or on `rescore`) — never derived from their copy, and a weight of 0 leaves an extracted attribute unintended. Weights are optional: a company measured with none runs the claim lens. An **added** claim is intended by construction, so its weight cannot go below 0.1 |
 | `POST /api/access/exchange` · `GET /api/access` | access passes on the hosted demo (`access.py`): `{code}` from a personal link `/?pass=<code>` becomes an HttpOnly session cookie; `GET` is the holder's meter (`{pass: {label, spent_usd, cap_usd, capped}}` or `{pass: null}`). With a pass, live runs and onboarding are allowed on the public demo, charged to the pass, and runs and companies are listed only to the pass that made them. `/admin` (behind `ADMIN_PASSWORD`) creates passes, shows each link once, and tops up or revokes. Cookies are same-origin, so passes work on the production build, not across the Vite dev port |
-| `POST /api/companies/{id}/audit` | checks again whether AI can read the site (`audit.py`) and saves it on the company; the same check runs once during onboarding. Plain fetches, no model and no key: robots.txt for the AI crawlers, the claim's words in the no-JavaScript HTML, schema.org JSON-LD, headings, load time and llms.txt, plus Wikidata/Wikipedia (tied to the company only by Wikidata's official website on its domain) and the Crunchbase, G2 and LinkedIn pages the site itself links to. Anything that cannot be reached, or whose robots.txt turns automated tools away, is "could not check", never a guess. A run copies the company's audit when it starts |
+| `POST /api/companies/{id}/audit` | checks again whether AI can read the site (`audit.py`) and saves it on the company; the same check runs once during onboarding. Plain fetches, no model and no key: robots.txt for the AI crawlers, the claim's words in the no-JavaScript HTML, schema.org JSON-LD, headings, load time and llms.txt, on every page that states each claim, plus Wikidata/Wikipedia (tied to the company only by Wikidata's official website on its domain) and the Crunchbase, G2 and LinkedIn pages the site itself links to. Anything that cannot be reached, or whose robots.txt turns automated tools away, is "could not check", never a guess. A run copies the company's audit when it starts |
 | `DELETE /api/companies/{id}/attributes/{attr}` | removes a claim the customer added. Refuses for a claim extracted from their own pages: that one is evidence, and excluding it from scoring is what its zero slider is for |
 
 Comparison is done client-side from two `GET /api/runs/{id}` responses — no extra endpoint.
@@ -235,15 +235,20 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   - **Why AI misses you** — diagnosis, one collapsible section per question, each headed by one
     plain finding sentence (open on a desktop, closed on a phone). **Can AI read your site?** is a
     red/green mark per check for each claim's page (AI crawlers, text without JavaScript,
-    structured data, headings, speed; a claim that passes all five is one green mark), then the
-    whole site (llms.txt, pages without JavaScript) and **where AI gets its facts** (Wikipedia,
-    Wikidata, Crunchbase, G2, LinkedIn: found, not found or not checked). Every mark opens its
-    reason, the page checked and what the check means; Wikipedia and Wikidata show their own short
-    description beside the site's one-liner. It is the audit the run carried; runs from before it
+    structured data, headings, speed; a claim that passes all five is one green mark). The page
+    checked is the first that states the claim and AI can read; any other page that states it but
+    blocks an AI crawler or is mostly script is listed under the claim as advice ("It is also on
+    /pricing, but robots.txt blocks GPTBot there"), never as a failure. Headings pass on a main
+    heading plus subheadings; phrasing one as a buyer's question is advice too. Then the whole site
+    (llms.txt, pages without JavaScript) and **where AI gets its facts** (Wikipedia, Wikidata,
+    Crunchbase, G2, LinkedIn: found, not found or not checked). Every mark opens its reason, the
+    page checked and what the check means; Wikipedia and Wikidata show their own short description
+    beside the site's one-liner, and a Crunchbase, G2 or LinkedIn profile the site does not link
+    is "not checked", with a one-tap search link to look by hand. It is the audit the run carried; runs from before it
     say so. The same section, closed, sits on the claims step with **Check again**. The onboarding
     crawler never ran JavaScript, so a quote it kept was in the plain HTML by construction: the
-    JavaScript mark says whether it still is, and pages with little text next to their script are
-    flagged.
+    JavaScript mark says whether it still is, and pages with little text next to their script, or
+    that load their code from script files, are flagged.
   - **Buyer questions** and **Brand questions** — one compact row per question with its verdict
     ("recommended you", "did not name you yet", the claims it raised; with several tries, "named in
     2 of 3 tries"); a row opens to the full answer (every try's, for a buyer question) and the scorer's

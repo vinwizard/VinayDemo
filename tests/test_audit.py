@@ -139,3 +139,37 @@ def test_nothing_reachable_is_could_not_check_everywhere_never_a_guess():
     assert {c.status for c in result.site} == {"unknown"}
     assert {k.status for c in result.claims for k in c.checks} == {"unknown"}
     assert {e.status for e in result.entities} == {"not_checked"}
+
+
+def test_a_shell_that_loads_its_code_from_script_files_is_script_only(monkeypatch):
+    monkeypatch.setattr(audit, "get", recorded({**SITE, "https://www.acme.example/app": rec("spa.html")}))
+    result = audit.run(company())
+    assert {c.key: c for c in result.site}["no_js"].status == "fail"
+    gone = checks(result.claims[2])
+    assert "/app is mostly script" in gone["raw_text"].detail
+
+
+def test_a_claim_on_several_pages_passes_on_the_readable_one_and_lists_the_blocked_one(monkeypatch):
+    pricing = (200, "text/html", "<h1>Plans</h1><p>Search every clause in seconds.</p>")
+    monkeypatch.setattr(audit, "get", recorded({**SITE, "https://www.acme.example/pricing": pricing}))
+    search = audit.run(company()).claims[0]
+    assert search.page_url == "https://www.acme.example/"
+    assert checks(search)["crawlers"].status == "pass"
+    assert any("/pricing" in a and "GPTBot" in a and "ClaudeBot" in a for a in search.advice)
+
+
+def test_the_blocked_page_is_checked_when_no_readable_page_states_the_claim(result):
+    seats = result.claims[1]
+    assert seats.page_url == "https://www.acme.example/pricing" and seats.advice == []
+
+
+def test_headings_pass_without_question_subheadings_and_questions_are_only_advice():
+    html = "<h1>Acme</h1><h2>What we do</h2><p>Search every clause in seconds.</p>"
+    page = audit.Page("https://www.acme.example/", html=html, seconds=0.2)
+    assert {c.key: c for c in audit.page_checks(page)}["headings"].status == "pass"
+    rules = audit.RobotFileParser()
+    rules.parse([])
+    advice = audit.claim_audit(company().attributes[0], [page], (rules, False)).advice
+    assert any("question" in a for a in advice)
+    no_sub = audit.Page("https://www.acme.example/", html="<h1>Acme</h1><p>x</p>", seconds=0.2)
+    assert {c.key: c for c in audit.page_checks(no_sub)}["headings"].status == "fail"

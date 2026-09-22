@@ -18,6 +18,13 @@ const SHORT: Record<AuditCheck["key"], string> = {
 const SOURCE_STATUS = { found: "pass", missing: "fail", not_checked: "unknown" } as const;
 const SOURCE_SAID = { found: "found", missing: "not found", not_checked: "not checked" } as const;
 
+/** Where a person can look by hand when the site links no profile: those sites turn automated checks away. */
+const SEARCH: Record<string, string> = {
+  Crunchbase: "https://www.crunchbase.com/textsearch?q=",
+  G2: "https://www.g2.com/search?query=",
+  LinkedIn: "https://www.linkedin.com/search/results/companies/?keywords=",
+};
+
 const path = (url: string) => {
   try { const p = new URL(url).pathname; return p === "/" ? "homepage" : p; } catch { return url; }
 };
@@ -62,7 +69,8 @@ function AllPass({ checks, page }: { checks: AuditCheck[]; page?: string | null 
   );
 }
 
-function Source({ e, siteSays }: { e: SiteAudit["entities"][number]; siteSays?: string | null }) {
+function Source({ e, siteSays, name }: { e: SiteAudit["entities"][number]; siteSays?: string | null; name?: string }) {
+  const search = !e.url && name && SEARCH[e.source] ? SEARCH[e.source] + encodeURIComponent(name) : null;
   const status = SOURCE_STATUS[e.status];
   return (
     <Popover label={e.source} className={`check ${status}`} wide={!!e.says}
@@ -73,13 +81,14 @@ function Source({ e, siteSays }: { e: SiteAudit["entities"][number]; siteSays?: 
       {e.says && <><h4>{e.source} says</h4><p className="quote">{e.says}</p></>}
       {e.says && siteSays && <><h4>Your site says</h4><p className="quote">{siteSays}</p></>}
       {e.url && <p><a href={e.url} target="_blank" rel="noreferrer">Open the {e.source} page</a></p>}
+      {search && <p><a href={search} target="_blank" rel="noreferrer">Search {e.source} for {name}</a></p>}
     </Popover>
   );
 }
 
 /** The whole section. `open` false shows only the header sentence: details are one tap away. */
-export function SiteReadability({ audit, siteSays, open, onRecheck }: {
-  audit: SiteAudit | null; siteSays?: string | null; open?: boolean; onRecheck?: () => Promise<unknown>;
+export function SiteReadability({ audit, name, siteSays, open, onRecheck }: {
+  audit: SiteAudit | null; name?: string; siteSays?: string | null; open?: boolean; onRecheck?: () => Promise<unknown>;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +117,7 @@ export function SiteReadability({ audit, siteSays, open, onRecheck }: {
                     {c.checks.every((k) => k.status === "pass") ? <AllPass checks={c.checks} page={c.page_url} />
                       : c.checks.map((k) => <Check key={k.key} c={k} page={c.page_url} />)}
                   </div>
+                  {c.advice?.length ? <ul className="audit-advice">{c.advice.map((a) => <li key={a}>{a}</li>)}</ul> : null}
                 </li>
               ))}
               <li>
@@ -116,7 +126,7 @@ export function SiteReadability({ audit, siteSays, open, onRecheck }: {
               </li>
               <li>
                 <div><strong><Term k="fact_sources" /></strong></div>
-                <div className="checks-row">{audit.entities.map((e) => <Source key={e.source} e={e} siteSays={siteSays} />)}</div>
+                <div className="checks-row">{audit.entities.map((e) => <Source key={e.source} e={e} siteSays={siteSays} name={name} />)}</div>
               </li>
             </ul>
           </>
@@ -140,7 +150,7 @@ const phone = () => window.matchMedia("(max-width: 600px)").matches;
 /** The report tab's diagnosis sections. */
 export function WhyAIMisses({ run }: { run: Run }) {
   if (run.audit) {
-    return <SiteReadability audit={run.audit} siteSays={run.profile.positioning_points?.[0]?.text} open={!phone()} />;
+    return <SiteReadability audit={run.audit} name={run.profile.name} siteSays={run.profile.positioning_points?.[0]?.text} open={!phone()} />;
   }
   return (
     <details className="block audit">
