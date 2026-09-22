@@ -116,4 +116,9 @@ def test_rescore_moves_the_aim_to_the_weighted_claims_without_asking_a_model(mon
     monkeypatch.setattr(embeddings, "_path", lambda: tmp_path / "empty.db")
     graph.rescore(live, {live.attributes[2].id: 0.9})
     assert live.positioning.points == before.points
-    assert "Not redrawn for the new weights" in live.positioning.notes[-1]
+    assert "a text it needs was never embedded" in live.positioning.notes[-1]
+
+    monkeypatch.setattr(positioning, "pca2", lambda *a: 1 / 0)
+    monkeypatch.setattr(embeddings, "_path", lambda: tmp_path / "embeddings.db")
+    graph.rescore(live, {live.attributes[2].id: 0.4})
+    assert live.positioning.points == before.points and "ZeroDivisionError" in live.log[-2]

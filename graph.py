@@ -361,10 +361,12 @@ def rescore(run: Run, weights: dict[str, float]) -> Run:
         import positioning
         try:
             run.positioning = positioning.build(run, embed=embeddings.cached)
-        except KeyError:
-            note = "Not redrawn for the new weights: a weighted claim was never embedded, and a re-score asks no model."
+        except Exception as e:
+            note = ("Not redrawn for the new weights: a text it needs was never embedded, and a re-score asks "
+                    "no model." if isinstance(e, KeyError) else "Not redrawn for the new weights.")
             if note not in run.positioning.notes:
                 run.positioning.notes.append(note)
+            run.log.append(f"Positioning map not redrawn on re-score ({type(e).__name__}); the previous map is kept.")
     run.drift.limitations.append("Re-scored after the run with intent weights: the questions were "
                                  "planned when it was measured and were not re-asked.")
     run.log.append("Re-scored with intent weights on the saved answers; no model was asked. "
