@@ -74,7 +74,7 @@ def build_prompt(run: Run) -> str:
         + (f" — {attrs[s.attribute_id].description}" if attrs.get(s.attribute_id) and attrs[s.attribute_id].description else "")
         + ("\n  (stated on the site; AI does not repeat it)" if s.zone == "lost_claim"
            else "\n  (wanted, but the site barely says it)")
-        + "".join(f"\n  site says: {json.dumps(q)}" for q in attrs[s.attribute_id].claim_quotes[:2]
+        + "".join(f"\n  site says: {json.dumps(q, ensure_ascii=False)}" for q in attrs[s.attribute_id].claim_quotes[:2]
                   if s.attribute_id in attrs)
         for s in targets(run))
     page_text = "\n\n".join(f'--- {url} ---\n"""\n{e.excerpt}\n"""' for url, e in pages(run).items())

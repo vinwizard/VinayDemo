@@ -256,7 +256,9 @@ def build_attributes(data: dict, pages: list[tuple[str, str]], name: str = ""
 
 
 def build_profile(data: dict, pages: list[tuple[str, str]], domain: str) -> CompanyProfile:
-    evidence = [Evidence(id=f"pg{i}", url=url, excerpt=text[:1200], source_type="page_fetch")
+    # The whole extracted page (fetching caps it at MAX_CHARS), not its opening: claim quotes are
+    # verified against the whole page, so a fix that replaces one must be checked against it too.
+    evidence = [Evidence(id=f"pg{i}", url=url, excerpt=text, source_type="page_fetch")
                 for i, (url, text) in enumerate(pages, start=1)]
     points, one_liner = [], (data.get("one_liner") or "").strip()
     if one_liner:

@@ -4,6 +4,7 @@ import json
 import graph
 from agents import win_back
 from agents.evaluator_model import ModelEvaluator
+from agents.onboarding_model import build_profile
 from providers import fixture
 
 PAGE = "https://example.com/demo-source-claim-1"
@@ -88,3 +89,22 @@ def test_malformed_field_types_are_dropped_not_crashing():
     assert kept == []
     text = " | ".join(dropped)
     assert text.count("must be text") == 2 and text.count("must be a list") == 2
+
+
+def test_a_real_sentence_late_on_the_page_and_with_a_dash_can_be_replaced():
+    # amgen.com, 22 Sep 2026: "…at Amgen—and it goes beyond…" sits ~5,800 characters into the
+    # homepage. The prompt showed it as "Amgen—and" (json.dumps escapes by default), the model
+    # copied that, and the check read only the page's first 1,200 characters: a sentence that IS on
+    # the page was dropped as "not on the page", however it was copied.
+    url = "https://www.amgen.com/"
+    sentence = ("Making a positive difference in the world is at the heart of what we do at Amgen"
+                "—and it goes beyond making vital medicines.")
+    page = "Our medicines and pipeline. " * 200 + sentence
+    run = run_for("A")
+    run.profile.evidence = build_profile({"name": "Amgen"}, [(url, page)], "amgen.com").evidence
+    target = win_back.targets(run)[0].attribute_id
+    next(a for a in run.attributes if a.id == target).claim_quotes = [sentence]
+    prompt = win_back.build_prompt(run)
+    assert sentence in prompt and "\\u2014" not in prompt
+    kept, dropped = win_back.validate([good(attribute_id=target, page_url=url, current_copy=sentence)], run)
+    assert [k.current_copy for k in kept] == [sentence], dropped

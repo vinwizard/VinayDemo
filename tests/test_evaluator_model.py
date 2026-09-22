@@ -85,3 +85,13 @@ def test_a_repair_may_bring_the_rest_of_the_line():
     got = repair_quotes(labels(evidence_quotes=[slip]), TEXT,
                         lambda _: json.dumps({"fixed": {slip: "Its interface opens issues instantly."}}))
     assert got["evidence_quotes"] == ["Its interface opens issues instantly."]
+
+
+def test_the_repair_prompt_shows_a_dash_as_a_dash():
+    # json.dumps escapes by default: a line with "—" reached the model as "—", and a copy of
+    # that could never be verbatim in the answer.
+    text = "Linear—the issue tracker—opens issues instantly."
+    asked = []
+    repair_quotes(labels(evidence_quotes=["linear—the issue tracker"]), text,
+                  lambda prompt: asked.append(prompt) or "{}")
+    assert "Linear—the issue tracker—opens" in asked[0] and "\\u2014" not in asked[0]

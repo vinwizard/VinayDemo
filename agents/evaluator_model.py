@@ -171,7 +171,7 @@ def repair_quotes(labels: dict, text: str, ask: Callable[[str], str]) -> dict:
     if not near:
         return labels
     try:
-        raw = ask(REPAIR_PROMPT.format(items="\n".join(f"- quote: {json.dumps(q)}\n  line:  {json.dumps(x)}"
+        raw = ask(REPAIR_PROMPT.format(items="\n".join(f"- quote: {json.dumps(q, ensure_ascii=False)}\n  line:  {json.dumps(x, ensure_ascii=False)}"
                                                        for q, x in near.items())))
         fixed = json.loads(raw[raw.find("{"):raw.rfind("}") + 1]).get("fixed") or {}
     except Exception:
