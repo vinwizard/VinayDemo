@@ -65,9 +65,9 @@ class CompanyProfile(BaseModel):
     warnings: list[str] = []
     approved: bool = False
     logo_url: Optional[str] = None  # the site's own icon, from the homepage fetch; display only
-    # What a buyer would call the market it competes in ("AI search visibility tracking"). Buyer
-    # questions go to it first, so a company is always asked about its own category. None: saved
-    # before categories existed, and buyer questions then follow its claims alone.
+    # What a buyer would call the market it competes in ("AI search visibility tracking"): the
+    # "where you aim to be" buyer front. None: saved before categories existed, so that front is
+    # not measured and the run says why.
     core_category: Optional[str] = None
     category_questions: list[str] = []  # blind buyer questions for the core category; vetted like any
 

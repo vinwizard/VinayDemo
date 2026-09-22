@@ -127,9 +127,10 @@ things make the buyer number trustworthy anyway:
   a brand named once by chance is still not known there), or could not be scored. If the control
   names the brand, the number stands. A flagged number is never shown bare — the badge sits beside
   it in the pinned summary, the Buyer questions tab and the PDF summary.
-- **A generic phrase is never the brand's name.** An alias counts as a mention only if it contains
-  the brand's name or is one word that is not a generic noun (`schemas.distinctive_alias`): "AI
-  Marketer" and "AI Agents" are dropped at onboarding and ignored on older saved companies, and
+- **A generic phrase is never the brand's name.** An alias counts as a mention unless every word in
+  it is a generic noun (`schemas.distinctive_alias`), so a product name such as "Conversation
+  Explorer" still counts and is still a brand leak. "AI Marketer" and "AI Agents" are dropped at
+  onboarding and ignored on older saved companies, and
   matching stays word-bounded and case-sensitive, so "AiMarketer" is not the brand.
 
 ### Offline fallback — no network, no key
