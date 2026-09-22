@@ -456,6 +456,7 @@ tr.pick:hover { background: #f5f8fc; cursor: pointer; }
   .popover { left: 0 !important; right: 0; bottom: 0 !important; top: auto !important; width: auto !important;
              max-height: 72dvh !important; border-radius: 14px 14px 0 0; padding: 1rem 1rem 1.4rem; }
   .chip.pop-trigger { font-size: .84rem; padding: .4rem .7rem; }
+  .block > summary .block-found { flex-basis: 100%; padding-left: 1.2rem; }
 }
 @media print { .pop-trigger.term, .pop-trigger.qref { text-decoration: none; } .pop-trigger.term-icon { display: none; } }
 
@@ -475,3 +476,14 @@ tr.pick:hover { background: #f5f8fc; cursor: pointer; }
 .audit-foot { margin: 0; font-size: .82rem; }
 .audit-foot button.linky { min-height: 40px; }
 @media (max-width: 600px) { .block.audit > summary .block-found { flex-basis: 100%; padding-left: 1.2rem; } }
+/* ---------------------------------------------------------------- what the AI searched */
+.searched h4 { margin: .2rem 0 0; font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 550; }
+.searched p { margin: .15rem 0; }
+.own { color: var(--landed); }
+.callout.story { margin: 0; font-size: .95rem; }
+.search-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.search-list li + li { border-top: 1px solid var(--border); }
+.search-row.pop-trigger { display: flex; align-items: center; gap: .6rem; width: 100%; min-height: 44px; padding: .5rem .8rem; }
+.search-row.pop-trigger:hover, .search-row.pop-trigger[aria-expanded="true"] { background: var(--bg); }
+.search-q { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+.page-list { margin: .2rem 0; padding-left: 1.1rem; overflow-wrap: anywhere; }

@@ -161,7 +161,7 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 | `GET /api/health` | liveness, whether live mode is usable, and `seed_company` — the id of the preloaded company, `showcase` — the company and run ids of the preloaded Profound report, and `contact_email` — where to ask for a pass or a higher cap (`CONTACT_EMAIL`), and `storage` — whether the pass database survives a redeploy (README "Deploy to Render") |
 | `GET /api/stream?company=<id>` or `?scenario=A&mode=demo` | SSE while the graph runs: `node` (with `planned` question counts per stage, discovered `competitors` and the run `mode`), `answer` (the question, the first 320 characters of its answer, provenance and whether a web search ran), `done` (the full run), `error`. A company is always `mode=live`, apart from the offline fallback above. The page only ever measures companies; `?scenario=` remains for the fixture path |
 | `GET /api/runs` | run history, newest first |
-| `GET /api/runs/{id}` | one full run, including the drift report and its `insights` (share of voice, cited sources); the stream's `done` event and `rescore` return the same shape |
+| `GET /api/runs/{id}` | one full run, including the drift report and its `insights` (share of voice, cited sources, searches); the stream's `done` event and `rescore` return the same shape |
 | `POST /api/runs/{id}/rescore` | lens 2 after the fact: `{weights: {id: 0..1}}` sets intent on a finished run and re-scores its saved answers — no provider is built and no model is asked. Unnamed weights keep their value; 0 unweights; with nothing weighted the run reads through the claim lens again. Saved in place, except in the public demo (`VISEXP_PUBLIC_DEMO`) and for the committed Profound run |
 | `GET /api/onboard/stream?url=&name=` | the same onboarding as SSE: `pages` (the URLs the crawl fetched) as soon as the crawl lands, then `company` once extraction is saved, or `error`. The page uses this one |
 | `GET /api/onboard?url=&name=` | Agent 1: crawl up to 6 of a company's own pages, extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. Needs the same key as live mode. A company is always saved, never refused: a site where fewer than three claims survive quote validation carries a prominent warning that it states too little for a reliable claim percentage, and the existing insufficient-evidence rules withhold the scores rather than the company |
@@ -232,9 +232,22 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     not read, whose replaced copy is not verbatim on it, whose rewrite is marketing language, or
     whose question was not asked, and says why; it moves no number), then "where the upside is"
     cards for the biggest open claims.
-  - **Why AI misses you** — diagnosis, one collapsible section per question, each headed by one
-    plain finding sentence (open on a desktop, closed on a phone). **Can AI read your site?** is a
-    red/green mark per check for each claim's page (AI crawlers, text without JavaScript,
+  - **Buyer questions** and **Brand questions** — one compact row per question with its verdict
+    ("recommended you", "did not name you yet", the claims it raised; with several tries, "named in
+    2 of 3 tries"); a row opens to the full answer (every try's, for a buyer question) and the scorer's
+    note. Buyer questions are grouped by front, each group with its visibility and range, its
+    questions and its **control question** with its answer and, when flagged, why the result is
+    low confidence. A buyer row, and its question popover, also says what the model searched for
+    it and whether any cited page was the brand's own.
+  - **Why AI misses you** — diagnosis sections, each headed by one finding sentence and collapsed
+    on a phone. **What ChatGPT searched** (`insights.searches`): the web searches the measured model
+    ran for the buyer questions (every try), read from the Responses API's `web_search_call` items
+    into `Answer.searches` and grouped when they differ only by case, a year or punctuation; one
+    question told as a sentence, then each search with the questions it came from and the pages
+    cited in those answers, the brand's own marked. The API does not say which search found which
+    page, so pages belong to the answer. Runs saved before searches were kept say "not recorded";
+    the bundled samples carry authored searches, labelled sample, that move no score.
+    **Can AI read your site?** is a red/green mark per check for each claim's page (AI crawlers, text without JavaScript,
     structured data, headings, speed; a claim that passes all five is one green mark), then the
     whole site (llms.txt, pages without JavaScript) and **where AI gets its facts** (Wikipedia,
     Wikidata, Crunchbase, G2, LinkedIn: found, not found or not checked). Every mark opens its
@@ -244,12 +257,6 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     crawler never ran JavaScript, so a quote it kept was in the plain HTML by construction: the
     JavaScript mark says whether it still is, and pages with little text next to their script are
     flagged.
-  - **Buyer questions** and **Brand questions** — one compact row per question with its verdict
-    ("recommended you", "did not name you yet", the claims it raised; with several tries, "named in
-    2 of 3 tries"); a row opens to the full answer (every try's, for a buyer question) and the scorer's
-    note. Buyer questions are grouped by front, each group with its visibility and range, its
-    questions and its **control question** with its answer and, when flagged, why the result is
-    low confidence.
   - **Sources & rivals** — **where AI gets its opinion** (every site cited in a counted buyer or
     brand answer, ranked by answers citing it; a third-party site cited in two or more is flagged
     as a target), **share of voice** (answers recommending the brand beside the three

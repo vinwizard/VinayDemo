@@ -144,6 +144,12 @@ export const GLOSSARY = {
     def: "Besides your own site, AI models learn about companies from reference sites, above all "
       + "Wikipedia and Wikidata. A company with no Wikidata entry is often one AI simply does not know.",
   },
+  fan_out: {
+    term: "Fan-out search",
+    def: "Before an AI with web search answers a question, it rewrites it into a few short web searches "
+      + "of its own and reads the pages they return. Those searches are its fan-out. A site the searches "
+      + "never turn up is rarely the one the AI cites.",
+  },
 } satisfies Record<string, { term: string; def: string }>;
 
 export type TermKey = keyof typeof GLOSSARY;
