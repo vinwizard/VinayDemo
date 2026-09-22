@@ -417,6 +417,11 @@ export function Report({ run, onRescored, weightNote }: {
   const uid = useId();
   const top = useRef<HTMLDivElement>(null);
   const [tab, setTabState] = useState<ReportTab>(tabFromHash);
+  const [reasks, setReasks] = useState<Record<string, RetrievalRow["reask"]>>({});
+  const reasked = (next: Run, probe: string, got: RetrievalRow["reask"]) => {
+    setReasks((m) => ({ ...m, [`${next.id}:${probe}`]: got }));
+    onRescored?.(next);
+  };
   useEffect(() => {
     const follow = () => setTabState(tabFromHash());
     window.addEventListener("hashchange", follow);
@@ -508,7 +513,7 @@ export function Report({ run, onRescored, weightNote }: {
             </>
           )}
           {tab === "buyer" && <BuyerQuestions run={run} />}
-          {tab === "why" && <><WhatItSearched run={run} /><TestAFix run={run} /></>}
+          {tab === "why" && <><WhatItSearched run={run} /><TestAFix run={run} reasks={reasks} onReasked={reasked} /></>}
           {tab === "brand" && <BrandQuestions run={run} />}
           {tab === "sources" && (
             <>
@@ -1211,8 +1216,9 @@ function PassageQuote({ title, p }: { title: string; p: ScoredPassage }) {
 }
 
 /** Ask the model once more with the rewritten passage and the cited page as its only sources. */
-function Reask({ run, r, got, setGot }: {
-  run: Run; r: RetrievalRow; got: RetrievalRow["reask"]; setGot: (got: RetrievalRow["reask"]) => void;
+function Reask({ run, r, got, onReasked }: {
+  run: Run; r: RetrievalRow; got: RetrievalRow["reask"];
+  onReasked: (next: Run, probe: string, got: RetrievalRow["reask"]) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1220,7 +1226,7 @@ function Reask({ run, r, got, setGot }: {
   const ask = () => {
     setBusy(true); setError(null);
     reaskRun(run.id, r.probe_id)
-      .then((next) => setGot(next.retrieval?.rows.find((x) => x.probe_id === r.probe_id)?.reask ?? null))
+      .then((next) => onReasked(next, r.probe_id, next.retrieval?.rows.find((x) => x.probe_id === r.probe_id)?.reask ?? null))
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
   };
@@ -1249,8 +1255,10 @@ function Reask({ run, r, got, setGot }: {
  * Test a fix: per buyer question, your best passage against the best passage of a page AI cited,
  * and yours again with the win-back rewrite in the page. Similarity only, labelled as a simulation.
  */
-function TestAFix({ run }: { run: Run }) {
-  const [reasks, setReasks] = useState<Record<string, RetrievalRow["reask"]>>({});
+function TestAFix({ run, reasks, onReasked }: {
+  run: Run; reasks: Record<string, RetrievalRow["reask"]>;
+  onReasked: (next: Run, probe: string, got: RetrievalRow["reask"]) => void;
+}) {
   const sim = run.retrieval;
   if (!sim) return null;
   const replay = sim.provenance !== "live_api";
@@ -1295,8 +1303,7 @@ function TestAFix({ run }: { run: Run }) {
                         : r.yours && r.fixed.score > r.yours.score ? "The rewrite closes part of the gap."
                         : "The rewrite does not match this question more closely than your page already does."}
                     </p>
-                    <Reask run={run} r={r} got={reasks[r.probe_id] ?? r.reask}
-                           setGot={(got) => setReasks((m) => ({ ...m, [r.probe_id]: got }))} />
+                    <Reask run={run} r={r} got={r.reask ?? reasks[`${run.id}:${r.probe_id}`]} onReasked={onReasked} />
                   </>
                 ) : <p className="muted">No suggested fix targets this question.</p>}
                 <p className="muted">Scored against {plural(r.queries, "search", "searches")}: the question and ChatGPT's own searches for it; the best match counts.</p>
