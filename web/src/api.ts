@@ -57,6 +57,13 @@ export interface DriftReport {
   aiming_category?: string | null;
   /** Where AI places you minus where you aim to be, when both were measured. */
   visibility_gap?: number | null;
+  /** Bootstrap 95% confidence intervals [low, high]; why one is missing: na_reasons["<field>_interval"]. */
+  visibility_interval?: [number, number] | null;
+  gap_interval?: [number, number] | null;
+  /** The gap's interval excludes 0: a real gap, not the noise of this sample. */
+  gap_real?: boolean | null;
+  claim_echo_interval?: [number, number] | null;
+  alignment_interval?: [number, number] | null;
   /** "placed" / "aiming" -> why that front was not measured. */
   missing_fronts?: Record<string, string>;
   landed: string[];
@@ -86,6 +93,9 @@ export interface VisibilitySet {
   questions: number;
   control_probe_id?: string | null;
   low_confidence?: string | null;
+  /** Bootstrap 95% confidence interval of `visibility`, or why there is none. */
+  interval?: [number, number] | null;
+  interval_note?: string | null;
 }
 
 export interface Topic {
@@ -229,7 +239,14 @@ export interface PositioningMap {
 export interface Insights {
   sources: {
     answers: number; cited_answers: number; reason: string | null;
-    sources: { domain: string; answers: number; buyer: number; brand: number; owned: boolean; target: boolean }[];
+    sources: {
+      domain: string; url: string; answers: number; buyer: number; brand: number; owned: boolean;
+      kind: "owned" | "rival" | "review" | "community" | "media" | "other";
+      /** On buyer answers: how many citing it mention the brand, the rivals named beside it, and which answers. */
+      with_brand: number; rivals: { name: string; count: number }[]; probes: string[];
+    }[];
+    /** Sites cited beside rivals in buyer answers that never mention the brand, most-cited first. */
+    rival_only: string[];
   };
   voice: {
     questions: number; brand: string; brand_recommended: number; reason: string | null;

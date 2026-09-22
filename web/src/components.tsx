@@ -12,7 +12,7 @@ import {
   provenanceLabel, runLabels, when,
 } from "./labels";
 import { GLOSSARY } from "./glossary";
-import { Popover, Term } from "./popover";
+import { PHONE, Popover, Term } from "./popover";
 import { WhyAIMisses } from "./audit";
 
 const ZONE_FILL: Record<Zone, string> = {
@@ -65,11 +65,11 @@ export function Logo({ name, url, size = 40 }: { name: string; url?: string | nu
 }
 
 /** A collapsible section whose header already says what it found, so a closed page still reads. */
-function Block({ title, found, children, open }: {
-  title: ReactNode; found: ReactNode; children: ReactNode; open?: boolean;
+function Block({ title, found, children, open, className = "" }: {
+  title: ReactNode; found: ReactNode; children: ReactNode; open?: boolean; className?: string;
 }) {
   return (
-    <details className="block" open={open}>
+    <details className={`block ${className}`} open={open}>
       <summary>
         <span className="block-title">{title}</span>
         <span className="block-found">{found}</span>
@@ -138,12 +138,40 @@ function gapSentence(d: DriftReport, brand: string): string | null {
   return null;
 }
 
+/** "0–10" beside a number: its bootstrap 95% confidence interval, explained one hover or tap away. */
+function Ci({ iv, of }: { iv?: [number, number] | null; of: string }) {
+  if (!iv) return null;
+  return (
+    <Term k="confidence_interval" note={`${of}: between ${iv[0]} and ${iv[1]}, 95% confident.`}>
+      <small className="ci">{iv[0]}–{iv[1]}</small>
+    </Term>
+  );
+}
+
+/** The gap's significance test in words: real, not distinguishable, or too few questions to call. */
+function GapVerdict({ d }: { d: DriftReport }) {
+  const withheld = d.na_reasons?.visibility_gap_interval;
+  if ((d.gap_real == null || !d.gap_interval) && !withheld) return null;
+  return (
+    <>
+      {" "}
+      {d.gap_real != null && d.gap_interval ? (
+        <Term k="significant_gap" note={`The gap is between ${d.gap_interval[0]} and ${d.gap_interval[1]} points, 95% confident.`}>
+          {d.gap_real ? "The gap is real, 95% confident." : "Not distinguishable with this sample."}
+        </Term>
+      ) : (
+        <Term k="significant_gap" note={withheld}>Too few questions to call the gap.</Term>
+      )}
+    </>
+  );
+}
+
 /** Buyer visibility, never a bare number when the control question says it is not to be trusted. */
-function Visibility({ d }: { d: Vis }) {
+function Visibility({ d, iv }: { d: Vis; iv?: [number, number] | null }) {
   if (d.visibility == null) return <>n/a</>;
   return (
     <>
-      {d.visibility}<small> / 100</small>
+      {d.visibility}<small> / 100</small><Ci iv={iv} of="Visibility" />
       {d.low_confidence && (
         <Term k="low_confidence" note={d.low_confidence}><span className="tag warn">low confidence</span></Term>
       )}
@@ -158,6 +186,10 @@ const modelsOf = (run: Run) => {
   return { answered: list(all.map((a) => a.model)), judged: list(all.map((a) => a.evaluator_model)) };
 };
 
+/** A score's interval as untapped potential (100 minus the score), low to high. */
+const untapped = (iv?: [number, number] | null): [number, number] | null =>
+  iv ? [Math.round((100 - iv[1]) * 10) / 10, Math.round((100 - iv[0]) * 10) / 10] : null;
+
 /** The headline, buyer visibility and the claims to win back: pinned above every tab. */
 function Figures({ d, brand }: { d: DriftReport; brand: string }) {
   const h = headline(d);
@@ -168,7 +200,9 @@ function Figures({ d, brand }: { d: DriftReport; brand: string }) {
     <>
     <div className="figures">
       <div className="fig potential">
-        <span className="fig-value">{h.potential == null ? "n/a" : `${h.potential}%`}</span>
+        <span className="fig-value">
+          {h.potential == null ? "n/a" : <>{h.potential}%<Ci iv={untapped(d[`${h.field}_interval`])} of="Untapped potential" /></>}
+        </span>
         <span className="fig-label">
           {h.potential == null ? h.label : <Term k="untapped_potential">untapped potential</Term>}
         </span>
@@ -176,17 +210,17 @@ function Figures({ d, brand }: { d: DriftReport; brand: string }) {
       </div>
       {fronts.length ? fronts.map((v) => (
         <div className="fig" key={v.front}>
-          <span className="fig-value"><Visibility d={v} /></span>
+          <span className="fig-value"><Visibility d={v} iv={v.interval} /></span>
           <span className="fig-label"><FrontLabel v={v} /></span>
           <span className="fig-sub">
-            {v.category} · {v.visibility == null ? "not measured" : <Term k="tries">{triesText(v)}</Term>}
+            {v.category} · {v.visibility == null ? "not measured" : <Term k="tries" note={v.interval_note}>{triesText(v)}</Term>}
           </span>
         </div>
       )) : (
         <div className="fig">
-          <span className="fig-value"><Visibility d={d} /></span>
+          <span className="fig-value"><Visibility d={d} iv={d.visibility_interval} /></span>
           <span className="fig-label"><Term k="buyer_visibility">buyer visibility</Term></span>
-          <span className="fig-sub">{d.visibility == null ? d.na_reasons?.visibility : <Term k="tries">{triesText(d)}</Term>}</span>
+          <span className="fig-sub">{d.visibility == null ? d.na_reasons?.visibility : <Term k="tries" note={d.na_reasons?.visibility_interval}>{triesText(d)}</Term>}</span>
         </div>
       )}
       <div className="fig">
@@ -194,7 +228,7 @@ function Figures({ d, brand }: { d: DriftReport; brand: string }) {
         <span className="fig-label"><Term k="lost_claim">{lost === 1 ? "claim" : "claims"} to win back</Term></span>
       </div>
     </div>
-    {fronts.length > 0 && gap && <p className="gap-line">{gap}</p>}
+    {fronts.length > 0 && gap && <p className="gap-line">{gap}<GapVerdict d={d} /></p>}
     </>
   );
 }
@@ -515,7 +549,7 @@ export function Report({ run, onRescored, weightNote }: {
           {tab === "brand" && <BrandQuestions run={run} />}
           {tab === "sources" && (
             <>
-              <CitedSources run={run} />
+              <CitationNetwork run={run} />
               <ShareOfVoice run={run} />
               <PositioningMapView run={run} />
               <Competitors run={run} />
@@ -1170,58 +1204,195 @@ function PositioningMapView({ run }: { run: Run }) {
   );
 }
 
-const SHOWN_SOURCES = 8;
 const SHOWN_NAMED = 3;
 
-/**
- * The sites AI cited in the answers that count, ranked by how many answers cite each. A third-party
- * site cited more than once is flagged as a target: being on the pages AI reads is the lever.
- */
-function CitedSources({ run }: { run: Run }) {
-  const s = run.insights?.sources;
-  const title = "Where AI gets its opinion";
-  if (!s) return null;
-  if (s.reason) {
-    return (
-      <Section title={title} found="no citations">
-        <p className="muted" style={{ margin: 0 }}>{s.reason}</p>
-      </Section>
-    );
-  }
-  const targets = s.sources.filter((r) => r.target);
-  const rows = s.sources.slice(0, SHOWN_SOURCES);
-  const rest = s.sources.length - rows.length;
+type Source = NonNullable<Run["insights"]>["sources"]["sources"][number];
+
+const KIND_LABEL: Record<Source["kind"], string> = {
+  owned: "your site", rival: "a rival's site", review: "review site", community: "community",
+  media: "media or blog", other: "other site",
+};
+const SHOWN_GAPS = 6;
+/** The fixtures' fictional sources (RFC 2606 hosts): never linked, since there is no page to open. */
+const placeholder = (domain: string) => /(^|\.)example\.(com|net|org)(\/|$)/.test(domain);
+
+/** Up to four rival initials in a row, the rest as "+n"; each names its rival on hover. */
+function Avatars({ rivals }: { rivals: Source["rivals"] }) {
+  const shown = rivals.slice(0, 4);
   return (
-    <Section title={title}
-           found={`${plural(s.sources.length, "site")} cited · most often ${s.sources[0].domain} (${plural(s.sources[0].answers, "answer")})`
-             + ` · ${targets.length ? `${targets.length} to target` : "none to target yet"}`}>
-      <p className="muted" style={{ margin: 0 }}>
-        {run.mode !== "live_api" && <>{SAMPLE_NOTE} Every example.com address is a fictional placeholder. </>}
-        {s.cited_answers} of the {s.answers} buyer and brand answers that count cite at least one source.
-        A third-party site cited in more than one answer is worth a presence: it is where AI reads about
-        this market. A citation shows what the model read, not why it answered as it did.
-      </p>
-      <table className="named">
-        <thead>
-          <tr><th>Site</th><th>Answers citing it</th><th>In buyer · brand answers</th><th>Whose</th></tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.domain}>
-              <td><strong>{r.domain}</strong></td>
-              <td>{r.answers}</td>
-              <td className="muted">{r.buyer} · {r.brand}</td>
-              <td>
-                {r.owned ? <span className="pill landed">your site</span>
-                  : r.target ? <span className="pill lost_claim">third party · target</span>
-                  : <span className="muted">third party</span>}
-              </td>
-            </tr>
+    <span className="avatars" title={rivals.map((r) => r.name).join(", ")}>
+      {shown.map((r) => <Logo key={r.name} name={r.name} size={22} />)}
+      {rivals.length > shown.length && <span className="avatars-more">+{rivals.length - shown.length}</span>}
+      <span className="sr-only">{listed(rivals.map((r) => r.name))}</span>
+    </span>
+  );
+}
+
+/** One site that AI cites beside rivals but never beside the brand; opening it shows the answers that cited it. */
+function GapSource({ r, rank, run, names }: { r: Source; rank: number; run: Run; names: Record<string, string> }) {
+  const probes = new Map(run.probes.map((p) => [p.id, p]));
+  const answers = new Map(run.answers.map((a) => [a.probe_id, a]));
+  return (
+    <details className="src">
+      <summary>
+        <span className="src-rank">{rank}</span>
+        <span className="src-name">
+          <strong>{r.domain}</strong>
+          <span className="muted">{KIND_LABEL[r.kind]} · {plural(r.buyer, "buyer answer")}</span>
+        </span>
+        <Avatars rivals={r.rivals} />
+      </summary>
+      <div className="src-body">
+        <p style={{ margin: 0 }}>
+          Cited beside {listed(r.rivals.map((x) => x.count > 1 ? `${x.name} (${x.count})` : x.name))},
+          never in an answer that mentions {run.profile.name}.
+        </p>
+        <p className="muted" style={{ margin: 0 }}>
+          <Term k="source_type">Site type</Term>: {KIND_LABEL[r.kind]}
+          {!placeholder(r.domain) && <> · <a href={r.url} target="_blank" rel="noreferrer">open the page</a></>}
+        </p>
+        <div>
+          {r.probes.map((id) => probes.get(id) && (
+            <QuestionRow key={id} p={probes.get(id)!} name={names[id] ?? id} answer={answers.get(id)}
+                         replay={run.mode !== "live_api"} />
           ))}
-        </tbody>
-      </table>
-      {rest > 0 && <p className="muted" style={{ margin: 0 }}>+ {plural(rest, "more site")}, none cited more often than those above.</p>}
-    </Section>
+        </div>
+      </div>
+    </details>
+  );
+}
+
+const MAP_SOURCES = 8, MAP_RIVALS = 6, MAP_ROW = 30;
+
+/**
+ * Brands on the left, the sites AI cited on the right, one line per pairing, thicker for more
+ * buyer answers. Hovering a name dims everything it is not linked to. Wide screens only: on a
+ * phone the ranked list above says the same thing.
+ */
+function CitationMap({ run, sources, gaps }: { run: Run; sources: Source[]; gaps: Set<string> }) {
+  const [hot, setHot] = useState<string | null>(null);
+  const brand = run.profile.name;
+  // The sites that skip the brand first, then the most-cited, kept in the list's order.
+  const keep = new Set([...new Set([...sources.filter((r) => gaps.has(r.domain)), ...sources.filter((r) => r.buyer > 0)])]
+    .slice(0, MAP_SOURCES));
+  const right = sources.filter((r) => keep.has(r));
+  const weight = new Map<string, number>();
+  for (const r of right) for (const x of r.rivals) weight.set(x.name, (weight.get(x.name) ?? 0) + x.count);
+  // Each site's most-named rival first, so no site on the map is left without a line, then the rest by weight.
+  const firsts = new Set(right.flatMap((r) => r.rivals.slice(0, 1).map((x) => x.name)));
+  const rivals = [...new Set([...firsts, ...[...weight].sort((a, b) => b[1] - a[1]).map(([n]) => n)])];
+  const left = [brand, ...rivals.slice(0, Math.max(MAP_RIVALS, firsts.size))];
+  const edges = right.flatMap((r, j) => [
+    ...(r.with_brand ? [{ from: 0, to: j, w: r.with_brand }] : []),
+    ...r.rivals.filter((x) => left.includes(x.name)).map((x) => ({ from: left.indexOf(x.name), to: j, w: x.count })),
+  ]);
+  if (!right.length || edges.length === 0) return null;
+  const rows = Math.max(left.length, right.length);
+  const y = (i: number, n: number) => 20 + (i + (rows - n) / 2) * MAP_ROW;
+  const lit = (from: number, to: number) => !hot || hot === left[from] || hot === right[to].domain;
+  const dim = (name: string) => hot && hot !== name
+    && !edges.some((e) => (left[e.from] === name || right[e.to].domain === name) && lit(e.from, e.to));
+  return (
+    <figure className="cmap">
+      <svg viewBox={`0 0 640 ${rows * MAP_ROW + 20}`} role="img"
+           aria-label={`Which brands each cited site appeared beside, for ${brand} and its rivals`}>
+        {edges.map((e) => (
+          <line key={`${e.from}-${e.to}`} x1={170} y1={y(e.from, left.length)} x2={430} y2={y(e.to, right.length)}
+                className={e.from === 0 ? "edge brand" : "edge"} strokeWidth={1 + e.w}
+                opacity={lit(e.from, e.to) ? 1 : 0.12}>
+            <title>{`${left[e.from]} ← ${right[e.to].domain}: ${plural(e.w, "buyer answer")}`}</title>
+          </line>
+        ))}
+        {left.map((n, i) => (
+          <g key={n} className={i === 0 ? "node brand" : "node"} opacity={dim(n) ? 0.3 : 1}
+             onMouseEnter={() => setHot(n)} onMouseLeave={() => setHot(null)}>
+            <circle cx={170} cy={y(i, left.length)} r={5} />
+            <text x={160} y={y(i, left.length)} dy=".35em" textAnchor="end">{n}</text>
+          </g>
+        ))}
+        {right.map((r, j) => (
+          <g key={r.domain} className={gaps.has(r.domain) ? "node gap" : r.owned ? "node brand" : "node"} opacity={dim(r.domain) ? 0.3 : 1}
+             onMouseEnter={() => setHot(r.domain)} onMouseLeave={() => setHot(null)}>
+            <circle cx={430} cy={y(j, right.length)} r={5} />
+            <text x={440} y={y(j, right.length)} dy=".35em">{r.domain.length > 26 ? `${r.domain.slice(0, 25)}…` : r.domain}</text>
+          </g>
+        ))}
+      </svg>
+      <figcaption className="muted">
+        <Term k="citation_map">Citation map</Term>: each line joins a brand to a site cited in a buyer answer
+        that named it; thicker means more answers. Red dots are the sites that skip {brand}. Hover a name to trace it.
+      </figcaption>
+    </figure>
+  );
+}
+
+/**
+ * Who AI trusts in this category: the sites it cited in buyer answers, and which brands each one sat
+ * beside. The ranked list of sites cited beside rivals but never beside the brand comes first; the
+ * map and the full list of cited sites are one tap away. Replaces the plain cited-sites table.
+ */
+function CitationNetwork({ run }: { run: Run }) {
+  const s = run.insights?.sources;
+  const [open] = useState(() => !window.matchMedia(PHONE).matches);
+  if (!s) return null;
+  const brand = run.profile.name;
+  const sample = run.mode !== "live_api"
+    && <>{SAMPLE_NOTE} Every example.com address is a fictional placeholder. </>;
+  if (s.reason) {
+    return <Block open={open} className="finding" title="No cited sources to map" found={null}>
+      <p className="muted" style={{ margin: 0 }}>{s.reason}</p>
+    </Block>;
+  }
+  const by = new Map(s.sources.map((r) => [r.domain, r]));
+  const gaps = (s.rival_only ?? []).map((d) => by.get(d)!).filter(Boolean);
+  const names = probeLabels(run.probes, run.topics);
+  const title = gaps.length
+    ? `AI cited ${plural(gaps.length, "site")} beside your rivals, never beside ${brand}`
+    : s.sources.some((r) => r.rivals?.length && r.kind !== "owned" && r.kind !== "rival")
+      ? `Every third-party site AI cited beside a rival was cited beside ${brand} too`
+      : `AI cited ${plural(s.sources.length, "site")}, no third-party site beside a rival`;
+  const gapRow = (r: Source, i: number) => <GapSource key={r.domain} r={r} rank={i + 1} run={run} names={names} />;
+  return (
+    <Block open={open} className="finding" title={<>{title} <Term k="rival_only" icon /></>} found={null}>
+      <p className="muted" style={{ margin: 0 }}>
+        {sample}
+        {gaps.length
+          ? <>These were cited in buyer answers that named a rival and never mentioned {brand}: the pages
+             to get onto. Tap one for the answers.</>
+          : <>A site cited beside rivals but never beside {brand} would be listed here as a page to get onto.</>}
+        {" "}A citation shows what the model read, not why it answered as it did.
+      </p>
+      {gaps.length > 0 && <div className="src-list">{gaps.slice(0, SHOWN_GAPS).map(gapRow)}</div>}
+      {gaps.length > SHOWN_GAPS && (
+        <details className="more">
+          <summary className="muted">Show {plural(gaps.length - SHOWN_GAPS, "more site")}</summary>
+          <div className="src-list">{gaps.slice(SHOWN_GAPS).map((r, i) => gapRow(r, i + SHOWN_GAPS))}</div>
+        </details>
+      )}
+      <CitationMap run={run} sources={s.sources} gaps={new Set(gaps.map((r) => r.domain))} />
+      <details className="more">
+        <summary className="muted">
+          All {plural(s.sources.length, "cited site")} · cited in {s.cited_answers} of {s.answers} buyer and brand answers
+        </summary>
+        <table className="named">
+          <thead>
+            <tr><th>Site</th><th>Answers</th><th>Cited beside</th></tr>
+          </thead>
+          <tbody>
+            {s.sources.map((r) => (
+              <tr key={r.domain}>
+                <td><strong>{r.domain}</strong><br /><span className="muted">{KIND_LABEL[r.kind] ?? "other site"}</span></td>
+                <td>{r.answers}<br /><span className="muted">{r.buyer} buyer · {r.brand} brand</span></td>
+                <td className="muted">
+                  {[...(r.with_brand ? [`${brand} (${r.with_brand})`] : []),
+                    ...(r.rivals ?? []).map((x) => `${x.name} (${x.count})`)].join(", ") || "no brand named"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
+    </Block>
   );
 }
 
@@ -1251,8 +1422,6 @@ function DemandBadge({ d }: { d: Demand }) {
     </span>
   );
 }
-
-const PHONE = "(max-width: 600px)";
 
 /** A cited page without its scheme, "www." or trailing slash. */
 const page = (u: string) => u.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
@@ -1651,10 +1820,10 @@ function BuyerQuestions({ run }: { run: Run }) {
             {realAsked ? (realAsked < base.length ? "; AI wrote the rest." : ".") : ": AI wrote them all."}
           </p>
         )}
-        {fronts.length > 0 && d && gapSentence(d, brand) && <p style={{ margin: 0 }}>{gapSentence(d, brand)}</p>}
+        {fronts.length > 0 && d && gapSentence(d, brand) && <p style={{ margin: 0 }}>{gapSentence(d, brand)}<GapVerdict d={d} /></p>}
         {!fronts.length && vis != null && (
           <p style={{ margin: 0 }}>
-            <strong>Buyer visibility <Visibility d={d!} /></strong> <span className="muted">— {triesText(d!)}</span>
+            <strong>Buyer visibility <Visibility d={d!} iv={d!.visibility_interval} /></strong> <span className="muted">— {triesText(d!)}</span>
           </p>
         )}
         {!fronts.length && d?.low_confidence && (
@@ -1672,7 +1841,7 @@ function BuyerQuestions({ run }: { run: Run }) {
           return (
             <div className="front-group" key={v.front}>
               <h4 style={{ margin: ".4rem 0 0" }}>
-                <FrontLabel v={v} /> · {v.category} — <Visibility d={v} />{" "}
+                <FrontLabel v={v} /> · {v.category} — <Visibility d={v} iv={v.interval} />{" "}
                 <span className="muted">{v.visibility == null ? "not measured" : triesText(v)}</span>
               </h4>
               <div className="qlist">{ps.map(card)}</div>

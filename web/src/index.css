@@ -222,6 +222,10 @@ input[type="range"] { accent-color: var(--accent); width: 9rem; }
 .figures { display: flex; gap: .3rem 2rem; flex-wrap: wrap; order: 3; flex-basis: 100%; }
 .fig { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .35rem; }
 .fig-value { font-size: 1.35rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.fig-value .ci { font-size: .75rem; }
+/* The interval is small on purpose; its tap area is not: at least 40px on a phone. */
+.pop-trigger:has(.ci) { position: relative; margin-left: .3rem; }
+.pop-trigger:has(.ci)::after { content: ""; position: absolute; inset: -8px -10px; }
 .fig-value small { font-size: .8rem; color: var(--muted); font-weight: 500; }
 .fig.potential .fig-value { color: var(--accent); font-size: 1.6rem; }
 .fig-label { font-size: .8rem; color: var(--muted); }
@@ -350,6 +354,8 @@ table.named td { vertical-align: top; }
 .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; color: var(--muted); }
 
 table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+/* Phone: long site names and pills wrap inside their cell instead of widening the page. */
+@media (max-width: 600px) { table th, table td { overflow-wrap: anywhere; } table .pill { white-space: normal; } }
 th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--border); }
 th { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 500; }
 tr.pick:hover { background: #f5f8fc; cursor: pointer; }
@@ -465,6 +471,37 @@ tr.pick:hover { background: #f5f8fc; cursor: pointer; }
 }
 @media print { .pop-trigger.term, .pop-trigger.qref { text-decoration: none; } .pop-trigger.term-icon { display: none; } }
 
+/* ---------------------------------------------------------------- citation network */
+.src-list { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); }
+.src + .src { border-top: 1px solid var(--border); }
+.src > summary { display: flex; align-items: center; gap: .7rem; padding: .55rem .8rem; min-height: 44px;
+  cursor: pointer; list-style: none; }
+.src > summary::-webkit-details-marker { display: none; }
+.src > summary:hover { background: var(--bg); }
+.src-rank { width: 1.5rem; height: 1.5rem; flex: none; border-radius: 999px; background: var(--accent-soft);
+  color: var(--accent); font-size: .8rem; font-weight: 650; display: grid; place-items: center; }
+.src-name { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.src-name strong { overflow-wrap: anywhere; }
+.src-body { padding: 0 .8rem .7rem; display: flex; flex-direction: column; gap: .5rem; }
+.avatars { display: inline-flex; align-items: center; flex: none; }
+.avatars .logo { border: 2px solid var(--surface); border-radius: 999px; font-size: .7rem !important; }
+.avatars .logo + .logo { margin-left: -6px; }
+.avatars-more { font-size: .75rem; color: var(--muted); margin-left: .25rem; }
+details.more > summary { cursor: pointer; min-height: 40px; display: flex; align-items: center; }
+.cmap { margin: 0; display: none; }
+.cmap svg { width: 100%; max-width: 680px; height: auto; font-size: 12px; }
+.cmap .edge { stroke: #aab4c0; stroke-linecap: round; transition: opacity .15s; }
+.cmap .edge.brand { stroke: var(--accent); }
+.cmap .node { cursor: default; transition: opacity .15s; }
+.cmap .node circle { fill: #8a96a3; }
+.cmap .node.brand circle { fill: var(--accent); }
+.cmap .node.brand text { font-weight: 650; }
+.cmap .node.gap circle { fill: var(--lost); }
+.cmap text { fill: var(--text); }
+@media (min-width: 821px) { .cmap { display: block; } }
+/* A section whose header is its one-sentence finding: the sentence wraps beside the arrow. */
+.block.finding > summary { flex-wrap: nowrap; }
+.block.finding .block-found:empty { display: none; }
 /* ---------------------------------------------------------------- can AI read your site? */
 .audit-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .9rem; }
 .audit-rows li { display: flex; flex-direction: column; gap: .4rem; }

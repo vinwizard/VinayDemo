@@ -8,7 +8,7 @@ import { createPortal } from "react-dom";
 import type { CSSProperties, ReactNode } from "react";
 import { GLOSSARY, type TermKey } from "./glossary";
 
-const PHONE = "(max-width: 600px)";
+export const PHONE = "(max-width: 600px)";
 const GAP = 6;
 const openStack: string[] = [];
 
