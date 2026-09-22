@@ -1,5 +1,5 @@
 # What these checks cover: the Python engine tests under tests/, the web
-# TypeScript types (tsc -b) and the web lint (oxlint). api/main.py is tested over HTTP through
+# TypeScript types (tsc -b), the web lint (oxlint) and the web unit tests (npm test). api/main.py is tested over HTTP through
 # fastapi's TestClient (tests/test_api_http.py): health, runs and companies (status codes and JSON),
 # a bundled run streamed as SSE on the wire and reopened, the intent rules on PATCH /api/companies/{id}, and
 # a sentinel key that must appear in no response body or header. tests/test_api_stream.py and
@@ -10,8 +10,9 @@
 # committed companies and runs. tests/test_audit.py replays recorded pages, robots.txt and
 # Wikidata/Wikipedia answers for the site audit; tests/conftest.py refuses every audit fetch otherwise.
 # What they do NOT cover: TestClient is in-process, so a real uvicorn server, proxy buffering and
-# the CORS policy are untested. There is no web test runner, so no web/src behaviour — including
-# the stream client in web/src/api.ts — is executed by CI; it is only typechecked and linted.
+# the CORS policy are untested. The only web/src behaviour CI executes is the positioning map's label
+# placement (web/src/maplabels.test.ts, `node --test`); the rest — including the stream client in
+# web/src/api.ts — is only typechecked and linted.
 # Live model behaviour is not tested and must not be: CI has no key, the live path runs only
 # under an injected transport, and no real provider is ever called.
 name: CI
@@ -56,4 +57,8 @@ jobs:
 
       - name: Lint
         run: npx oxlint
+        working-directory: web
+
+      - name: Web unit tests
+        run: npm test
         working-directory: web

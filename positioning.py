@@ -3,8 +3,13 @@
 Each point is the mean embedding of the sentences it is built from: the brand as AI describes it (its
 brand answers), each rival as AI describes it (the buyer-answer sentences that name it), and the aim:
 where the customer wants to be (the claims they weighted, by weight) or, with no weights, where the
-site aims (its positioning points). The points are projected to 2D by PCA, and
-each axis is named by the claim whose embedding lines up with it best, or left unnamed when none does.
+site aims (its positioning points). Each axis IS one of the company's own claims, so it always has a
+name: across is how strongly a dot's sentences talk about the claim weighted highest, up how strongly
+they talk about the claim the dots differ on most once the first is taken out.
+
+It used to be PCA, with an axis named only when claims sat at both of its ends. A company's claims
+all describe the company, so they sit together at one end: Amgen, Notion and Profound all got maps
+with no axis names.
 
 A similarity picture, never a measurement: it runs after every score exists and moves none of them.
 """
@@ -18,7 +23,6 @@ from schemas import MapPoint, PositioningMap, Run
 
 MAX_RIVALS = 6         # rivals drawn, most-named first; more crowd a phone screen
 MAX_SENTENCES = 20     # per point
-AXIS_MIN = 0.2         # a claim names an axis end only if its cosine with the axis is at least this
 
 
 def _sentences(text: str) -> list[str]:
@@ -38,35 +42,31 @@ def _dot(a, b) -> float:
     return sum(x * y for x, y in zip(a, b))
 
 
-def pca2(points: list[list[float]]) -> tuple[list[tuple[float, float]], list[list[float]], float]:
-    """-> (2D coordinates per point, the two unit axis directions, share of the spread they show).
+def _unit(v: list[float]) -> list[float]:
+    n = math.sqrt(_dot(v, v))
+    return [x / n for x in v] if n > 1e-12 else [0.0] * len(v)
 
-    Power iteration on the n x n Gram matrix of the centred points: n is a handful, the vectors are
-    long, so this is small and needs no numpy."""
-    n, mean = len(points), _mean(points)
-    x = [[a - m for a, m in zip(p, mean)] for p in points]
-    g = [[_dot(a, b) for b in x] for a in x]
-    total = sum(g[i][i] for i in range(n)) or 1.0
-    coords, axes, shown = [[0.0, 0.0] for _ in range(n)], [], 0.0
-    for k in range(2):
-        u = [1.0 + i for i in range(n)]  # deterministic start
-        lam = 0.0
-        for _ in range(300):
-            w = [_dot(row, u) for row in g]
-            norm = math.sqrt(_dot(w, w))
-            if norm < 1e-12:
-                break
-            u, lam = [a / norm for a in w], norm
-        if lam < 1e-12:
-            axes.append([0.0] * len(mean))
-            continue
-        shown += lam
-        s = math.sqrt(lam)
-        for i in range(n):
-            coords[i][k] = u[i] * s
-        axes.append([sum(u[i] * x[i][j] for i in range(n)) / s for j in range(len(mean))])
-        g = [[g[i][j] - lam * u[i] * u[j] for j in range(n)] for i in range(n)]  # deflate
-    return [tuple(c) for c in coords], axes, shown / total
+
+def claim_axes(means: list[list[float]], claims: list, vecs: list[list[float]]
+               ) -> tuple[list[tuple[float, float]], int, int, float]:
+    """-> (2D coordinates per point, x claim index, y claim index, share of the spread shown).
+
+    Across: the claim weighted highest, or with no weights the one the points spread along most.
+    Up: of the rest, the one the points spread along most once the across direction is taken out,
+    so the two axes never measure the same thing twice."""
+    centre = _mean(means)
+    x = [[a - c for a, c in zip(p, centre)] for p in means]
+    dirs = [_unit([a - c for a, c in zip(v, centre)]) for v in vecs]
+    spread = lambda d: sum(_dot(p, d) ** 2 for p in x)  # noqa: E731
+    weighted = [i for i, c in enumerate(claims) if c.intended_weight]
+    ix = (max(weighted, key=lambda i: claims[i].intended_weight) if weighted
+          else max(range(len(claims)), key=lambda i: spread(dirs[i])))
+    ux = dirs[ix]
+    rest = {i: _unit([a - _dot(d, ux) * b for a, b in zip(d, ux)]) for i, d in enumerate(dirs) if i != ix}
+    iy = max(rest, key=lambda i: spread(rest[i]))
+    uy = rest[iy]
+    total = sum(_dot(p, p) for p in x) or 1.0
+    return [(_dot(p, ux), _dot(p, uy)) for p in x], ix, iy, (spread(ux) + spread(uy)) / total
 
 
 def build(run: Run, embed: Optional[Callable] = None) -> PositioningMap:
@@ -97,8 +97,11 @@ def build(run: Run, embed: Optional[Callable] = None) -> PositioningMap:
     if len(named) > len(rivals):
         notes.append(f"{len(named) - len(rivals)} less-named rivals were left off "
                      f"(at most {MAX_RIVALS}, and only rivals a buyer answer describes in a sentence).")
+    claims = [a for a in run.attributes if a.label and not a.discovered]
     reason = ("No brand answer came back, so there is nothing AI said about the brand to place." if not seen
               else "The site gave no positioning to place." if not intended
+              else "Fewer than two of the company's own claims, so there is nothing to name the axes by."
+              if len(claims) < 2
               else "No buyer answer named a rival, so there is nothing to place the brand against."
               if not named
               else "Buyer answers named rivals but never described one in a sentence, so there is nothing "
@@ -108,31 +111,19 @@ def build(run: Run, embed: Optional[Callable] = None) -> PositioningMap:
 
     groups = [(brand, "seen", seen[:MAX_SENTENCES]), (brand, "intended", intended[:MAX_SENTENCES]),
               *((name, "rival", ss) for name, ss in rivals.items())]
-    candidates = [a for a in run.attributes if a.label]
-    ends = [_text(a) for a in candidates]
-    texts = list(dict.fromkeys([*(s for _, _, ss in groups for s in ss), *ends]))
+    texts = list(dict.fromkeys([*(s for _, _, ss in groups for s in ss), *(_text(a) for a in claims)]))
     vec = dict(zip(texts, embed(texts)))
     weights = {1: [a.intended_weight for a in wanted][:MAX_SENTENCES]} if wanted else {}
     means = [_mean([vec[s] for s in ss], weights.get(i)) for i, (_, _, ss) in enumerate(groups)]
-    coords, axes, shown = pca2(means)
+    coords, ix, iy, shown = claim_axes(means, claims, [vec[_text(a)] for a in claims])
+    # the claim the aim lies furthest beyond AI's picture along, if it lies beyond it on either
+    drift = [(coords[1][k] - coords[0][k], claims[i].label) for k, i in enumerate((ix, iy))]
+    toward = max(drift)[1] if max(drift)[0] > 0 else None
 
-    # PCA signs are arbitrary: orient each axis so the aim sits at or beyond where AI places it.
-    flip = [-1 if coords[1][k] < coords[0][k] else 1 for k in range(2)]
-    centre = _mean(means)
-    labels = []
-    for k, axis in enumerate(axes):
-        scored = sorted((flip[k] * embeddings.cosine([v - c for v, c in zip(vec[t], centre)], axis), a.label)
-                        for t, a in zip(ends, candidates))
-        ok_ends = len(scored) > 1 and scored[0][0] <= -AXIS_MIN and scored[-1][0] >= AXIS_MIN
-        labels.append([scored[0][1], scored[-1][1]] if ok_ends else [])
-    drift = [abs(coords[1][k] - coords[0][k]) for k in range(2)]
-    k = max(range(2), key=lambda i: drift[i])
-    toward = labels[k][1] if labels[k] and drift[k] > 0 else None
-
-    points = [MapPoint(name=name, kind=kind, x=round(flip[0] * c[0], 4), y=round(flip[1] * c[1], 4),
-                       sentences=ss, similarity=None if i == 0 else round(embeddings.cosine(m, means[0]), 2))
+    points = [MapPoint(name=name, kind=kind, x=round(c[0], 4), y=round(c[1], 4), sentences=ss,
+                       similarity=None if i == 0 else round(embeddings.cosine(m, means[0]), 2))
               for i, ((name, kind, ss), c, m) in enumerate(zip(groups, coords, means))]
     closest = [p.name for p in sorted((p for p in points if p.kind == "rival"), key=lambda p: -p.similarity)][:2]
-    return PositioningMap(provenance="live_api", model=embeddings.MODEL, aim=aim, points=points, x_axis=labels[0],
-                          y_axis=labels[1], explained=round(shown, 2), closest=closest, toward=toward,
-                          notes=notes)
+    return PositioningMap(provenance="live_api", model=embeddings.MODEL, aim=aim, points=points,
+                          x_axis=[claims[ix].label], y_axis=[claims[iy].label], explained=round(shown, 2),
+                          closest=closest, toward=toward, notes=notes)

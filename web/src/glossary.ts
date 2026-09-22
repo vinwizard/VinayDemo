@@ -199,8 +199,9 @@ export const GLOSSARY = {
   positioning_map: {
     term: "Positioning map",
     def: "A picture of how alike things sound, not a measurement. We turn what AI says about you, what "
-      + "it says about each rival and what your own site says into numbers by meaning, then flatten "
-      + "them onto two axes. Dots close together were described in similar words; the arrow runs from "
+      + "it says about each rival and what your own site says into numbers by meaning. Each axis is one "
+      + "of your claims: across, how much a dot's words talk about the claim you weighted most; up, the "
+      + "claim the dots differ on most after that. Dots close together were described in similar words; the arrow runs from "
       + "where AI places you to where you want to be (the claims you weighted) or, until you weight "
       + "any, to where your site aims.",
   },

@@ -445,8 +445,10 @@ class PositioningMap(BaseModel):
     # what the arrow's head is built from: the claims the customer weighted, or the site's positioning
     aim: Literal["intended", "site"] = "site"
     points: list[MapPoint] = []
-    x_axis: list[str] = []           # [left end, right end] in plain words; [] = unlabelled
-    y_axis: list[str] = []           # [bottom end, top end]
+    # [claim] the axis measures (a live map: positioning.claim_axes), or [low end, high end] (the
+    # authored sample). Never [] on a drawn map: every axis carries a name.
+    x_axis: list[str] = []
+    y_axis: list[str] = []
     explained: Optional[float] = None  # share of the spread between the points the two axes show
     closest: list[str] = []          # rivals nearest the brand as AI describes it, nearest first
     toward: Optional[str] = None     # the axis end the aim lies toward, when an axis is labelled

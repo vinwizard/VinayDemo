@@ -12,6 +12,7 @@ import {
   provenanceLabel, runLabels, when,
 } from "./labels";
 import { GLOSSARY } from "./glossary";
+import { LINE, placeLabels, short } from "./maplabels";
 import { PHONE, Popover, Term } from "./popover";
 import { WhyAIMisses } from "./audit";
 
@@ -1063,44 +1064,26 @@ function ShareOfVoice({ run }: { run: Run }) {
   );
 }
 
-const MAP_W = 360, MAP_H = 300, MAP_PAD = 36, MAP_FONT = 12, AXIS_FONT = 11;
-type Box = [number, number, number, number];
+const MAP_W = 360, MAP_H = 300, MAP_PAD = 36, MAP_FONT = 12;
 
-/** Axis ends in plain words, drawn inside the map's edges: [text, x, y, text-anchor]. An x-axis end
- * sits just above its axis line, or just below it when a dot is in the way. */
-type End = readonly [string, number, number, "start" | "middle" | "end"];
-const axisEnds = (x: string[], y: string[], dots: { x: number; y: number; r: number }[]): End[] => {
-  const clear = (t: string, ex: number, ey: number, a: string) => {
-    const b = boxOf(t, ex, ey, a, AXIS_FONT);
-    return !dots.some((d) => d.x + d.r > b[0] && d.x - d.r < b[2] && d.y + d.r > b[1] && d.y - d.r < b[3]);
-  };
-  const side = (t: string, ex: number, a: "start" | "end"): End =>
-    [t, ex, clear(t, ex, MAP_H / 2 - 6, a) ? MAP_H / 2 - 6 : MAP_H / 2 + 15, a];
-  return [
-    ...(y.length ? [[`↑ ${y[1]}`, MAP_W / 2, 14, "middle"], [`↓ ${y[0]}`, MAP_W / 2, MAP_H - 6, "middle"]] as const : []),
-    ...(x.length ? [side(`← ${x[0]}`, 4, "start"), side(`${x[1]} →`, MAP_W - 4, "end")] : []),
-  ];
+let measurer: CanvasRenderingContext2D | null | undefined;
+/** A label's real width in map units (the SVG is MAP_W units wide at a 12-unit font), in the page's
+ * own font. Only without a canvas does it fall back to a generous estimate. */
+const measure = (text: string, bold = false) => {
+  measurer ??= document.createElement("canvas").getContext("2d");
+  if (!measurer) return text.length * MAP_FONT * 0.65;
+  measurer.font = `${bold ? 650 : 400} ${MAP_FONT}px ${getComputedStyle(document.body).fontFamily}`;
+  return measurer.measureText(text).width;
 };
 
-const boxOf = (text: string, x: number, y: number, anchor: string, font: number): Box => {
-  const w = text.length * font * 0.56, left = anchor === "start" ? x : anchor === "end" ? x - w : x - w / 2;
-  return [left, y - font, left + w, y + 3];
+/** An axis in words, above or below the map, never inside it: a claim the axis measures (a live
+ * map), or its two ends (the authored sample). */
+const axisName = (ends: string[], across: boolean) => {
+  const dir = across ? "→ Across" : "↑ Up";
+  return ends.length === 1 ? <>{dir}: talks more about “{ends[0]}”</>
+    : ends.length === 2 ? <>{dir}: from “{ends[0]}” to “{ends[1]}”</>
+    : <>{dir}: drawn before axes were named after your claims. Measure again to name it.</>;
 };
-
-/** Each dot's label beside it, trying right, left, above, below; null where none fits (it gets a number). */
-function placeLabels(dots: { x: number; y: number; r: number; text: string }[], taken: Box[]) {
-  const boxes = [...taken, ...dots.map((d): Box => [d.x - d.r, d.y - d.r, d.x + d.r, d.y + d.r])];
-  const free = (b: Box) => b[0] >= 2 && b[2] <= MAP_W - 2 && b[1] >= 2 && b[3] <= MAP_H - 2
-    && !boxes.some((o) => b[0] < o[2] && o[0] < b[2] && b[1] < o[3] && o[1] < b[3]);
-  return dots.map((d) => {
-    const w = d.text.length * MAP_FONT * 0.56, h = MAP_FONT + 3, g = d.r + 4;
-    for (const [x, y] of [[d.x + g, d.y - h / 2], [d.x - g - w, d.y - h / 2], [d.x - w / 2, d.y - g - h], [d.x - w / 2, d.y + g]]) {
-      const b: Box = [x, y, x + w, y + h];
-      if (free(b)) { boxes.push(b); return { x, y: y + h - 3.5 }; }
-    }
-    return null;
-  });
-}
 
 /** What one dot was built from, verbatim, and how close it sits to the brand as AI describes it. */
 function PointDetail({ p, title, site, brand, sample }: {
@@ -1146,15 +1129,13 @@ function PositioningMapView({ run }: { run: Run }) {
     const pts = [...m.points].sort((a, b) => order[a.kind] - order[b.kind] || (b.similarity ?? 0) - (a.similarity ?? 0));
     const mx = Math.max(...pts.map((p) => Math.abs(p.x)), 1e-9), my = Math.max(...pts.map((p) => Math.abs(p.y)), 1e-9);
     const scale = Math.min((MAP_W / 2 - MAP_PAD) / mx, (MAP_H / 2 - MAP_PAD) / my);
-    const dots = pts.map((p) => ({
-      p, x: MAP_W / 2 + p.x * scale, y: MAP_H / 2 - p.y * scale, r: p.kind === "rival" ? 7 : 9,
-      text: p.kind === "intended" ? aim : p.name,
-    }));
-    const ends = axisEnds(m.x_axis, m.y_axis, dots);
-    const labels = placeLabels(dots, ends.map(([t, x, y, a]) => boxOf(t, x, y, a, AXIS_FONT)));
-    let k = 0;
-    const num = labels.map((l) => (l ? null : ++k));
+    const dots = pts.map((p) => {
+      const text = short(p.kind === "intended" ? aim : p.name);
+      return { p, x: MAP_W / 2 + p.x * scale, y: MAP_H / 2 - p.y * scale, r: p.kind === "rival" ? 7 : 9,
+               text, w: measure(text, p.kind !== "rival") };
+    });
     const [seenDot, aimDot] = dots;
+    const { labels, height } = placeLabels(dots, MAP_W, MAP_H, [[seenDot.x, seenDot.y, aimDot.x, aimDot.y]]);
     const dx = aimDot.x - seenDot.x, dy = aimDot.y - seenDot.y, len = Math.hypot(dx, dy);
     const ux = dx / len, uy = dy / len, tip = [aimDot.x - ux * (aimDot.r + 2), aimDot.y - uy * (aimDot.r + 2)];
     const title = (d: (typeof dots)[number]) => d.p.kind === "seen" ? `${brand}, as AI describes it`
@@ -1168,10 +1149,12 @@ function PositioningMapView({ run }: { run: Run }) {
             similarity picture</Term>, not a measurement: dots close together were described in similar words.
           The arrow runs from where AI places {brand} to {aim}. Tap a dot for the sentences behind it.
         </p>
-        <div className="pmap">
-          <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} aria-hidden="true">
+        <p className="pmap-axis-name">{axisName(m.y_axis, false)}</p>
+        <div className="pmap" style={{ aspectRatio: `${MAP_W} / ${height}` }}>
+          <svg viewBox={`0 0 ${MAP_W} ${height}`} aria-hidden="true">
             <line className="pmap-axis" x1={MAP_W / 2} y1={0} x2={MAP_W / 2} y2={MAP_H} />
             <line className="pmap-axis" x1={0} y1={MAP_H / 2} x2={MAP_W} y2={MAP_H / 2} />
+            {height > MAP_H && <line className="pmap-axis" x1={0} y1={MAP_H} x2={MAP_W} y2={MAP_H} />}
             {len > seenDot.r + aimDot.r + 4 && (
               <>
                 <line className="pmap-drift" x1={seenDot.x + ux * (seenDot.r + 2)} y1={seenDot.y + uy * (seenDot.r + 2)}
@@ -1179,18 +1162,20 @@ function PositioningMapView({ run }: { run: Run }) {
                 <polygon className="pmap-head" points={`${tip[0]},${tip[1]} ${tip[0] - ux * 10 - uy * 5},${tip[1] - uy * 10 + ux * 5} ${tip[0] - ux * 10 + uy * 5},${tip[1] - uy * 10 - ux * 5}`} />
               </>
             )}
-            {dots.map((d, i) => (
-              <g key={`${d.p.kind}-${d.p.name}`}>
-                <circle className={`pmap-dot ${d.p.kind}`} cx={d.x} cy={d.y} r={num[i] ? 8 : d.r} />
-                {num[i] && <text className="pmap-num" x={d.x} y={d.y + 3.5} textAnchor="middle">{num[i]}</text>}
-                {labels[i] && <text className={`pmap-label ${d.p.kind}`} x={labels[i]!.x} y={labels[i]!.y}>{d.text}</text>}
+            {dots.map((d) => <circle key={`${d.p.kind}-${d.p.name}`} className={`pmap-dot ${d.p.kind}`} cx={d.x} cy={d.y} r={d.r} />)}
+            {labels.map((l) => (
+              <g key={l.lines.join()}>
+                {l.lead && <line className="pmap-lead" x1={l.lead[0]} y1={l.lead[1]} x2={l.lead[2]} y2={l.lead[3]} />}
+                {l.lines.map((t, j) => (
+                  <text key={t} className={`pmap-label ${dots[l.members[j]].p.kind}`} x={l.box[0]}
+                        y={l.box[1] + LINE * (j + 1) - 3.5}>{t}</text>
+                ))}
               </g>
             ))}
-            {ends.map(([t, x, y, a]) => <text key={t} className="pmap-end" x={x} y={y} textAnchor={a}>{t}</text>)}
           </svg>
           {dots.map((d) => (
             <span key={`${d.p.kind}-${d.p.name}`} className="pmap-hit"
-                  style={{ left: `${(100 * d.x) / MAP_W}%`, top: `${(100 * d.y) / MAP_H}%` }}>
+                  style={{ left: `${(100 * d.x) / MAP_W}%`, top: `${(100 * d.y) / height}%` }}>
               <Popover wide label={title(d)} className="pmap-tap"
                        trigger={<span className="sr-only">{title(d)}</span>}>
                 <PointDetail p={d.p} title={title(d)} site={site} brand={brand} sample={sample} />
@@ -1198,12 +1183,13 @@ function PositioningMapView({ run }: { run: Run }) {
             </span>
           ))}
         </div>
+        <p className="pmap-axis-name" style={{ marginTop: 0 }}>{axisName(m.x_axis, true)}</p>
         <ul className="pmap-legend">
-          {dots.map((d, i) => (
+          {dots.map((d) => (
             <li key={`${d.p.kind}-${d.p.name}`}>
               <Popover wide label={title(d)} className="chip"
                        trigger={<>
-                         <span className={`pmap-swatch ${d.p.kind}`} aria-hidden="true">{num[i] ?? ""}</span>
+                         <span className={`pmap-swatch ${d.p.kind}`} aria-hidden="true" />
                          {d.p.kind === "seen" ? `${brand}, as AI sees it` : d.p.kind === "intended" ? aim[0].toUpperCase() + aim.slice(1) : d.p.name}
                        </>}>
                 <PointDetail p={d.p} title={title(d)} site={site} brand={brand} sample={sample} />
@@ -1211,11 +1197,6 @@ function PositioningMapView({ run }: { run: Run }) {
             </li>
           ))}
         </ul>
-        {!m.x_axis.length && !m.y_axis.length && (
-          <p className="muted" style={{ margin: 0 }}>
-            No claim lines up with either axis, so they have no name: read only which dots sit close together.
-          </p>
-        )}
         {m.notes.map((n) => <p key={n} className="muted" style={{ margin: 0 }}>{n}</p>)}
       </>
     );

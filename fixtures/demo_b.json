@@ -1735,7 +1735,10 @@
    "Note-taking app",
    "Replaces multiple tools"
   ],
-  "y_axis": [],
+  "y_axis": [
+   "Project management tool",
+   "AI-native workspace"
+  ],
   "explained": 0.64,
   "closest": [
    "Asana",
