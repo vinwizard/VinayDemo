@@ -142,7 +142,7 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/health` | liveness, whether live mode is usable, and `seed_company` — the id of the preloaded company, `showcase` — the company and run ids of the preloaded Profound report, and `contact_email` — where to ask for a pass or a higher cap (`CONTACT_EMAIL`) |
+| `GET /api/health` | liveness, whether live mode is usable, and `seed_company` — the id of the preloaded company, `showcase` — the company and run ids of the preloaded Profound report, and `contact_email` — where to ask for a pass or a higher cap (`CONTACT_EMAIL`), and `storage` — whether the pass database survives a redeploy (README "Deploy to Render") |
 | `GET /api/stream?company=<id>` or `?scenario=A&mode=demo` | SSE while the graph runs: `node` (with `planned` question counts per stage, discovered `competitors` and the run `mode`), `answer` (the question, the first 320 characters of its answer, provenance and whether a web search ran), `done` (the full run), `error`. A company is always `mode=live`, apart from the offline fallback above. The page only ever measures companies; `?scenario=` remains for the fixture path |
 | `GET /api/runs` | run history, newest first |
 | `GET /api/runs/{id}` | one full run, including the drift report and its `insights` (share of voice, cited sources); the stream's `done` event and `rescore` return the same shape |

@@ -718,6 +718,7 @@ def health(request: Request = None):
             "live_status": live.status(),
             "public_demo": public_demo(),
             "contact_email": access.contact_email(),
+            "storage": access.storage(),
             "measured_model": measured, "evaluator_model": evaluator,
             "buyer_tries": live.buyer_tries(),
             # a model grading its own output has a self-preference bias worth surfacing
@@ -768,6 +769,8 @@ seed_data_dir()
 seed_public_runs()
 if access.configured():
     access.seed_passes()
+    if not (store := access.storage())["persistent"]:
+        print(f"WARNING: passes will not survive a redeploy. {store['reason']} {access.STORAGE_FIX}", flush=True)
 app.include_router(admin.router)
 
 # Production: serve the built web app from the same origin (render.yaml builds it with VITE_API="").

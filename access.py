@@ -9,9 +9,11 @@ acting pass is capped or revoked and charges the usage the response reports afte
 pass travels in a ContextVar; on the public demo a call with no pass set is refused, so a code path
 that forgot to say who is paying fails closed instead of spending unmetered.
 
-Codes are stored only as SHA-256 hashes: a code is 32 random bytes, so a slow KDF adds nothing.
-Passes, the spend ledger, the visit log and which pass owns which run live in one SQLite file under
-DATA_DIR — the persistent disk on Render, so a redeploy wipes none of it. No IP address is stored.
+A code is looked up by its SHA-256 hash (32 random bytes, so a slow KDF adds nothing). The current
+code is also kept, so the admin page can show each pass's link again; it is never logged or put in
+the repo. Passes, the spend ledger, the visit log and which pass owns which run live in one SQLite
+file under DATA_DIR — the persistent disk on Render, so a redeploy wipes none of it, provided DATA_DIR
+is the disk's mount path (`storage` checks that). No IP address is stored.
 """
 import contextlib
 import hashlib
@@ -109,9 +111,32 @@ def db():
                 CREATE TABLE IF NOT EXISTS owned (kind TEXT NOT NULL, item_id TEXT NOT NULL,
                     pass_id TEXT NOT NULL, name TEXT, at TEXT NOT NULL, PRIMARY KEY (kind, item_id));
             """)
+            if "code" not in {r["name"] for r in conn.execute("PRAGMA table_info(passes)")}:
+                conn.execute("ALTER TABLE passes ADD COLUMN code TEXT")   # databases made before it
             yield conn
     finally:
         conn.close()
+
+
+def storage() -> dict:
+    """Whether the pass database survives a redeploy: DATA_DIR set, on a mounted disk, writable.
+    Names no path but DATA_DIR's own value, so it is safe in /api/health."""
+    data_dir = os.environ.get("DATA_DIR")
+    if not data_dir:
+        return dict(persistent=False, reason="DATA_DIR is not set, so passes are kept inside the "
+                                             "container and a redeploy wipes them.")
+    path = Path(data_dir).resolve()
+    # "/" is always a mount point, and inside a container it is the image itself, not a disk
+    if not any(os.path.ismount(d) for d in [path, *path.parents] if d != Path(d.anchor)):
+        return dict(persistent=False, reason=f"DATA_DIR={data_dir} is not on a mounted disk, so a "
+                                             "redeploy wipes it.")
+    if not os.access(path if path.exists() else path.parent, os.W_OK):
+        return dict(persistent=False, reason=f"DATA_DIR={data_dir} is not writable.")
+    return dict(persistent=True, reason=f"DATA_DIR={data_dir} is on a mounted disk.")
+
+
+STORAGE_FIX = ("In Render, open the service's Disks and add a disk mounted at a path such as /var/data, "
+               "then under Environment set DATA_DIR to exactly that mount path and redeploy.")
 
 
 def _hash(code: str) -> str:
@@ -144,7 +169,8 @@ def issue_code(pass_id: str) -> str:
     """A fresh code for the pass. The old code and every session opened with it stop working."""
     code = secrets.token_urlsafe(32)
     with db() as c:
-        c.execute("UPDATE passes SET code_hash = ?, revoked = 0 WHERE id = ?", (_hash(code), pass_id))
+        c.execute("UPDATE passes SET code_hash = ?, code = ?, revoked = 0 WHERE id = ?",
+                  (_hash(code), code, pass_id))
     return code
 
 
