@@ -103,6 +103,17 @@ def test_parse_handles_multiple_messages_and_dedupes_citations():
     assert text == "One.\nTwo." and cites == ["https://a.example", "https://b.example"] and searched
 
 
+def test_every_search_the_model_ran_is_kept_in_order():
+    r = response()
+    r["output"][:0] = [{"type": "web_search_call", "action": {"type": "open_page", "url": "https://a.example"}},
+                       {"type": "web_search_call", "action": {"type": "search", "query": "best wiki 2026",
+                                                              "queries": ["best wiki 2026", "wiki pricing"]}},
+                       {"type": "web_search_call"}]
+    a = provider(transport=lambda *_: r).answer(PROBE)
+    assert a.searches == ["best wiki 2026", "wiki pricing", "notion"]
+    assert provider(transport=lambda *_: response(searched=False)).answer(PROBE).searches == []
+
+
 # --- provenance never pools --------------------------------------------------
 def test_live_answers_are_marked_live_api():
     a = provider(transport=lambda *_: response()).answer(PROBE)

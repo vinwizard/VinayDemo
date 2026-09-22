@@ -156,6 +156,19 @@ def parse_response(response) -> tuple[str, list[str], bool]:
     return "\n".join(t for t in text_parts if t).strip(), citations, searched
 
 
+def searches_of(response) -> list[str]:
+    """The queries the model actually searched, in order: every web_search_call "search" action.
+    Other actions (opening or finding in a page) carry no query and are not searches."""
+    out = []
+    for item in _output_items(response):
+        action = _item(item, "action") if _item(item, "type") == "web_search_call" else None
+        if action is not None and _item(action, "type") == "search":
+            for q in [_item(action, "query"), *(_item(action, "queries") or [])]:
+                if isinstance(q, str) and q.strip() and q.strip() not in out:
+                    out.append(q.strip())
+    return out
+
+
 def default_transport(messages: list[dict], model: str, timeout: int):
     import access  # metered: refused at a pass's cap, charged to it after
     return access.openai_response(timeout, model=model, tools=[{"type": "web_search"}], input=messages)
@@ -245,7 +258,8 @@ class LiveProvider:
         if not text:
             return Answer(**base, text="", status="error", error="empty response",
                           search_executed=searched)
-        answer = Answer(**base, text=text, citations=citations, search_executed=searched, status="ok")
+        answer = Answer(**base, text=text, citations=citations, search_executed=searched, status="ok",
+                        searches=searches_of(raw))
         if self.evaluator is not None and self._profile is not None:
             # Agent 3 runs here, on a separate model, seeing the company. The measured call above
             # has already returned, so nothing about the target could have reached it.

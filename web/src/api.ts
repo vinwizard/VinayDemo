@@ -190,6 +190,16 @@ export interface Insights {
     questions: number; brand: string; brand_recommended: number; reason: string | null;
     rivals: { name: string; count: number }[]; tied_top: number;
   };
+  /** Absent from an API older than search capture. */
+  searches?: Searches;
+}
+
+/** What the model searched for the buyer questions (insights.searches): near-duplicates grouped. */
+export interface SearchTry { try_no: number; searches: string[]; pages: string[]; owned_pages: string[] }
+export interface Searches {
+  answers: number; searched_answers: number; runs: number; owned: number; reason: string | null;
+  searches: { query: string; variants: string[]; answers: number; questions: string[]; pages: string[]; owned_pages: string[] }[];
+  questions: Record<string, SearchTry[]>;
 }
 
 export interface RunSummary {
