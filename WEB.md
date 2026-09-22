@@ -238,8 +238,8 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     questions and its **control question** with its answer and, when flagged, why the result is
     low confidence.
   - **Sources & rivals** — the **citation network**, headed by its finding ("AI cited 6 sites
-    beside your rivals, never beside Notion"; collapsed on a phone): the sites cited in counted
-    buyer answers that named a rival and never mentioned the brand, ranked by buyer answers citing
+    beside your rivals, never beside Notion"; collapsed on a phone): the third-party sites (not the
+    brand's or a rival's own) cited in counted buyer answers that named a rival and never mentioned the brand, ranked by buyer answers citing
     each then rivals beside it, each with its rivals' initials and opening in place to the answers
     that cited it; a citation map joining brands to the sites cited beside them (plain SVG, wide
     screens only); and every cited site with its type (own, rival's, review, community, media,
