@@ -471,3 +471,15 @@ tr.pick:hover { background: #f5f8fc; cursor: pointer; }
 .search-row.pop-trigger:hover, .search-row.pop-trigger[aria-expanded="true"] { background: var(--bg); }
 .search-q { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
 .page-list { margin: .2rem 0; padding-left: 1.1rem; overflow-wrap: anywhere; }
+
+/* Test a fix: per question, your passage, the cited page's and yours with the fix on one 0–1 scale */
+.fix-row.pop-trigger { flex-direction: column; align-items: stretch; gap: .35rem; padding: .6rem .8rem; }
+.score-bars { display: grid; gap: .2rem; }
+.score-bar { display: grid; grid-template-columns: 7.2rem 1fr 2.4rem; align-items: center; gap: .5rem; font-size: .8rem; }
+.score-label { color: var(--muted); white-space: nowrap; }
+.score-num { font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; }
+.reask { display: grid; gap: .4rem; margin-top: .6rem; }
+.reask .primary { min-height: 40px; justify-self: start; }
+details.skipped > summary { cursor: pointer; min-height: 40px; display: flex; align-items: center; }
+details.skipped ul { margin: .2rem 0 0; padding-left: 1.1rem; font-size: .85rem; }
+@media (max-width: 600px) { .score-bar { grid-template-columns: 6.4rem 1fr 2.2rem; } }

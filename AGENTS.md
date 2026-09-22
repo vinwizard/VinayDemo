@@ -45,8 +45,8 @@ verbatim in the answer they cite, and nothing is invented to fill a gap.
 - Detailed rules load on demand from `.claude/skills/`: `product-workflow` (agents, graph, state),
   `evidence-modes` (providers, provenance, budgets), `evaluation-and-scoring` (scoring, Profound
   mapping, acceptance checks), `build-history` (the original overnight brief and milestone log).
-- Every OpenAI call goes through `access.openai_response`: it refuses at an access pass's cap, charges
-  the pass from reported usage, and fails closed on the public demo when no pass is set. A new model
+- Every OpenAI call goes through `access.openai_response` (embeddings: `access.openai_embeddings`,
+  via `embeddings.py`): it refuses at an access pass's cap, charges the pass from reported usage, and fails closed on the public demo when no pass is set. A new model
   call site must use it. Passes, admin and hosting: README "Deploy to Render".
 - Independent portfolio demo — not a Profound product or integration.
 

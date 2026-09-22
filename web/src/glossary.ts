@@ -109,6 +109,13 @@ export const GLOSSARY = {
       + "of its own and reads the pages they return. Those searches are its fan-out. A site the searches "
       + "never turn up is rarely the one the AI cites.",
   },
+  retrieval_score: {
+    term: "Retrieval score",
+    def: "A simulation of what an AI search reads first. We split your pages, and the pages the AI "
+      + "cited, into short passages and score how closely each one matches the buyer question and the "
+      + "AI's own searches for it, from 0 (unrelated) to 1 (the same meaning). The AI tends to read "
+      + "and cite the closest passages, so a higher score makes a citation likelier, never certain.",
+  },
 } satisfies Record<string, { term: string; def: string }>;
 
 export type TermKey = keyof typeof GLOSSARY;

@@ -2,9 +2,10 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { KeyboardEvent, ReactNode } from "react";
 import type {
-  Answer, AttributeScore, DriftReport, Probe, QueryEvaluation, Run, SearchTry, WinBackAction, RunSummary, VisibilitySet, Zone,
+  Answer, AttributeScore, DriftReport, Probe, QueryEvaluation, RetrievalRow, Run, ScoredPassage, SearchTry,
+  WinBackAction, RunSummary, VisibilitySet, Zone,
 } from "./api";
-import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_ORDER, ZONES, rescoreRun } from "./api";
+import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_ORDER, ZONES, reaskRun, rescoreRun } from "./api";
 import { ADDED_MIN_WEIGHT, Slider } from "./claims";
 import {
   PROVENANCE_LABEL, ZONE_LABEL, ZONE_MEANING, claimShare, headline, plain, potentialText, probeLabels,
@@ -490,6 +491,7 @@ export function Report({ run, onRescored, weightNote }: {
             <>
               <RunSource run={run} />
               <Explain d={d} brand={run.profile.name} />
+              <FixLine run={run} onOpen={() => setTab("why")} />
               <ZoneChips run={run} />
               <Excluded run={run} />
               {weightNote ? <p className="muted">{weightNote}</p>
@@ -506,7 +508,7 @@ export function Report({ run, onRescored, weightNote }: {
             </>
           )}
           {tab === "buyer" && <BuyerQuestions run={run} />}
-          {tab === "why" && <WhatItSearched run={run} />}
+          {tab === "why" && <><WhatItSearched run={run} /><TestAFix run={run} /></>}
           {tab === "brand" && <BrandQuestions run={run} />}
           {tab === "sources" && (
             <>
@@ -1166,6 +1168,164 @@ function WhatItSearched({ run }: { run: Run }) {
         </>
       )}
     </Block>
+  );
+}
+
+const score = (x: number) => x.toFixed(2);
+const behind = (r: RetrievalRow) => !!(r.yours && r.rival && r.rival.score > r.yours.score);
+
+/** The one gap a fix does the most for: the question where the rewrite lifts your score the most. */
+function biggestFix(run: Run): RetrievalRow | undefined {
+  const lift = (r: RetrievalRow) => (r.fixed && r.yours ? r.fixed.score - r.yours.score : -1);
+  return (run.retrieval?.rows ?? []).filter((r) => behind(r) && lift(r) > 0).sort((a, b) => lift(b) - lift(a))[0];
+}
+
+/** Your passage, the cited page's and yours with the fix, as three bars on one scale (0 to 1). */
+function ScoreBars({ r }: { r: RetrievalRow }) {
+  const bars = [
+    ["You", r.yours, "var(--muted)"], ["Page AI cited", r.rival, "var(--contested)"],
+    ["With the fix", r.fixed, "var(--landed)"],
+  ] as const;
+  return (
+    <span className="score-bars">
+      {bars.filter(([, p]) => p).map(([label, p, fill]) => (
+        <span key={label} className="score-bar">
+          <span className="score-label">{label}</span>
+          <span className="bar-track thin"><span className="bar" style={{ width: `${Math.max(2, p!.score * 100)}%`, background: fill }} /></span>
+          <span className="score-num">{score(p!.score)}</span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** A passage in place: its page, the words, and which search it matched best. */
+function PassageQuote({ title, p }: { title: string; p: ScoredPassage }) {
+  return (
+    <>
+      <h4>{title} · {score(p.score)}</h4>
+      <p className="muted" style={{ margin: 0 }}>{page(p.url)} · closest to “{p.query}”</p>
+      <p className="quote">{p.text}</p>
+    </>
+  );
+}
+
+/** Ask the model once more with the rewritten passage and the cited page as its only sources. */
+function Reask({ run, r }: { run: Run; r: RetrievalRow }) {
+  const [got, setGot] = useState(r.reask);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (run.mode !== "live_api" || !r.fixed) return null;
+  const ask = () => {
+    setBusy(true); setError(null);
+    reaskRun(run.id, r.probe_id)
+      .then((next) => setGot(next.retrieval?.rows.find((x) => x.probe_id === r.probe_id)?.reask ?? null))
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setBusy(false));
+  };
+  return (
+    <div className="reask">
+      {got ? (
+        <p style={{ margin: 0 }}>
+          <span className="tag sample">simulation</span>{" "}
+          Handed the rewritten passage and the cited page as its only sources, {got.model}{" "}
+          {got.named ? <strong className="own">named {run.profile.name}.</strong> : <strong>still did not name {run.profile.name}.</strong>}
+        </p>
+      ) : (
+        <button type="button" className="primary" disabled={busy} onClick={ask}>
+          {busy ? "Asking…" : "Ask the AI again with the fix"}
+        </button>
+      )}
+      <p className="muted" style={{ margin: 0 }}>
+        {got ? "One ask, not a measurement: it changes no number." : "One model call on your pass. A simulation: the AI is handed both passages as its only sources, so it shows whether the rewrite would be used, not whether a real search finds it."}
+      </p>
+      {error && <div className="callout error">{error}</div>}
+    </div>
+  );
+}
+
+/**
+ * Test a fix: per buyer question, your best passage against the best passage of a page AI cited,
+ * and yours again with the win-back rewrite in the page. Similarity only, labelled as a simulation.
+ */
+function TestAFix({ run }: { run: Run }) {
+  const sim = run.retrieval;
+  if (!sim) return null;
+  const replay = sim.provenance !== "live_api";
+  const probes = new Map(run.probes.map((p) => [p.id, p]));
+  const fixes = new Map((run.win_back ?? []).map((a) => [a.attribute_id, a]));
+  const compared = sim.rows.filter((r) => r.yours && r.rival);
+  const weaker = compared.filter(behind).length;
+  const found = compared.length
+    ? `Your best page is weaker than the page AI cited for ${weaker} of ${plural(compared.length, "buyer question")}`
+    : "no page AI cited could be compared";
+  const rows = [...sim.rows].sort((a, b) => Number(!!b.fixed) - Number(!!a.fixed) || Number(behind(b)) - Number(behind(a)));
+  return (
+    <Block open={!window.matchMedia(PHONE).matches} title="Test a fix" found={found}>
+      <p className="muted" style={{ margin: 0 }}>
+        {replay && <>Authored sample, not computed: the passages and scores were written by hand to show this panel. </>}
+        We split your pages and the pages AI cited into short passages and scored how closely each
+        matches the question and ChatGPT's searches for it: a <Term k="retrieval_score">retrieval score</Term> from
+        0 to 1. Then we put the suggested rewrite from “Win it back” into your page and scored it again.
+        A simulation of what the AI reads first, not a promise of a citation. Tap a question for the passages.
+      </p>
+      <ul className="search-list">
+        {rows.map((r) => {
+          const p = probes.get(r.probe_id);
+          const fix = r.fix_attribute_id ? fixes.get(r.fix_attribute_id) : undefined;
+          return (
+            <li key={r.probe_id}>
+              <Popover wide label={`Passages for: ${p?.text ?? r.probe_id}`} className="search-row fix-row"
+                       trigger={<>
+                         <span className="search-q">{p?.text ?? r.probe_id}</span>
+                         <ScoreBars r={r} />
+                       </>}>
+                <strong className="pop-title">{p?.text}</strong>
+                {replay && <p><span className="tag sample">sample</span> Written by hand; example.com pages are fictional.</p>}
+                {r.yours ? <PassageQuote title="Your best passage" p={r.yours} /> : <p className="muted">None of your pages could be read.</p>}
+                {r.rival ? <PassageQuote title="Best passage of a page AI cited" p={r.rival} />
+                  : <p className="muted">No page AI cited for this question could be read.</p>}
+                {r.fixed ? (
+                  <>
+                    <PassageQuote title={`With the fix${fix ? ` for “${fix.label}”` : ""}`} p={r.fixed} />
+                    <p className="muted" style={{ margin: 0 }}>
+                      {r.rival && r.fixed.score >= r.rival.score ? "The rewrite now matches this question at least as closely as the page AI cited."
+                        : r.yours && r.fixed.score > r.yours.score ? "The rewrite closes part of the gap."
+                        : "The rewrite does not match this question more closely than your page already does."}
+                    </p>
+                    <Reask run={run} r={r} />
+                  </>
+                ) : <p className="muted">No suggested fix targets this question.</p>}
+                <p className="muted">Scored against {plural(r.queries, "search", "searches")}: the question and ChatGPT's own searches for it; the best match counts.</p>
+              </Popover>
+            </li>
+          );
+        })}
+      </ul>
+      {sim.skipped.length > 0 && (
+        <details className="skipped">
+          <summary className="muted">What we could not read ({sim.skipped.length})</summary>
+          <ul>{sim.skipped.map((x, i) => <li key={i} className="muted">{x}</li>)}</ul>
+        </details>
+      )}
+      {!replay && <p className="muted" style={{ margin: 0 }}>{plural(sim.passages, "passage")} from {plural(sim.pages, "page")}, scored with {sim.model}.</p>}
+    </Block>
+  );
+}
+
+/** Overview's one line on the gap a suggested fix does the most for. */
+function FixLine({ run, onOpen }: { run: Run; onOpen: () => void }) {
+  const r = biggestFix(run);
+  if (!r?.yours || !r.rival || !r.fixed) return null;
+  const q = run.probes.find((p) => p.id === r.probe_id);
+  return (
+    <p className="callout story">
+      {run.retrieval?.provenance !== "live_api" && <span className="tag sample">sample</span>}{" "}
+      <strong>Biggest fixable gap:</strong> for “{q?.text}”, your best page scores {score(r.yours.score)} and
+      the page AI cited {score(r.rival.score)}. With the suggested rewrite yours scores {score(r.fixed.score)}{" "}
+      (<Term k="retrieval_score">simulated</Term>).{" "}
+      <button type="button" className="pop-trigger linky" onClick={onOpen}>Test a fix</button>
+    </p>
   );
 }
 
