@@ -140,6 +140,19 @@ class Topic(BaseModel):
     fit_evidence_ids: list[str] = []
 
 
+class DemandPhrase(BaseModel):
+    text: str                                    # verbatim, as the source returned it
+    source: Literal["autocomplete", "reddit"]
+
+
+class Demand(BaseModel):
+    """Where a buyer question came from when it is grounded in real demand (demand.py): the real
+    search phrase it asks and every real phrasing grouped with it. Not search volume."""
+    phrase: str                     # the group's most central real phrase, verbatim
+    source: Literal["autocomplete", "reddit"]
+    phrasings: list[DemandPhrase]   # the whole group, the phrase included; its size is the weight
+
+
 class Probe(BaseModel):
     id: str
     topic_id: str
@@ -149,6 +162,7 @@ class Probe(BaseModel):
     phase: Literal["baseline", "followup", "control"]
     purpose: str
     parent_probe_ids: list[str] = []
+    demand: Optional[Demand] = None  # set only when the question is a real search (demand.py)
 
 
 class Answer(BaseModel):
@@ -405,6 +419,7 @@ class Run(BaseModel):
     observations: Optional[dict[str, list[AttributeObservation]]] = None  # None: saved before re-scoring
     drift_notes: list[str] = []  # limitations measure_drift adds beyond the report's own
     missing_fronts: dict[str, str] = {}  # set by plan_buyer, copied to the drift report
+    demand_notes: list[str] = []  # per front: how many buyer questions are real searches, or why none
     drift: Optional[DriftReport] = None
     win_back: list[WinBackAction] = []  # how to win it back; additive, never feeds a score
     win_back_notes: list[str] = []      # why a proposed action was dropped, or none was proposed

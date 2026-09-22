@@ -111,6 +111,18 @@ things make the buyer number trustworthy anyway:
   with neither, questions follow the claims as before. The placed front cites only that attribute's
   own claim evidence, never the homepage's. Every question
   still goes through `brand_leaks` and `vendor_address`. A replayed sample is one unlabelled set.
+- **Buyer questions come from real demand first** (`demand.py`). For each front's category a live
+  run harvests Google autocomplete suggestions (a few question-prefix seeds) and Reddit's public
+  search, keeps phrasings on the category with buying intent that never name the brand or address
+  the vendor, groups them by meaning (`text-embedding-3-small`, metered through `access.py`;
+  average-link clustering at one cosine threshold) and asks the most central phrasing of the
+  biggest groups first, exactly as people typed it; no model rewords it. Each such probe carries
+  `probe.demand` (the real phrase and its whole group), shown as a "real demand" badge; the
+  written questions fill any shortfall. Harvests are cached a week under `DATA_DIR/demand/`.
+  Reddit refuses unauthenticated clients from many networks and "People also ask" would mean
+  scraping Google, so the one is stated when it fails and the other is not used. Nothing is a
+  volume estimate. With no usable searches the front keeps its written questions and
+  `run.demand_notes` says why. Tests never touch the network (`tests/conftest.py`).
 - **Each buyer question is asked `BUYER_TRIES` times** (default 3), each in a fresh context. Buyer
   visibility is the mean of the per-try visibility scores, per front, shown with its range ("33.3 /
   100 · range 16.7–50 across 3 tries"), and each question shows how stable it was ("named in 2 of 3
