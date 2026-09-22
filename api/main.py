@@ -26,7 +26,7 @@ import fetching
 import graph
 import reports
 from insights import insights
-from agents.ana import brand_leaks, discovered_competitors, vendor_address
+from agents.ana import CATEGORY_QUESTIONS, brand_leaks, discovered_competitors, vendor_address
 from agents.evaluator_model import ModelEvaluator
 from agents.onboarding import NAMED_TEMPLATES, named_probes_for
 from agents.onboarding_model import MIN_CLAIMS, OnboardingAgent, buyer_questions_for
@@ -184,20 +184,23 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
         raise HTTPException(400, str(e))
     prov = live.LiveProvider(base.attributes(), base.named_probes(), profile=profile,
                              evaluator=ModelEvaluator())
-    # a live run is both axes now: count the blind probes its own plan will produce, or the progress
-    # bar reads "20/8"
+    # a live run is both axes now: count the blind probes its own plan will produce, each buyer
+    # question once per try, or the progress bar reads "20/8"
     _, blind = prov.plan(profile)
+    asks = sum(prov.tries if p.phase == "baseline" else 1 for p in blind)
     # The round-two comparison question is not counted: it is appended only when a baseline answer
     # names a competitor, so reserving a slot for it strands a finished run at "7/8". The overrun in
     # the other direction is held by the clamp in the progress bar.
-    return prov, profile, len(blind) + len(base.named_probes()), "live_api"
+    return prov, profile, asks + len(base.named_probes()), "live_api"
 
 
-def progress(run) -> dict:
-    """What a run has planned so far, in the counts the staged progress names."""
+def progress(run, tries: int = 1) -> dict:
+    """What a run has planned so far, in the counts the staged progress names: every ask, so a
+    buyer question asked three times counts three."""
     planned = {"buyer": 0, "brand": 0, "followup": 0}
     for p in run.probes:
-        planned["followup" if p.phase == "followup" else "brand" if p.kind == "named" else "buyer"] += 1
+        planned["followup" if p.phase == "followup" else "brand" if p.kind == "named" else "buyer"] += \
+            tries if p.kind == "blind" and p.phase == "baseline" else 1
     return dict(mode=run.mode, planned=planned,
                 competitors=discovered_competitors(run.topic_evaluations))
 
@@ -225,10 +228,10 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
 
     inner = prov.answer
 
-    def counting_answer(probe):                     # per-answer progress: the whole point
-        a = inner(probe)
+    def counting_answer(probe, **kw):               # per-answer progress: the whole point
+        a = inner(probe, **kw)
         state["done"] += 1
-        q.put(("answer", dict(probe_id=probe.id, kind=probe.kind, phase=probe.phase,
+        q.put(("answer", dict(probe_id=probe.id, kind=probe.kind, phase=probe.phase, try_no=a.try_no,
                               topic_label=topic_labels.get(probe.topic_id),
                               text=probe.text, status=a.status,
                               answer=a.text[:320], provenance=a.provenance,
@@ -246,7 +249,8 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
                 topic_labels.update({t.id: t.label for t in run.topics})
                 stage, agent = graph.STAGES[node]
                 q.put(("node", dict(node=node, stage=stage, agent=agent,
-                                    log=run.log[-1] if run.log else "", **progress(run))))
+                                    log=run.log[-1] if run.log else "",
+                                    **progress(run, getattr(prov, "tries", 1)))))
             if not public_demo():
                 save_run(run)
             elif holder and run.mode == "live_api":   # a pass's replay of the seed is not its run
@@ -364,6 +368,53 @@ def vet_questions(profile, attributes: list[Attribute]) -> list[str]:
     return warnings
 
 
+def vetted(profile, generated: list[str], asked: set[str]) -> list[str]:
+    """Generated buyer questions minus any that name the brand, address the vendor or repeat one
+    already asked. `asked` is updated with what is kept. Dropped, never rewritten."""
+    kept = []
+    for q in generated:
+        if brand_leaks(q, profile) or vendor_address(q) or q.strip().lower() in asked:
+            continue
+        asked.add(q.strip().lower())
+        kept.append(q)
+    return kept
+
+
+def set_category(company: Company, category: Optional[str]) -> list[str]:
+    """-> warnings. Sets the core category and writes its buyer questions with the onboarding model.
+
+    The category is what the product is shopped for, so it is itself a buyer question: it must
+    never name the brand, or every question built on it would leak. Its questions are vetted like
+    any other. With no key, or if generation fails, the category is still kept — the control question
+    needs only its name — and the missing questions are stated.
+    """
+    p = company.profile
+    category = " ".join((category or "").split()) or None
+    p.core_category, p.category_questions = category, []
+    if category is None:
+        return []
+    if leaks := brand_leaks(category, p):
+        p.core_category = None
+        return [f"The core category “{category}” names you ({', '.join(leaks)}), so it was not kept: "
+                "a buyer who has never heard of you cannot shop for it. Set it on the claims screen."]
+    if not live.available():
+        return [f"No buyer questions were written for the core category ({live.KEY_ENV} is not set), "
+                "so buyer questions follow your claims alone."]
+    try:
+        generated = buyer_questions_for(category, "Any product in this category, for the buyer's "
+                                        "own situation.", n=CATEGORY_QUESTIONS)
+    except Exception as e:
+        traceback.print_exc()
+        return [f"Buyer questions for the core category could not be written ({type(e).__name__}), "
+                "so buyer questions follow your claims alone."]
+    asked = {q.strip().lower() for a in company.attributes for q in a.buyer_questions}
+    p.category_questions = vetted(p, generated, asked)
+    if dropped := len(generated) - len(p.category_questions):
+        return [f"{dropped} buyer question(s) for the core category named you, addressed the vendor or "
+                "repeated a claim's question, and were dropped."]
+    return []
+
+
 def company_payload(c: Company) -> dict:
     p = c.profile
     return dict(
@@ -371,7 +422,8 @@ def company_payload(c: Company) -> dict:
         profile=dict(name=p.name, domain=p.domain, aliases=p.aliases,
                      customer_types=p.customer_types,
                      one_liner=p.positioning_points[0].text if p.positioning_points else None,
-                     logo_url=p.logo_url,
+                     logo_url=p.logo_url, core_category=p.core_category,
+                     category_questions=p.category_questions,
                      warnings=p.warnings),
         pages=c.pages,
         attributes=[dict(id=a.id, label=a.label, description=a.description, aliases=a.aliases,
@@ -405,6 +457,9 @@ def onboard_steps(url: str, name: str, holder: Holder = None) -> Iterator[tuple[
     try:
         with access.spending(pass_id(holder)):
             profile, attrs, warnings, checks = OnboardingAgent().run(name, domain, pages)
+            company = Company(id=uuid.uuid4().hex[:10], profile=profile, attributes=attrs,
+                              pages=[u for u, _ in pages], checks=checks)
+            warnings += set_category(company, profile.core_category)
     except access.Refused as e:                     # capped mid-extraction: nothing is saved
         raise HTTPException(403, e.message)
     except ValueError as e:
@@ -417,8 +472,7 @@ def onboard_steps(url: str, name: str, holder: Holder = None) -> Iterator[tuple[
                            f"{len(pages)} page(s), below the {MIN_CLAIMS} this needs. The site states too "
                            "little for a reliable claim percentage — read every page share with care.")
     warnings += vet_questions(profile, attrs)
-    company = Company(id=uuid.uuid4().hex[:10], profile=profile, attributes=attrs,
-                      pages=[u for u, _ in pages], warnings=warnings, checks=checks)
+    company.warnings = warnings
     save_company(company)
     if holder:
         access.own("company", company.id, holder["id"], profile.name)
@@ -468,6 +522,8 @@ class AddedAttribute(BaseModel):
 class CompanyPatch(BaseModel):
     weights: dict[str, float] = {}
     added: list[AddedAttribute] = []
+    # None leaves it alone; "" clears it. A correction, so its buyer questions are written again.
+    core_category: Optional[str] = Field(default=None, max_length=80)
 
 
 def added_buyer_questions(company: Company, raw: AddedAttribute) -> tuple[list[str], list[str]]:
@@ -482,18 +538,14 @@ def added_buyer_questions(company: Company, raw: AddedAttribute) -> tuple[list[s
         return [], [f"“{raw.label}”: no buyer questions were generated ({live.KEY_ENV} is not set), "
                     "so this claim is measured on the brand axis only."]
     asked = {q.strip().lower() for a in company.attributes for q in a.buyer_questions}
+    asked |= {q.strip().lower() for q in company.profile.category_questions}
     try:
         generated = buyer_questions_for(raw.label, raw.description)
     except Exception as e:
         traceback.print_exc()
         return [], [f"“{raw.label}”: buyer-question generation failed ({type(e).__name__}), so this "
                     "claim is measured on the brand axis only."]
-    kept = []
-    for q in generated:
-        if brand_leaks(q, company.profile) or vendor_address(q) or q.strip().lower() in asked:
-            continue
-        asked.add(q.strip().lower())
-        kept.append(q)
+    kept = vetted(company.profile, generated, asked)
     warnings = []
     if dropped := len(generated) - len(kept):
         warnings.append(f"“{raw.label}”: {dropped} generated buyer question(s) named you, addressed "
@@ -600,6 +652,15 @@ def patch_company(company_id: str, patch: CompanyPatch, request: Request = None)
     by_id = {a.id: a for a in c.attributes}
     for aid, weight in patch.weights.items():
         by_id[aid].intended_weight = round(weight, 2) or None
+    if patch.core_category is not None and patch.core_category.strip() != (c.profile.core_category or ""):
+        if leaks := brand_leaks(patch.core_category, c.profile):
+            raise HTTPException(400, f"The core category names you ({', '.join(leaks)}). Describe what "
+                                     "a buyer shops for, not the brand.")
+        try:
+            with access.spending(pass_id(holder)):
+                c.warnings += set_category(c, patch.core_category)
+        except access.Refused as e:
+            raise HTTPException(403, e.message)
     for raw in patch.added:
         aid = base = re.sub(r"[^a-z0-9]+", "_", raw.label.lower()).strip("_") or "added"
         for n in range(2, 99):
@@ -658,6 +719,7 @@ def health(request: Request = None):
             "public_demo": public_demo(),
             "contact_email": access.contact_email(),
             "measured_model": measured, "evaluator_model": evaluator,
+            "buyer_tries": live.buyer_tries(),
             # a model grading its own output has a self-preference bias worth surfacing
             "same_model_warning": bool(measured and evaluator and measured == evaluator)}
 

@@ -244,7 +244,7 @@ def test_preflight_bad_key_is_a_credential_error_not_an_unsupported_model():
         live.preflight("gpt-4o-mini", transport=raising(BAD_KEY))
     assert type(info.value) is live.CredentialRejected
     assert "refused your API key" in str(info.value)
-    assert "does not accept" not in str(info.value) and "LIVE_MODEL" not in str(info.value)
+    assert "does not accept" not in str(info.value) and live.MODEL_ENV not in str(info.value)
 
 
 def test_preflight_invalid_api_key_code_alone_is_a_credential_error():

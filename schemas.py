@@ -40,6 +40,11 @@ class CompanyProfile(BaseModel):
     warnings: list[str] = []
     approved: bool = False
     logo_url: Optional[str] = None  # the site's own icon, from the homepage fetch; display only
+    # What a buyer would call the market it competes in ("AI search visibility tracking"). Buyer
+    # questions go to it first, so a company is always asked about its own category. None: saved
+    # before categories existed, and buyer questions then follow its claims alone.
+    core_category: Optional[str] = None
+    category_questions: list[str] = []  # blind buyer questions for the core category; vetted like any
 
     def all_domains(self) -> list[str]:
         return sorted({self.domain, *self.owned_domains})
@@ -96,7 +101,9 @@ class AttributeObservation(BaseModel):
 class Topic(BaseModel):
     id: str
     label: str
-    kind: Literal["buyer", "perception"] = "buyer"  # perception holds named probes; not a buyer use case
+    # perception holds named probes; control holds the one category-knowledge question. Neither is a
+    # buyer use case, so neither gets a topic score.
+    kind: Literal["buyer", "perception", "control"] = "buyer"
     buyer_need: str
     positioning_point_ids: list[str]
     fit: Literal["strong", "partial", "unsupported"]
@@ -108,7 +115,8 @@ class Probe(BaseModel):
     topic_id: str
     text: str
     kind: Literal["blind", "named"] = "blind"  # blind: never names the brand. named: may, but never names an attribute.
-    phase: Literal["baseline", "followup"]
+    # control: asked once beside the baseline, never scored as visibility (ana.control_probe)
+    phase: Literal["baseline", "followup", "control"]
     purpose: str
     parent_probe_ids: list[str] = []
 
@@ -127,6 +135,7 @@ class Answer(BaseModel):
     fixture_labels: Optional[dict] = None    # authored labels; synthetic only
     evaluator_labels: Optional[dict] = None  # model-produced labels; live only
     evaluator_model: Optional[str] = None
+    try_no: int = 1  # which ask of the same question this is; buyer questions are asked several times
 
     @property
     def labels(self) -> Optional[dict]:
@@ -160,6 +169,7 @@ class QueryEvaluation(BaseModel):
     explanation: str
     warnings: list[str] = []
     evaluator: str = "simulated (fixture labels + deterministic validation)"
+    try_no: int = 1
 
 
 class TopicEvaluation(BaseModel):
@@ -250,7 +260,11 @@ class DriftReport(BaseModel):
     excluded_named: int = 0
     excluded_reasons: list[str] = []
     alignment: Optional[float] = None       # 0-100, weighted echo of intended attributes
-    visibility: Optional[float] = None      # 0-100, reuses the existing blind-probe score
+    visibility: Optional[float] = None      # 0-100, mean of the per-try blind-probe scores
+    tries: int = 1                          # how many times each buyer question was asked
+    visibility_range: Optional[list[float]] = None  # [lowest, highest] per-try visibility
+    # Why a buyer visibility with no brand mention is not trusted (scoring.low_confidence), or None.
+    low_confidence: Optional[str] = None
     landed: list[str] = []
     lost_claims: list[str] = []
     contested: list[str] = []
@@ -324,6 +338,10 @@ class Run(BaseModel):
     probes: list[Probe] = []
     answers: list[Answer] = []
     evaluations: list[QueryEvaluation] = []
+    # Buyer questions asked again (try 2 onward). Kept apart so every consumer of `answers` still
+    # sees one answer per question; only buyer visibility and its range read these.
+    repeat_answers: list[Answer] = []
+    repeat_evaluations: list[QueryEvaluation] = []
     topic_evaluations: list[TopicEvaluation] = []
     decisions: list[AdaptiveDecision] = []
     findings: list[GapFinding] = []

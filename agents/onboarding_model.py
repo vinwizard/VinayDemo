@@ -31,6 +31,10 @@ SCHEMA_HINT = """Return ONLY JSON:
   "name": string,                  // the company's own name for itself
   "aliases": [string],             // other names it uses for itself; omit generic words
   "one_liner": string,             // how the company describes itself, in its own words
+  "core_category": string,         // the product category that one-liner puts it in, as a buyer
+                                   // shopping for it would name it: 2-6 plain lowercase words, no
+                                   // company, product or brand names, e.g. "payroll software for
+                                   // startups", "AI search visibility tracking"
   "customer_types": [string],
   "attributes": [                  // at most 8, ordered by how central they are to the pitch
     {
@@ -267,6 +271,8 @@ def build_profile(data: dict, pages: list[tuple[str, str]], domain: str) -> Comp
         name=name,
         domain=domain,
         aliases=list(dict.fromkeys([name, *aliases]))[:6],
+        # checked for brand leaks, and given buyer questions, by api.main.set_category
+        core_category=" ".join(str(data.get("core_category") or "").split()) or None,
         customer_types=[c for c in (data.get("customer_types") or []) if isinstance(c, str)][:6],
         positioning_points=points, evidence=evidence,
         warnings=["Claimed positioning only. Which of these you WANT to be known for, and how much "

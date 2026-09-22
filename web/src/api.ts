@@ -43,7 +43,14 @@ export interface DriftReport {
   /** Headline: prominence-weighted share of the site's claims AI repeats supportively. */
   claim_echo?: number | null;
   alignment: number | null;
+  /** Mean of the per-try buyer visibility scores. */
   visibility: number | null;
+  /** How many times each buyer question was asked. Absent on runs saved before repeats: asked once. */
+  tries?: number;
+  /** [lowest, highest] per-try visibility. */
+  visibility_range?: [number, number] | null;
+  /** Why a visibility in which the brand was never named is not trusted, or null. */
+  low_confidence?: string | null;
   landed: string[];
   lost_claims: string[];
   contested: string[];
@@ -59,7 +66,7 @@ export interface DriftReport {
 export interface Topic {
   id: string;
   label: string;
-  kind: "buyer" | "perception";
+  kind: "buyer" | "perception" | "control";
   buyer_need: string;
   fit: string;
 }
@@ -83,6 +90,8 @@ export interface Answer {
   model: string | null;
   collected_at: string | null;
   search_executed: boolean | null;
+  evaluator_model?: string | null;
+  try_no?: number;
 }
 
 export interface QueryEvaluation {
@@ -93,6 +102,7 @@ export interface QueryEvaluation {
   negative_mention: boolean;
   competitor_recommendations: string[];
   explanation: string;
+  try_no?: number;
 }
 
 export interface TopicEvaluation {
@@ -123,11 +133,14 @@ export interface Run {
   scenario: string | null;
   status: string;
   mode: string;
-  profile: { name: string; domain: string; logo_url?: string | null };
+  profile: { name: string; domain: string; logo_url?: string | null; core_category?: string | null };
   topics: Topic[];
   probes: Probe[];
   answers: Answer[];
   evaluations: QueryEvaluation[];
+  /** Buyer questions asked again (try 2 onward); absent on runs saved before repeats. */
+  repeat_answers?: Answer[];
+  repeat_evaluations?: QueryEvaluation[];
   topic_evaluations: TopicEvaluation[];
   attributes?: ClaimedAttribute[];
   attribute_scores: AttributeScore[];
@@ -250,7 +263,9 @@ export interface CompanyDetail {
   id: string;
   created_at: string;
   profile: { name: string; domain: string; aliases: string[]; customer_types: string[];
-             one_liner: string | null; warnings: string[]; logo_url?: string | null };
+             one_liner: string | null; warnings: string[]; logo_url?: string | null;
+             /** What a buyer shops for; null on companies saved before categories existed. */
+             core_category?: string | null; category_questions?: string[] };
   pages: string[];
   attributes: ClaimedAttribute[];
   warnings: string[];
@@ -274,7 +289,9 @@ export const getCompany = (id: string) => json<CompanyDetail>(`/api/companies/${
 export const patchCompany = (
   id: string,
   body: { weights: Record<string, number>;
-          added: { label: string; description: string | null; intended_weight: number }[] },
+          added: { label: string; description: string | null; intended_weight: number }[];
+          /** Omitted leaves it alone; "" clears it. */
+          core_category?: string },
 ) => json<CompanyDetail>(`/api/companies/${id}`, {
   method: "PATCH",
   headers: { "Content-Type": "application/json" },
@@ -292,6 +309,10 @@ export interface Health {
   public_demo: boolean;
   /** Where to ask for a personal live link, or for a pass's cap to be raised. */
   contact_email: string;
+  /** The model that answers the questions, and the separate one that judges them; null without a key. */
+  measured_model: string | null;
+  evaluator_model: string | null;
+  buyer_tries: number;
 }
 
 export const getHealth = () => json<Health>("/api/health");
@@ -322,7 +343,7 @@ export const rescoreRun = (id: string, weights: Record<string, number>) =>
 /** One answer, the moment the model returns it. `answer` is the first few hundred characters. */
 export interface StreamAnswer {
   probe_id: string; kind: "blind" | "named"; phase: string; topic_label: string | null;
-  text: string; status: string; answer: string; provenance: string; grounded: boolean | null;
+  try_no?: number; text: string; status: string; answer: string; provenance: string; grounded: boolean | null;
   done: number; expected: number;
 }
 

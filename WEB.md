@@ -54,28 +54,68 @@ Put your key in `.env` at the repo root (gitignored, never committed):
 
 ```
 OPENAI_API_KEY=sk-...
-LIVE_MODEL=gpt-6-astra
+MEASURED_MODEL=gpt-4.1   # optional: the model that ANSWERS the questions (default gpt-4.1)
+BUYER_TRIES=3            # optional: how many times each buyer question is asked (default 3)
 ```
+
+`MEASURED_MODEL` replaced `LIVE_MODEL`, which is no longer read: an old `.env` that still pins
+`LIVE_MODEL=gpt-4o-mini` would otherwise have kept the model that named obscure tools for a category
+leader's own category. The model that answers and the model that judges (`EVALUATOR_MODEL`) are
+separate settings, and every live report names both ("answered by gpt-4.1, judged by gpt-4.1-mini");
+`/api/health` reports `measured_model`, `evaluator_model` and `buyer_tries`.
 
 Restart the API. It prints `[config] loaded from .env: OPENAI_API_KEY=<set>` — names only, never
 values. Check `curl -s http://127.0.0.1:8000/api/health` for `"live_available": true`. There is no
 mode switch in the page: every measurement it starts is live.
 
-A live run asks every brand and buyer question once to the measured model with web search, and has
-the evaluator grade each answer — two calls per question — plus one round-two comparison question
-when a buyer answer names a competitor, and one evaluator call at the end for the action plan. Without a key, live mode
+A live run asks every brand question once and every buyer question `BUYER_TRIES` times to the
+measured model with web search, plus one **control question**, and has the evaluator grade each
+answer — two calls per ask — plus one round-two comparison question when a buyer answer names a
+competitor, and one evaluator call at the end for the action plan. Without a key, live mode
 **errors** rather than falling back to fixtures — a fixture result under a live label would be a
 fabricated measurement.
 
 Before a live run the API makes one trivial preflight call, so a broken setup fails once with one
 message rather than once per question. It is classified on the HTTP status, never the error text: a
 401 means OpenAI refused the key, a 403 is an account-level refusal (most often OpenAI not serving
-your region), and only a 400 means the model will not take the web_search tool and `LIVE_MODEL` needs
-changing. The message names the error type and status only — the provider's response body is never
+your region), and only a 400 means the model will not take the web_search tool and the model needs
+changing — set `MEASURED_MODEL`. The message names the error type and status only — the provider's response body is never
 shown, because a 401 body quotes part of the key back.
 
-Set `EVALUATOR_MODEL` to a different model from `LIVE_MODEL` once it works: a model grading its own
-output has a self-preference bias.
+Set `EVALUATOR_MODEL` to a different model from `MEASURED_MODEL`: a model grading its own output has
+a self-preference bias.
+
+#### Why a rerun gives a different number, and what the report does about it
+
+The measured model answers the same question differently every time — web search returns different
+pages, and the model samples its wording. Asked once, a question is one draw: rerun the same company
+and a buyer question that named the brand may not name it again, so visibility moves between runs
+without anything about the company changing. That is expected, not a bug in the scoring. Three
+things make the buyer number trustworthy anyway:
+
+- **The core category is always asked about.** Onboarding names the company's core category from
+  its one-line description (`profile.core_category`, e.g. "AI search visibility tracking"), and the
+  onboarding model writes six blind buyer questions for it. `ana.blind_probes_from_attributes` gives
+  the category the first `CATEGORY_TOPICS` (half of `MAX_TOPICS`) buyer topics; the rest go to the
+  claims by the usual rule. The category is shown, and can be corrected, on the claims screen; a
+  correction writes new questions. Every question still goes through `brand_leaks` and
+  `vendor_address`. A company saved before categories existed keeps its claim-only questions, and
+  its report says so.
+- **Each buyer question is asked `BUYER_TRIES` times** (default 3), each in a fresh context. Buyer
+  visibility is the mean of the per-try visibility scores, shown with its range ("33.3 / 100 · range
+  16.7–50 across 3 tries"), and each question shows how stable it was ("named in 2 of 3 tries").
+  Brand questions are asked once. Extra asks are stored in `run.repeat_answers` /
+  `repeat_evaluations`, so everything else — topic scores, sources, share of voice, the action plan —
+  reads the first try exactly as before. A replayed sample has one authored answer per question, so
+  it is 1 try and its numbers do not move.
+- **A control question checks what a 0 means.** One extra blind question, "What are the leading tools
+  for <core category>?", is asked once and never scored (`phase="control"`). When no buyer answer on
+  any try named the brand, `scoring.low_confidence` flags the result **low confidence**, with the
+  reason, if the control answer names fewer than two tools (the model does not know the category),
+  does not name the brand either (the model does not count it among the category's leaders), or
+  could not be scored. If the control does name the brand, the 0 stands: the model knows the brand
+  and still never offers it to a buyer. A flagged 0 is never shown bare — the badge sits beside it
+  in the pinned summary, the Buyer questions tab and the PDF summary.
 
 ### Offline fallback — no network, no key
 
@@ -162,8 +202,10 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     whose question was not asked, and says why; it moves no number), then "where the upside is"
     cards for the biggest open claims.
   - **Buyer questions** and **Brand questions** — one compact row per question with its verdict
-    ("recommended you", "did not name you yet", the claims it raised); a row opens to the full
-    answer and the scorer's note.
+    ("recommended you", "did not name you yet", the claims it raised; with several tries, "named in
+    2 of 3 tries"); a row opens to the full answer and the scorer's note. Buyer questions also show
+    visibility with its range and, below the questions, the **control question** with its answer
+    and, when flagged, why the result is low confidence.
   - **Sources & rivals** — **where AI gets its opinion** (every site cited in a counted buyer or
     brand answer, ranked by answers citing it; a third-party site cited in two or more is flagged
     as a target), **share of voice** (answers recommending the brand beside the three

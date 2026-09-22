@@ -28,7 +28,11 @@ different problem from silence. Naming which one you are looking at is the point
 
 Two probe families measure two different things:
 
-- **Blind probes** never name the brand → **visibility**. Do you show up at all?
+- **Blind probes** never name the brand → **visibility**. Do you show up at all? At least half of
+  them ask about the company's core category, each is asked three times (visibility is the mean,
+  shown with its range, because the same question gets a different answer on every run), and a
+  control question flags a 0 as low confidence when the model does not seem to know the category.
+  Details: "Why a rerun gives a different number" in [`WEB.md`](WEB.md).
 - **Named probes** name the brand but never name an attribute → **perception**. What does AI say you are?
 
 The ids and these code names stay internal; on screen they are *buyer questions* and *brand questions*
