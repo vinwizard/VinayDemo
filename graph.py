@@ -9,17 +9,19 @@ from langgraph.graph import END, START, StateGraph
 import drift
 from agents import ana, evaluation, win_back
 from labels import probe_name
-from schemas import Run
+from schemas import Run, VisibilitySet
 from scoring import low_confidence, score_topic, visibility_over_tries
 
 MAX_BASELINE = 12
 MAX_NAMED = 8
 MAX_FOLLOWUP = 4
 MAX_ADAPTIVE_ROUNDS = 1
-RECURSION_LIMIT = 12
+RECURSION_LIMIT = 20
 
 STAGES = {  # node -> (UI stage, logical agent). Both strings are shown to the reader verbatim.
-    "plan_baseline": ("Topic planning", "Agent 2 · Question planner"),
+    "plan_brand": ("Topic planning", "Agent 2 · Question planner"),
+    "perceive": ("Perception drift", "Agent 3 · Answer evaluation"),
+    "plan_buyer": ("Topic planning", "Agent 2 · Question planner"),
     "validate_and_freeze": ("Topic planning", "Orchestrator"),
     "execute_or_replay": ("Baseline / Follow-up", "Orchestrator"),
     "evaluate": ("Gap evaluation", "Agent 3 · Answer evaluation"),
@@ -39,29 +41,111 @@ class ValidationError(Exception):
     pass
 
 
-def plan_baseline(s: State):
+def plan_brand(s: State):
+    """Brand questions first: the buyer questions are planned from what their answers say."""
+    run, provider = s["run"], s["provider"]
+    if check := getattr(provider, "check_profile", None):
+        check(run.profile)   # an edited profile never receives the bundled replay
+    run.attributes = provider.attributes()
+    named = provider.named_probes()
+    errors = ana.validate_named_probes(named, run.attributes)
+    if len(named) > MAX_NAMED:
+        errors.append(f"{len(named)} named questions exceeds {MAX_NAMED}")
+    if errors:
+        raise ValidationError("; ".join(errors))
+    run.topics, run.probes = ([ana.perception_topic()] if named else []), named
+    run.log.append(f"Question planner prepared {len(named)} brand questions and "
+                   f"{len(run.attributes)} attributes; buyer questions are planned from their answers.")
+    return {"run": run}
+
+
+def perceive(s: State):
+    """Perception layer: extract attribute observations from the brand answers, then discover the
+    ones nobody declared.
+
+    Observations are re-derived from the answers rather than carried in state, so the drift map can
+    never contain an attribute whose quote is no longer verbatim in the answer it came from.
+    """
     run = s["run"]
-    topics, probes = s["provider"].plan(run.profile)
+    answers = {a.probe_id: a for a in run.answers}
+    observations, dropped = {}, []
+    for pr in [x for x in run.probes if x.kind == "named"]:
+        if pr.id in answers:
+            obs, warns = evaluation.extract_attributes(answers[pr.id], run.attributes)
+            observations[pr.id] = obs
+            dropped += [f"{probe_name(pr)}: {w}" for w in warns]
+    kept, _, _ = drift.named_eligibility(run.probes, run.answers, run.evaluations)
+    # Emergent attributes: one discovery call over every eligible brand answer at once, because
+    # repetition across answers is the signal. Only a provider with a model offers it, so the
+    # authored fixtures — whose unclaimed attributes are hand-written — never run it.
+    notes = []
+    propose = getattr(s["provider"], "discover", None)
+    if propose and len(kept) >= evaluation.EMERGENT_MIN_ANSWERS:
+        by_id = {p.id: p for p in run.probes}
+        proposals = propose(run.attributes, [(by_id[pid], answers[pid]) for pid in kept])
+        if proposals is None:
+            notes.append("the discovery call failed, so nothing was discovered from the answers")
+        else:
+            discovered, found, notes = evaluation.discover_attributes(
+                proposals, {pid: answers[pid] for pid in kept}, run.attributes, observations, run.profile)
+            run.attributes = run.attributes + discovered
+            for pid, obs in found.items():
+                observations[pid] = observations.get(pid, []) + obs
+            run.log.append(f"Discovery read {len(kept)} brand answers together: {len(proposals)} "
+                           f"proposed, {len(discovered)} kept"
+                           + (f" ({', '.join(a.label for a in discovered)})." if discovered else "."))
+    run.observations = observations
+    run.drift_notes = [f"Dropped unverifiable observation — {d}" for d in dropped]
+    run.drift_notes += [f"Discovery — {n}" for n in notes]
+    return {"run": run}
+
+
+def plan_buyer(s: State):
+    """Buyer questions on two fronts: the category the brand answers most associate with the
+    company (where AI places it) and the site's own core category (where it aims to be)."""
+    run, provider = s["run"], s["provider"]
+    scores = drift.score_attributes(run.attributes, run.probes, run.answers, run.evaluations,
+                                    run.observations or {})
+    placed = ana.placed_attribute(scores, run.attributes, run.profile)
+    topics, probes = provider.plan(run.profile, placed)
     points = {pp.id: pp for pp in run.profile.positioning_points}
     for t in topics:  # fit evidence always resolves against the approved profile
-        t.fit_evidence_ids = [e for pid in t.positioning_point_ids if pid in points for e in points[pid].evidence_ids]
-    run.attributes = s["provider"].attributes()
-    named = s["provider"].named_probes()
-    if named and not any(t.kind == "perception" for t in topics):
-        raise ValidationError("named probes planned without a perception topic to hold them")
-    run.topics, run.probes = topics, probes + named
-    run.log.append(f"Question planner prepared {len(topics)} topics, {len(probes)} buyer questions, "
-                   f"{len(named)} brand questions and {len(run.attributes)} attributes.")
-    if skipped := getattr(s["provider"], "skipped_questions", []):
-        run.log.append(f"{len(skipped)} saved buyer question(s) dropped for addressing the vendor instead of "
-                       f"describing a need: {'; '.join(skipped)}.")
+        t.fit_evidence_ids = t.fit_evidence_ids or [e for pid in t.positioning_point_ids if pid in points
+                                                    for e in points[pid].evidence_ids]
+    have = {t.id for t in run.topics}
+    # buyer questions first, as a run has always listed them
+    run.topics = [t for t in topics if t.id not in have] + run.topics
+    run.probes = probes + run.probes
+    buyer = [p for p in probes if p.phase == "baseline"]
+    fronts = {t.front for t in topics if t.kind == "buyer" and t.front}
+    run.missing_fronts = dict(getattr(provider, "missing_fronts", {}))
+    if fronts:
+        sc = next((sc for sc in scores if placed and sc.attribute_id == placed.id), None)
+        endorsed = round((sc.echo_rate or 0) * sc.n) if sc else 0
+        run.log.append(
+            (f"Where AI places {run.profile.name}: {placed.label} (endorsed in {endorsed} "
+             f"of {sc.n if sc else 0} brand answers). " if placed else "")
+            + (f"Where it aims to be: {run.profile.core_category}. " if run.profile.core_category else "")
+            + f"{len(buyer)} buyer questions planned across {len(fronts)} set(s)"
+            + (", the rest from the claims." if any(not t.front for t in topics if t.kind == "buyer") else "."))
+        if "both" in fronts:
+            run.log.append(f"Where AI places {run.profile.name} ({placed.label}) is the category its site "
+                           f"aims for ({run.profile.core_category}), so one set of buyer questions was asked.")
+    else:
+        run.log.append(f"Question planner prepared {len(buyer)} buyer questions from the claims.")
+    for note in [*getattr(provider, "notes", []), *run.missing_fronts.values()]:
+        run.log.append(note)
+        run.drift_notes.append(note)
+    if skipped := getattr(provider, "skipped_questions", []):
+        run.log.append(f"{len(skipped)} buyer question(s) dropped for naming the brand or addressing "
+                       f"the vendor instead of describing a need: {'; '.join(skipped)}.")
     return {"run": run}
 
 
 def validate_and_freeze(s: State):
     run = s["run"]
     errors = ana.validate_probes(run.probes, run.topics, run.profile)
-    errors += ana.validate_named_probes(run.probes, run.attributes)
+    errors += ana.validate_named_probes(run.probes, [a for a in run.attributes if not a.discovered])
     blind = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
     if len(blind) > MAX_BASELINE:
         errors.append(f"{len(blind)} baseline questions exceeds {MAX_BASELINE}")
@@ -103,7 +187,8 @@ def execute_or_replay(s: State):
     new = got[:len(todo)]
     run.answers += new
     run.repeat_answers += got[len(todo):]
-    phase = ("follow-up" if todo[0].phase == "followup" else todo[0].phase) if todo else "?"
+    phase = ("follow-up" if todo[0].phase == "followup" else "brand" if all(p.kind == "named" for p in todo)
+             else todo[0].phase) if todo else "?"
     failed = sum(a.status != "ok" for a in got)
     # the log must not claim "replayed from fixtures" for answers a real provider produced
     verb = "Replayed" if all(a.provenance == "synthetic" for a in new) else "Collected"
@@ -168,42 +253,8 @@ def route_after_followup(s: State) -> str:
 
 
 def measure_drift(s: State):
-    """Perception layer: extract attribute observations, then classify against intent and claims.
-
-    Observations are re-derived from the answers rather than carried in state, so the drift map can
-    never contain an attribute whose quote is no longer verbatim in the answer it came from.
-    """
+    """Perception drift and buyer visibility, over the observations `perceive` validated."""
     run = s["run"]
-    answers = {a.probe_id: a for a in run.answers}
-    observations, dropped = {}, []
-    for pr in [x for x in run.probes if x.kind == "named"]:
-        if pr.id in answers:
-            obs, warns = evaluation.extract_attributes(answers[pr.id], run.attributes)
-            observations[pr.id] = obs
-            dropped += [f"{probe_name(pr)}: {w}" for w in warns]
-    kept, _, _ = drift.named_eligibility(run.probes, run.answers, run.evaluations)
-    # Emergent attributes: one discovery call over every eligible brand answer at once, because
-    # repetition across answers is the signal. Only a provider with a model offers it, so the
-    # authored fixtures — whose unclaimed attributes are hand-written — never run it.
-    notes = []
-    propose = getattr(s["provider"], "discover", None)
-    if propose and len(kept) >= evaluation.EMERGENT_MIN_ANSWERS:
-        by_id = {p.id: p for p in run.probes}
-        proposals = propose(run.attributes, [(by_id[pid], answers[pid]) for pid in kept])
-        if proposals is None:
-            notes.append("the discovery call failed, so nothing was discovered from the answers")
-        else:
-            discovered, found, notes = evaluation.discover_attributes(
-                proposals, {pid: answers[pid] for pid in kept}, run.attributes, observations, run.profile)
-            run.attributes = run.attributes + discovered
-            for pid, obs in found.items():
-                observations[pid] = observations.get(pid, []) + obs
-            run.log.append(f"Discovery read {len(kept)} brand answers together: {len(proposals)} "
-                           f"proposed, {len(discovered)} kept"
-                           + (f" ({', '.join(a.label for a in discovered)})." if discovered else "."))
-    run.observations = observations
-    run.drift_notes = [f"Dropped unverifiable observation — {d}" for d in dropped]
-    run.drift_notes += [f"Discovery — {n}" for n in notes]
     if run.mode == "live_api" and not ana.discovered_competitors(run.topic_evaluations):
         # "Nobody was named" and "nobody was asked" are different findings: with no claim that has
         # buyer questions there are none to ask, so an empty competitor set is silence, not absence.
@@ -212,17 +263,12 @@ def measure_drift(s: State):
             if any(p.kind == "blind" for p in run.probes) else
             "No buyer question was asked — no claim has a buyer question — so the buyer axis was "
             "not measured and no competitor could be discovered.")
-    if run.mode == "live_api" and not run.profile.core_category:
-        run.drift_notes.append(
-            "No core category is saved for this company (onboarded before categories existed), so "
-            "buyer questions follow its claims alone and no control question was asked. Set the "
-            "category on the claims screen to measure it.")
     score_drift(run)
     run.log.append(f"Drift measured over {run.drift.n_named} brand answers: claim echo "
                    f"{run.drift.claim_echo if run.drift.claim_echo is not None else 'n/a'}, alignment "
                    f"{run.drift.alignment if run.drift.alignment is not None else 'n/a'} "
                    f"({len(run.drift.lost_claims)} lost, {len(run.drift.imposed)} imposed, "
-                   f"{len(dropped)} observation(s) dropped).")
+                   f"{sum(n.startswith('Dropped') for n in run.drift_notes)} observation(s) dropped).")
     return {"run": run}
 
 
@@ -261,10 +307,36 @@ def score_drift(run: Run) -> None:
     if run.drift.visibility is None and not blind:
         run.drift.na_reasons["visibility"] = ("No buyer question was asked: no claim had a buyer "
                                               "question, so visibility is not measured.")
-    control = next((p for p in run.probes if p.phase == "control"), None)
-    if control and visibility is not None and not any(e.mentioned for e in counted):
-        run.drift.low_confidence = low_confidence(run.profile.name, run.profile.core_category or "",
-                                                  ev.get(control.id), answers.get(control.id))
+    # One set per front, each with its own tries, range and control question. Replay has one
+    # unlabelled set (front None), so its numbers are the run's own.
+    topic = {t.id: t for t in run.topics}
+    fronts = list(dict.fromkeys(topic[p.topic_id].front for p in blind if p.topic_id in topic))
+    for front in fronts:
+        ids = {p.id for p in blind if topic[p.topic_id].front == front}
+        mine = [e for e in counted if e.probe_id in ids]
+        vis, rng = visibility_over_tries(
+            [[e.strength for e in mine if e.try_no == t] for t in range(1, tries + 1)])
+        control = next((p for p in run.probes if p.phase == "control"
+                        and topic.get(p.topic_id) and topic[p.topic_id].front == front), None)
+        # front None beside labelled fronts is the claims' own questions: no one category
+        category = next(topic[p.topic_id].label for p in blind if p.id in ids) if front else \
+            None if len(fronts) > 1 else run.profile.core_category
+        vs = VisibilitySet(front=front, category=category, visibility=vis, tries=tries,
+                           visibility_range=rng, n_blind=len(mine), questions=len(ids),
+                           control_probe_id=control.id if control else None)
+        if control and vis is not None:
+            vs.low_confidence = low_confidence(run.profile.name, category or "",
+                                               ev.get(control.id), answers.get(control.id))
+        run.drift.sets.append(vs)
+    by_front = {vs.front: vs for vs in run.drift.sets}
+    if len(controlled := [vs for vs in run.drift.sets if vs.control_probe_id]) == 1:
+        run.drift.low_confidence = controlled[0].low_confidence
+    placed, aiming = by_front.get("placed") or by_front.get("both"), by_front.get("aiming") or by_front.get("both")
+    run.drift.missing_fronts = dict(run.missing_fronts)
+    run.drift.placed_category = placed.category if placed else None
+    run.drift.aiming_category = aiming.category if aiming else None
+    if "placed" in by_front and "aiming" in by_front and None not in (placed.visibility, aiming.visibility):
+        run.drift.visibility_gap = round(placed.visibility - aiming.visibility, 1)
     run.drift.limitations += run.drift_notes
 
 
@@ -305,18 +377,26 @@ def build_gap_report(s: State):
     return {"run": run}
 
 
+def route_after_evaluate(s: State) -> str:
+    """Brand answers are in and nothing is frozen yet: read them, then plan the buyer questions."""
+    return "perceive" if s["run"].baseline_hash is None else "choose_followup"
+
+
 def build_graph():
     g = StateGraph(State)
-    for name, fn in [("plan_baseline", plan_baseline), ("validate_and_freeze", validate_and_freeze),
+    for name, fn in [("plan_brand", plan_brand), ("perceive", perceive), ("plan_buyer", plan_buyer),
+                     ("validate_and_freeze", validate_and_freeze),
                      ("execute_or_replay", execute_or_replay), ("evaluate", evaluate),
                      ("choose_followup", choose_followup), ("measure_drift", measure_drift),
                      ("build_gap_report", build_gap_report)]:
         g.add_node(name, fn)
-    g.add_edge(START, "plan_baseline")
-    g.add_edge("plan_baseline", "validate_and_freeze")
-    g.add_edge("validate_and_freeze", "execute_or_replay")
+    g.add_edge(START, "plan_brand")
+    g.add_edge("plan_brand", "execute_or_replay")
     g.add_edge("execute_or_replay", "evaluate")
-    g.add_edge("evaluate", "choose_followup")
+    g.add_conditional_edges("evaluate", route_after_evaluate, ["perceive", "choose_followup"])
+    g.add_edge("perceive", "plan_buyer")
+    g.add_edge("plan_buyer", "validate_and_freeze")
+    g.add_edge("validate_and_freeze", "execute_or_replay")
     g.add_conditional_edges("choose_followup", route_after_followup, ["execute_or_replay", "measure_drift"])
     g.add_edge("measure_drift", "build_gap_report")
     g.add_edge("build_gap_report", END)

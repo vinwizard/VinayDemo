@@ -39,28 +39,28 @@ MIN_CONTROL_VENDORS = 2  # a control answer naming fewer tools than this does no
 
 def low_confidence(brand: str, category: str, control: Optional[QueryEvaluation],
                    control_answer: Optional[Answer]) -> Optional[str]:
-    """Why a buyer visibility in which the brand was never named is not to be trusted, or None.
+    """Why a set's buyer visibility is not to be trusted, or None.
 
-    Only asked of a run where no buyer answer, on any try, named the brand. The control question
-    ("What are the leading tools for <category>?") then decides what that 0 means:
-      * the control could not be scored          -> low confidence: nothing to check the 0 against
+    The set's control question ("What are the leading tools for <category>?") decides it, whatever
+    the buyer answers scored — a brand named once by chance is still not known in the category:
+      * the control could not be scored          -> low confidence: nothing to check the number against
       * it names fewer than MIN_CONTROL_VENDORS  -> low confidence: the model does not know the category
       * it names tools but not the brand         -> low confidence: the model does not count the brand
                                                     among the category's leaders, so buyer questions
-                                                    were never going to surface it
-      * it names the brand                       -> None: the model knows the brand as a leader and
-                                                    still does not bring it up for buyers; a real 0
+                                                    were unlikely to surface it
+      * it names the brand                       -> None: the model knows the brand as a leader, so
+                                                    the buyer number is a finding
     """
     if control is None or control_answer is None or not eligible(control_answer, control)[0]:
         why = control.explanation if control else "the control question was not answered"
-        return (f"The control question on {category} could not be scored ({why}), so this 0 cannot "
-                f"be checked against what the answering model knows about the category.")
+        return (f"The control question on {category} could not be scored ({why}), so this number "
+                f"cannot be checked against what the answering model knows about the category.")
     vendors = control.competitor_recommendations
     if len(vendors) < MIN_CONTROL_VENDORS:
         found = f"only {', '.join(vendors)}" if vendors else "no tool at all"
         return (f"Asked for the leading tools for {category}, the answering model named {found}. It "
-                f"does not seem to know this category, so this 0 says more about the model than "
-                f"about {brand}.")
+                f"does not seem to know this category, so this number says more about the model "
+                f"than about {brand}.")
     if not control.mentioned:
         return (f"Asked for the leading tools for {category}, the answering model named "
                 f"{', '.join(vendors[:5])} but not {brand}. It does not count {brand} among this "

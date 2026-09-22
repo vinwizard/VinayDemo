@@ -227,6 +227,7 @@ input[type="range"] { accent-color: var(--accent); width: 9rem; }
 .fig-label { font-size: .8rem; color: var(--muted); }
 .fig-sub { font-size: .8rem; color: var(--text); }
 .fig-sub::before { content: "· "; color: var(--muted); }
+.gap-line { order: 4; flex-basis: 100%; margin: 0; font-size: .85rem; }
 .report-tabs { display: flex; gap: .15rem; overflow-x: auto; scrollbar-width: none; }
 .report-tabs::-webkit-scrollbar { display: none; }
 .rtab {

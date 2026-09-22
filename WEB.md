@@ -68,8 +68,9 @@ Restart the API. It prints `[config] loaded from .env: OPENAI_API_KEY=<set>` —
 values. Check `curl -s http://127.0.0.1:8000/api/health` for `"live_available": true`. There is no
 mode switch in the page: every measurement it starts is live.
 
-A live run asks every brand question once and every buyer question `BUYER_TRIES` times to the
-measured model with web search, plus one **control question**, and has the evaluator grade each
+A live run asks every brand question once, then plans its buyer questions from those answers, and
+asks every buyer question `BUYER_TRIES` times to the measured model with web search, plus one
+**control question** per front, and has the evaluator grade each
 answer — two calls per ask — plus one round-two comparison question when a buyer answer names a
 competitor, and one evaluator call at the end for the action plan. Without a key, live mode
 **errors** rather than falling back to fixtures — a fixture result under a live label would be a
@@ -93,29 +94,44 @@ and a buyer question that named the brand may not name it again, so visibility m
 without anything about the company changing. That is expected, not a bug in the scoring. Three
 things make the buyer number trustworthy anyway:
 
-- **The core category is always asked about.** Onboarding names the company's core category from
-  its one-line description (`profile.core_category`, e.g. "AI search visibility tracking"), and the
-  onboarding model writes six blind buyer questions for it. `ana.blind_probes_from_attributes` gives
-  the category the first `CATEGORY_TOPICS` (half of `MAX_TOPICS`) buyer topics; the rest go to the
-  claims by the usual rule. The category is shown, and can be corrected, on the claims screen; a
-  correction writes new questions. Every question still goes through `brand_leaks` and
-  `vendor_address`. A company saved before categories existed keeps its claim-only questions, and
-  its report says so.
+- **Visibility is measured on two fronts, side by side.** Brand questions are answered and read
+  first (`graph.plan_brand` → `perceive`), then `graph.plan_buyer` asks buyer questions about two
+  categories, half the buyer budget each (`ana.SET_QUESTIONS`, same total as one set):
+  **where AI places you** — the attribute, claimed or discovered, that the most valid brand answers
+  endorsed (`ana.placed_attribute`; ties go to the claim stated on more pages; its questions are the
+  claim's own, topped up by the onboarding model) — and **where you aim to be**, the site's core
+  category (`profile.core_category`, named at onboarding from the one-line description, six blind
+  questions written for it, correctable on the claims screen). Each front has its own visibility,
+  range across tries and control question (`drift.sets`), and `drift.visibility_gap` is placed minus
+  aiming: "known for AI search visibility, not yet seen as an AI marketing platform" is the finding.
+  When both are the same category (`ana.same_category`: one's content words all in the other's) one
+  set is asked and the run says so; with only one front measured (the same category, no endorsed
+  attribute, no saved category or no questions left) the claims' own buyer questions fill the other
+  half, counted in neither front, and the run says why the front is missing (`drift.missing_fronts`);
+  with neither, questions follow the claims as before. The placed front cites only that attribute's
+  own claim evidence, never the homepage's. Every question
+  still goes through `brand_leaks` and `vendor_address`. A replayed sample is one unlabelled set.
 - **Each buyer question is asked `BUYER_TRIES` times** (default 3), each in a fresh context. Buyer
-  visibility is the mean of the per-try visibility scores, shown with its range ("33.3 / 100 · range
-  16.7–50 across 3 tries"), and each question shows how stable it was ("named in 2 of 3 tries").
+  visibility is the mean of the per-try visibility scores, per front, shown with its range ("33.3 /
+  100 · range 16.7–50 across 3 tries"), and each question shows how stable it was ("named in 2 of 3
+  tries") and every try's answer.
   Brand questions are asked once. Extra asks are stored in `run.repeat_answers` /
   `repeat_evaluations`, so everything else — topic scores, sources, share of voice, the action plan —
   reads the first try exactly as before. A replayed sample has one authored answer per question, so
   it is 1 try and its numbers do not move.
-- **A control question checks what a 0 means.** One extra blind question, "What are the leading tools
-  for <core category>?", is asked once and never scored (`phase="control"`). When no buyer answer on
-  any try named the brand, `scoring.low_confidence` flags the result **low confidence**, with the
-  reason, if the control answer names fewer than two tools (the model does not know the category),
-  does not name the brand either (the model does not count it among the category's leaders), or
-  could not be scored. If the control does name the brand, the 0 stands: the model knows the brand
-  and still never offers it to a buyer. A flagged 0 is never shown bare — the badge sits beside it
-  in the pinned summary, the Buyer questions tab and the PDF summary.
+- **A control question checks what a front's number means.** One extra blind question per front,
+  "What are the leading tools for <category>?", is asked once and never scored (`phase="control"`).
+  Whatever the buyer answers scored, `scoring.low_confidence` flags that front **low confidence**,
+  with the reason, if its control answer names fewer than two tools (the model does not know the
+  category), does not name the brand (the model does not count it among the category's leaders —
+  a brand named once by chance is still not known there), or could not be scored. If the control
+  names the brand, the number stands. A flagged number is never shown bare — the badge sits beside
+  it in the pinned summary, the Buyer questions tab and the PDF summary.
+- **A generic phrase is never the brand's name.** An alias counts as a mention unless every word in
+  it is a generic noun (`schemas.distinctive_alias`), so a product name such as "Conversation
+  Explorer" still counts and is still a brand leak. "AI Marketer" and "AI Agents" are dropped at
+  onboarding and ignored on older saved companies, and
+  matching stays word-bounded and case-sensitive, so "AiMarketer" is not the brand.
 
 ### Offline fallback — no network, no key
 
@@ -183,7 +199,9 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   none or it fails to load — never an external logo service), the run date and whether it was
   measured live or is a sample, the headline framed as upside — **untapped potential** (100 minus
   the score) with the real score beside it ("AI says 21.4% of what you want to be known for
-  today") — buyer visibility, the count of claims to win back, and **Download summary (PDF)**.
+  today") — buyer visibility (on a live run, side by side: **Where AI places you** and **Where you
+  aim to be**, each with its category, range and any low-confidence badge, then one plain gap
+  sentence), the count of claims to win back, and **Download summary (PDF)**.
   Below it, five tabs with counts (`role=tablist`, arrow keys, Home/End; the tab is kept in the URL
   hash, so `#report-buyer` opens Buyer questions; on a phone the strip scrolls sideways):
   - **Overview** — where the answers came from (measured live with the model, or the SYNTHETIC
@@ -215,9 +233,10 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     cards for the biggest open claims.
   - **Buyer questions** and **Brand questions** — one compact row per question with its verdict
     ("recommended you", "did not name you yet", the claims it raised; with several tries, "named in
-    2 of 3 tries"); a row opens to the full answer and the scorer's note. Buyer questions also show
-    visibility with its range and, below the questions, the **control question** with its answer
-    and, when flagged, why the result is low confidence.
+    2 of 3 tries"); a row opens to the full answer (every try's, for a buyer question) and the scorer's
+    note. Buyer questions are grouped by front, each group with its visibility and range, its
+    questions and its **control question** with its answer and, when flagged, why the result is
+    low confidence.
   - **Sources & rivals** — **where AI gets its opinion** (every site cited in a counted buyer or
     brand answer, ranked by answers citing it; a third-party site cited in two or more is flagged
     as a target), **share of voice** (answers recommending the brand beside the three

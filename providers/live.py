@@ -14,6 +14,7 @@ import os
 from datetime import datetime, timezone
 from typing import Callable, Optional
 
+from agents.onboarding_model import buyer_questions_for
 from schemas import Answer, Attribute, CompanyProfile, Probe, Topic
 
 KEY_ENV = "OPENAI_API_KEY"
@@ -161,8 +162,8 @@ def default_transport(messages: list[dict], model: str, timeout: int):
 
 
 class LiveProvider:
-    """Live run on both axes: plan() returns the attribute-derived blind probes and the perception
-    topic, and named probes are answered by the measured model too. Every answer is live_api, so a
+    """Live run on both axes: named probes are answered first, then plan() returns the buyer
+    questions for the category those answers place the company in and the site's own category. Every answer is live_api, so a
     live run never mixes measured answers with fixture ones.
     """
     name = "openai"
@@ -171,7 +172,8 @@ class LiveProvider:
 
     def __init__(self, attributes: list[Attribute], named_probes: list[Probe],
                  profile: Optional[CompanyProfile] = None, model: Optional[str] = None,
-                 transport: Optional[Callable] = None, evaluator=None):
+                 transport: Optional[Callable] = None, evaluator=None,
+                 writer: Optional[Callable] = None):
         if not attributes:
             raise ValueError("live run needs the attribute set being measured")
         self._attributes = attributes
@@ -183,18 +185,29 @@ class LiveProvider:
         self.evaluator = evaluator          # None -> answers come back unlabelled ("needs review")
         self.calls = 0
         self.skipped_questions: list[str] = []
+        self.notes: list[str] = []
+        self.missing_fronts: dict[str, str] = {}
+        # (label, description, n) -> buyer questions for the category where AI places the company,
+        # which is often one nobody wrote questions for (an attribute discovered in the answers)
+        self._writer = writer or (lambda label, description, n: buyer_questions_for(label, description, n=n))
 
-    def plan(self, profile: CompanyProfile) -> tuple[list[Topic], list[Probe]]:
-        """Both axes: category- and attribute-derived blind probes (placebo), the category control
-        question when there is a category, plus the perception container."""
-        from agents.ana import blind_probes_from_attributes, control_probe, control_topic
-        topics, blind, self.skipped_questions = blind_probes_from_attributes(self._attributes, profile)
-        perception = Topic(id="perception", label="Brand perception", kind="perception",
-                           buyer_need="How AI characterises the brand when asked about it directly",
-                           positioning_point_ids=[], fit="strong")
-        if control := control_probe(profile):
-            return topics + [control_topic(profile), perception], blind + [control]
-        return topics + [perception], blind
+    def plan(self, profile: CompanyProfile, placed: Optional[Attribute] = None
+             ) -> tuple[list[Topic], list[Probe]]:
+        """Buyer questions on two fronts, each with its control question: where AI places the
+        company (`placed`, read off the brand answers) and the site's core category. The claims'
+        own buyer questions fill whatever budget the fronts leave: all of it with neither front."""
+        from agents.ana import SET_QUESTIONS, blind_probes_for_fronts
+        self.notes = []
+        questions = list(placed.buyer_questions) if placed else []
+        if placed and len(questions) < SET_QUESTIONS:
+            try:
+                questions += self._writer(placed.label, placed.description, SET_QUESTIONS - len(questions))
+            except Exception as e:                  # stated, never swallowed: the front is smaller
+                self.notes.append(f"Buyer questions for {placed.label} could not be written "
+                                  f"({type(e).__name__}); its own {len(questions)} were asked.")
+        topics, blind, self.skipped_questions, self.missing_fronts = blind_probes_for_fronts(
+            profile, placed, questions, self._attributes)
+        return topics, blind
 
     def attributes(self) -> list[Attribute]:
         return self._attributes

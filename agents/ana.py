@@ -6,17 +6,14 @@ replace `choose_followup` behind the same signature later.
 """
 import hashlib
 import json
-import math
 import re
 from collections import Counter
 
-from schemas import (AdaptiveDecision, Attribute, CompanyProfile, Probe, QueryEvaluation, Topic,
-                     TopicEvaluation)
+from schemas import (AdaptiveDecision, Attribute, AttributeScore, CompanyProfile, Probe,
+                     QueryEvaluation, Topic, TopicEvaluation)
 
 MAX_TOPICS = 4
 PER_TOPIC = 3
-CATEGORY_TOPICS = math.ceil(MAX_TOPICS / 2)  # at least half the buyer topics ask about the core category
-CATEGORY_QUESTIONS = CATEGORY_TOPICS * PER_TOPIC
 CONTROL_TOPIC = "control"
 MAX_FOLLOWUP_TOPICS = 2
 PER_FOLLOWUP_TOPIC = 2
@@ -25,7 +22,7 @@ COMPARISON_PROBE_ID = "np-cmp"
 
 
 def leak_terms(profile: CompanyProfile) -> list[str]:
-    terms = {profile.name, *profile.aliases, *profile.branded_terms}
+    terms = {*profile.names(), *profile.branded_terms}  # generic aliases are not the brand
     for d in profile.all_domains():
         terms |= {d, d.split(".")[0]}
     return sorted(t for t in terms if t and len(t) > 2)
@@ -70,13 +67,11 @@ def attribute_leaks(text: str, attributes: list[Attribute]) -> list[str]:
     return hits
 
 
-def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyProfile
-                                 ) -> tuple[list[Topic], list[Probe], list[str]]:
-    """The placebo test: buyer topics whose questions never name the brand.
-
-    With a core category, the first CATEGORY_TOPICS topics ask about the category itself and the
-    rest go to claims; without one (a company saved before categories existed) every topic is a
-    claim, as before. One claim topic per intended (or, unweighted, most-stated) claim.
+def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyProfile,
+                                 limit: int = MAX_TOPICS) -> tuple[list[Topic], list[Probe], list[str]]:
+    """The placebo test: buyer topics whose questions never name the brand, one per intended (or,
+    unweighted, most-stated) claim, at most `limit` of them. blind_probes_for_fronts gives them
+    whatever buyer budget the fronts leave: all of it with neither front, half with only one.
 
     If a company claims to be X, a buyer asking for X should find them. Asking the question the
     company's own positioning implies — with no brand name, in a fresh context — is a stronger test
@@ -106,23 +101,6 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
         if kept:
             topics.append(topic)
 
-    # The company's own category first: a buyer shopping for exactly what it sells is the fairest
-    # test there is, and claims alone once left a category leader's category unasked. The control
-    # question's wording is never also a scored question.
-    category = profile.core_category
-    control = control_probe(profile)
-    cat_qs = [q for q in profile.category_questions
-              if not control or q.strip().lower() != control.text.strip().lower()]
-    for n in range(CATEGORY_TOPICS):
-        chunk = cat_qs[n * PER_TOPIC:(n + 1) * PER_TOPIC]
-        if category and chunk:
-            ask(Topic(id=f"cat-{n + 1}", label=category, kind="buyer",
-                      buyer_need=f"A buyer looking for: {category}",
-                      positioning_point_ids=[pp.id for pp in profile.positioning_points[:1]],
-                      fit="strong"),
-                # numbered across both topics: they share a label, so "question 4" must not repeat "1"
-                "cat", chunk, f"Core category: would a buyer shopping for {category} be shown this brand?",
-                first=n * PER_TOPIC + 1)
     # Heaviest intent first, so truncation to MAX_TOPICS keeps the claims the customer cares about
     # most rather than whichever the extraction model emitted first. With nothing weighted the run
     # still goes ahead (the claim lens): the claims stated on the most pages go first instead. The
@@ -143,31 +121,151 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
     if dropped:
         raise ValueError("buyer questions leak the brand and were not rewritten: " + "; ".join(dropped))
     # Truncation drops topics, so it must drop their questions too: a probe whose topic no longer
-    # exists fails validation and kills the whole run. Category topics come first, so they are kept.
-    topics = topics[:MAX_TOPICS]
+    # exists fails validation and kills the whole run.
+    topics = topics[:limit]
     kept_topics = {t.id for t in topics}
     return topics, [p for p in probes if p.topic_id in kept_topics], skipped
 
 
-def control_probe(profile: CompanyProfile) -> Probe | None:
+def control_probe(profile: CompanyProfile, category: str | None = None, pid: str = "ctl-1",
+                  topic_id: str = CONTROL_TOPIC) -> Probe | None:
     """The control: does the answering model know this category's leading tools at all?
 
-    A 0 on the buyer questions means little when the model cannot name the category's leaders, so
-    one blind question asks exactly that. It is never scored as visibility (phase "control"); its
-    answer only decides whether a 0 is trusted (scoring.low_confidence).
+    A low buyer visibility means little when the model cannot name the category's leaders, or does
+    not count the brand among them, so one blind question asks exactly that. It is never scored as
+    visibility (phase "control"); its answer only decides whether the number is trusted
+    (scoring.low_confidence). One per visibility set, each about its own category.
     """
-    if not profile.core_category:
+    category = category or profile.core_category
+    if not category:
         return None
-    return Probe(id="ctl-1", topic_id=CONTROL_TOPIC, kind="blind", phase="control",
-                 text=f"What are the leading tools for {profile.core_category}?",
+    return Probe(id=pid, topic_id=topic_id, kind="blind", phase="control",
+                 text=f"What are the leading tools for {category}?",
                  purpose="Control: does the answering model know this category's leading tools? "
                          "Excluded from the visibility score.")
 
 
-def control_topic(profile: CompanyProfile) -> Topic:
-    return Topic(id=CONTROL_TOPIC, label=f"Control — {profile.core_category}", kind="control",
-                 buyer_need="Whether the answering model knows the category's leading tools",
+def control_topic(profile: CompanyProfile, category: str | None = None, tid: str = CONTROL_TOPIC,
+                  front: str | None = None) -> Topic:
+    return Topic(id=tid, label=f"Control — {category or profile.core_category}", kind="control",
+                 front=front, buyer_need="Whether the answering model knows the category's leading tools",
                  positioning_point_ids=[], fit="strong")
+
+
+def perception_topic() -> Topic:
+    return Topic(id="perception", label="Brand perception", kind="perception",
+                 buyer_need="How AI characterises the brand when asked about it directly",
+                 positioning_point_ids=[], fit="strong")
+
+
+# ---------------------------------------------------------------- two fronts, side by side
+SET_TOPICS = MAX_TOPICS // 2          # the buyer budget is split evenly between the two fronts
+SET_QUESTIONS = SET_TOPICS * PER_TOPIC
+
+
+def same_category(a: str, b: str) -> bool:
+    """Case-insensitive, and near-duplicates too: "AI search visibility" is the category "AI search
+    visibility tracking". Same only when every content word of one is in the other, so "Project
+    management" and "Product management" stay two categories."""
+    from agents.evaluation import content_words  # evaluation imports this module
+    x, y = content_words(a), content_words(b)
+    return a.strip().lower() == b.strip().lower() or bool(x and y) and (x <= y or y <= x)
+
+
+def placed_attribute(scores: list[AttributeScore], attributes: list[Attribute],
+                     profile: CompanyProfile) -> Attribute | None:
+    """Where AI already places the company: the attribute, claimed or emergent, that the most valid
+    brand answers associated with it supportively. Ties go to the claim the site states on more
+    pages. None when no brand answer endorsed anything. An attribute whose label names the brand is
+    skipped: it could not be asked about without naming it."""
+    by = {a.id: a for a in attributes}
+    ranked = sorted((s for s in scores if s.echo_rate and s.attribute_id in by
+                     and not brand_leaks(s.label, profile)),
+                    key=lambda s: (-s.echo_rate, -by[s.attribute_id].claim_pages))
+    return by[ranked[0].attribute_id] if ranked else None
+
+
+def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
+                            placed_questions: list[str], attributes: list[Attribute] = ()
+                            ) -> tuple[list[Topic], list[Probe], list[str], dict[str, str]]:
+    """Buyer questions on both fronts: where AI places the company (`placed`, its questions already
+    written) and where its homepage says it aims to be (the core category). -> (topics, probes with
+    one control per set, skipped question notes, front -> why it was not measured).
+
+    Each front gets half the buyer budget; when both are the same category the set is asked once.
+    Whatever budget the fronts leave goes to the claims' own buyer questions
+    (blind_probes_from_attributes), an unlabelled group counted as neither front, so the sample
+    never shrinks. Blind questions are vetted like any other: one that names the brand or addresses
+    the vendor is skipped, never rewritten.
+    """
+    aiming = profile.core_category
+    fronts, missing = [], {}
+    if placed and aiming and same_category(placed.label, aiming):
+        fronts.append(("both", aiming, [*profile.category_questions, *placed_questions]))
+    else:
+        if placed:
+            fronts.append(("placed", placed.label, placed_questions))
+        else:
+            missing["placed"] = (f"No brand answer endorsed any attribute, so there is no category where "
+                                 f"AI already places {profile.name}.")
+        if aiming:
+            fronts.append(("aiming", aiming, profile.category_questions))
+        else:
+            missing["aiming"] = (f"No core category is saved for {profile.name}, so where it aims to be "
+                                 f"was not asked about. Set the category on the claims screen to measure it.")
+    topics, probes, skipped = [], [], []
+    seen = set()
+    for front, category, questions in fronts:
+        prefix = "placed" if front == "placed" else "cat"
+        control = control_probe(profile, category, pid="ctl-2" if front == "placed" else "ctl-1",
+                                topic_id="control-placed" if front == "placed" else CONTROL_TOPIC)
+        seen.add(control.text.strip().lower())
+        kept = []
+        for i, q in enumerate(questions, start=1):
+            if q.strip().lower() in seen:
+                continue
+            if why := brand_leaks(q, profile) or vendor_address(q):
+                skipped.append(f"{prefix}-{i} ({', '.join(why)})")
+                continue
+            seen.add(q.strip().lower())
+            kept.append(q)
+        kept = kept[:SET_QUESTIONS]
+        fit = "strong" if front != "placed" or placed.claimed else "partial"
+        # the placed front is what AI says, not what the site claims: only its own claim evidence
+        points = [] if front == "placed" else [pp.id for pp in profile.positioning_points[:1]]
+        for n in range(0, len(kept), PER_TOPIC):
+            t = Topic(id=f"{prefix}-{n // PER_TOPIC + 1}", label=category, kind="buyer", front=front,
+                      buyer_need=f"A buyer looking for: {category}", fit=fit, positioning_point_ids=points,
+                      fit_evidence_ids=list(placed.claim_evidence_ids) if front == "placed" else [])
+            topics.append(t)
+            probes += [Probe(id=f"{prefix}-b{n + j + 1}", topic_id=t.id, text=q, kind="blind",
+                             phase="baseline", purpose=f"{FRONT_PURPOSE[front]} would a buyer shopping "
+                                                       f"for {category} be shown this brand?")
+                       for j, q in enumerate(kept[n:n + PER_TOPIC])]
+        if kept:
+            topics.append(control_topic(profile, category, control.topic_id, front))
+            probes.append(control)
+            continue
+        why = (f"every buyer question for {category} named {profile.name} or addressed the vendor"
+               if questions else f"no buyer questions are saved or could be written for {category}")
+        for f in (("placed", "aiming") if front == "both" else (front,)):
+            where = f"Where AI places {profile.name}" if f == "placed" else f"Where {profile.name} aims to be"
+            missing[f] = (f"{where} was not measured: {why}."
+                          + (" Set the category again on the claims screen to write them."
+                             if f == "aiming" and not questions else ""))
+    if left := MAX_TOPICS - sum(t.kind == "buyer" for t in topics):
+        claims, claim_probes, claim_skipped = blind_probes_from_attributes(
+            [a for a in attributes if not placed or a.id != placed.id], profile, left)
+        skipped += claim_skipped
+        claim_probes = [p for p in claim_probes if p.text.strip().lower() not in seen]
+        asked = {p.topic_id for p in claim_probes}
+        topics += [t for t in claims if t.id in asked]
+        probes += claim_probes
+    return topics, probes, skipped, missing
+
+
+FRONT_PURPOSE = {"placed": "Where AI places you:", "aiming": "Where you aim to be:",
+                 "both": "Where AI places you and where you aim to be:"}
 
 
 def validate_named_probes(probes: list[Probe], attributes: list[Attribute]) -> list[str]:

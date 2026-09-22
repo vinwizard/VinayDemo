@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { KeyboardEvent, ReactNode } from "react";
-import type { Answer, AttributeScore, DriftReport, Probe, QueryEvaluation, Run, WinBackAction, RunSummary, Zone } from "./api";
+import type { Answer, AttributeScore, DriftReport, Probe, QueryEvaluation, Run, WinBackAction, RunSummary, VisibilitySet, Zone } from "./api";
 import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_ORDER, ZONES, rescoreRun } from "./api";
 import { ADDED_MIN_WEIGHT, Slider } from "./claims";
 import {
@@ -88,13 +88,54 @@ function Section({ title, found, children }: { title: ReactNode; found: ReactNod
   );
 }
 
+/** A whole run's buyer visibility or one front's: the same fields on both. */
+type Vis = Pick<DriftReport, "visibility" | "tries" | "visibility_range" | "low_confidence">;
+
 /** How often each buyer question was asked, and the spread across those tries. */
-const triesText = (d: DriftReport) => (d.tries ?? 1) > 1 && d.visibility_range
+const triesText = (d: Vis) => (d.tries ?? 1) > 1 && d.visibility_range
   ? `range ${d.visibility_range[0]}–${d.visibility_range[1]} across ${d.tries} tries`
   : "1 try per question";
 
+const FRONT_TERM = { placed: "where_placed", aiming: "where_aiming" } as const;
+
+/** The labelled fronts of a run, placed first; empty for one unlabelled set or an older run. */
+const frontsOf = (d: DriftReport): VisibilitySet[] => (d.sets ?? []).filter((v) => v.front);
+
+/** One short label per front. "both": the category AI places you in is the one you aim for. */
+function FrontLabel({ v }: { v: VisibilitySet }) {
+  if (v.front === "both") {
+    return <><Term k="where_placed">Where AI places you</Term> = <Term k="where_aiming">where you aim to be</Term></>;
+  }
+  const k = FRONT_TERM[v.front as "placed" | "aiming"];
+  return <Term k={k}>{GLOSSARY[k].term}</Term>;
+}
+
+/** The gap between the two fronts in one plain sentence, or why there is only one. */
+function gapSentence(d: DriftReport, brand: string): string | null {
+  const fronts = frontsOf(d);
+  const placed = fronts.find((v) => v.front === "placed"), aiming = fronts.find((v) => v.front === "aiming");
+  const both = fronts.find((v) => v.front === "both");
+  if (both) return `Where AI places ${brand} is the category its site aims for, ${both.category}, so one set of buyer questions was asked.`;
+  if (placed && aiming) {
+    if (d.visibility_gap == null) return null;
+    const flagged = placed.low_confidence || aiming.low_confidence ? " (low confidence: see Buyer questions)" : "";
+    if (d.visibility_gap > 0) {
+      return `AI already brings ${brand} up for ${placed.category} (${placed.visibility}) but less for ${aiming.category}, `
+        + `where its site aims to be (${aiming.visibility}): a gap of ${d.visibility_gap} points${flagged}.`;
+    }
+    if (d.visibility_gap < 0) {
+      return `AI brings ${brand} up more for ${aiming.category}, where its site aims to be (${aiming.visibility}), than for `
+        + `${placed.category}, where its brand answers place it (${placed.visibility})${flagged}.`;
+    }
+    return `AI brings ${brand} up as often for ${aiming.category} as for ${placed.category} (${aiming.visibility})${flagged}.`;
+  }
+  if (aiming) return d.missing_fronts?.placed ?? null;
+  if (placed) return d.missing_fronts?.aiming ?? null;
+  return null;
+}
+
 /** Buyer visibility, never a bare number when the control question says it is not to be trusted. */
-function Visibility({ d }: { d: DriftReport }) {
+function Visibility({ d }: { d: Vis }) {
   if (d.visibility == null) return <>n/a</>;
   return (
     <>
@@ -114,10 +155,13 @@ const modelsOf = (run: Run) => {
 };
 
 /** The headline, buyer visibility and the claims to win back: pinned above every tab. */
-function Figures({ d }: { d: DriftReport }) {
+function Figures({ d, brand }: { d: DriftReport; brand: string }) {
   const h = headline(d);
   const lost = d.lost_claims.length;
+  const fronts = frontsOf(d);
+  const gap = gapSentence(d, brand);
   return (
+    <>
     <div className="figures">
       <div className="fig potential">
         <span className="fig-value">{h.potential == null ? "n/a" : `${h.potential}%`}</span>
@@ -126,16 +170,28 @@ function Figures({ d }: { d: DriftReport }) {
         </span>
         <span className="fig-sub">{h.today ?? d.na_reasons?.[h.field]}</span>
       </div>
-      <div className="fig">
-        <span className="fig-value"><Visibility d={d} /></span>
-        <span className="fig-label"><Term k="buyer_visibility">buyer visibility</Term></span>
-        <span className="fig-sub">{d.visibility == null ? d.na_reasons?.visibility : <Term k="tries">{triesText(d)}</Term>}</span>
-      </div>
+      {fronts.length ? fronts.map((v) => (
+        <div className="fig" key={v.front}>
+          <span className="fig-value"><Visibility d={v} /></span>
+          <span className="fig-label"><FrontLabel v={v} /></span>
+          <span className="fig-sub">
+            {v.category} · {v.visibility == null ? "not measured" : <Term k="tries">{triesText(v)}</Term>}
+          </span>
+        </div>
+      )) : (
+        <div className="fig">
+          <span className="fig-value"><Visibility d={d} /></span>
+          <span className="fig-label"><Term k="buyer_visibility">buyer visibility</Term></span>
+          <span className="fig-sub">{d.visibility == null ? d.na_reasons?.visibility : <Term k="tries">{triesText(d)}</Term>}</span>
+        </div>
+      )}
       <div className="fig">
         <span className="fig-value">{lost}</span>
         <span className="fig-label"><Term k="lost_claim">{lost === 1 ? "claim" : "claims"} to win back</Term></span>
       </div>
     </div>
+    {fronts.length > 0 && gap && <p className="gap-line">{gap}</p>}
+    </>
   );
 }
 
@@ -407,7 +463,7 @@ export function Report({ run, onRescored, weightNote }: {
               </div>
             </div>
           </div>
-          {d && <Figures d={d} />}
+          {d && <Figures d={d} brand={run.profile.name} />}
           {d && <PrintSummary run={run} />}
         </div>
         {d && (
@@ -524,11 +580,26 @@ function ExecSummary({ run }: { run: Run }) {
         </div>
         <div className="today">{h.today ?? d.na_reasons?.[h.field]}</div>
       </div>
-      <p className="exec-vis">
-        <strong>Buyer visibility:</strong> <Visibility d={d} />
-        {d.visibility == null ? ` — ${d.na_reasons?.visibility ?? "not measured"}` : ` — ${triesText(d)}`}
-        {d.low_confidence && <><br /><span className="muted">{d.low_confidence}</span></>}
-      </p>
+      {frontsOf(d).length ? (
+        <p className="exec-vis">
+          {frontsOf(d).map((v) => (
+            <span key={v.front}>
+              <strong>{v.front === "both" ? "Where AI places you = where you aim to be"
+                : GLOSSARY[FRONT_TERM[v.front as "placed" | "aiming"]].term} ({v.category}):</strong>{" "}
+              <Visibility d={v} />{v.visibility != null && ` — ${triesText(v)}`}
+              {v.low_confidence && <><br /><span className="muted">{v.low_confidence}</span></>}
+              <br />
+            </span>
+          ))}
+          {gapSentence(d, run.profile.name)}
+        </p>
+      ) : (
+        <p className="exec-vis">
+          <strong>Buyer visibility:</strong> <Visibility d={d} />
+          {d.visibility == null ? ` — ${d.na_reasons?.visibility ?? "not measured"}` : ` — ${triesText(d)}`}
+          {d.low_confidence && <><br /><span className="muted">{d.low_confidence}</span></>}
+        </p>
+      )}
       <div className="exec-cols">
         <div>
           <h3>Top wins — AI already says it</h3>
@@ -980,9 +1051,9 @@ function CitedSources({ run }: { run: Run }) {
 }
 
 /** One question as a compact row; opening it shows the full answer and what the scorer made of it. */
-function QuestionRow({ p, name, answer, verdict, tags, note, replay }: {
+function QuestionRow({ p, name, answer, verdict, tags, note, replay, after }: {
   p: Probe; name: string; answer?: Answer; verdict?: ReactNode; tags?: ReactNode; note?: ReactNode;
-  replay: boolean;
+  replay: boolean; after?: ReactNode;
 }) {
   return (
     <details className="qrow">
@@ -998,6 +1069,7 @@ function QuestionRow({ p, name, answer, verdict, tags, note, replay }: {
           {answer && replay && <span className="tag sample">sample</span>}
           {answer ? plain(answer.text) : "no answer"}
         </p>
+        {after}
       </div>
     </details>
   );
@@ -1058,13 +1130,22 @@ function BuyerQuestions({ run }: { run: Run }) {
                      {evals.get(p.id)?.explanation && <span className="muted">{evals.get(p.id)!.explanation}</span>}
                      {shown.length > 1 && (
                        <span className="muted">
-                         {shown.map(([a, e], i) => `Try ${i + 1}: ${tryWord(a, e)}`).join(" · ")}. Try 1’s answer is below.
+                         {shown.map(([a, e], i) => `Try ${i + 1}: ${tryWord(a, e)}`).join(" · ")}. Every try’s answer is below.
                        </span>
                      )}
-                   </>} />
+                   </>}
+                   after={shown.slice(1).map(([a], i) => (
+                     <p key={i} className="muted long-answer">
+                       <strong>Try {i + 2}:</strong> {a ? plain(a.text) : "no answer"}
+                     </p>
+                   ))} />
     );
   };
   const vis = d?.visibility;
+  // Grouped by front when the run has labelled ones; one unlabelled set otherwise, as replay has.
+  const topicFront = new Map(run.topics.map((t) => [t.id, t.front ?? null]));
+  const fronts = d ? frontsOf(d) : [];
+  const probeById = new Map(run.probes.map((p) => [p.id, p]));
   return (
     <>
       <Section title={<Term k="buyer_question">Buyer questions</Term>}
@@ -1075,26 +1156,48 @@ function BuyerQuestions({ run }: { run: Run }) {
         <p className="muted" style={{ margin: 0 }}>
           What a buyer would ask without naming {brand}. Each one AI answered without
           bringing {brand} up is room to be found.
+          {fronts.length > 1 && ` They are asked on two fronts, half each: the category AI’s brand answers`
+            + ` already place ${brand} in, and the category its own site aims for.`}
           {tries > 1
             ? ` The model answers the same question differently each time, so each was asked ${tries} times in a fresh`
               + ` context: buyer visibility is the average of the ${tries} tries, shown with its range.`
             : replay ? " A sample run replays one authored answer per question: 1 try." : " Each was asked once."}
         </p>
-        {vis != null && (
+        {fronts.length > 0 && d && gapSentence(d, brand) && <p style={{ margin: 0 }}>{gapSentence(d, brand)}</p>}
+        {!fronts.length && vis != null && (
           <p style={{ margin: 0 }}>
             <strong>Buyer visibility <Visibility d={d!} /></strong> <span className="muted">— {triesText(d!)}</span>
           </p>
         )}
-        {d?.low_confidence && (
+        {!fronts.length && d?.low_confidence && (
           <p className="warn" style={{ margin: 0 }}>{d.low_confidence} The control question is below the questions.</p>
         )}
         {!control && run.mode === "live_api" && !run.profile.core_category && (
           <p className="warn" style={{ margin: 0 }}>
-            No <Term k="core_category">core category</Term> was saved for {brand}, so these questions follow its claims alone and no
-            control question was asked. Set the category on the claims screen and measure again.
+            No <Term k="core_category">core category</Term> was saved for {brand}, so where it aims to be was not asked
+            about. Set the category on the claims screen and measure again.
           </p>
         )}
-        <div className="qlist">{base.map(card)}</div>
+        {fronts.length ? fronts.map((v) => {
+          const ps = base.filter((p) => topicFront.get(p.topic_id) === v.front);
+          const ctl = v.control_probe_id ? probeById.get(v.control_probe_id) : undefined;
+          return (
+            <div className="front-group" key={v.front}>
+              <h4 style={{ margin: ".4rem 0 0" }}>
+                <FrontLabel v={v} /> · {v.category} — <Visibility d={v} />{" "}
+                <span className="muted">{v.visibility == null ? "not measured" : triesText(v)}</span>
+              </h4>
+              <div className="qlist">{ps.map(card)}</div>
+              {ctl && <Control run={run} p={ctl} v={v} />}
+            </div>
+          );
+        }) : <div className="qlist">{base.map(card)}</div>}
+        {fronts.length > 0 && base.some((p) => !topicFront.get(p.topic_id)) && (
+          <div className="front-group">
+            <h4 style={{ margin: ".4rem 0 0" }}>Your claims <span className="muted">— counted in neither front</span></h4>
+            <div className="qlist">{base.filter((p) => !topicFront.get(p.topic_id)).map(card)}</div>
+          </div>
+        )}
         {follow.length > 0 && (
           <>
             <h4>Follow-up questions (exploratory — not counted in the scores)</h4>
@@ -1102,19 +1205,20 @@ function BuyerQuestions({ run }: { run: Run }) {
           </>
         )}
       </Section>
-      {control && <Control run={run} p={control} />}
+      {!fronts.length && control && d && <Control run={run} p={control} v={d} />}
     </>
   );
 }
 
 /**
- * The control question: can the answering model name this category's leading tools at all? It is
- * not a buyer question and never moves visibility; it only says whether a 0 there can be trusted.
+ * The control question of one set: can the answering model name this category's leading tools, and
+ * does it count the brand among them? It is not a buyer question and never moves visibility; it only
+ * says whether that set's number can be trusted.
  */
-function Control({ run, p }: { run: Run; p: Probe }) {
+function Control({ run, p, v }: { run: Run; p: Probe; v: Vis }) {
   const a = run.answers.find((x) => x.probe_id === p.id);
   const e = run.evaluations.find((x) => x.probe_id === p.id);
-  const flag = run.drift?.low_confidence;
+  const flag = v.low_confidence;
   const ok = a && e && counts(a, e);
   const found = !ok ? "could not be scored"
     : `named ${plural(e.competitor_recommendations.length + (e.mentioned ? 1 : 0), "tool")}`
@@ -1124,11 +1228,11 @@ function Control({ run, p }: { run: Run; p: Probe }) {
              found={flag ? <><Term k="low_confidence"><span className="tag warn">low confidence</span></Term> {found}</> : found}>
       <p className="muted" style={{ margin: 0 }}>
         One question asked beside the buyer questions and never scored: does the answering model know
-        who leads this category? When {run.profile.name} is named in no buyer answer, this decides
-        whether that 0 means anything.
+        who leads this category, and is {run.profile.name} among them? If not, this set’s buyer
+        visibility is flagged low confidence.
       </p>
       {flag && <div className="callout warn-box" style={{ margin: 0 }}><strong>Low confidence.</strong> {flag}</div>}
-      {!flag && ok && run.drift?.visibility === 0 && (
+      {!flag && ok && v.visibility === 0 && (
         <p style={{ margin: 0 }}>
           The model names {run.profile.name} among this category’s leading tools, yet never brought it
           up for a buyer: the 0 is a finding, not a gap in what the model knows.

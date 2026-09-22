@@ -26,7 +26,7 @@ import fetching
 import graph
 import reports
 from insights import insights
-from agents.ana import CATEGORY_QUESTIONS, brand_leaks, discovered_competitors, vendor_address
+from agents.ana import SET_QUESTIONS, brand_leaks, discovered_competitors, vendor_address
 from agents.evaluator_model import ModelEvaluator
 from agents.onboarding import NAMED_TEMPLATES, named_probes_for
 from agents.onboarding_model import MIN_CLAIMS, OnboardingAgent, buyer_questions_for
@@ -184,13 +184,10 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
         raise HTTPException(400, str(e))
     prov = live.LiveProvider(base.attributes(), base.named_probes(), profile=profile,
                              evaluator=ModelEvaluator())
-    # a live run is both axes now: count the blind probes its own plan will produce, each buyer
-    # question once per try, or the progress bar reads "20/8"
-    _, blind = prov.plan(profile)
-    asks = sum(prov.tries if p.phase == "baseline" else 1 for p in blind)
-    # The round-two comparison question is not counted: it is appended only when a baseline answer
-    # names a competitor, so reserving a slot for it strands a finished run at "7/8". The overrun in
-    # the other direction is held by the clamp in the progress bar.
+    # The buyer questions are planned from the brand answers, so their number is not known yet: count
+    # the full buyer budget, each question once per try, plus one control per front. A run that asks
+    # fewer is caught up by its node events' `planned` counts; the overrun is held by the clamp.
+    asks = graph.MAX_BASELINE * prov.tries + 2
     return prov, profile, asks + len(base.named_probes()), "live_api"
 
 
@@ -223,7 +220,7 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
     q: queue.Queue = queue.Queue()
     state = {"done": 0}
     # id -> label, so the live feed can say "Buyer question 2 — Team knowledge bases" instead of
-    # "kb-2". Filled from plan_baseline's node event, which lands before any answer is produced.
+    # "kb-2". Filled from each planning node's event, which lands before that node's questions are answered.
     topic_labels: dict[str, str] = {}
 
     inner = prov.answer
@@ -399,14 +396,14 @@ def set_category(company: Company, category: Optional[str]) -> list[str]:
                 "a buyer who has never heard of you cannot shop for it. Set it on the claims screen."]
     if not live.available():
         return [f"No buyer questions were written for the core category ({live.KEY_ENV} is not set), "
-                "so buyer questions follow your claims alone."]
+                "so where you aim to be is not measured and your claims' buyer questions are asked instead."]
     try:
         generated = buyer_questions_for(category, "Any product in this category, for the buyer's "
-                                        "own situation.", n=CATEGORY_QUESTIONS)
+                                        "own situation.", n=SET_QUESTIONS)
     except Exception as e:
         traceback.print_exc()
         return [f"Buyer questions for the core category could not be written ({type(e).__name__}), "
-                "so buyer questions follow your claims alone."]
+                "so where you aim to be is not measured and your claims' buyer questions are asked instead."]
     asked = {q.strip().lower() for a in company.attributes for q in a.buyer_questions}
     p.category_questions = vetted(p, generated, asked)
     if dropped := len(generated) - len(p.category_questions):

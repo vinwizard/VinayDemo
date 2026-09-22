@@ -1,4 +1,5 @@
 """Pydantic state contracts (.claude/skills/product-workflow)."""
+import re
 from datetime import datetime
 from typing import Literal, Optional
 
@@ -26,6 +27,30 @@ class PositioningPoint(BaseModel):
     support: str = "uncertain"
 
 
+# Words that name a kind of product, not a company. An alias made only of these, without the brand's
+# own name, is a category ("AI Marketer", "AI Agents"): counting it as a mention credits the brand
+# with every answer about any product of that kind.
+GENERIC_WORDS = frozenset(
+    "ai agent agents agentic assistant assistants analytics app apps automation bot bots brand cloud "
+    "copilot crm data engine hub insights labs manager market marketer marketers marketing monitor "
+    "optimizer platform platforms pro search seo software studio suite tool tools tracker visibility "
+    "workspace writer".split())
+
+
+def distinctive_alias(alias: str, brand: str) -> bool:
+    """Keep an alias unless every word in it is a generic noun ("AI Marketer", "Agents"): a phrase
+    any answer about the category can contain. One without the brand's name is still kept when a
+    word in it is distinctive (a product name such as "Conversation Explorer" or "Jira")."""
+    words = re.findall(r"[\w'-]+", alias)
+    if not words:
+        return False
+    if re.search(rf"(?<!\w){re.escape(brand)}(?!\w)", alias, re.I):
+        return True
+    if len(words) == 1 and len(words[0]) <= 2:
+        return False
+    return any(w.lower() not in GENERIC_WORDS for w in words)
+
+
 class CompanyProfile(BaseModel):
     name: str
     domain: str
@@ -40,9 +65,9 @@ class CompanyProfile(BaseModel):
     warnings: list[str] = []
     approved: bool = False
     logo_url: Optional[str] = None  # the site's own icon, from the homepage fetch; display only
-    # What a buyer would call the market it competes in ("AI search visibility tracking"). Buyer
-    # questions go to it first, so a company is always asked about its own category. None: saved
-    # before categories existed, and buyer questions then follow its claims alone.
+    # What a buyer would call the market it competes in ("AI search visibility tracking"): the
+    # "where you aim to be" buyer front. None: saved before categories existed, so that front is
+    # not measured and the run says why.
     core_category: Optional[str] = None
     category_questions: list[str] = []  # blind buyer questions for the core category; vetted like any
 
@@ -51,8 +76,9 @@ class CompanyProfile(BaseModel):
 
     def names(self) -> list[str]:
         """Every name that counts as a mention. The name itself always does: onboarding asks for
-        *other* names, so aliases like ["Notion Labs"] used to replace "Notion" rather than add to it."""
-        return list(dict.fromkeys([self.name, *self.aliases]))
+        *other* names, so aliases like ["Notion Labs"] used to replace "Notion" rather than add to it.
+        A generic alias ("AI Marketer") is never one: it names a kind of product, not this company."""
+        return list(dict.fromkeys([self.name, *(a for a in self.aliases if distinctive_alias(a, self.name))]))
 
 
 class Attribute(BaseModel):
@@ -104,6 +130,10 @@ class Topic(BaseModel):
     # perception holds named probes; control holds the one category-knowledge question. Neither is a
     # buyer use case, so neither gets a topic score.
     kind: Literal["buyer", "perception", "control"] = "buyer"
+    # Which visibility set a buyer or control topic belongs to: "placed" (the category AI's brand
+    # answers most associate with the company), "aiming" (the site's own core category), "both"
+    # (they are the same category, asked once), or None (one unlabelled set, as in replay).
+    front: Optional[Literal["placed", "aiming", "both"]] = None
     buyer_need: str
     positioning_point_ids: list[str]
     fit: Literal["strong", "partial", "unsupported"]
@@ -248,6 +278,20 @@ class AttributeScore(BaseModel):
     na_reasons: dict[str, str] = {}  # field name -> why that number is null
 
 
+class VisibilitySet(BaseModel):
+    """Buyer visibility on one front: the questions about one category, with their own tries,
+    range and control question. Arithmetic in graph.score_drift; never pooled across provenance."""
+    front: Optional[Literal["placed", "aiming", "both"]] = None
+    category: Optional[str] = None
+    visibility: Optional[float] = None
+    tries: int = 1
+    visibility_range: Optional[list[float]] = None
+    n_blind: int = 0            # eligible buyer answers, every try counted
+    questions: int = 0          # buyer questions asked in this set, each once
+    control_probe_id: Optional[str] = None
+    low_confidence: Optional[str] = None  # why this set's number is not to be trusted, or None
+
+
 class DriftReport(BaseModel):
     """The single-screen result. Claim echo needs no input; alignment is over intended attributes only."""
     provenance: Provenance
@@ -265,6 +309,13 @@ class DriftReport(BaseModel):
     visibility_range: Optional[list[float]] = None  # [lowest, highest] per-try visibility
     # Why a buyer visibility with no brand mention is not trusted (scoring.low_confidence), or None.
     low_confidence: Optional[str] = None
+    # Buyer visibility per front, side by side: where AI places the company and where it aims to be.
+    # One entry when both are the same category or the run has one unlabelled set.
+    sets: list[VisibilitySet] = []
+    placed_category: Optional[str] = None
+    aiming_category: Optional[str] = None
+    visibility_gap: Optional[float] = None  # placed minus aiming, when both were measured
+    missing_fronts: dict[str, str] = {}     # "placed"/"aiming" -> why that front was not measured
     landed: list[str] = []
     lost_claims: list[str] = []
     contested: list[str] = []
@@ -350,6 +401,7 @@ class Run(BaseModel):
     # validated observations per named probe id, kept so a re-score never needs the model again
     observations: Optional[dict[str, list[AttributeObservation]]] = None  # None: saved before re-scoring
     drift_notes: list[str] = []  # limitations measure_drift adds beyond the report's own
+    missing_fronts: dict[str, str] = {}  # set by plan_buyer, copied to the drift report
     drift: Optional[DriftReport] = None
     win_back: list[WinBackAction] = []  # how to win it back; additive, never feeds a score
     win_back_notes: list[str] = []      # why a proposed action was dropped, or none was proposed
