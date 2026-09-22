@@ -129,8 +129,8 @@ function gapSentence(d: DriftReport, brand: string): string | null {
     }
     return `AI brings ${brand} up as often for ${aiming.category} as for ${placed.category} (${aiming.visibility})${flagged}.`;
   }
-  if (aiming) return `No brand answer endorsed anything, so there is no category where AI already places ${brand}; only ${aiming.category} was asked about.`;
-  if (placed) return `No core category is saved for ${brand}, so where it aims to be was not asked about; set it on the claims screen.`;
+  if (aiming) return d.missing_fronts?.placed ?? null;
+  if (placed) return d.missing_fronts?.aiming ?? null;
   return null;
 }
 
@@ -1192,6 +1192,12 @@ function BuyerQuestions({ run }: { run: Run }) {
             </div>
           );
         }) : <div className="qlist">{base.map(card)}</div>}
+        {fronts.length > 0 && base.some((p) => !topicFront.get(p.topic_id)) && (
+          <div className="front-group">
+            <h4 style={{ margin: ".4rem 0 0" }}>Your claims <span className="muted">— counted in neither front</span></h4>
+            <div className="qlist">{base.filter((p) => !topicFront.get(p.topic_id)).map(card)}</div>
+          </div>
+        )}
         {follow.length > 0 && (
           <>
             <h4>Follow-up questions (exploratory — not counted in the scores)</h4>

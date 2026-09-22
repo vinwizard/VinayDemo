@@ -57,6 +57,8 @@ export interface DriftReport {
   aiming_category?: string | null;
   /** Where AI places you minus where you aim to be, when both were measured. */
   visibility_gap?: number | null;
+  /** "placed" / "aiming" -> why that front was not measured. */
+  missing_fronts?: Record<string, string>;
   landed: string[];
   lost_claims: string[];
   contested: string[];

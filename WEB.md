@@ -104,9 +104,12 @@ things make the buyer number trustworthy anyway:
   questions written for it, correctable on the claims screen). Each front has its own visibility,
   range across tries and control question (`drift.sets`), and `drift.visibility_gap` is placed minus
   aiming: "known for AI search visibility, not yet seen as an AI marketing platform" is the finding.
-  When both are the same category (`ana.same_category`, near-duplicates included) one set is asked
-  and the run says so; with no endorsed attribute or no saved category, the other front alone is
-  asked and the run says why; with neither, questions follow the claims as before. Every question
+  When both are the same category (`ana.same_category`: one's content words all in the other's) one
+  set is asked and the run says so; with only one front measured (the same category, no endorsed
+  attribute, no saved category or no questions left) the claims' own buyer questions fill the other
+  half, counted in neither front, and the run says why the front is missing (`drift.missing_fronts`);
+  with neither, questions follow the claims as before. The placed front cites only that attribute's
+  own claim evidence, never the homepage's. Every question
   still goes through `brand_leaks` and `vendor_address`. A replayed sample is one unlabelled set.
 - **Each buyer question is asked `BUYER_TRIES` times** (default 3), each in a fresh context. Buyer
   visibility is the mean of the per-try visibility scores, per front, shown with its range ("33.3 /

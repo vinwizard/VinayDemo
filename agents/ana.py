@@ -67,11 +67,11 @@ def attribute_leaks(text: str, attributes: list[Attribute]) -> list[str]:
     return hits
 
 
-def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyProfile
-                                 ) -> tuple[list[Topic], list[Probe], list[str]]:
+def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyProfile,
+                                 limit: int = MAX_TOPICS) -> tuple[list[Topic], list[Probe], list[str]]:
     """The placebo test: buyer topics whose questions never name the brand, one per intended (or,
-    unweighted, most-stated) claim. Only for a run with neither front to ask about
-    (blind_probes_for_fronts): no core category saved and no attribute AI endorsed.
+    unweighted, most-stated) claim, at most `limit` of them. blind_probes_for_fronts gives them
+    whatever buyer budget the fronts leave: all of it with neither front, half with only one.
 
     If a company claims to be X, a buyer asking for X should find them. Asking the question the
     company's own positioning implies — with no brand name, in a fresh context — is a stronger test
@@ -122,7 +122,7 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
         raise ValueError("buyer questions leak the brand and were not rewritten: " + "; ".join(dropped))
     # Truncation drops topics, so it must drop their questions too: a probe whose topic no longer
     # exists fails validation and kills the whole run.
-    topics = topics[:MAX_TOPICS]
+    topics = topics[:limit]
     kept_topics = {t.id for t in topics}
     return topics, [p for p in probes if p.topic_id in kept_topics], skipped
 
@@ -165,10 +165,11 @@ SET_QUESTIONS = SET_TOPICS * PER_TOPIC
 
 def same_category(a: str, b: str) -> bool:
     """Case-insensitive, and near-duplicates too: "AI search visibility" is the category "AI search
-    visibility tracking". Same when the shared content words are at least half of the longer one."""
+    visibility tracking". Same only when every content word of one is in the other, so "Project
+    management" and "Product management" stay two categories."""
     from agents.evaluation import content_words  # evaluation imports this module
     x, y = content_words(a), content_words(b)
-    return a.strip().lower() == b.strip().lower() or bool(x and y) and 2 * len(x & y) >= max(len(x), len(y))
+    return a.strip().lower() == b.strip().lower() or bool(x and y) and (x <= y or y <= x)
 
 
 def placed_attribute(scores: list[AttributeScore], attributes: list[Attribute],
@@ -185,39 +186,36 @@ def placed_attribute(scores: list[AttributeScore], attributes: list[Attribute],
 
 
 def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
-                            placed_questions: list[str]
-                            ) -> tuple[list[Topic], list[Probe], list[str], list[str]] | None:
+                            placed_questions: list[str], attributes: list[Attribute] = ()
+                            ) -> tuple[list[Topic], list[Probe], list[str], dict[str, str]]:
     """Buyer questions on both fronts: where AI places the company (`placed`, its questions already
     written) and where its homepage says it aims to be (the core category). -> (topics, probes with
-    one control per set, skipped question notes, plain notes for the run), or None when neither
-    front can be asked and the claims decide the questions instead.
+    one control per set, skipped question notes, front -> why it was not measured).
 
-    Each front gets half the buyer budget. When both are the same category the set is asked once,
-    with the whole budget, and a note says so. Blind questions are vetted like any other: one that
-    names the brand or addresses the vendor is skipped, never rewritten.
+    Each front gets half the buyer budget; when both are the same category the set is asked once.
+    Whatever budget the fronts leave goes to the claims' own buyer questions
+    (blind_probes_from_attributes), an unlabelled group counted as neither front, so the sample
+    never shrinks. Blind questions are vetted like any other: one that names the brand or addresses
+    the vendor is skipped, never rewritten.
     """
     aiming = profile.core_category
-    fronts, notes = [], []
+    fronts, missing = [], {}
     if placed and aiming and same_category(placed.label, aiming):
-        fronts.append(("both", aiming, [*profile.category_questions, *placed_questions], MAX_TOPICS))
-        notes.append(f"Where AI places {profile.name} ({placed.label}) is the category its site aims "
-                     f"for ({aiming}), so one set of buyer questions was asked.")
+        fronts.append(("both", aiming, [*profile.category_questions, *placed_questions]))
     else:
         if placed:
-            fronts.append(("placed", placed.label, placed_questions, SET_TOPICS))
+            fronts.append(("placed", placed.label, placed_questions))
+        else:
+            missing["placed"] = (f"No brand answer endorsed any attribute, so there is no category where "
+                                 f"AI already places {profile.name}.")
         if aiming:
-            fronts.append(("aiming", aiming, profile.category_questions, SET_TOPICS))
-        if not placed:
-            notes.append("No brand answer endorsed any attribute, so there is no category where AI "
-                         "already places the company; only the site's own category was asked about.")
-        if not aiming:
-            notes.append("No core category is saved for this company, so where it aims to be was not "
-                         "asked about. Set the category on the claims screen to measure it.")
-    if not fronts:
-        return None
+            fronts.append(("aiming", aiming, profile.category_questions))
+        else:
+            missing["aiming"] = (f"No core category is saved for {profile.name}, so where it aims to be "
+                                 f"was not asked about. Set the category on the claims screen to measure it.")
     topics, probes, skipped = [], [], []
     seen = set()
-    for front, category, questions, n_topics in fronts:
+    for front, category, questions in fronts:
         prefix = "placed" if front == "placed" else "cat"
         control = control_probe(profile, category, pid="ctl-2" if front == "placed" else "ctl-1",
                                 topic_id="control-placed" if front == "placed" else CONTROL_TOPIC)
@@ -231,12 +229,13 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
                 continue
             seen.add(q.strip().lower())
             kept.append(q)
-        kept = kept[:n_topics * PER_TOPIC]
+        kept = kept[:SET_QUESTIONS]
         fit = "strong" if front != "placed" or placed.claimed else "partial"
+        # the placed front is what AI says, not what the site claims: only its own claim evidence
+        points = [] if front == "placed" else [pp.id for pp in profile.positioning_points[:1]]
         for n in range(0, len(kept), PER_TOPIC):
             t = Topic(id=f"{prefix}-{n // PER_TOPIC + 1}", label=category, kind="buyer", front=front,
-                      buyer_need=f"A buyer looking for: {category}", fit=fit,
-                      positioning_point_ids=[pp.id for pp in profile.positioning_points[:1]],
+                      buyer_need=f"A buyer looking for: {category}", fit=fit, positioning_point_ids=points,
                       fit_evidence_ids=list(placed.claim_evidence_ids) if front == "placed" else [])
             topics.append(t)
             probes += [Probe(id=f"{prefix}-b{n + j + 1}", topic_id=t.id, text=q, kind="blind",
@@ -246,9 +245,23 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
         if kept:
             topics.append(control_topic(profile, category, control.topic_id, front))
             probes.append(control)
-        else:
-            notes.append(f"No buyer question survived for {category}, so that front was not measured.")
-    return topics, probes, skipped, notes
+            continue
+        why = (f"every buyer question for {category} named {profile.name} or addressed the vendor"
+               if questions else f"no buyer questions are saved or could be written for {category}")
+        for f in (("placed", "aiming") if front == "both" else (front,)):
+            where = f"Where AI places {profile.name}" if f == "placed" else f"Where {profile.name} aims to be"
+            missing[f] = (f"{where} was not measured: {why}."
+                          + (" Set the category again on the claims screen to write them."
+                             if f == "aiming" and not questions else ""))
+    if left := MAX_TOPICS - sum(t.kind == "buyer" for t in topics):
+        claims, claim_probes, claim_skipped = blind_probes_from_attributes(
+            [a for a in attributes if not placed or a.id != placed.id], profile, left)
+        skipped += claim_skipped
+        claim_probes = [p for p in claim_probes if p.text.strip().lower() not in seen]
+        asked = {p.topic_id for p in claim_probes}
+        topics += [t for t in claims if t.id in asked]
+        probes += claim_probes
+    return topics, probes, skipped, missing
 
 
 FRONT_PURPOSE = {"placed": "Where AI places you:", "aiming": "Where you aim to be:",

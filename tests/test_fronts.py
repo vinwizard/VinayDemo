@@ -64,6 +64,7 @@ def test_brand_answers_are_answered_before_buyer_questions_are_planned(monkeypat
     run, _ = run_fronts(monkeypatch)
     log = "\n".join(run.log)
     assert log.index("brand answers") < log.index("Where AI places Notion: AI-native workspace")
+    assert "(endorsed in 8 of 8 brand answers)" in log
     assert "Where it aims to be: connected workspace software" in log
 
 
@@ -86,9 +87,45 @@ def test_two_fronts_are_measured_side_by_side_with_the_gap(monkeypatch):
 
 def test_the_same_category_on_both_fronts_is_asked_once_and_said_so(monkeypatch):
     run, _ = run_fronts(monkeypatch, aiming="AI-native workspace tools")
-    assert [s.front for s in run.drift.sets] == ["both"]
+    assert [s.front for s in run.drift.sets] == ["both", None]
     assert any("so one set of buyer questions was asked" in l for l in run.log)
     assert len([p for p in run.probes if p.phase == "control"]) == 1
+    # the budget never shrinks: the claims' own questions fill the other half, counted in neither front
+    both, claims = run.drift.sets
+    assert (both.questions, claims.questions, claims.category) == (6, 6, None)
+    topic = {t.id: t for t in run.topics}
+    claim_ids = [p.topic_id for p in run.probes if p.phase == "baseline" and p.kind == "blind"
+                 and topic[p.topic_id].front is None]
+    assert claim_ids and all(t.startswith("pos-") for t in claim_ids)
+    assert "pos-ai_native" not in claim_ids     # the placed claim is asked once, on its front
+
+
+def test_one_word_in_common_is_not_the_same_category():
+    for a, b in [("Project management", "Product management"), ("AI visibility", "AI marketing"),
+                 ("Answer engine optimization", "Search engine optimization")]:
+        assert not ana.same_category(a, b)
+    assert ana.same_category("AI search visibility", "AI search visibility tracking")
+
+
+def test_the_placed_front_cites_only_its_own_claim_evidence():
+    found = PLACED.model_copy(update=dict(claim_evidence_ids=[], claimed=False))
+    profile = F.profile.model_copy(update=dict(core_category=AIMING, category_questions=AIM_QS))
+    topics, _, _, _ = ana.blind_probes_for_fronts(profile, found, WRITTEN, F.attributes())
+    placed = [t for t in topics if t.front == "placed" and t.kind == "buyer"]
+    assert placed and all(t.positioning_point_ids == [] and t.fit_evidence_ids == [] for t in placed)
+    aiming = [t for t in topics if t.front == "aiming" and t.kind == "buyer"]
+    assert all(t.positioning_point_ids for t in aiming)   # the site's own category keeps its homepage
+
+
+def test_a_front_with_no_questions_says_why_not_that_its_category_is_missing(monkeypatch):
+    profile = F.profile.model_copy(update=dict(core_category=AIMING, category_questions=[]))
+    _, _, _, missing = ana.blind_probes_for_fronts(profile, PLACED, WRITTEN, F.attributes())
+    assert list(missing) == ["aiming"] and "no buyer questions are saved" in missing["aiming"]
+    _, _, _, missing = ana.blind_probes_for_fronts(
+        F.profile.model_copy(update=dict(core_category=AIMING, category_questions=AIM_QS)), PLACED, [])
+    assert list(missing) == ["placed"] and "Where AI places Notion was not measured" in missing["placed"]
+    run, _ = run_fronts(monkeypatch)
+    assert run.drift.missing_fronts == {}
 
 
 def test_every_try_is_asked_saved_and_scored_and_the_range_comes_from_them(monkeypatch, tmp_path):
@@ -121,11 +158,12 @@ def test_offline_replay_stays_one_unlabelled_set():
 def test_generic_phrases_are_not_aliases():
     for generic in ("AI Marketer", "AI Agents", "Agents", "AI"):
         assert not distinctive_alias(generic, "Profound")
-    for kept in ("Profound", "Profound Agents", "Jira"):
+    for kept in ("Profound", "Profound Agents", "Jira", "Conversation Explorer"):
         assert distinctive_alias(kept, "Profound")
     p = CompanyProfile(name="Profound", domain="tryprofound.com",
-                       aliases=["Profound", "AI Marketer", "Profound Agents"])
-    assert p.names() == ["Profound", "Profound Agents"]
+                       aliases=["Profound", "AI Marketer", "Profound Agents", "Conversation Explorer"])
+    assert p.names() == ["Profound", "Profound Agents", "Conversation Explorer"]
+    assert ana.brand_leaks("Is Conversation Explorer any good?", p) == ["Conversation Explorer"]
     assert ana.brand_leaks("Which AI marketer tool suits a startup?", p) == []
 
 

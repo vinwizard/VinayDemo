@@ -117,17 +117,23 @@ def plan_buyer(s: State):
     run.topics = [t for t in topics if t.id not in have] + run.topics
     run.probes = probes + run.probes
     buyer = [p for p in probes if p.phase == "baseline"]
-    if any(t.front for t in topics):
+    fronts = {t.front for t in topics if t.kind == "buyer" and t.front}
+    if fronts:
         sc = next((sc for sc in scores if placed and sc.attribute_id == placed.id), None)
+        endorsed = round((sc.echo_rate or 0) * sc.n) if sc else 0
         run.log.append(
-            (f"Where AI places {run.profile.name}: {placed.label} (endorsed in {sc.echoes if sc else 0} "
+            (f"Where AI places {run.profile.name}: {placed.label} (endorsed in {endorsed} "
              f"of {sc.n if sc else 0} brand answers). " if placed else "")
             + (f"Where it aims to be: {run.profile.core_category}. " if run.profile.core_category else "")
-            + f"{len(buyer)} buyer questions planned across "
-            f"{len({t.front for t in topics if t.kind == 'buyer'})} set(s).")
+            + f"{len(buyer)} buyer questions planned across {len(fronts)} set(s)"
+            + (", the rest from the claims." if any(not t.front for t in topics if t.kind == "buyer") else "."))
+        if "both" in fronts:
+            run.log.append(f"Where AI places {run.profile.name} ({placed.label}) is the category its site "
+                           f"aims for ({run.profile.core_category}), so one set of buyer questions was asked.")
+        run.missing_fronts = dict(getattr(provider, "missing_fronts", {}))
     else:
         run.log.append(f"Question planner prepared {len(buyer)} buyer questions from the claims.")
-    for note in getattr(provider, "notes", []):
+    for note in [*getattr(provider, "notes", []), *run.missing_fronts.values()]:
         run.log.append(note)
         run.drift_notes.append(note)
     if skipped := getattr(provider, "skipped_questions", []):
@@ -317,8 +323,9 @@ def score_drift(run: Run) -> None:
             [[e.strength for e in mine if e.try_no == t] for t in range(1, tries + 1)])
         control = next((p for p in run.probes if p.phase == "control"
                         and topic.get(p.topic_id) and topic[p.topic_id].front == front), None)
+        # front None beside labelled fronts is the claims' own questions: no one category
         category = next(topic[p.topic_id].label for p in blind if p.id in ids) if front else \
-            run.profile.core_category
+            None if len(fronts) > 1 else run.profile.core_category
         vs = VisibilitySet(front=front, category=category, visibility=vis, tries=tries,
                            visibility_range=rng, n_blind=len(mine), questions=len(ids),
                            control_probe_id=control.id if control else None)
@@ -327,9 +334,10 @@ def score_drift(run: Run) -> None:
                                                ev.get(control.id), answers.get(control.id))
         run.drift.sets.append(vs)
     by_front = {vs.front: vs for vs in run.drift.sets}
-    if len(run.drift.sets) == 1:
-        run.drift.low_confidence = run.drift.sets[0].low_confidence
+    if len(controlled := [vs for vs in run.drift.sets if vs.control_probe_id]) == 1:
+        run.drift.low_confidence = controlled[0].low_confidence
     placed, aiming = by_front.get("placed") or by_front.get("both"), by_front.get("aiming") or by_front.get("both")
+    run.drift.missing_fronts = dict(run.missing_fronts)
     run.drift.placed_category = placed.category if placed else None
     run.drift.aiming_category = aiming.category if aiming else None
     if "placed" in by_front and "aiming" in by_front and None not in (placed.visibility, aiming.visibility):

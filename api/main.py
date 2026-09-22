@@ -396,14 +396,14 @@ def set_category(company: Company, category: Optional[str]) -> list[str]:
                 "a buyer who has never heard of you cannot shop for it. Set it on the claims screen."]
     if not live.available():
         return [f"No buyer questions were written for the core category ({live.KEY_ENV} is not set), "
-                "so buyer questions follow your claims alone."]
+                "so where you aim to be is not measured and your claims' buyer questions are asked instead."]
     try:
         generated = buyer_questions_for(category, "Any product in this category, for the buyer's "
                                         "own situation.", n=SET_QUESTIONS)
     except Exception as e:
         traceback.print_exc()
         return [f"Buyer questions for the core category could not be written ({type(e).__name__}), "
-                "so buyer questions follow your claims alone."]
+                "so where you aim to be is not measured and your claims' buyer questions are asked instead."]
     asked = {q.strip().lower() for a in company.attributes for q in a.buyer_questions}
     p.category_questions = vetted(p, generated, asked)
     if dropped := len(generated) - len(p.category_questions):

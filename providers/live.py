@@ -186,6 +186,7 @@ class LiveProvider:
         self.calls = 0
         self.skipped_questions: list[str] = []
         self.notes: list[str] = []
+        self.missing_fronts: dict[str, str] = {}
         # (label, description, n) -> buyer questions for the category where AI places the company,
         # which is often one nobody wrote questions for (an attribute discovered in the answers)
         self._writer = writer or (lambda label, description, n: buyer_questions_for(label, description, n=n))
@@ -193,9 +194,9 @@ class LiveProvider:
     def plan(self, profile: CompanyProfile, placed: Optional[Attribute] = None
              ) -> tuple[list[Topic], list[Probe]]:
         """Buyer questions on two fronts, each with its control question: where AI places the
-        company (`placed`, read off the brand answers) and the site's core category. With neither,
-        the claims' own buyer questions, as for a company saved before categories existed."""
-        from agents.ana import SET_QUESTIONS, blind_probes_for_fronts, blind_probes_from_attributes
+        company (`placed`, read off the brand answers) and the site's core category. The claims'
+        own buyer questions fill whatever budget the fronts leave: all of it with neither front."""
+        from agents.ana import SET_QUESTIONS, blind_probes_for_fronts
         self.notes = []
         questions = list(placed.buyer_questions) if placed else []
         if placed and len(questions) < SET_QUESTIONS:
@@ -204,11 +205,8 @@ class LiveProvider:
             except Exception as e:                  # stated, never swallowed: the front is smaller
                 self.notes.append(f"Buyer questions for {placed.label} could not be written "
                                   f"({type(e).__name__}); its own {len(questions)} were asked.")
-        if got := blind_probes_for_fronts(profile, placed, questions):
-            topics, blind, self.skipped_questions, notes = got
-            self.notes += notes
-            return topics, blind
-        topics, blind, self.skipped_questions = blind_probes_from_attributes(self._attributes, profile)
+        topics, blind, self.skipped_questions, self.missing_fronts = blind_probes_for_fronts(
+            profile, placed, questions, self._attributes)
         return topics, blind
 
     def attributes(self) -> list[Attribute]:

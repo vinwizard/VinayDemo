@@ -38,15 +38,17 @@ GENERIC_WORDS = frozenset(
 
 
 def distinctive_alias(alias: str, brand: str) -> bool:
-    """Keep an alias only if it contains the brand's name, or is one word that is not a generic noun
-    (a product name such as "Jira"). A multi-word alias without the brand's name is a phrase any
-    answer about the category can contain, so it is not kept."""
+    """Keep an alias unless every word in it is a generic noun ("AI Marketer", "Agents"): a phrase
+    any answer about the category can contain. One without the brand's name is still kept when a
+    word in it is distinctive (a product name such as "Conversation Explorer" or "Jira")."""
     words = re.findall(r"[\w'-]+", alias)
     if not words:
         return False
     if re.search(rf"(?<!\w){re.escape(brand)}(?!\w)", alias, re.I):
         return True
-    return len(words) == 1 and len(words[0]) > 2 and words[0].lower() not in GENERIC_WORDS
+    if len(words) == 1 and len(words[0]) <= 2:
+        return False
+    return any(w.lower() not in GENERIC_WORDS for w in words)
 
 
 class CompanyProfile(BaseModel):
@@ -313,6 +315,7 @@ class DriftReport(BaseModel):
     placed_category: Optional[str] = None
     aiming_category: Optional[str] = None
     visibility_gap: Optional[float] = None  # placed minus aiming, when both were measured
+    missing_fronts: dict[str, str] = {}     # "placed"/"aiming" -> why that front was not measured
     landed: list[str] = []
     lost_claims: list[str] = []
     contested: list[str] = []
@@ -398,6 +401,7 @@ class Run(BaseModel):
     # validated observations per named probe id, kept so a re-score never needs the model again
     observations: Optional[dict[str, list[AttributeObservation]]] = None  # None: saved before re-scoring
     drift_notes: list[str] = []  # limitations measure_drift adds beyond the report's own
+    missing_fronts: dict[str, str] = {}  # set by plan_buyer, copied to the drift report
     drift: Optional[DriftReport] = None
     win_back: list[WinBackAction] = []  # how to win it back; additive, never feeds a score
     win_back_notes: list[str] = []      # why a proposed action was dropped, or none was proposed

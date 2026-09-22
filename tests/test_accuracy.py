@@ -112,12 +112,14 @@ def test_the_control_question_never_moves_visibility(monkeypatch):
     run, _ = live_run(lambda n: "Coda fits.", "Notion, Linear and Asana lead.", monkeypatch=monkeypatch)
     control = next(p for p in run.probes if p.phase == "control")
     assert next(e for e in run.evaluations if e.probe_id == control.id).mentioned
-    assert run.drift.visibility == 0.0 and run.drift.n_blind == 3 * 6   # the category's own set
+    aiming = run.drift.sets[0]
+    assert (aiming.front, aiming.visibility, aiming.n_blind) == ("aiming", 0.0, 3 * 6)
+    assert run.drift.visibility == 0.0 and run.drift.n_blind == 3 * 12   # the claims fill the other half
     # the model knows the brand as a category leader and still never offers it to buyers: a real 0
     assert run.drift.low_confidence is None
     assert control.id not in {e.probe_id for e in run.repeat_evaluations}
     assert all(t.topic_id != "control" for t in run.topic_evaluations)
-    assert main.run_payload(run)["insights"]["voice"]["questions"] == 6   # buyer questions, first try
+    assert main.run_payload(run)["insights"]["voice"]["questions"] == 12   # buyer questions, first try
 
 
 def test_a_zero_is_low_confidence_when_the_control_names_too_few_tools(monkeypatch):
@@ -198,8 +200,8 @@ def test_progress_counts_every_ask():
     run.topics, blind = prov.plan(run.profile)
     run.probes = blind + F.named_probes()
     planned = main.progress(run, 3)["planned"]
-    # no brand answer yet, so only the category's own front: 6 questions x 3 tries + its control
-    assert planned["buyer"] == 3 * 6 + 1 and planned["brand"] == len(F.named_probes())
+    # no brand answer yet: the category's own front and the claims, 12 questions x 3 tries + one control
+    assert planned["buyer"] == 3 * 12 + 1 and planned["brand"] == len(F.named_probes())
 
 
 # ---------------------------------------------------------------- onboarding and the claims screen
@@ -236,7 +238,7 @@ def test_without_a_key_the_category_is_kept_and_the_missing_questions_are_stated
     reports.save_company(company())
     out = main.patch_company("abc123", main.CompanyPatch(core_category=CATEGORY))
     assert out["profile"]["core_category"] == CATEGORY and out["profile"]["category_questions"] == []
-    assert any("follow your claims alone" in w for w in out["warnings"])
+    assert any("where you aim to be is not measured" in w for w in out["warnings"])
 
 
 def test_onboarding_names_the_core_category(store, monkeypatch):
