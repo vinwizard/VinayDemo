@@ -96,18 +96,24 @@ def test_rivals_named_but_never_described_get_their_own_reason():
     assert not m.points and "never described one in a sentence" in m.reason
 
 
-def test_rescore_moves_the_aim_to_the_weighted_claims_without_asking_a_model(monkeypatch):
+def test_rescore_moves_the_aim_to_the_weighted_claims_without_asking_a_model(monkeypatch, tmp_path):
     import access
     import embeddings
     import graph
-    monkeypatch.setattr(access, "_create", lambda *a, **k: pytest.fail("no model call expected"))
     sample = replay("A")
+    live = replay("A")
+    live.positioning = positioning.build(live)  # embeds once, through the (faked) metered call
+    monkeypatch.setattr(access, "_create", lambda *a, **k: pytest.fail("no model call expected"))
+    monkeypatch.setattr(access, "_embed", lambda *a, **k: pytest.fail("no embedding call expected"))
     graph.rescore(sample, {sample.attributes[0].id: 0.5})
     assert sample.positioning.provenance == "synthetic" and sample.positioning.aim == "site"
 
-    live = replay("A")
-    live.positioning = positioning.PositioningMap(provenance="live_api", aim="site")
-    monkeypatch.setattr(embeddings, "embed", by_words)
     graph.rescore(live, {a.id: 0.5 for a in live.attributes[:2]})
     assert live.positioning.aim == "intended" and live.positioning.points
     assert live.positioning.points[1].sentences == [positioning._text(a) for a in live.attributes if a.intended]
+
+    before = live.positioning.model_copy(deep=True)
+    monkeypatch.setattr(embeddings, "_path", lambda: tmp_path / "empty.db")
+    graph.rescore(live, {live.attributes[2].id: 0.9})
+    assert live.positioning.points == before.points
+    assert "Not redrawn for the new weights" in live.positioning.notes[-1]

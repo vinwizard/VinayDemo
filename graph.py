@@ -357,8 +357,14 @@ def rescore(run: Run, weights: dict[str, float]) -> Run:
         by_id[aid].intended_weight = round(w, 2) or None
     score_drift(run)
     if run.positioning is not None and run.positioning.provenance == "live_api":
-        import positioning  # the aim follows the weights; every text is already embedded and cached
-        map_positioning(run, positioning.build)
+        import embeddings
+        import positioning
+        try:
+            run.positioning = positioning.build(run, embed=embeddings.cached)
+        except KeyError:
+            note = "Not redrawn for the new weights: a weighted claim was never embedded, and a re-score asks no model."
+            if note not in run.positioning.notes:
+                run.positioning.notes.append(note)
     run.drift.limitations.append("Re-scored after the run with intent weights: the questions were "
                                  "planned when it was measured and were not re-asked.")
     run.log.append("Re-scored with intent weights on the saved answers; no model was asked. "

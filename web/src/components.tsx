@@ -1097,9 +1097,9 @@ function PositioningMapView({ run }: { run: Run }) {
     const labels = placeLabels(dots, ends.map(([t, x, y, a]) => boxOf(t, x, y, a, AXIS_FONT)));
     let k = 0;
     const num = labels.map((l) => (l ? null : ++k));
-    const [seen, aim] = dots;
-    const dx = aim.x - seen.x, dy = aim.y - seen.y, len = Math.hypot(dx, dy);
-    const ux = dx / len, uy = dy / len, tip = [aim.x - ux * (aim.r + 2), aim.y - uy * (aim.r + 2)];
+    const [seenDot, aimDot] = dots;
+    const dx = aimDot.x - seenDot.x, dy = aimDot.y - seenDot.y, len = Math.hypot(dx, dy);
+    const ux = dx / len, uy = dy / len, tip = [aimDot.x - ux * (aimDot.r + 2), aimDot.y - uy * (aimDot.r + 2)];
     const title = (d: (typeof dots)[number]) => d.p.kind === "seen" ? `${brand}, as AI describes it`
       : d.p.kind === "intended" ? `${brand}, ${aim}` : `${d.p.name}, as AI describes it`;
     return (
@@ -1115,9 +1115,9 @@ function PositioningMapView({ run }: { run: Run }) {
           <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} aria-hidden="true">
             <line className="pmap-axis" x1={MAP_W / 2} y1={0} x2={MAP_W / 2} y2={MAP_H} />
             <line className="pmap-axis" x1={0} y1={MAP_H / 2} x2={MAP_W} y2={MAP_H / 2} />
-            {len > seen.r + aim.r + 4 && (
+            {len > seenDot.r + aimDot.r + 4 && (
               <>
-                <line className="pmap-drift" x1={seen.x + ux * (seen.r + 2)} y1={seen.y + uy * (seen.r + 2)}
+                <line className="pmap-drift" x1={seenDot.x + ux * (seenDot.r + 2)} y1={seenDot.y + uy * (seenDot.r + 2)}
                       x2={tip[0] - ux * 8} y2={tip[1] - uy * 8} />
                 <polygon className="pmap-head" points={`${tip[0]},${tip[1]} ${tip[0] - ux * 10 - uy * 5},${tip[1] - uy * 10 + ux * 5} ${tip[0] - ux * 10 + uy * 5},${tip[1] - uy * 10 - ux * 5}`} />
               </>
