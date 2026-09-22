@@ -83,6 +83,25 @@ Any model you point `MEASURED_MODEL` or `EVALUATOR_MODEL` at should be in `acces
 spend meter charges it `UNKNOWN_PRICE` — deliberately above every listed model, so a pass is never
 under-charged for a model nobody priced.
 
+#### What a run actually costs
+
+Measured on a real run against the API on 2026-09-22 (Anthropic, budget turned down to 3 buyer
+questions a front, 16 measured answers, gpt-6-luna both halves): **$0.40** at OpenAI list prices,
+every call priced exactly rather than estimated. The shape of that bill is the thing worth knowing:
+
+| | |
+| --- | --- |
+| web_search calls | 35 — **88% of the bill** ($0.35) |
+| all tokens, both models | $0.05 |
+| searches per measured answer | ~2 |
+
+Forced search worked: 16 of 16 answers were grounded, none needed the retry, and none was discarded.
+Because search dominates, the **model** is no longer the cost lever — the **number of answers** is.
+At the default budget (about 39 measured answers) the same shape comes to roughly **$0.85** a run.
+`BUYER_QUESTIONS` is therefore the dial that moves the bill, and the tool's `search_context_size`
+is the one still untouched. The preflight call costs one forced search of its own (~$0.01): that is
+the price of proving the exact request shape before spending a run on it.
+
 Restart the API. It prints `[config] loaded from .env: OPENAI_API_KEY=<set>` — names only, never
 values. Check `curl -s http://127.0.0.1:8000/api/health` for `"live_available": true`. There is no
 mode switch in the page: every measurement it starts is live.
