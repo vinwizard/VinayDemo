@@ -7,7 +7,8 @@
 # /api/onboard/stream are covered only that way, not over HTTP. tests/test_access.py covers the access
 # passes over HTTP: the code exchange and cookie, admin sign-in, the spend meter against a fake usage
 # payload, refusal at the cap, which pass sees which run, and seeding a fresh DATA_DIR from the
-# committed companies and runs.
+# committed companies and runs. tests/test_audit.py replays recorded pages, robots.txt and
+# Wikidata/Wikipedia answers for the site audit; tests/conftest.py refuses every audit fetch otherwise.
 # What they do NOT cover: TestClient is in-process, so a real uvicorn server, proxy buffering and
 # the CORS policy are untested. There is no web test runner, so no web/src behaviour — including
 # the stream client in web/src/api.ts — is executed by CI; it is only typechecked and linted.

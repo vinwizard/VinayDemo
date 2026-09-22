@@ -30,6 +30,7 @@ MAX_CHARS = 12_000
 MAX_REDIRECTS = 2
 USER_AGENT = "PositioningDrift/0.1 (+research; contact via repository)"
 ALLOWED_SCHEMES = ("http", "https")
+HTML = "text/html,application/xhtml+xml"
 
 
 class UnsafeURL(ValueError):
@@ -120,17 +121,17 @@ def extract_text(html: str) -> str:
     return re.sub(r"\s+", " ", " ".join(p.parts)).strip()[:MAX_CHARS]
 
 
-def _get(scheme: str, host: str, port: int, path: str) -> tuple[int, dict, bytes]:
+def _get(scheme: str, host: str, port: int, path: str, timeout: float = TIMEOUT,
+         accept: str = HTML) -> tuple[int, dict, bytes]:
     ip = resolve_public(host, port)          # validated, and we connect to THIS address
-    sock = socket.create_connection((ip, port), timeout=TIMEOUT)
+    sock = socket.create_connection((ip, port), timeout=timeout)
     try:
         if scheme == "https":
             ctx = ssl.create_default_context()
             sock = ctx.wrap_socket(sock, server_hostname=host)   # SNI + cert check use the name
-        conn = http.client.HTTPConnection(host, port, timeout=TIMEOUT)
+        conn = http.client.HTTPConnection(host, port, timeout=timeout)
         conn.sock = sock
-        conn.request("GET", path, headers={"Host": host, "User-Agent": USER_AGENT,
-                                           "Accept": "text/html,application/xhtml+xml"})
+        conn.request("GET", path, headers={"Host": host, "User-Agent": USER_AGENT, "Accept": accept})
         r = conn.getresponse()
         return r.status, dict(r.getheaders()), r.read(MAX_BYTES)
     finally:
@@ -140,25 +141,32 @@ def _get(scheme: str, host: str, port: int, path: str) -> tuple[int, dict, bytes
             pass
 
 
-def fetch_raw(url: str) -> tuple[str, str]:
-    """-> (final_url, raw_html). Follows at most MAX_REDIRECTS, revalidating every hop."""
+def request(url: str, timeout: float = TIMEOUT, accept: str = HTML) -> tuple[str, int, str, str]:
+    """-> (final_url, status, content_type, body). Follows at most MAX_REDIRECTS, revalidating every
+    hop. Any final status comes back rather than raising: a 404 robots.txt is an answer, not a failure."""
     current = url
     for _ in range(MAX_REDIRECTS + 1):
         scheme, host, port, path = validate(current)
-        status, headers, body = _get(scheme, host, port, path)
+        status, headers, body = _get(scheme, host, port, path, timeout, accept)
         if status in (301, 302, 303, 307, 308):
             location = headers.get("Location") or headers.get("location")
             if not location:
                 raise FetchError(f"{status} with no Location header")
             current = urljoin(current, location)   # revalidated at the top of the next iteration
             continue
-        if status != 200:
-            raise FetchError(f"HTTP {status} for {current}")
         ctype = (headers.get("Content-Type") or headers.get("content-type") or "").lower()
-        if "html" not in ctype and "text" not in ctype:
-            raise FetchError(f"unsupported content type {ctype!r}")
-        return current, body.decode("utf-8", errors="replace")
+        return current, status, ctype, body.decode("utf-8", errors="replace")
     raise FetchError(f"too many redirects from {url}")
+
+
+def fetch_raw(url: str) -> tuple[str, str]:
+    """-> (final_url, raw_html)."""
+    final, status, ctype, html = request(url)
+    if status != 200:
+        raise FetchError(f"HTTP {status} for {final}")
+    if "html" not in ctype and "text" not in ctype:
+        raise FetchError(f"unsupported content type {ctype!r}")
+    return final, html
 
 
 def fetch(url: str) -> tuple[str, str]:
