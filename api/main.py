@@ -180,13 +180,14 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
                                  "for, or onboard again from a page that states its positioning.")
     try:
         with access.spending(pass_id(holder)):
-            live.preflight()   # one trivial call: an unusable model fails once, not 20 times
+            resolved = live.preflight()   # one trivial call: an unusable model fails once, not 20 times
     except access.Refused as e:
         raise HTTPException(403, e.message)
     except live.PreflightFailed as e:   # its message is safe to show: no provider body, no key
         raise HTTPException(400, str(e))
     prov = live.LiveProvider(base.attributes(), base.named_probes(), profile=profile,
-                             evaluator=ModelEvaluator(), demand=demand.ground)
+                             evaluator=ModelEvaluator(model=resolved.judge), demand=demand.ground,
+                             resolved=resolved)
     # The buyer questions are planned from the brand answers, so their number is not known yet: count
     # the full buyer budget once each, plus the repeat-sampled questions' extra tries, plus one
     # control per front. A run that asks fewer is caught up by its node events' `planned` counts.

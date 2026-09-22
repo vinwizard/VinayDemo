@@ -12,7 +12,7 @@ Transport is injectable so the whole adapter is testable with no API key and no 
 """
 import os
 from datetime import datetime, timezone
-from typing import Callable, Optional
+from typing import Callable, NamedTuple, Optional
 
 from agents.onboarding_model import buyer_questions_for
 from config import setting
@@ -49,10 +49,10 @@ TOOL_CHOICE = "required"
 # change of behaviour — and an API that does not know the field is a 400 the fallback catches.
 SEARCH_TOOL = {"type": "web_search", "external_web_access": True}
 FALLBACK_TOOL = {"type": "web_search"}
-# Set by `preflight` when it had to drop from the configured pair: the reason, in words safe to
-# show, and whether any web_search tool is sent at all. Process-wide on purpose — one deployment
-# talks to one account, and every later call in that process must use what was proven to work.
-# `_search` False is the last resort: the fallback model would not take the tool either, so answers
+# The record of the most recent successful `preflight`, for /api/health and status() only: the
+# step-down reason, in words safe to show, and whether any web_search tool is sent at all. A run
+# never reads it back — it uses the `Resolved` its own preflight returned, so a concurrent run's
+# preflight cannot retarget it. `_search` False is the last resort: the fallback model would not take the tool either, so answers
 # come back ungrounded and are excluded from the scores, which the report says plainly. No third
 # model is tried — quietly measuring something nobody chose would be worse than measuring nothing.
 _fallback: Optional[str] = None
@@ -109,6 +109,21 @@ def fallback_reason() -> Optional[str]:
     return _fallback
 
 
+class Resolved(NamedTuple):
+    """What one preflight proved: the measured model, the tool sent with it (None: no tool at all),
+    the judge model that follows, and why the configured pair was dropped (None if it was not)."""
+    model: str
+    tool: Optional[dict]
+    judge: str
+    reason: Optional[str]
+
+
+def current() -> Resolved:
+    """The most recent preflight's record, for a provider built without one."""
+    from agents import evaluator_model
+    return Resolved(model_name(), search_tool(), evaluator_model.model_name(), _fallback)
+
+
 def buyer_tries() -> int:
     """BUYER_TRIES: how many times a repeat-sampled buyer question is asked. At least 1."""
     return setting(TRIES_ENV, DEFAULT_TRIES, floor=1)
@@ -157,9 +172,9 @@ def safe_error(e: Exception) -> str:
 PING = [{"role": "user", "content": "hi"}]
 
 
-def preflight(model: Optional[str] = None, transport: Optional[Callable] = None) -> Optional[str]:
+def preflight(model: Optional[str] = None, transport: Optional[Callable] = None) -> Resolved:
     """One trivial call before a run, so an unusable setup fails once with a clear message.
-    -> None normally, or the reason the fallback pair is now in use.
+    -> the pair that worked, which the caller hands to its own provider and judge.
 
     Without this, a model that cannot take the web_search tool produces N identical 400s — one per
     probe — and the report is an unreadable wall of the same error. Failures are classified on the
@@ -168,8 +183,8 @@ def preflight(model: Optional[str] = None, transport: Optional[Callable] = None)
 
     A 400 is the one failure worth retrying: it means this model, or this tool shape, is not
     accepted — not that the key, the account or the network is wrong. So it steps down, at most
-    twice, and records where it landed; every later call in this process uses the pair that actually
-    worked, and /api/health reports which model and which search mode that is.
+    twice, and returns where it landed; the run uses that pair, and it is also recorded so
+    /api/health reports which model and which search mode is in use.
 
       1. the configured model, web_search with external_web_access
       2. FALLBACK_MODEL, plain web_search
@@ -178,15 +193,16 @@ def preflight(model: Optional[str] = None, transport: Optional[Callable] = None)
          third model nobody chose would be a quiet substitution, and measuring the wrong model is
          worse than measuring nothing.
     """
-    global _fallback, _search
-    _fallback, _search = None, True
+    from agents import evaluator_model
     model = model or configured_model()
-    call = transport or default_transport
 
-    def step(m: str) -> Optional[Exception]:
+    def step(m: str, tool: Optional[dict]) -> Optional[Exception]:
         """-> None if this pair works, the 400 if it does not; anything else is raised as itself."""
         try:
-            call(PING, m, 30)
+            if transport:
+                transport(PING, m, 30)
+            else:
+                default_transport(PING, m, 30, tool=tool)
             return None
         except Exception as e:
             status, code = getattr(e, "status_code", None), getattr(e, "code", None)
@@ -203,26 +219,25 @@ def preflight(model: Optional[str] = None, transport: Optional[Callable] = None)
                 raise
             return e
 
-    try:
-        refused = step(model)
-        if refused is None:
-            return None
-        _fallback = (f"OpenAI would not take {model!r} with live web search ({safe_error(refused)}), "
-                     f"so this run used {FALLBACK_MODEL!r} with the plain web_search tool instead.")
-        if step(FALLBACK_MODEL) is None:   # _fallback is set: default_transport sends FALLBACK_TOOL
-            return _fallback
-        _search = False                    # last resort: no tool at all, and nothing is hidden
-        _fallback = (f"OpenAI would not take {model!r} with live web search, and {FALLBACK_MODEL!r} "
-                     f"would not take the web_search tool either ({safe_error(refused)}). This run "
-                     f"asked {FALLBACK_MODEL!r} with NO web search, so every answer is ungrounded "
-                     f"and excluded from the scores. Set {MODEL_ENV} to a model your account can "
-                     f"call with web search to measure anything.")
-        if step(FALLBACK_MODEL) is None:
-            return _fallback
-    except Exception:
-        _fallback, _search = None, True    # a failed step-down is never left switched on
-        raise
-    _fallback, _search = None, True
+    def done(m: str, tool: Optional[dict], reason: Optional[str]) -> Resolved:
+        global _fallback, _search
+        _fallback, _search = reason, tool is not None
+        return Resolved(m, tool, evaluator_model.judge_for(model if reason else None), reason)
+
+    refused = step(model, SEARCH_TOOL)
+    if refused is None:
+        return done(model, SEARCH_TOOL, None)
+    if step(FALLBACK_MODEL, FALLBACK_TOOL) is None:
+        return done(FALLBACK_MODEL, FALLBACK_TOOL,
+                    f"OpenAI would not take {model!r} with live web search ({safe_error(refused)}), "
+                    f"so this run used {FALLBACK_MODEL!r} with the plain web_search tool instead.")
+    if step(FALLBACK_MODEL, None) is None:   # last resort: no tool at all, and nothing is hidden
+        return done(FALLBACK_MODEL, None,
+                    f"OpenAI would not take {model!r} with live web search, and {FALLBACK_MODEL!r} "
+                    f"would not take the web_search tool either ({safe_error(refused)}). This run "
+                    f"asked {FALLBACK_MODEL!r} with NO web search, so every answer is ungrounded "
+                    f"and excluded from the scores. Set {MODEL_ENV} to a model your account can "
+                    f"call with web search to measure anything.")
     raise ModelUnsupported(
         f"Model {model!r} cannot be used, and neither could the fallback {FALLBACK_MODEL!r}, with or "
         f"without the web_search tool. Set {MODEL_ENV} to a model your account can call "
@@ -278,11 +293,11 @@ def searches_of(response) -> list[str]:
     return out
 
 
-def default_transport(messages: list[dict], model: str, timeout: int, tool=...):
+def default_transport(messages: list[dict], model: str, timeout: int,
+                      tool: Optional[dict] = SEARCH_TOOL):
     import access  # metered: refused at a pass's cap, charged to it after
     # tool_choice is the whole point of forcing search: with "auto" the model decides, and the
     # answers it decides not to search for are paid for and then excluded from the score.
-    tool = search_tool() if tool is ... else tool
     extra = dict(tools=[tool], tool_choice=TOOL_CHOICE) if tool else {}
     return access.openai_response(timeout, model=model, input=messages, **extra)
 
@@ -300,17 +315,17 @@ class LiveProvider:
                  profile: Optional[CompanyProfile] = None, model: Optional[str] = None,
                  transport: Optional[Callable] = None, evaluator=None,
                  writer: Optional[Callable] = None, demand: Optional[Callable] = None,
-                 retrieval: Optional[Callable] = None, positioning: Optional[Callable] = None):
+                 retrieval: Optional[Callable] = None, positioning: Optional[Callable] = None,
+                 resolved: Optional[Resolved] = None):
         if not attributes:
             raise ValueError("live run needs the attribute set being measured")
         self._attributes = attributes
         self._named = named_probes
         self._profile = profile
-        # The model, the tool and the reason for them are fixed per run: a concurrent run's preflight
-        # rewrites the module state, and must not retarget calls this run already has in flight.
-        self.model = model or model_name()
-        self.search_tool = search_tool()
-        self.fallback = _fallback
+        resolved = resolved or current()
+        self.model = model or resolved.model
+        self.search_tool = resolved.tool
+        self.fallback = resolved.reason
         self.tries = buyer_tries()
         self.repeat_sample = repeat_sample()
         self._transport = transport or (lambda msgs, model, timeout: default_transport(

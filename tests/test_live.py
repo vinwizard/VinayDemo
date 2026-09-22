@@ -66,12 +66,20 @@ def test_the_request_forces_live_web_search(monkeypatch):
 
 def test_after_a_fallback_the_request_drops_the_field_the_api_refused(monkeypatch):
     import access
-    sent = {}
+    sent = []
+
+    def create(timeout, **kw):
+        sent.append((kw["model"], kw.get("tools"), kw.get("tool_choice")))
+        if kw["model"] == live.DEFAULT_MODEL:
+            raise StatusError(400, "unknown parameter: 'external_web_access'")
+        return response()
+
     monkeypatch.setenv(access.KEY_ENV, "test-key")
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.update(kw) or response())
-    monkeypatch.setattr(live, "_fallback", "refused")
-    live.default_transport(live.measured_prompt(PROBE), live.FALLBACK_MODEL, 30)
-    assert sent["tools"] == [{"type": "web_search"}] and sent["tool_choice"] == "required"
+    monkeypatch.delenv(live.MODEL_ENV, raising=False)
+    monkeypatch.setattr(access, "_create", create)
+    resolved = live.preflight()
+    live.LiveProvider(fixture.FixtureProvider("A").attributes(), [], resolved=resolved).answer(PROBE)
+    assert sent[-1] == (live.FALLBACK_MODEL, [{"type": "web_search"}], "required")
 
 
 def test_an_answer_that_still_did_not_search_is_asked_once_more():
@@ -331,8 +339,10 @@ def test_a_refused_model_falls_back_once_and_says_so(monkeypatch):
             raise StatusError(400, "unknown parameter: 'external_web_access'")
         return response()
 
-    why = live.preflight(transport=picky)
+    resolved = live.preflight(transport=picky)
+    why = resolved.reason
     assert seen == [live.DEFAULT_MODEL, live.FALLBACK_MODEL]
+    assert resolved[:3] == (live.FALLBACK_MODEL, live.FALLBACK_TOOL, live.FALLBACK_MODEL)
     assert why and live.DEFAULT_MODEL in why and live.FALLBACK_MODEL in why
     # everything downstream now uses the pair that actually worked
     assert live.model_name() == live.FALLBACK_MODEL and live.fallback_reason() == why
@@ -376,7 +386,7 @@ def test_a_run_keeps_the_tool_it_was_built_with_when_another_preflight_resets(mo
 
 
 def test_a_working_model_records_no_fallback():
-    assert live.preflight("gpt-4o-mini", transport=lambda *_: response()) is None
+    assert live.preflight("gpt-4o-mini", transport=lambda *_: response()).reason is None
     assert live.fallback_reason() is None and live.search_tool() == live.SEARCH_TOOL
 
 
@@ -384,15 +394,21 @@ def test_a_fallback_that_cannot_search_measures_ungrounded_rather_than_swapping_
     """The captain's rule: no third model. If the fallback will not take the tool, the run goes
     ahead with no search at all, every answer is marked ungrounded, and the report says so."""
     monkeypatch.delenv(live.MODEL_ENV, raising=False)
+    import access
     sent = []
 
-    def toolless_only(messages, model, timeout):
-        sent.append((model, live.search_tool()))
-        if live.search_tool() is not None:
+    def toolless_only(timeout, **kw):
+        tool = (kw.get("tools") or [None])[0]
+        sent.append((kw["model"], tool))
+        if tool is not None:
             raise StatusError(400, "tool not supported")
         return response()
 
-    why = live.preflight(transport=toolless_only)
+    monkeypatch.setenv(access.KEY_ENV, "test-key")
+    monkeypatch.setattr(access, "_create", toolless_only)
+    resolved = live.preflight()
+    why = resolved.reason
+    assert resolved.tool is None and resolved.model == live.FALLBACK_MODEL
     assert [m for m, _ in sent] == [live.DEFAULT_MODEL, live.FALLBACK_MODEL, live.FALLBACK_MODEL]
     assert [t for _, t in sent] == [live.SEARCH_TOOL, live.FALLBACK_TOOL, None]
     assert live.model_name() == live.FALLBACK_MODEL and live.search_tool() is None
@@ -417,6 +433,40 @@ def test_with_no_search_asked_for_an_answer_is_not_retried(monkeypatch):
     calls = []
     a = provider(transport=lambda *_: (calls.append(1), response(searched=False))[1]).answer(PROBE)
     assert len(calls) == 1 and a.search_executed is False
+
+
+def test_concurrent_preflights_each_get_the_pair_their_own_transport_accepted(monkeypatch):
+    """Two runs starting together: one account refuses the default model, the other takes it. Each
+    run's resolution must be its own, whatever the other preflight wrote meanwhile."""
+    import threading
+    monkeypatch.delenv(live.MODEL_ENV, raising=False)
+    stepping_down, other_done = threading.Event(), threading.Event()
+    out = {}
+
+    def refused(messages, model, timeout):
+        if model == live.DEFAULT_MODEL:
+            raise StatusError(400, "not supported")
+        stepping_down.set()                     # the other preflight runs start to finish right here
+        assert other_done.wait(5)
+        return response()
+
+    def fine(messages, model, timeout):
+        assert stepping_down.wait(5)
+        return response()
+
+    def run(key, transport):
+        try:
+            out[key] = live.preflight(transport=transport)
+        finally:
+            other_done.set() if key == "fine" else None
+
+    threads = [threading.Thread(target=run, args=a) for a in (("refused", refused), ("fine", fine))]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(10)
+    assert out["refused"][:2] == (live.FALLBACK_MODEL, live.FALLBACK_TOOL) and out["refused"].reason
+    assert out["fine"][:2] == (live.DEFAULT_MODEL, live.SEARCH_TOOL) and out["fine"].reason is None
 
 
 def test_every_pair_refused_is_fatal_and_names_what_to_set(monkeypatch):
@@ -481,7 +531,9 @@ def test_no_payload_carries_the_provider_body_or_a_key_fragment(exc):
 
 
 def test_preflight_passes_a_working_model():
-    assert live.preflight("gpt-4o-mini", transport=lambda *_: response()) is None
+    from agents import evaluator_model
+    assert live.preflight("gpt-4o-mini", transport=lambda *_: response()) == (
+        "gpt-4o-mini", live.SEARCH_TOOL, evaluator_model.model_name(), None)
 
 
 def test_preflight_reraises_unrelated_failures():

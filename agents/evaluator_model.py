@@ -88,14 +88,19 @@ def answer_lines(text: str) -> list[str]:
     return [p.strip() for p in SPLIT.split(text) if p and re.search(r"[^\W_]", p)]
 
 
-def model_name() -> str:
-    """EVALUATOR_MODEL, or the default — but never a model the live preflight has just proved this
+def judge_for(refused: Optional[str]) -> str:
+    """EVALUATOR_MODEL, or the default — but never the model a live preflight has just proved this
     account cannot call. A judge on the very model preflight refused would fail every answer
     identically instead of once; a judge chosen separately was never tested and is kept."""
     from providers import live
-    if live.fallback_reason() and (os.environ.get(MODEL_ENV) or DEFAULT_MODEL) == live.configured_model():
-        return live.FALLBACK_MODEL
-    return os.environ.get(MODEL_ENV) or DEFAULT_MODEL
+    chosen = os.environ.get(MODEL_ENV) or DEFAULT_MODEL
+    return live.FALLBACK_MODEL if refused and chosen == refused else chosen
+
+
+def model_name() -> str:
+    """The judge after the most recent preflight's record."""
+    from providers import live
+    return judge_for(live.configured_model() if live.fallback_reason() else None)
 
 
 def build_prompt(probe: Probe, answer: Answer, attributes: list[Attribute],
