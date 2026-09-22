@@ -76,7 +76,7 @@ NEUTRAL_INSTRUCTION = ("Answer the user's question as a helpful assistant. Use w
 
 
 def measured_prompt(probe: Probe) -> list[dict]:
-    """Fresh context: one fixed neutral instruction + one neutral buyer question. Nothing else."""
+    """Fresh context: one fixed neutral instruction + one neutral unbranded question. Nothing else."""
     return [{"role": "system", "content": NEUTRAL_INSTRUCTION},
             {"role": "user", "content": probe.text}]
 
@@ -126,7 +126,7 @@ def current() -> Resolved:
 
 
 def buyer_tries() -> int:
-    """BUYER_TRIES: how many times a repeat-sampled buyer question is asked. At least 1."""
+    """BUYER_TRIES: how many times a repeat-sampled unbranded question is asked. At least 1."""
     return setting(TRIES_ENV, DEFAULT_TRIES, floor=1)
 
 
@@ -402,7 +402,7 @@ class LiveProvider:
             try:
                 questions += self._writer(placed_as, placed.description, per_front - len(questions))
             except Exception as e:                  # stated, never swallowed: the front is smaller
-                self.notes.append(f"Buyer questions for {placed_as} could not be written "
+                self.notes.append(f"Unbranded questions for {placed_as} could not be written "
                                   f"({type(e).__name__}); its own {len(questions)} were asked.")
         topics, blind, self.skipped_questions, self.missing_fronts = blind_probes_for_fronts(
             profile, placed, questions, self._attributes, placed_as)

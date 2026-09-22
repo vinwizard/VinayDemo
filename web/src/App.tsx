@@ -136,7 +136,7 @@ export default function App() {
         <div className="stack">
           <p className="muted" style={{ margin: 0 }}>
             A real live run, saved on {day(showcase.created_at)}: {showcase.profile.domain} was read and
-            its claims put to AI as buyer and brand questions. Opening this tab replays nothing and asks no model.
+            its claims put to AI as buyer and branded questions. Opening this tab replays nothing and asks no model.
             The intent weights are an example set for this demo, not {showcase.profile.name}’s own.
           </p>
           <Report run={showcase} onRescored={setShowcase} />

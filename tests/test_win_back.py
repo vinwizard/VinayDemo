@@ -50,7 +50,7 @@ def test_unverifiable_actions_are_dropped_with_a_reason():
     assert [(k.attribute_id, k.question_ids) for k in kept] == [("ai_native", ["mtg-3"])]
     text = " | ".join(dropped)
     for reason in ("not a claim to win back", "not among the pages read", "not on https://",
-                   "marketing language", "over 60 words", "'zz-9' is not a buyer question",
+                   "marketing language", "over 60 words", "'zz-9' is not an unbranded question",
                    "already recommending you", "second action"):
         assert reason in text
 

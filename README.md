@@ -39,7 +39,7 @@ Two probe families measure two different things:
   Details: "Why a rerun gives a different number" in [`WEB.md`](WEB.md).
 - **Named probes** name the brand but never name an attribute → **perception**. What does AI say you are?
 
-The ids and these code names stay internal; on screen they are *buyer questions* and *brand questions*
+The ids and these code names stay internal; on screen they are *unbranded questions* and *branded questions*
 (see the wording rules in [`WEB.md`](WEB.md)).
 
 A named probe that contains the attribute it measures invites the model to agree, so `ana.attribute_leaks`

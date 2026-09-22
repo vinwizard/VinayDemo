@@ -166,7 +166,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
             <label className="claim-label" htmlFor={`cat-${company.id}`}>Core category</label> <Term k="core_category" icon />
             <p className="muted" style={{ margin: ".2rem 0 .5rem" }}>
               What a buyer shops for when they need {company.profile.name}: where you aim to be. Half
-              the buyer questions ask about it; the other half ask about the category AI’s answers
+              the unbranded questions ask about it; the other half ask about the category AI’s answers
               about {company.profile.name} already place it in, so the two show side by side. A
               control question asks AI which companies lead each category, so a low score can be
               checked. Read from your one-line description — correct it if it is wrong.
@@ -178,8 +178,8 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
               {!company.profile.core_category
                 ? "No core category saved yet (this company was read before categories existed), so where you aim to be is not asked about. Type one and save to ask about it."
                 : category.trim() !== company.profile.core_category
-                ? "Save to write new buyer questions for this category."
-                : `${plural(company.profile.category_questions?.length ?? 0, "buyer question")} ready for this category`}
+                ? "Save to write new unbranded questions for this category."
+                : `${plural(company.profile.category_questions?.length ?? 0, "unbranded question")} ready for this category`}
             </div>
           </div>
         </div>

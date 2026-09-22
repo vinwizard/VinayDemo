@@ -218,7 +218,7 @@ things make the buyer number trustworthy anyway:
   category), does not name the brand (the model does not count it among the category's leaders —
   a brand named once by chance is still not known there), or could not be scored. If the control
   names the brand, the number stands. A flagged number is never shown bare — the badge sits beside
-  it in the pinned summary, the Buyer questions tab and the PDF summary.
+  it in the pinned summary, the Questions we asked AI tab and the PDF summary.
 - **A generic phrase is never the brand's name.** An alias counts as a mention unless every word in
   it is a generic noun (`schemas.distinctive_alias`), so a product name such as "Conversation
   Explorer" still counts and is still a brand leak. "AI Marketer" and "AI Agents" are dropped at
@@ -296,8 +296,9 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   today") — buyer visibility (on a live run, side by side: **Where AI places you** and **Where you
   aim to be**, each with its category, range, 95% confidence interval and any low-confidence badge, then
   one plain gap sentence ending in whether the gap is real), the count of claims to win back, and **Download summary (PDF)**.
-  Below it, six tabs with counts (`role=tablist`, arrow keys, Home/End; the tab is kept in the URL
-  hash, so `#report-buyer` opens Buyer questions; on a phone the strip scrolls sideways):
+  Below it, five tabs with counts (`role=tablist`, arrow keys, Home/End; the tab is kept in the URL
+  hash, so `#report-questions` opens Questions we asked AI, and the old `#report-buyer` and
+  `#report-brand` links land there too; on a phone the strip scrolls sideways):
   - **Overview** — where the answers came from (measured live with the model, or the SYNTHETIC
     DEMO banner for a replayed run), what the figures mean, then one **chip per zone** with its
     count (an empty zone is greyed). Hovering, tapping or focusing a chip opens a popover listing
@@ -311,9 +312,9 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     and why, possible new traits kept and rejected, sample size), each list behind
     a toggle. The workflow log is not on the page; it is in the run's JSON download.
 
-    One popover (`web/src/popover.tsx`) serves every in-place explanation: any "Brand question 2"
-    or "Buyer question 7" reference opens the question, whether it counted and the AI's answer,
-    with a link to its tab; every term the product invented (zone names, brand and buyer question,
+    One popover (`web/src/popover.tsx`) serves every in-place explanation: any "Branded question 2"
+    or "Unbranded question 7" reference opens the question, whether it counted and the AI's answer,
+    with a link to its tab; every term the product invented (zone names, branded and unbranded question,
     untapped potential, buyer visibility, tries, low confidence…) has a dotted underline or ⓘ that
     opens its definition from `web/src/glossary.ts`, the one place those definitions live. Hover
     opens it on a desktop, a tap pins it, Enter moves focus into it, Esc closes it; on a phone it is
@@ -325,10 +326,14 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     not read, whose replaced copy is not verbatim on it, whose rewrite is marketing language, or
     whose question was not asked, and says why; it moves no number), then "where the upside is"
     cards for the biggest open claims.
-  - **Buyer questions** and **Brand questions** — one compact row per question with its verdict
-    ("recommended you", "did not name you yet", the claims it raised; with several tries, "named in
-    2 of 3 tries"); a row opens to the full answer (every try's, for a buyer question) and the scorer's
-    note. Buyer questions are grouped by front, each group with its visibility and range, its
+  - **Questions we asked AI** — second, because the questions are the evidence for every number:
+    the **unbranded questions** (the code's buyer questions) and **branded questions** (its brand
+    questions) side by side, each set in its own bordered frame (stacked on a narrow screen), what
+    each set is and how it was asked folded behind "How these were asked". Every question is a card
+    headed by its own text, with its verdict ("recommended you", "did not name you yet", the claims it
+    raised; with several tries, "named in 2 of 3 tries") and who AI named instead; a card opens to
+    the full answer (every try's, for an unbranded question) and the scorer's note. Unbranded
+    questions are grouped by front, each group with its visibility and range, its
     questions and its **control question** with its answer and, when flagged, why the result is
     low confidence. A buyer row, and its question popover, also says what the model searched for
     it and whether any cited page was the brand's own.
@@ -421,7 +426,7 @@ restores the example weights.
 ## Wording
 
 No engine identifier is the only name a reader gets: where a raw id is still shown for traceability
-it follows the words it stands for, as in "Buyer question 3 — Project tracking (`pt-3`)".
+it follows the words it stands for, as in "Unbranded question 3 — Project tracking (`pt-3`)".
 `web/src/labels.ts` names everything the browser holds (probe ids, run ids, provenance, probe kinds);
 `labels.py` names the ids the engine bakes into strings it hands over whole (exclusion reasons, the
 follow-up rationale, gap findings, the Markdown export), and `reports.py` names strengths and topic

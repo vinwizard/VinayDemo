@@ -28,7 +28,7 @@ COMPARISON_PROBE_ID = "np-cmp"
 
 
 def set_questions() -> int:
-    """BUYER_QUESTIONS: buyer questions per front, at least one topic's worth."""
+    """BUYER_QUESTIONS: unbranded questions per front, at least one topic's worth."""
     return setting(QUESTIONS_ENV, DEFAULT_QUESTIONS, floor=PER_TOPIC)
 
 
@@ -63,7 +63,7 @@ VENDOR_ADDRESS = re.compile(
 
 
 def vendor_address(text: str) -> list[str]:
-    """What in a buyer question addresses the vendor instead of describing the need, or []."""
+    """What in an unbranded question addresses the vendor instead of describing the need, or []."""
     return [m.group(0) for m in VENDOR_ADDRESS.finditer(text)]
 
 
@@ -136,7 +136,7 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
             a.id, a.buyer_questions[:PER_TOPIC],
             f"Placebo: would a buyer wanting '{a.label}' be shown this brand?")
     if dropped:
-        raise ValueError("buyer questions leak the brand and were not rewritten: " + "; ".join(dropped))
+        raise ValueError("unbranded questions leak the brand and were not rewritten: " + "; ".join(dropped))
     # Truncation drops topics, so it must drop their questions too: a probe whose topic no longer
     # exists fails validation and kills the whole run.
     topics = topics[:limit]
@@ -264,8 +264,8 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
             topics.append(control_topic(profile, category, control.topic_id, front))
             probes.append(control)
             continue
-        why = (f"every buyer question for {category} named {profile.name} or addressed the vendor"
-               if questions else f"no buyer questions are saved or could be written for {category}")
+        why = (f"every unbranded question for {category} named {profile.name} or addressed the vendor"
+               if questions else f"no unbranded questions are saved or could be written for {category}")
         for f in (("placed", "aiming") if front == "both" else (front,)):
             where = f"Where AI places {profile.name}" if f == "placed" else f"Where {profile.name} aims to be"
             missing[f] = (f"{where} was not measured: {why}."
@@ -380,7 +380,7 @@ def choose_followup(topics: list[Topic], topic_evals: list[TopicEvaluation], eva
             if p.text.strip().lower() in asked or brand_leaks(p.text, profile):
                 continue  # not novel or not neutral: skip rather than ask
             new.append(p)
-        uncertainty = ("whether the absence persists under differently framed buyer questions"
+        uncertainty = ("whether the absence persists under differently framed unbranded questions"
                        if te.status == "candidate gap" else "why results were split across similar questions")
         found = (f"not recommended in any of {te.n} answers" if not te.recommendations
                  else f"recommended in only {te.recommendations} of {te.n} answers")

@@ -91,7 +91,7 @@ def test_two_fronts_are_measured_side_by_side_with_the_gap(monkeypatch):
 def test_the_same_category_on_both_fronts_is_asked_once_and_said_so(monkeypatch):
     run, _ = run_fronts(monkeypatch, aiming="AI-native workspace tools")
     assert [s.front for s in run.drift.sets] == ["both", None]
-    assert any("so one set of buyer questions was asked" in l for l in run.log)
+    assert any("so one set of unbranded questions was asked" in l for l in run.log)
     assert len([p for p in run.probes if p.phase == "control"]) == 1
     # the budget never shrinks: the claims' own questions fill the other half, counted in neither front
     both, claims = run.drift.sets
@@ -123,7 +123,7 @@ def test_the_placed_front_cites_only_its_own_claim_evidence():
 def test_a_front_with_no_questions_says_why_not_that_its_category_is_missing(monkeypatch):
     profile = F.profile.model_copy(update=dict(core_category=AIMING, category_questions=[]))
     _, _, _, missing = ana.blind_probes_for_fronts(profile, PLACED, WRITTEN, F.attributes())
-    assert list(missing) == ["aiming"] and "no buyer questions are saved" in missing["aiming"]
+    assert list(missing) == ["aiming"] and "no unbranded questions are saved" in missing["aiming"]
     _, _, _, missing = ana.blind_probes_for_fronts(
         F.profile.model_copy(update=dict(core_category=AIMING, category_questions=AIM_QS)), PLACED, [])
     assert list(missing) == ["placed"] and "Where AI places Notion was not measured" in missing["placed"]
@@ -144,7 +144,7 @@ def test_missing_front_reasons_reach_the_report_when_no_front_survives(monkeypat
     run = graph.execute(graph.new_run(profile, prov, mode="live_api"), prov)
     assert not any(t.front for t in run.topics)
     assert set(run.drift.missing_fronts) == {"placed", "aiming"}
-    assert "no buyer questions are saved" in run.drift.missing_fronts["aiming"]
+    assert "no unbranded questions are saved" in run.drift.missing_fronts["aiming"]
     assert run.drift.missing_fronts["aiming"] in run.drift.limitations
 
 

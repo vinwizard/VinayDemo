@@ -256,7 +256,7 @@ def build_report(scores: list[AttributeScore], provenance: str, n_blind: int,
     if echo[0] is None:
         na["claim_echo"] = echo[1] or "Not computed."
     if visibility is None:
-        na["visibility"] = "No buyer question produced an eligible answer, so visibility is not measured."
+        na["visibility"] = "No unbranded question produced an eligible answer, so visibility is not measured."
     return DriftReport(
         provenance=provenance, n_named=n, n_blind=n_blind, named_asked=asked,
         excluded_named=len(reasons), excluded_reasons=reasons, lens=lens,

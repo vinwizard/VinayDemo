@@ -56,7 +56,7 @@ def pages(run: Run) -> dict:
 
 
 def verdicts(run: Run) -> dict[str, str]:
-    """Baseline buyer question id -> what AI did with the company. The only ids an action may cite."""
+    """Baseline unbranded question id -> what AI did with the company. The only ids an action may cite."""
     ev = {e.probe_id: e for e in run.evaluations}
     out = {}
     for p in run.probes:
@@ -118,7 +118,7 @@ def validate(raw, run: Run) -> tuple[list[WinBackAction], list[str]]:
             qids = [q for q in a.get("question_ids") or [] if isinstance(q, str)]
             for q in qids:
                 if q not in asked:
-                    dropped.append(f"{label}: question {q!r} is not a buyer question in this run")
+                    dropped.append(f"{label}: question {q!r} is not an unbranded question in this run")
                 elif asked[q] in ("recommended", "excluded"):
                     dropped.append(f"{label}: {probe_name(probes[q])} dropped — it was "
                                    f"{'already recommending' if asked[q] == 'recommended' else 'excluded from'} "

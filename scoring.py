@@ -139,7 +139,7 @@ def low_confidence(brand: str, category: str, control: Optional[QueryEvaluation]
     if not control.mentioned:
         return (f"Asked which companies lead in {category}, the answering model named "
                 f"{', '.join(vendors[:5])} but not {brand}. It does not count {brand} among this "
-                f"category's leaders, so buyer questions were unlikely to surface it: low confidence, "
+                f"category's leaders, so unbranded questions were unlikely to surface it: low confidence, "
                 f"not a finding about how buyers see {brand}.")
     return None
 

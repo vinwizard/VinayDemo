@@ -3,13 +3,13 @@
 // never seen the product is never left guessing. Ordinary words get no entry.
 export const GLOSSARY = {
   brand_question: {
-    term: "Brand question",
+    term: "Branded question",
     def: "A question we asked an AI that names the company but never names any claim, such as \"What is "
       + "this company known for?\". Whatever the AI says the company is good at, it said on its own. "
       + "These answers drive the headline number.",
   },
   buyer_question: {
-    term: "Buyer question",
+    term: "Unbranded question",
     def: "A question a buyer might ask an AI without naming the company, such as \"What tools help with X?\". "
       + "It measures whether the AI brings the company up by itself. These answers drive buyer visibility.",
   },
@@ -36,7 +36,7 @@ export const GLOSSARY = {
   },
   tries: {
     term: "Same question, asked again",
-    def: "An AI gives a different answer each time it is asked. Every buyer question is asked once, and "
+    def: "An AI gives a different answer each time it is asked. Every unbranded question is asked once, and "
       + "a couple of them are asked three times over to show how much one question wobbles between "
       + "asks. Each question counts once towards buyer visibility however often it was asked.",
   },
@@ -56,25 +56,25 @@ export const GLOSSARY = {
   },
   low_confidence: {
     term: "Low confidence",
-    def: "For each set of buyer questions we also ask the AI to name the companies that lead that category. "
+    def: "For each set of unbranded questions we also ask the AI to name the companies that lead that category. "
       + "If it names too few, or does not name the company among them, the buyer visibility may say more "
       + "about what the AI knows than about how buyers see the company, so we flag it rather than trust it.",
   },
   core_category: {
     term: "Core category",
     def: "The kind of product the company is, in a buyer's words (for example \"project management "
-      + "software\"), as its own homepage puts it. Half of the buyer questions ask about it: where "
+      + "software\"), as its own homepage puts it. Half of the unbranded questions ask about it: where "
       + "you aim to be.",
   },
   where_placed: {
     term: "Where AI places you",
     def: "The category AI already links the company to: of everything the brand answers said about it, "
-      + "the one they endorsed most often. Half of the buyer questions ask about this category, with no "
+      + "the one they endorsed most often. Half of the unbranded questions ask about this category, with no "
       + "brand named, to see whether AI also brings the company up there on its own.",
   },
   real_demand: {
     term: "Real demand",
-    def: "A buyer question taken from what people actually search, not written by AI: Google's "
+    def: "An unbranded question taken from what people actually search, not written by AI: Google's "
       + "autocomplete suggestions for the category (and Reddit threads, when Reddit allows it). Similar "
       + "searches are grouped by meaning and the biggest groups are asked first. It shows the questions "
       + "are real, not how many people search them.",
@@ -92,7 +92,7 @@ export const GLOSSARY = {
   },
   share_of_voice: {
     term: "Share of voice",
-    def: "Out of the buyer questions that count, how many answers recommended the company compared with "
+    def: "Out of the unbranded questions that count, how many answers recommended the company compared with "
       + "the companies the AI recommended most often instead.",
   },
   rival_only: {
@@ -192,7 +192,7 @@ export const GLOSSARY = {
   retrieval_score: {
     term: "Retrieval score",
     def: "A simulation of what an AI search reads first. We split your pages, and the pages the AI "
-      + "cited, into short passages and score how closely each one matches the buyer question and the "
+      + "cited, into short passages and score how closely each one matches the unbranded question and the "
       + "AI's own searches for it, from 0 (unrelated) to 1 (the same meaning). The AI tends to read "
       + "and cite the closest passages, so a higher score makes a citation likelier, never certain.",
   },

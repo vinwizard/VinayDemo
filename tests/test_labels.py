@@ -19,10 +19,10 @@ def probe(pid, kind="blind", phase="baseline"):
 
 
 @pytest.mark.parametrize("pid,kind,phase,expected", [
-    ("np-1", "named", "baseline", "Brand question 1"),
-    ("np-8", "named", "baseline", "Brand question 8"),
-    ("kb-2", "blind", "baseline", "Buyer question 2"),
-    ("ai_native-b1", "blind", "baseline", "Buyer question 1"),
+    ("np-1", "named", "baseline", "Branded question 1"),
+    ("np-8", "named", "baseline", "Branded question 8"),
+    ("kb-2", "blind", "baseline", "Unbranded question 2"),
+    ("ai_native-b1", "blind", "baseline", "Unbranded question 1"),
     ("kb-f1", "blind", "followup", "Follow-up question 1"),
 ])
 def test_probe_name(pid, kind, phase, expected):
@@ -85,7 +85,7 @@ def test_markdown_report_never_leaves_an_id_as_the_only_name(scenario):
 
 def test_markdown_report_leads_with_names(run_a):
     md = to_markdown(run_a)
-    assert "**Brand question 1** (`np-1`" in md
+    assert "**Branded question 1** (`np-1`" in md
     assert "strength 2" not in md and "- Evaluation: recommended" in md
     assert "[Sample data]" in md
 
@@ -94,4 +94,4 @@ def test_exclusion_reasons_name_the_question(run_a):
     import drift
     answers = [a for a in run_a.answers if a.probe_id != "np-4"]
     _, reasons, asked = drift.named_eligibility(run_a.probes, answers, run_a.evaluations)
-    assert reasons == ["Brand question 4: no answer collected"] and asked == 8
+    assert reasons == ["Branded question 4: no answer collected"] and asked == 8

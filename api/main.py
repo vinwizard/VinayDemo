@@ -346,29 +346,29 @@ def vet_questions(profile, attributes: list[Attribute]) -> list[str]:
         kept = []
         for q in a.buyer_questions:
             if leaks := brand_leaks(q, profile):
-                warnings.append(f"“{a.label}”: a buyer question named you ({', '.join(leaks)}) and was "
+                warnings.append(f"“{a.label}”: an unbranded question named you ({', '.join(leaks)}) and was "
                                 "dropped — a question that names you cannot test whether a buyer finds you.")
             elif vendor := vendor_address(q):
-                warnings.append(f"“{a.label}”: a buyer question addressed the vendor ({', '.join(vendor)}) "
+                warnings.append(f"“{a.label}”: an unbranded question addressed the vendor ({', '.join(vendor)}) "
                                 "and was dropped — a buyer who has never heard of you asks about a need, "
                                 "not about “your platform”.")
             elif q.strip().lower() in asked:
-                warnings.append(f"“{a.label}”: a buyer question repeated one already asked for an "
+                warnings.append(f"“{a.label}”: an unbranded question repeated one already asked for an "
                                 "earlier claim and was dropped — one question cannot measure two claims.")
             else:
                 asked.add(q.strip().lower())
                 kept.append(q)
         a.buyer_questions = kept
         if not kept:
-            warnings.append(f"“{a.label}”: no buyer question survived, so this claim is measured on "
+            warnings.append(f"“{a.label}”: no unbranded question survived, so this claim is measured on "
                             "the brand axis only.")
     named = named_probes_for(profile, attributes)
     if lost := len(NAMED_TEMPLATES) - len(named):
-        warnings.append(f"{lost} of {len(NAMED_TEMPLATES)} brand questions dropped: their ordinary wording "
+        warnings.append(f"{lost} of {len(NAMED_TEMPLATES)} branded questions dropped: their ordinary wording "
                         "collides with a claim being measured, and an answer echoing the question back "
                         "would measure the question, not the model.")
     if len(named) < MIN_NAMED:
-        warnings.append(f"Only {len(named)} brand question(s) remain; perception needs at least "
+        warnings.append(f"Only {len(named)} branded question(s) remain; perception needs at least "
                         f"{MIN_NAMED}, so no alignment score will be produced.")
     return warnings
 
@@ -403,19 +403,19 @@ def set_category(company: Company, category: Optional[str]) -> list[str]:
         return [f"The core category “{category}” names you ({', '.join(leaks)}), so it was not kept: "
                 "a buyer who has never heard of you cannot shop for it. Set it on the claims screen."]
     if not live.available():
-        return [f"No buyer questions were written for the core category ({live.KEY_ENV} is not set), "
-                "so where you aim to be is not measured and your claims' buyer questions are asked instead."]
+        return [f"No unbranded questions were written for the core category ({live.KEY_ENV} is not set), "
+                "so where you aim to be is not measured and your claims' unbranded questions are asked instead."]
     try:
         generated = buyer_questions_for(category, "Any product in this category, for the buyer's "
                                         "own situation.", n=set_questions())
     except Exception as e:
         traceback.print_exc()
-        return [f"Buyer questions for the core category could not be written ({type(e).__name__}), "
-                "so where you aim to be is not measured and your claims' buyer questions are asked instead."]
+        return [f"Unbranded questions for the core category could not be written ({type(e).__name__}), "
+                "so where you aim to be is not measured and your claims' unbranded questions are asked instead."]
     asked = {q.strip().lower() for a in company.attributes for q in a.buyer_questions}
     p.category_questions = vetted(p, generated, asked)
     if dropped := len(generated) - len(p.category_questions):
-        return [f"{dropped} buyer question(s) for the core category named you, addressed the vendor or "
+        return [f"{dropped} unbranded question(s) for the core category named you, addressed the vendor or "
                 "repeated a claim's question, and were dropped."]
     return []
 
@@ -542,7 +542,7 @@ def added_buyer_questions(company: Company, raw: AddedAttribute) -> tuple[list[s
     is still added, measured on the brand axis alone, and the omission is stated.
     """
     if not live.available():
-        return [], [f"“{raw.label}”: no buyer questions were generated ({live.KEY_ENV} is not set), "
+        return [], [f"“{raw.label}”: no unbranded questions were generated ({live.KEY_ENV} is not set), "
                     "so this claim is measured on the brand axis only."]
     asked = {q.strip().lower() for a in company.attributes for q in a.buyer_questions}
     asked |= {q.strip().lower() for q in company.profile.category_questions}
@@ -555,10 +555,10 @@ def added_buyer_questions(company: Company, raw: AddedAttribute) -> tuple[list[s
     kept = vetted(company.profile, generated, asked)
     warnings = []
     if dropped := len(generated) - len(kept):
-        warnings.append(f"“{raw.label}”: {dropped} generated buyer question(s) named you, addressed "
+        warnings.append(f"“{raw.label}”: {dropped} generated unbranded question(s) named you, addressed "
                         "the vendor or repeated one already asked, and were dropped.")
     if not kept:
-        warnings.append(f"“{raw.label}”: no buyer question survived, so this claim is measured on "
+        warnings.append(f"“{raw.label}”: no unbranded question survived, so this claim is measured on "
                         "the brand axis only.")
     return kept, warnings
 
@@ -630,7 +630,7 @@ def reask_run(run_id: str, req: ReaskRequest, request: Request = None):
         raise HTTPException(400, f"Asking again needs {live.KEY_ENV}. {live.status()}")
     row = next((r for r in (run.retrieval.rows if run.retrieval else []) if r.probe_id == req.probe_id), None)
     if row is None or row.fixed is None:
-        raise HTTPException(404, "No fix to test for that buyer question.")
+        raise HTTPException(404, "No fix to test for that unbranded question.")
     try:
         with access.spending(pid):
             answer = retrieval.reask(run, row, live.model_name())

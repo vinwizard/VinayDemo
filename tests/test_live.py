@@ -248,7 +248,7 @@ def test_a_saved_vendor_addressed_question_is_named_in_the_run_log_not_fatal():
     run = graph.execute(graph.new_run(fixture.bundled_profile("A"), prov, mode="live_api"), prov)
     assert run.status == "complete"
     assert not any(p.text.startswith("How does your platform") for p in run.probes)
-    assert any("1 buyer question(s) dropped" in l and f"{a.id}-1 (your platform)" in l
+    assert any("1 unbranded question(s) dropped" in l and f"{a.id}-1 (your platform)" in l
                for l in run.log)
 
 

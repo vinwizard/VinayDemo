@@ -264,6 +264,21 @@ input[type="range"] { accent-color: var(--accent); width: 9rem; }
 
 .qlist { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px;
          background: var(--surface); }
+/* The questions tab: two bordered sets side by side, each question its own card, its text the headline */
+.qboard { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+@media (max-width: 900px) { .qboard { grid-template-columns: minmax(0, 1fr); } }
+.qset { border: 2px solid var(--accent); border-radius: 12px; padding: .8rem .9rem; background: var(--surface); min-width: 0; }
+.qset.brand { border-color: var(--unprioritised); }
+.qset .qlist { border: none; background: none; gap: .5rem; }
+.qset .qrow { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.qset .qrow + .qrow { border-top: 1px solid var(--border); }
+.qset .qrow > summary { grid-template-columns: .7rem minmax(0, 1fr) auto; grid-template-areas: "m q v" ". n n"; }
+.qset .qrow > summary::before { grid-area: m; }
+.qset .qrow > summary > .qrow-text { grid-area: q; font-size: 1rem; font-weight: 600; line-height: 1.35; }
+.qset .qrow > summary > .qrow-name { grid-area: n; font-size: .78rem; }
+.qset .qrow > summary > :last-child:not(.qrow-text):not(.qrow-name) { grid-area: v; justify-self: end; }
+.qhow > summary { cursor: pointer; font-size: .82rem; color: var(--muted); }
+.qhow[open] { display: flex; flex-direction: column; gap: .4rem; }
 .qrow + .qrow { border-top: 1px solid var(--border); }
 .qrow > summary { display: grid; grid-template-columns: .7rem minmax(8rem, 14rem) 1fr auto; align-items: baseline;
                   gap: .3rem .8rem; cursor: pointer; padding: .55rem .8rem; list-style: none; }

@@ -310,8 +310,8 @@ export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }
       </Stage>
 
 
-      <Stage n={4} title="Ask brand questions" state={s4}
-             summary={s4 === "skipped" ? "Skipped — no brand question survived vetting"
+      <Stage n={4} title="Ask branded questions" state={s4}
+             summary={s4 === "skipped" ? "Skipped — no branded question survived vetting"
                : answeredSummary(brand, planned?.brand, "question")
                  ?? `Questions that name ${brandName} but never name a claim`}>
         {s4 !== "pending" && s4 !== "skipped" && (
@@ -325,8 +325,8 @@ export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }
           </div>
         )}
       </Stage>
-      <Stage n={5} title="Ask buyer questions" state={s5}
-             summary={s5 === "skipped" ? "Skipped — no weighted claim has a buyer question"
+      <Stage n={5} title="Ask unbranded questions" state={s5}
+             summary={s5 === "skipped" ? "Skipped — no weighted claim has an unbranded question"
                : answeredSummary(buyer, planned?.buyer, "question")
                  ?? `Questions a buyer would ask without naming ${brandName}`}>
         {s5 !== "pending" && s5 !== "skipped" && (

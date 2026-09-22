@@ -271,7 +271,7 @@ def test_onboard_vetting_says_how_many_brand_questions_are_left():
                        aliases=["describe", "known", "strengths", "recommend", "changed", "value"])
              for i in range(1, 3)]
     warnings = main.vet_questions(PROFILE, attrs)
-    assert any("brand question(s) remain" in w for w in warnings)
+    assert any("branded question(s) remain" in w for w in warnings)
 
 
 # ---------------------------------------------------------------- added claims

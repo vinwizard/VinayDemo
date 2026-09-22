@@ -110,7 +110,7 @@ def cited_sources(run: Run) -> dict:
 
 
 def share_of_voice(run: Run) -> dict:
-    """On the counted buyer questions: answers recommending the brand vs answers recommending each competitor."""
+    """On the counted unbranded questions: answers recommending the brand vs answers recommending each competitor."""
     rows = list(_counted(run, "blind"))
     rivals: Counter = Counter()
     spelled: dict[str, str] = {}
@@ -120,7 +120,7 @@ def share_of_voice(run: Run) -> dict:
             spelled.setdefault(key, name)
     reason = None
     if not rows:
-        reason = "No buyer question produced an answer that counts, so there is no voice to share."
+        reason = "No unbranded question produced an answer that counts, so there is no voice to share."
     elif not rivals:
         reason = f"No competitor was recommended in any of the {len(rows)} buyer answers that count."
     return dict(questions=len(rows), brand=run.profile.name,
@@ -168,7 +168,7 @@ def searches(run: Run) -> dict:
         g["variants"].remove(g["query"])
     reason = None
     if not got:
-        reason = "No buyer question was answered, so there were no searches to read."
+        reason = "No unbranded question was answered, so there were no searches to read."
     elif not recorded:
         reason = "Which searches the AI ran was not recorded for this run."
     elif not rows:
