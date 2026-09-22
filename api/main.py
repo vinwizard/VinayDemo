@@ -27,6 +27,7 @@ import demand
 import fetching
 import graph
 import reports
+import retrieval
 from insights import insights
 from agents.ana import SET_QUESTIONS, brand_leaks, discovered_competitors, vendor_address
 from agents.evaluator_model import ModelEvaluator
@@ -599,6 +600,49 @@ def rescore_run(run_id: str, req: RescoreRequest, request: Request = None):
         raise HTTPException(409, str(e))
     # public: arithmetic only, so allowed — but one visitor never rewrites a shared run, only a pass its own;
     # and the committed Profound run is never rewritten, so re-weighting it leaves the working tree clean
+    if run.id != SHOWCASE_RUN and (not public_demo() or (pid and access.owner("run", run_id) == pid)):
+        save_run(run)
+    return run_payload(run)
+
+
+class ReaskRequest(BaseModel):
+    probe_id: str
+
+
+@app.post("/api/runs/{run_id}/reask")
+def reask_run(run_id: str, req: ReaskRequest, request: Request = None):
+    """Test a fix: ask one buyer question again with the rewritten passage and the cited page as its
+    only sources. One metered call, a simulation that moves no score; refused without a pass."""
+    holder = holder_of(request)
+    pid = pass_id(holder)
+    if not access.visible("run", run_id, pid):
+        raise HTTPException(404, f"run {run_id} not found")
+    try:
+        run = load_run(run_id)
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(404, f"run {run_id} not found")
+    refuse_in_public("asking the model again", holder)
+    if run.mode != "live_api":
+        raise HTTPException(400, "Only a live run can be asked again: this sample's passages were written by hand.")
+    if not live.available():
+        raise HTTPException(400, f"Asking again needs {live.KEY_ENV}. {live.status()}")
+    row = next((r for r in (run.retrieval.rows if run.retrieval else []) if r.probe_id == req.probe_id), None)
+    if row is None or row.fixed is None:
+        raise HTTPException(404, "No fix to test for that buyer question.")
+    try:
+        with access.spending(pid):
+            answer = retrieval.reask(run, row, live.model_name())
+    except access.Refused as e:
+        raise HTTPException(403, e.message)
+    except Exception as e:
+        raise HTTPException(502, f"Asking again failed: {live.safe_error(e)}")
+    try:
+        run = load_run(run_id)
+    except (FileNotFoundError, ValueError):
+        pass
+    for r in run.retrieval.rows if run.retrieval else []:
+        if r.probe_id == req.probe_id:
+            r.reask = answer
     if run.id != SHOWCASE_RUN and (not public_demo() or (pid and access.owner("run", run_id) == pid)):
         save_run(run)
     return run_payload(run)

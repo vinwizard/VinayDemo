@@ -189,10 +189,26 @@ export interface Run {
   /** Absent on runs saved before the action plan existed. */
   win_back?: WinBackAction[];
   win_back_notes?: string[];
+  /** Simulated retrieval and the fixes re-scored; absent on runs saved before it existed. */
+  retrieval?: RetrievalSim | null;
   /** The company's site audit when the run started; absent on replays and older runs. */
   audit?: SiteAudit | null;
   log: string[];
   insights?: Insights;  // derived by the API from the saved answers; absent on a run read raw
+}
+
+/** One passage and how closely it matches a buyer question or search: cosine similarity of embeddings. */
+export interface ScoredPassage { url: string; text: string; score: number; query: string }
+export interface Reask { named: boolean; answer: string; model: string; collected_at: string }
+export interface RetrievalRow {
+  probe_id: string; queries: number;
+  yours: ScoredPassage | null; rival: ScoredPassage | null; fixed: ScoredPassage | null;
+  fix_attribute_id: string | null; reask: Reask | null;
+}
+/** A mini version of how an AI search picks what to read (retrieval.py). Moves no score. */
+export interface RetrievalSim {
+  provenance: string; model: string | null; pages: number; passages: number;
+  rows: RetrievalRow[]; skipped: string[];
 }
 
 /** Two panels the API reads off a run's counted baseline answers (insights.py). `reason` says why one is empty. */
@@ -405,6 +421,14 @@ export const getPass = (visit = false) =>
   json<{ pass: PassStatus | null }>(`/api/access${visit ? "?visit=1" : ""}`);
 export const getRuns = () => json<RunSummary[]>("/api/runs");
 export const getRun = (id: string) => json<Run>(`/api/runs/${id}`);
+
+/** Asks one buyer question again with the rewritten passage as a source: one metered model call. */
+export const reaskRun = (id: string, probe_id: string) =>
+  json<Run>(`/api/runs/${id}/reask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ probe_id }),
+  });
 
 /** Re-scores a finished run's saved answers with intent weights. No model is asked. */
 export const rescoreRun = (id: string, weights: Record<string, number>) =>

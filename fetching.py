@@ -23,6 +23,7 @@ import ssl
 from html.parser import HTMLParser
 from typing import Optional
 from urllib.parse import urljoin, urlparse
+from urllib.robotparser import RobotFileParser
 
 TIMEOUT = 10
 MAX_BYTES = 1024 * 1024
@@ -93,6 +94,9 @@ def validate(url: str) -> tuple[str, str, int, str]:
 
 class _Text(HTMLParser):
     SKIP = {"script", "style", "noscript", "svg", "head"}
+    # tags that start a new block of text: headings and paragraphs split passages (retrieval.py)
+    BLOCK = {"p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "div", "section", "article", "br", "tr",
+             "blockquote", "header", "footer", "nav", "main", "aside", "dd", "dt", "figcaption"}
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -102,23 +106,57 @@ class _Text(HTMLParser):
     def handle_starttag(self, tag, attrs):
         if tag in self.SKIP:
             self._skip += 1
+        elif tag in self.BLOCK:
+            self.parts.append("\n")
 
     def handle_endtag(self, tag):
         if tag in self.SKIP and self._skip:
             self._skip -= 1
+        elif tag in self.BLOCK:
+            self.parts.append("\n")
 
     def handle_data(self, data):
         if not self._skip and data.strip():
             self.parts.append(data.strip())
 
 
-def extract_text(html: str) -> str:
+def _parts(html: str) -> list[str]:
     p = _Text()
     try:
         p.feed(html)
     except Exception:
         pass                                # malformed markup: keep whatever parsed
-    return re.sub(r"\s+", " ", " ".join(p.parts)).strip()[:MAX_CHARS]
+    return p.parts
+
+
+def extract_text(html: str) -> str:
+    return re.sub(r"\s+", " ", " ".join(_parts(html))).strip()[:MAX_CHARS]
+
+
+def extract_blocks(html: str, max_chars: int = 3 * MAX_CHARS) -> list[str]:
+    """The page's readable text as blocks — one per heading, paragraph or list item — in order."""
+    blocks, total = [], 0
+    for b in " ".join(_parts(html)).split("\n"):
+        b = re.sub(r"\s+", " ", b).strip()
+        if b and total < max_chars:
+            blocks.append(b)
+            total += len(b)
+    return blocks
+
+
+def robots_allow(url: str, timeout: float = TIMEOUT) -> bool:
+    """Whether the site's robots.txt lets this fetcher read `url`. No robots.txt (a 4xx) allows
+    everything; one that cannot be read raises, and the caller skips the page."""
+    u = urlparse(url)
+    try:
+        _, body = fetch_raw(f"{u.scheme}://{u.netloc}/robots.txt", timeout)
+    except FetchError as e:
+        if re.search(r"HTTP 4\d\d", str(e)):
+            return True
+        raise
+    rules = RobotFileParser()
+    rules.parse(body.splitlines())
+    return rules.can_fetch(USER_AGENT, url)
 
 
 def _get(scheme: str, host: str, port: int, path: str, timeout: float = TIMEOUT,
@@ -159,9 +197,9 @@ def request(url: str, timeout: float = TIMEOUT, accept: str = HTML) -> tuple[str
     raise FetchError(f"too many redirects from {url}")
 
 
-def fetch_raw(url: str) -> tuple[str, str]:
+def fetch_raw(url: str, timeout: float = TIMEOUT) -> tuple[str, str]:
     """-> (final_url, raw_html)."""
-    final, status, ctype, html = request(url)
+    final, status, ctype, html = request(url, timeout)
     if status != 200:
         raise FetchError(f"HTTP {status} for {final}")
     if "html" not in ctype and "text" not in ctype:

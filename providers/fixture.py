@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 
 from agents.onboarding import structural_fingerprint
-from schemas import Answer, Attribute, CompanyProfile, Probe, Topic
+from schemas import Answer, Attribute, CompanyProfile, Probe, RetrievalSim, Run, Topic
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 SCENARIOS = {"A": "demo_a.json", "B": "demo_b.json"}
@@ -81,6 +81,12 @@ class FixtureProvider:
     def win_back(self, prompt: str):
         """The authored action plan. Like `answer`, it ignores what a model would be sent."""
         return self.data.get("win_back")
+
+    def retrieval(self, run: Run):
+        """The authored retrieval sample: hand-written passages and scores, labelled sample wherever
+        they appear. No page is fetched and nothing is embedded."""
+        sample = self.data.get("retrieval")
+        return RetrievalSim(provenance="synthetic", **sample) if sample else None
 
     def answer(self, probe: Probe) -> Answer:
         """Only the probe id is used to look up the answer; a live provider would receive only probe.text."""

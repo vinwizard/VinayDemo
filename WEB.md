@@ -174,6 +174,7 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 | `GET /api/stream?company=<id>` or `?scenario=A&mode=demo` | SSE while the graph runs: `node` (with `planned` question counts per stage, discovered `competitors` and the run `mode`), `answer` (the question, the first 320 characters of its answer, provenance and whether a web search ran), `done` (the full run), `error`. A company is always `mode=live`, apart from the offline fallback above. The page only ever measures companies; `?scenario=` remains for the fixture path |
 | `GET /api/runs` | run history, newest first |
 | `GET /api/runs/{id}` | one full run, including the drift report and its `insights` (share of voice, cited sources, searches); the stream's `done` event and `rescore` return the same shape |
+| `POST /api/runs/{id}/reask` | test a fix: `{probe_id}` asks that buyer question once more, with the rewritten passage and the cited page's passage as the only sources, and saves whether the brand was named on its retrieval row. One metered model call; live runs only, refused on the public demo without a pass. A simulation that moves no score |
 | `POST /api/runs/{id}/rescore` | lens 2 after the fact: `{weights: {id: 0..1}}` sets intent on a finished run and re-scores its saved answers — no provider is built and no model is asked. Unnamed weights keep their value; 0 unweights; with nothing weighted the run reads through the claim lens again. Saved in place, except in the public demo (`VISEXP_PUBLIC_DEMO`) and for the committed Profound run |
 | `GET /api/onboard/stream?url=&name=` | the same onboarding as SSE: `pages` (the URLs the crawl fetched) as soon as the crawl lands, then `company` once extraction is saved, or `error`. The page uses this one |
 | `GET /api/onboard?url=&name=` | Agent 1: crawl up to 6 of a company's own pages, extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. Needs the same key as live mode. A company is always saved, never refused: a site where fewer than three claims survive quote validation carries a prominent warning that it states too little for a reliable claim percentage, and the existing insufficient-evidence rules withhold the scores rather than the company |
@@ -274,6 +275,21 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     crawler never ran JavaScript, so a quote it kept was in the plain HTML by construction: the
     JavaScript mark says whether it still is, and near-empty shells (under 100 characters of text,
     filled in by inline script or script files) are flagged; a short page with an analytics tag is not.
+    **Test a fix** (`run.retrieval`, `retrieval.py`): a mini version of how an AI search picks what
+    to read. After scoring, the brand's pages (fetched again, with the onboarding text as fallback)
+    and the pages AI cited for each buyer question (up to 10, most-cited first, robots.txt respected,
+    5 s timeouts) are split into 80–150-word passages on heading and paragraph boundaries, embedded
+    with `text-embedding-3-small` (`embeddings.py`: metered, cached on disk by text hash) and scored
+    by cosine similarity against the question and its fan-out searches. Per question: your best
+    passage, the best passage of a page AI cited, and — where a "Win it back" fix targets the
+    question — the rewrite spliced into its page (in place of the copy it replaces, else as a new
+    passage) and scored again; tap a row for the passages. Every number is labelled a
+    **retrieval score**, a similarity-based simulation, never a guarantee of citation, and moves no
+    score. On a live run, "Ask the AI again with the fix" asks the buyer question once with the
+    rewritten passage and the cited page as the only sources and says whether the brand is named:
+    one metered call, off until pressed, refused without a pass. Pages not read are listed with the
+    reason. The bundled samples carry an authored sample, labelled as such. Overview gets one line
+    on the biggest fixable gap.
   - **Sources & rivals** — **where AI gets its opinion** (every site cited in a counted buyer or
     brand answer, ranked by answers citing it; a third-party site cited in two or more is flagged
     as a target), **share of voice** (answers recommending the brand beside the three
