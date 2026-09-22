@@ -116,8 +116,7 @@ things make the buyer number trustworthy anyway:
   search, keeps phrasings on the category with buying intent that never name the brand or address
   the vendor, groups them by meaning (`text-embedding-3-small`, metered through `access.py`;
   average-link clustering at one cosine threshold) and asks the most central phrasing of the
-  biggest groups first. A short search is reworded into a question by the evaluator model only
-  when code sees every searched word kept; otherwise it is asked as typed. Each such probe carries
+  biggest groups first, exactly as people typed it; no model rewords it. Each such probe carries
   `probe.demand` (the real phrase and its whole group), shown as a "real demand" badge; the
   written questions fill any shortfall. Harvests are cached a week under `DATA_DIR/demand/`.
   Reddit refuses unauthenticated clients from many networks and "People also ask" would mean

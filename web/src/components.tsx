@@ -1061,9 +1061,7 @@ function DemandBadge({ d }: { d: Demand }) {
       <Popover label="Real demand" className="demand-badge" trigger={<>real demand · {SOURCE[d.source]}</>}>
         <strong className="pop-title">{GLOSSARY.real_demand.term}</strong>
         <p>
-          {d.rewritten
-            ? <>People search “{d.phrase}” on {SOURCE[d.source]}. AI only reworded it into a question.</>
-            : <>People {d.source === "reddit" ? "ask exactly this on Reddit" : "search exactly this on Google"}.</>}
+          People {d.source === "reddit" ? "ask exactly this on Reddit" : "search exactly this on Google"}.
         </p>
         {n > 1 && (
           <>

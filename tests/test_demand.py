@@ -1,6 +1,6 @@
 """Buyer questions grounded in real demand (demand.py). No network and no key: the autocomplete
 answers are recorded from Google's suggestqueries endpoint, the Reddit listing is authored in its
-real shape (Reddit refused unauthenticated search), and embeddings and rewording are stubs."""
+real shape (Reddit refused unauthenticated search), and embeddings are a stub."""
 import json
 from pathlib import Path
 
@@ -77,27 +77,15 @@ def test_cluster_groups_by_cosine_and_leaves_the_unlike_alone():
     assert sorted(map(sorted, groups)) == [[0, 1], [2]]
 
 
-def test_ground_asks_the_biggest_groups_keeps_the_real_phrase_and_vets_the_rewording(monkeypatch):
+def test_ground_asks_the_biggest_groups_exactly_as_people_typed_them(monkeypatch):
     monkeypatch.setattr(demand, "_fetch_json", recorded)
-    prompts = []
-
-    def rewrite(prompt):
-        prompts.append(prompt)
-        lines = [l[2:] for l in prompt.splitlines() if l.startswith("- ")]
-        # one faithful rewording; one that adds a need, which code must refuse
-        return json.dumps({"questions": [f"What is the {l}?" if "construction" in l
-                                         else f"{l} with AI and Gantt charts and budgets?" for l in lines]})
-
-    found, note = demand.ground(CAT, F.profile, 3, rewrite, embed=embed)
-    assert len(found) == 3 and prompts
+    found, note = demand.ground(CAT, F.profile, 3, embed=embed)
+    assert len(found) == 3
     sizes = [len(d.phrasings) for _, d in found]
     assert sizes == sorted(sizes, reverse=True) and sizes[0] > 1
     for q, d in found:
-        assert d.phrase in [p.text for p in d.phrasings]
-        assert q == d.phrase or demand.keeps_meaning(d.phrase, q)      # meaning kept, or asked as typed
-        assert d.rewritten == (q != d.phrase)
+        assert q == d.phrase and d.phrase in [p.text for p in d.phrasings]
         assert not ana.brand_leaks(q, F.profile)
-    assert any(d.rewritten for _, d in found)
     assert "Google autocomplete and Reddit" in note
 
 
@@ -110,7 +98,7 @@ def test_live_plan_asks_real_searches_first_and_marks_them(monkeypatch):
     aim_qs = [f"Which workspace tool suits a team of {n}?" for n in (5, 10, 20, 50, 100, 200)]
     profile = F.profile.model_copy(update=dict(core_category=CAT, category_questions=aim_qs))
     monkeypatch.setattr(demand, "_fetch_json", recorded)
-    ground = lambda c, p, n, rw: demand.ground(c, p, 2, rw, embed=embed)
+    ground = lambda c, p, n: demand.ground(c, p, 2, embed=embed)
     prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="m", demand=ground)
     _, probes = prov.plan(profile, None)
     aim = [p for p in probes if p.topic_id.startswith("cat-")]

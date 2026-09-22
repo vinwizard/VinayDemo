@@ -13,9 +13,7 @@ answer to "are these even real questions?", not a volume estimate.
   * Group with embeddings (text-embedding-3-small, metered through access.py) and average-link
     clustering at a cosine threshold; the most central member stands for its group, and a group's
     weight is how many real phrasings it holds, autocomplete rank breaking ties.
-  * A short search phrase is reworded into a question by the evaluator model; code keeps the
-    rewording only if it keeps every content word of the phrase and adds at most two, otherwise the
-    phrase is asked as typed. The phrase itself is always stored and shown.
+  * The representative phrase is asked exactly as people typed it; no model rewords it.
 
 Harvests are cached on disk per category for a week. Anything that fails leaves the front on the
 questions onboarding wrote, with the reason stated in the run.
@@ -25,7 +23,7 @@ import re
 import time
 import urllib.parse
 import urllib.request
-from typing import Callable, Optional
+from typing import Callable
 
 import reports
 from agents.ana import brand_leaks, vendor_address
@@ -47,10 +45,6 @@ QUESTION = re.compile(r"^(what|which|who|how|is|are|should|can|does|do|any|where
                       re.I)
 INTENT = re.compile(r"\b(best|top|free|cheap|cheapest|vs|versus|alternatives?|compare|comparison|"
                     r"recommend\w*|reviews?|for|easiest|simple|pricing)\b", re.I)
-REWRITE_PROMPT = """Each line below is a search someone typed. Reword each into the question a buyer would ask an
-AI chatbot. Keep every word's meaning; add no product, brand, requirement or detail the search does not have.
-{lines}
-Return ONLY JSON: {{"questions": [string]}} — one per line, in the same order."""
 
 
 def _fetch_json(url: str):
@@ -132,25 +126,17 @@ def cluster(vectors: list[list[float]], threshold: float = SAME_GROUP) -> tuple[
     return groups, sim
 
 
-def keeps_meaning(phrase: str, question: str) -> bool:
-    """A rewording may add a question's scaffolding, never drop a searched word or add a need."""
-    was, now = content_words(phrase), content_words(question)
-    return was <= now and len(now - was) <= 2
-
-
 def embed(texts: list[str]) -> list[list[float]]:
     import access  # metered: refused at a pass's cap, charged to it after
     r = access.openai_embedding(30, model=EMBED_MODEL, input=texts, dimensions=256)
     return [d.embedding for d in r.data]
 
 
-def ground(category: str, profile: CompanyProfile, n: int,
-           rewrite: Optional[Callable[[str], str]] = None, embed: Callable = embed
+def ground(category: str, profile: CompanyProfile, n: int, embed: Callable = embed
            ) -> tuple[list[tuple[str, Demand]], str]:
     """-> (up to n (question, where it came from), heaviest group first; one sentence for the report).
 
-    `rewrite` is a model call (prompt -> raw JSON); None asks every phrase as typed. Never raises:
-    a failure returns no questions and a sentence saying why."""
+    Never raises: a failure returns no questions and a sentence saying why."""
     fallback = f"so the buyer questions about {category} were written by AI"
     try:
         raw, notes = harvest(category)
@@ -162,37 +148,15 @@ def ground(category: str, profile: CompanyProfile, n: int,
     except Exception as e:     # refused by the pass (access.Refused) is a BaseException and passes up
         return [], f"Real searches for {category} could not be grouped by meaning ({type(e).__name__}), {fallback}."
     rank = lambda g: (-len(g), min(phrases[i]["rank"] if phrases[i]["source"] == "autocomplete" else 99 for i in g))
-    picked = []
+    out = []
     for g in sorted(groups, key=rank)[:n]:
         g = sorted(g, key=lambda i: -sum(sim[i][j] for j in g))      # most central first
-        picked.append([phrases[i] for i in g])
-    wording, failed = _reword([g[0]["text"] for g in picked], rewrite)
-    if failed:
-        notes.append(f"the rewording into questions failed ({failed}), so the searches were asked as typed")
-    out = []
-    for g, question in zip(picked, wording):
-        if brand_leaks(question, profile) or vendor_address(question):
-            continue
-        out.append((question, Demand(phrase=g[0]["text"], source=g[0]["source"],
-                                     rewritten=question != g[0]["text"],
-                                     phrasings=[DemandPhrase(text=p["text"], source=p["source"]) for p in g])))
+        out.append((phrases[g[0]]["text"], Demand(
+            phrase=phrases[g[0]]["text"], source=phrases[g[0]]["source"],
+            phrasings=[DemandPhrase(text=phrases[i]["text"], source=phrases[i]["source"]) for i in g])))
     sources = sorted({p["source"] for p in phrases})
     said = " and ".join("Google autocomplete" if s == "autocomplete" else "Reddit" for s in sources)
     note = (f"{len(out)} buyer questions about {category} are real searches from {said}: "
             f"{len(phrases)} phrasings grouped into {len(groups)} by meaning, the most common groups asked.")
     return out, note + (f" {'; '.join(notes)}." if notes else "")
 
-
-def _reword(phrases: list[str], rewrite: Optional[Callable[[str], str]]) -> tuple[list[str], Optional[str]]:
-    """-> (each phrase as a question: the model's rewording where code accepts it, else as typed;
-    why the rewording call failed, or None)."""
-    todo = [p for p in phrases if not QUESTION.search(p)]
-    got, failed = {}, None
-    if todo and rewrite:
-        try:
-            text = rewrite(REWRITE_PROMPT.format(lines="\n".join(f"- {p}" for p in todo)))
-            qs = json.loads(text[text.find("{"):text.rfind("}") + 1])["questions"]
-            got = {p: q.strip() for p, q in zip(todo, qs) if isinstance(q, str) and keeps_meaning(p, q)}
-        except Exception as e:  # stated in the run's note; the phrase is still real, only less conversational
-            failed = type(e).__name__
-    return [got.get(p, p) for p in phrases], failed

@@ -99,11 +99,9 @@ export interface Topic {
 
 /** Where a buyer question came from when it is a real search, not one AI wrote. */
 export interface Demand {
-  /** The real search it was built from, verbatim. */
+  /** The real search, verbatim: the question asked. */
   phrase: string;
   source: "autocomplete" | "reddit";
-  /** The model reworded the search into this question. */
-  rewritten: boolean;
   /** Every real phrasing grouped with it, the phrase included. */
   phrasings: { text: string; source: "autocomplete" | "reddit" }[];
 }

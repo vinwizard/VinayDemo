@@ -147,10 +147,9 @@ class DemandPhrase(BaseModel):
 
 class Demand(BaseModel):
     """Where a buyer question came from when it is grounded in real demand (demand.py): the real
-    search phrase it was built from and every real phrasing grouped with it. Not search volume."""
+    search phrase it asks and every real phrasing grouped with it. Not search volume."""
     phrase: str                     # the group's most central real phrase, verbatim
     source: Literal["autocomplete", "reddit"]
-    rewritten: bool = False         # True: the evaluator model turned the phrase into a question
     phrasings: list[DemandPhrase]   # the whole group, the phrase included; its size is the weight
 
 

@@ -207,7 +207,7 @@ class LiveProvider:
             """Real searches for the category, heaviest group first; [] with a stated reason if none."""
             if not self._demand:
                 return []
-            found, note = self._demand(category, profile, SET_QUESTIONS, getattr(self.evaluator, "reword", None))
+            found, note = self._demand(category, profile, SET_QUESTIONS)
             self.demand_notes.append(note)
             real.update({q.strip().lower(): d for q, d in found})
             return [q for q, _ in found]
