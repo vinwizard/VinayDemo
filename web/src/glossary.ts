@@ -94,6 +94,24 @@ export const GLOSSARY = {
     def: "Out of the buyer questions that count, how many answers recommended the company compared with "
       + "the products the AI recommended most often instead.",
   },
+  rival_only: {
+    term: "Sites that skip you",
+    def: "Sites the AI cited in a buyer answer that named a rival but never mentioned the company. The AI "
+      + "read these pages when it picked your rivals, so they are the review sites, lists and articles "
+      + "to get onto. Ranked by how many buyer answers cited them, then by how many rivals sat beside them.",
+  },
+  source_type: {
+    term: "Site type",
+    def: "What kind of site a citation points at: the company's own site, a rival's own site, a review "
+      + "site (G2, Capterra…), a community (Reddit, forums), media or a blog, or other. Sorted from a "
+      + "short list of well-known sites plus the address itself, so an unfamiliar site shows as other.",
+  },
+  citation_map: {
+    term: "Citation map",
+    def: "Every brand named in a buyer answer, joined to each site that answer cited. A site joined to "
+      + "several rivals and never to the company is where the AI learns about the category without "
+      + "learning about the company.",
+  },
   landed: {
     term: "Landed",
     def: "A claim the company wants to be known for, and the AI already says it. This is working.",
