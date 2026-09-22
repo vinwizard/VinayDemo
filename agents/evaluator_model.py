@@ -90,10 +90,10 @@ def answer_lines(text: str) -> list[str]:
 
 def model_name() -> str:
     """EVALUATOR_MODEL, or the default — but never a model the live preflight has just proved this
-    account cannot call. The judge shares the measured side's default, so a refusal there refuses
-    it too, and every answer would fail identically instead of once."""
+    account cannot call. A judge on the very model preflight refused would fail every answer
+    identically instead of once; a judge chosen separately was never tested and is kept."""
     from providers import live
-    if live.fallback_reason() and (os.environ.get(MODEL_ENV) or DEFAULT_MODEL) == live.DEFAULT_MODEL:
+    if live.fallback_reason() and (os.environ.get(MODEL_ENV) or DEFAULT_MODEL) == live.configured_model():
         return live.FALLBACK_MODEL
     return os.environ.get(MODEL_ENV) or DEFAULT_MODEL
 

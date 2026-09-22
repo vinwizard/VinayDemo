@@ -278,11 +278,11 @@ def searches_of(response) -> list[str]:
     return out
 
 
-def default_transport(messages: list[dict], model: str, timeout: int):
+def default_transport(messages: list[dict], model: str, timeout: int, tool=...):
     import access  # metered: refused at a pass's cap, charged to it after
     # tool_choice is the whole point of forcing search: with "auto" the model decides, and the
     # answers it decides not to search for are paid for and then excluded from the score.
-    tool = search_tool()
+    tool = search_tool() if tool is ... else tool
     extra = dict(tools=[tool], tool_choice=TOOL_CHOICE) if tool else {}
     return access.openai_response(timeout, model=model, input=messages, **extra)
 
@@ -306,10 +306,15 @@ class LiveProvider:
         self._attributes = attributes
         self._named = named_probes
         self._profile = profile
+        # The model, the tool and the reason for them are fixed per run: a concurrent run's preflight
+        # rewrites the module state, and must not retarget calls this run already has in flight.
         self.model = model or model_name()
+        self.search_tool = search_tool()
+        self.fallback = _fallback
         self.tries = buyer_tries()
         self.repeat_sample = repeat_sample()
-        self._transport = transport or default_transport
+        self._transport = transport or (lambda msgs, model, timeout: default_transport(
+            msgs, model, timeout, tool=self.search_tool))
         # run -> RetrievalSim. The real one fetches pages and embeds them, so an injected transport
         # (a test) gets none unless it injects one too.
         if retrieval is None and transport is None:
@@ -340,7 +345,7 @@ class LiveProvider:
         from agents.ana import blind_probes_for_fronts, same_category, set_questions
         # A preflight step-down is a caveat on the whole report, not a server-log line: graph puts
         # `notes` into run.log AND run.drift_notes, so it reaches the report's limitations.
-        self.notes = [_fallback] if _fallback else []
+        self.notes = [self.fallback] if self.fallback else []
         self.demand_notes = []
         per_front = set_questions()
         real: dict[str, object] = {}              # question text -> the real demand it came from
@@ -407,7 +412,7 @@ class LiveProvider:
         base = dict(probe_id=probe.id, provenance="live_api", provider=self.name,
                     model=self.model, collected_at=now, try_no=try_no)
         raw, err = self._call(probe)
-        if raw is not None and _search and not parse_response(raw)[2]:
+        if raw is not None and self.search_tool is not None and not parse_response(raw)[2]:
             # tool_choice asked for a search and none ran. One retry: a model that skips a forced
             # tool once usually searches on the next draw, and an ungrounded answer is excluded from
             # the score anyway (scoring.eligible), so the first call is already spent for nothing.

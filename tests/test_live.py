@@ -352,6 +352,29 @@ def test_the_judge_follows_the_measured_fallback_rather_than_failing_every_answe
     assert evaluator_model.model_name() == "gpt-4o"
 
 
+def test_the_judge_follows_only_the_model_preflight_refused(monkeypatch):
+    from agents import evaluator_model
+    monkeypatch.delenv(evaluator_model.MODEL_ENV, raising=False)
+    monkeypatch.setenv(live.MODEL_ENV, "gpt-4.1")
+    live._fallback = "refused"                  # gpt-4.1 was refused; the default judge never was
+    assert evaluator_model.model_name() == evaluator_model.DEFAULT_MODEL
+    monkeypatch.setenv(evaluator_model.MODEL_ENV, "gpt-4.1")   # a judge on the refused model moves
+    assert evaluator_model.model_name() == live.FALLBACK_MODEL
+
+
+def test_a_run_keeps_the_tool_it_was_built_with_when_another_preflight_resets(monkeypatch):
+    """Preflight state is process-wide; a second run's preflight must not retarget this run's calls."""
+    import access
+    sent = []
+    monkeypatch.setenv(access.KEY_ENV, "test-key")
+    monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.append(kw.get("tools")) or response())
+    live._fallback = "refused"
+    prov = provider()
+    live._fallback, live._search = None, True   # what another run's preflight does on entry
+    prov.answer(PROBE)
+    assert sent == [[live.FALLBACK_TOOL]]
+
+
 def test_a_working_model_records_no_fallback():
     assert live.preflight("gpt-4o-mini", transport=lambda *_: response()) is None
     assert live.fallback_reason() is None and live.search_tool() == live.SEARCH_TOOL
