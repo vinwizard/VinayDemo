@@ -196,7 +196,7 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     flatter the score. Then the optional **weights** block, which calls `POST /api/runs/{id}/rescore`
     (no new AI calls; a 409 is shown in the server's words), and **How we checked this report**:
     counts derived from `drift.limitations` (answers counted and left out, answer readings dropped
-    for a non-verbatim quote, possible new traits kept and rejected, sample size), each list behind
+    and why, possible new traits kept and rejected, sample size), each list behind
     a toggle. The workflow log is not on the page; it is in the run's JSON download.
 
     One popover (`web/src/popover.tsx`) serves every in-place explanation: any "Brand question 2"
