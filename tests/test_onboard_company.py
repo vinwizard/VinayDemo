@@ -208,13 +208,13 @@ def weighted(n):
 
 
 def test_weighting_more_claims_than_there_are_topics_still_plans_a_valid_run():
-    """Truncating to MAX_TOPICS must drop the questions too, or every probe of the 5th claim is an
-    orphan and `validate_and_freeze` kills the run with an unreadable id-shaped error."""
+    """Truncating to the topic budget must drop the questions too, or every probe of the 5th claim
+    is an orphan and `validate_and_freeze` kills the run with an unreadable id-shaped error."""
     attrs = weighted(6)
-    topics, probes, _ = ana.blind_probes_from_attributes(attrs, PROFILE)
-    assert len(topics) == ana.MAX_TOPICS
+    topics, probes, _ = ana.blind_probes_from_attributes(attrs, PROFILE, limit=4)
+    assert len(topics) == 4
     assert {p.topic_id for p in probes} == {t.id for t in topics}
-    assert len(probes) == ana.MAX_TOPICS * ana.PER_TOPIC <= graph.MAX_BASELINE
+    assert len(probes) == 4 * ana.PER_TOPIC <= graph.max_baseline()
     assert ana.validate_probes(probes, topics, PROFILE) == []
 
 
@@ -448,7 +448,7 @@ def test_the_buyer_axis_goes_to_the_most_heavily_weighted_claims():
     attrs = weighted(6)
     for a, w in zip(attrs, [0.1, 0.1, 0.1, 0.1, 0.6, 1.0]):
         a.intended_weight = w
-    topics, _, _ = ana.blind_probes_from_attributes(attrs, PROFILE)
+    topics, _, _ = ana.blind_probes_from_attributes(attrs, PROFILE, limit=4)
     assert [t.id for t in topics] == ["pos-a6", "pos-a5", "pos-a1", "pos-a2"]
 
 

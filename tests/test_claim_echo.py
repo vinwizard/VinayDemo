@@ -36,16 +36,16 @@ def test_zero_weights_still_plan_buyer_questions_by_claim_prominence():
     for a in c.attributes:
         a.intended_weight = None
     topics, probes, _ = ana.blind_probes_from_attributes(c.attributes, c.profile)
-    assert len(topics) == ana.MAX_TOPICS and probes
+    assert len(topics) == min(ana.max_topics(), len(c.attributes)) and probes
     by_pages = sorted((a for a in c.attributes if a.buyer_questions), key=lambda a: -a.claim_pages)
-    assert [t.id for t in topics] == [f"pos-{a.id}" for a in by_pages[:ana.MAX_TOPICS]]
+    assert [t.id for t in topics] == [f"pos-{a.id}" for a in by_pages[:ana.max_topics()]]
 
 
 def test_weights_still_pick_heaviest_intent_first():
     c = Company(**json.loads((reports.COMPANIES / f"{main.SEED_COMPANY}.json").read_text()))
     topics, _, _ = ana.blind_probes_from_attributes(c.attributes, c.profile)
     weighted = sorted((a for a in c.attributes if a.intended), key=lambda a: -a.intended_weight)
-    assert [t.id for t in topics] == [f"pos-{a.id}" for a in weighted[:ana.MAX_TOPICS]]
+    assert [t.id for t in topics] == [f"pos-{a.id}" for a in weighted[:ana.max_topics()]]
 
 
 def test_claim_lens_report_is_not_empty():

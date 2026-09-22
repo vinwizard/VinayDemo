@@ -38,7 +38,7 @@ class Judge:
         return []
 
 
-def run_fronts(monkeypatch, aiming=AIMING, placed_says=lambda n: "Notion fits.", tries=3):
+def run_fronts(monkeypatch, aiming=AIMING, placed_says=lambda n: "Notion fits.", tries=3, sample=2):
     asked = Counter()
     profile = F.profile.model_copy(update=dict(core_category=aiming, category_questions=AIM_QS))
     placed_qs = set(PLACED.buyer_questions) | set(WRITTEN)
@@ -54,6 +54,9 @@ def run_fronts(monkeypatch, aiming=AIMING, placed_says=lambda n: "Notion fits.",
                            {"type": "message", "content": [{"type": "output_text", "text": text}]}]}
 
     monkeypatch.setenv(live.TRIES_ENV, str(tries))
+    monkeypatch.setenv(live.SAMPLE_ENV, str(sample))
+    # six a front, as the injected writer can supply: these tests are about the fronts, not the budget
+    monkeypatch.setenv(ana.QUESTIONS_ENV, "6")
     prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="test-model",
                              transport=transport, evaluator=Judge(), writer=lambda l, d, n: WRITTEN[:n])
     prov.concurrency = 1
@@ -77,7 +80,7 @@ def test_two_fronts_are_measured_side_by_side_with_the_gap(monkeypatch):
     assert (placed.visibility, aiming.visibility, d.visibility_gap) == (50.0, 0.0, 50.0)
     assert (d.placed_category, d.aiming_category) == ("AI-native workspace", AIMING)
     # same total buyer budget as one set: 12 questions, split evenly
-    assert len([p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]) == graph.MAX_BASELINE
+    assert len([p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]) == graph.max_baseline()
     # each front has its own control, and only the one that leaves the brand out is flagged
     assert (placed.control_probe_id, aiming.control_probe_id) == ("ctl-2", "ctl-1")
     assert placed.low_confidence is None and "but not Notion" in aiming.low_confidence
@@ -145,23 +148,38 @@ def test_missing_front_reasons_reach_the_report_when_no_front_survives(monkeypat
     assert run.drift.missing_fronts["aiming"] in run.drift.limitations
 
 
-def test_every_try_is_asked_saved_and_scored_and_the_range_comes_from_them(monkeypatch, tmp_path):
-    """Regression: the live run showed one saved answer per buyer question beside "3 tries"."""
+def test_only_the_sampled_questions_are_re_asked_and_the_wobble_comes_from_them(monkeypatch, tmp_path):
+    """The budget moved from tries to questions: every question is asked once, REPEAT_SAMPLE of them
+    three times, and the range beside the number is those questions' wobble — nothing else's.
+    Regression it keeps: every try is saved and scored, not just the first."""
     monkeypatch.setattr(reports, "RUNS", tmp_path)
-    # the placed questions name the brand on tries 1 and 2 only: per-try 50, 50, 0
+    # the sampled placed question names the brand on tries 1 and 2 only: per-try 50, 50, 0
     run, asked = run_fronts(monkeypatch, placed_says=lambda n: "Notion fits." if n < 3 else "Coda fits.")
     reports.save_run(run)
     run = reports.load_run(run.id)
     buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
     tries = {p.id: sorted(a.try_no for a in run.answers + run.repeat_answers if a.probe_id == p.id)
              for p in buyer}
-    assert all(t == [1, 2, 3] for t in tries.values()) and all(asked[p.text] == 3 for p in buyer)
+    sampled = [p for p in buyer if tries[p.id] == [1, 2, 3]]
+    assert len(sampled) == 2 and {p.topic_id[:6] for p in sampled} == {"placed", "cat-1"}
+    assert all(tries[p.id] == [1] for p in buyer if p not in sampled)
+    assert all(asked[p.text] == (3 if p in sampled else 1) for p in buyer)
     evals = Counter(e.probe_id for e in run.evaluations + run.repeat_evaluations)
-    assert all(evals[p.id] == 3 for p in buyer)
+    assert all(evals[p.id] == len(tries[p.id]) for p in buyer)
     placed = run.drift.sets[0]
-    assert (placed.tries, placed.visibility, placed.visibility_range) == (3, 33.3, [0.0, 50.0])
+    # five questions named the brand once each, the sampled one on two of its three tries
+    assert (placed.tries, placed.repeat_sample) == (3, 1)
+    assert (placed.visibility, placed.visibility_range) == (47.2, [0.0, 50.0])
     named = Counter(e.probe_id for e in run.evaluations + run.repeat_evaluations if e.mentioned)
-    assert {named[p.id] for p in buyer if p.topic_id.startswith("placed")} == {2}   # "named in 2 of 3"
+    assert {named[p.id] for p in sampled if p.topic_id.startswith("placed")} == {2}   # "named in 2 of 3"
+
+
+def test_no_repeat_sample_measures_every_question_once_and_has_no_wobble(monkeypatch):
+    run, asked = run_fronts(monkeypatch, sample=0)
+    buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
+    assert run.repeat_answers == [] and all(asked[p.text] == 1 for p in buyer)
+    assert run.drift.repeat_sample == 0 and run.drift.visibility_range is None
+    assert run.drift.visibility == 25.0          # six questions named, six not
 
 
 def test_offline_replay_stays_one_unlabelled_set():

@@ -28,6 +28,15 @@ def load_env(path: Path = ENV_FILE) -> list[str]:
     return loaded
 
 
+def setting(env: str, default: int, floor: int = 0) -> int:
+    """A whole-number env setting (a budget or a count), never below `floor`. Anything unreadable is
+    the default rather than a crash mid-run: a typo in Render must not end a paid run."""
+    try:
+        return max(floor, int(os.environ.get(env) or default))
+    except ValueError:
+        return default
+
+
 def is_secret(name: str) -> bool:
     return any(h in name.lower() for h in SECRET_HINTS)
 

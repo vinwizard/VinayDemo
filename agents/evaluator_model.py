@@ -22,11 +22,15 @@ from schemas import Answer, Attribute, CompanyProfile, Probe
 
 KEY_ENV = "OPENAI_API_KEY"
 MODEL_ENV = "EVALUATOR_MODEL"
-# The evaluator reads text it is handed: it needs no web search and no flagship reasoning. It does
-# need to copy exactly: on the same 19 linear.app answers, gpt-4o-mini left 2 of 82 evidence quotes
-# unverifiable after repair (6 of 7 brand answers kept), gpt-4.1-mini 1 of 74 (7 of 7). It also
-# differs from the measured model's default, so the default setup does not grade its own answers.
-DEFAULT_MODEL = "gpt-4.1-mini"
+# The evaluator reads text it is handed: it needs no web search — `default_transport` below sends no
+# tools at all — and no flagship reasoning. It does need to copy exactly: on the same 19 linear.app
+# answers, gpt-4o-mini left 2 of 82 evidence quotes unverifiable after repair (6 of 7 brand answers
+# kept), gpt-4.1-mini 1 of 74 (7 of 7).
+# The default is the same cheap recent model the measured side uses, so a run is priced at
+# $0.10/$0.50 per 1M on both halves. That does mean one model grades its own answers by default:
+# /api/health raises `same_model_warning` for it, and setting EVALUATOR_MODEL to anything else
+# (gpt-4.1-mini is the tested one) removes both the warning and the self-preference bias.
+DEFAULT_MODEL = "gpt-6-luna"
 
 QUOTE_RULES = """Every quote is COPIED, never written: 3 to 12 consecutive words from inside ONE numbered line,
 character for character. Keep every capital letter as it is — if the line says "Its features are",
@@ -84,8 +88,19 @@ def answer_lines(text: str) -> list[str]:
     return [p.strip() for p in SPLIT.split(text) if p and re.search(r"[^\W_]", p)]
 
 
+def judge_for(refused: Optional[str]) -> str:
+    """EVALUATOR_MODEL, or the default — but never the model a live preflight has just proved this
+    account cannot call. A judge on the very model preflight refused would fail every answer
+    identically instead of once; a judge chosen separately was never tested and is kept."""
+    from providers import live
+    chosen = os.environ.get(MODEL_ENV) or DEFAULT_MODEL
+    return live.FALLBACK_MODEL if refused and chosen == refused else chosen
+
+
 def model_name() -> str:
-    return os.environ.get(MODEL_ENV) or DEFAULT_MODEL
+    """The judge after the most recent preflight's record."""
+    from providers import live
+    return judge_for(live.configured_model() if live.fallback_reason() else None)
 
 
 def build_prompt(probe: Probe, answer: Answer, attributes: list[Attribute],

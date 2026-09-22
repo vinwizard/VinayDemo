@@ -102,8 +102,8 @@ def test_live_plan_asks_real_searches_first_and_marks_them(monkeypatch):
     prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="m", demand=ground)
     _, probes = prov.plan(profile, None)
     aim = [p for p in probes if p.topic_id.startswith("cat-")]
-    assert [p.demand is not None for p in aim] == [True, True, False, False, False, False]
-    assert [p.text for p in aim[2:]] == aim_qs[:4]           # the written ones fill the rest of the budget
+    assert [p.demand is not None for p in aim] == [True, True, *[False] * len(aim_qs)]
+    assert [p.text for p in aim[2:]] == aim_qs               # the written ones fill the rest of the budget
     assert prov.demand_notes and CAT in prov.demand_notes[0]
     plain = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="m")
     _, probes = plain.plan(profile, None)

@@ -46,13 +46,13 @@ def test_too_few_brand_answers_have_no_echo_interval():
     assert lo < 50 < hi
 
 
-def test_offline_replay_keeps_its_numbers_and_says_one_try_has_no_interval():
+def test_offline_replay_keeps_its_numbers_and_says_no_repeat_ask_means_no_interval():
     for scenario, align in (("A", 21.4), ("B", 27.9)):
         p = fixture.FixtureProvider(scenario)
         d = graph.execute(graph.new_run(p.profile, p), p).drift
         assert d.alignment == align and d.alignment_interval[0] <= align <= d.alignment_interval[1]
         assert d.visibility_interval is None and d.sets[0].interval is None
-        assert "1 try" in d.na_reasons["visibility_interval"] == d.sets[0].interval_note
+        assert "No question was asked twice" in d.na_reasons["visibility_interval"] == d.sets[0].interval_note
 
 
 def test_fronts_whose_answers_never_vary_withhold_the_verdict_through_a_rescore(monkeypatch):

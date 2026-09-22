@@ -50,10 +50,27 @@ PRICES = {
     "gpt-4.1": (2.00, 8.00),
     "gpt-5-mini": (0.25, 2.00),
     "gpt-5": (1.25, 10.00),
+    # OpenAI list prices read from the model reference on 2026-09-22, added with the move to a newer,
+    # cheaper measured model (providers/live.py). gpt-6-luna is the default for both the measured
+    # model and the judge; gpt-5-nano is the preflight fallback for both; the rest are the ones the
+    # docs and the preflight message name, so a run on any of them is metered exactly, not estimated.
+    "gpt-6-luna": (0.10, 0.50),
+    "gpt-5-nano": (0.05, 0.40),
+    "gpt-5.6-luna": (0.20, 1.20),
+    "gpt-5.4-mini": (0.75, 4.50),
+    "gpt-5.5": (5.00, 30.00),
     "text-embedding-3-small": (0.02, 0.00),   # demand.py groups real buyer searches with it
 }
-UNKNOWN_PRICE = (5.00, 40.00)        # a model missing from the table is charged above all of them
-SEARCH_CALL_USD = 0.025              # per web_search_call, the highest per-call rate OpenAI has listed
+UNKNOWN_PRICE = (10.00, 60.00)       # a model missing from the table is charged above all of them
+# Per web_search_call. OpenAI lists two tiers (pricing page, read 2026-09-22): `web_search` at
+# "$10.00 / 1k calls + Search content tokens billed at model rates", and `web_search_preview`
+# (non-reasoning models) at "$25.00 / 1k calls + Search content tokens are free". This app sends
+# `web_search` (providers/live.SEARCH_TOOL) and already charges the search content it pulls in as
+# input_tokens, so $0.025 was the preview tier's per-call rate charged on top of the standard tier's
+# tokens — the same search billed twice. A live run on 2026-09-22 made it the dominant error: 35
+# searches charged $0.875 against $0.35 of real usage. Conservatism belongs in UNKNOWN_PRICE and
+# UNKNOWN_USAGE, which are guesses; this is a published number.
+SEARCH_CALL_USD = 0.01
 UNKNOWN_USAGE = (30_000, 4_000)      # tokens charged when a response reports no usage
 
 CAP_MESSAGE = ("This pass has used its ${cap:.2f} limit, so nothing more can run on it. The saved "
