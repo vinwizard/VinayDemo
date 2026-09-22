@@ -49,8 +49,14 @@ export interface DriftReport {
   tries?: number;
   /** [lowest, highest] per-try visibility. */
   visibility_range?: [number, number] | null;
-  /** Why a visibility in which the brand was never named is not trusted, or null. */
+  /** Why this visibility is not trusted (its control question), or null. Set with one set only. */
   low_confidence?: string | null;
+  /** Buyer visibility per front, side by side. Absent on runs saved before fronts. */
+  sets?: VisibilitySet[];
+  placed_category?: string | null;
+  aiming_category?: string | null;
+  /** Where AI places you minus where you aim to be, when both were measured. */
+  visibility_gap?: number | null;
   landed: string[];
   lost_claims: string[];
   contested: string[];
@@ -63,10 +69,28 @@ export interface DriftReport {
   na_reasons?: Record<string, string>;
 }
 
+/** placed: the category AI's brand answers most associate with the company. aiming: its site's
+ * own core category. both: the same category, asked once. null: one unlabelled set (replay). */
+export type Front = "placed" | "aiming" | "both" | null;
+
+/** Buyer visibility on one front, with its own tries, range and control question. */
+export interface VisibilitySet {
+  front?: Front;
+  category?: string | null;
+  visibility: number | null;
+  tries?: number;
+  visibility_range?: [number, number] | null;
+  n_blind: number;
+  questions: number;
+  control_probe_id?: string | null;
+  low_confidence?: string | null;
+}
+
 export interface Topic {
   id: string;
   label: string;
   kind: "buyer" | "perception" | "control";
+  front?: Front;
   buyer_need: string;
   fit: string;
 }

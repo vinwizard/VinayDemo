@@ -171,18 +171,19 @@ export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }
   const replay = !!company?.replay || p.node?.mode === "demo_replay" || p.run?.mode === "demo_replay";
   const planned = p.node?.planned;
   const of = (pred: (a: StreamAnswer) => boolean) => p.answers.filter(pred);
-  // every ask of every buyer question, plus the one control question: planned.buyer counts them all
+  // every ask of every buyer question, plus a control question per front: planned.buyer counts them all
   const buyer = of((a) => a.phase !== "followup" && a.kind === "blind");
   const brand = of((a) => a.phase === "baseline" && a.kind === "named");
   const follow = of((a) => a.phase === "followup");
   const decided = p.nodes.includes("choose_followup");
   const finished = (s: StageState) => s === "done" || s === "skipped";
-  // Buyer and brand questions go out in one concurrent batch, buyer first, so both can be active.
   const tally = (got: number, want: number | undefined, go: boolean): StageState =>
     !started || want == null ? "pending" : want === 0 ? "skipped" : got >= want ? "done"
       : got > 0 || go ? "active" : "pending";
-  let s4: StageState = started && !planned ? "active" : tally(buyer.length, planned?.buyer, true);
-  let s5 = tally(brand.length, planned?.brand, finished(s4));
+  // Brand questions go first: the buyer questions are planned from what their answers say.
+  let s4: StageState = started && !planned ? "active" : tally(brand.length, planned?.brand, true);
+  let s5: StageState = p.nodes.includes("plan_buyer") ? tally(buyer.length, planned?.buyer, true)
+    : started && finished(s4) ? "active" : "pending";
   let s6: StageState = decided ? tally(follow.length, planned?.followup, true)
     : started && finished(s4) && finished(s5) ? "active" : "pending";
   let s7: StageState = p.run ? "done" : started && finished(s6) ? "active" : "pending";
@@ -309,39 +310,39 @@ export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }
       </Stage>
 
 
-      <Stage n={4} title="Ask buyer questions" state={s4}
-             summary={s4 === "skipped" ? "Skipped — no weighted claim has a buyer question"
-               : answeredSummary(buyer, planned?.buyer, "question")
-                 ?? `Questions a buyer would ask without naming ${brandName}`}>
-        {s4 !== "pending" && s4 !== "skipped" && (
-          <div className="stack">
-            <p className="muted" style={{ margin: 0 }}>
-              Each one is what a buyer shopping for your category, or for one of your claims, would
-              type, with no brand named. Does AI bring {brandName} up on its own?
-              {!replay && " Each is asked more than once, because the same question gets a different"
-                + " answer each time; the control question asks for the category's leading tools."}
-            </p>
-            {(s4 !== "failed" || buyer.length > 0) && <AnswerList answers={buyer} replay={replay} />}
-            {errorAt(s4)}
-          </div>
-        )}
-      </Stage>
-
-      <Stage n={5} title="Ask brand questions" state={s5}
-             summary={s5 === "skipped" ? "Skipped — no brand question survived vetting"
+      <Stage n={4} title="Ask brand questions" state={s4}
+             summary={s4 === "skipped" ? "Skipped — no brand question survived vetting"
                : answeredSummary(brand, planned?.brand, "question")
                  ?? `Questions that name ${brandName} but never name a claim`}>
-        {s5 !== "pending" && s5 !== "skipped" && (
+        {s4 !== "pending" && s4 !== "skipped" && (
           <div className="stack">
             <p className="muted" style={{ margin: 0 }}>
               Each names {brandName} and none names a claim, so whatever AI says {brandName} is
               known for, it said unprompted.
             </p>
-            {(s5 !== "failed" || brand.length > 0) && <AnswerList answers={brand} replay={replay} />}
+            {(s4 !== "failed" || brand.length > 0) && <AnswerList answers={brand} replay={replay} />}
+            {errorAt(s4)}
+          </div>
+        )}
+      </Stage>
+      <Stage n={5} title="Ask buyer questions" state={s5}
+             summary={s5 === "skipped" ? "Skipped — no weighted claim has a buyer question"
+               : answeredSummary(buyer, planned?.buyer, "question")
+                 ?? `Questions a buyer would ask without naming ${brandName}`}>
+        {s5 !== "pending" && s5 !== "skipped" && (
+          <div className="stack">
+            <p className="muted" style={{ margin: 0 }}>
+              Each one is what a buyer would type with no brand named, on two fronts: the category
+              the brand answers place {brandName} in, and the one its own site aims for. Does AI bring {brandName} up on its own?
+              {!replay && " Each is asked more than once, because the same question gets a different"
+                + " answer each time; the control question asks for the category's leading tools."}
+            </p>
+            {(s5 !== "failed" || buyer.length > 0) && <AnswerList answers={buyer} replay={replay} />}
             {errorAt(s5)}
           </div>
         )}
       </Stage>
+
 
       <Stage n={6} title="Follow up on products AI named" state={s6}
              summary={s6 === "skipped"

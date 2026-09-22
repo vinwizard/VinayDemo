@@ -28,17 +28,7 @@ def with_category(questions=CAT_QS, category=CATEGORY):
 
 
 # ---------------------------------------------------------------- 1. the core category is always asked
-def test_at_least_half_the_buyer_topics_ask_about_the_core_category():
-    topics, probes, _ = ana.blind_probes_from_attributes(F.attributes(), with_category())
-    assert [t.id for t in topics][:ana.CATEGORY_TOPICS] == ["cat-1", "cat-2"]
-    assert len(topics) == ana.MAX_TOPICS and ana.CATEGORY_TOPICS == 2
-    cat = [p for p in probes if p.topic_id.startswith("cat-")]
-    assert [p.text for p in cat] == CAT_QS and len(cat) >= len(probes) / 2
-    assert [p.id for p in cat] == [f"cat-b{i}" for i in range(1, 7)]   # one numbering across both topics
-    assert all(t.label == CATEGORY for t in topics[:2])
-
-
-def test_without_a_category_buyer_topics_follow_the_claims_as_before():
+def test_without_a_category_or_a_placed_front_buyer_topics_follow_the_claims_as_before():
     old = ana.blind_probes_from_attributes(F.attributes(), F.profile)
     assert all(t.id.startswith("pos-") for t in old[0]) and len(old[0]) == ana.MAX_TOPICS
     prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=F.profile, model="m")
@@ -46,16 +36,16 @@ def test_without_a_category_buyer_topics_follow_the_claims_as_before():
     assert not [p for p in blind if p.phase == "control"] and "control" not in {t.kind for t in topics}
 
 
-def test_a_category_question_naming_the_brand_is_still_rejected():
-    with pytest.raises(ValueError, match="leak the brand"):
-        ana.blind_probes_from_attributes(F.attributes(), with_category(["Is Notion the best workspace?"]))
+def test_a_category_question_naming_the_brand_is_skipped_not_asked():
+    topics, probes, skipped, _ = ana.blind_probes_for_fronts(
+        with_category(["Is Notion the best workspace?", *CAT_QS[:3]]), None, [])
+    assert skipped[0].startswith("cat-1 (Notion") and not any("Notion" in p.text for p in probes)
 
 
 def test_the_control_question_is_never_also_a_scored_question():
     control = ana.control_probe(with_category())
-    topics, probes, _ = ana.blind_probes_from_attributes(
-        F.attributes(), with_category([control.text, *CAT_QS[:5]]))
-    assert control.text not in {p.text for p in probes}
+    _, probes, _, _ = ana.blind_probes_for_fronts(with_category([control.text, *CAT_QS[:5]]), None, [])
+    assert [p.text for p in probes if p.phase == "baseline"] == CAT_QS[:5]
     assert control.phase == "control" and not ana.brand_leaks(control.text, F.profile)
 
 
@@ -113,7 +103,7 @@ def test_each_buyer_question_is_asked_three_times_and_brand_questions_once(monke
     d = run.drift
     # named on every second ask only: tries score 0, 50, 0
     assert (d.tries, d.visibility, d.visibility_range) == (3, 16.7, [0.0, 50.0])
-    assert d.n_blind == 3 * len(buyer) and d.low_confidence is None
+    assert d.n_blind == 3 * len(buyer)
     named = Counter(e.probe_id for e in run.evaluations + run.repeat_evaluations if e.mentioned)
     assert set(named.values()) == {1}   # "named in 1 of 3 tries" for every question
 
@@ -122,12 +112,12 @@ def test_the_control_question_never_moves_visibility(monkeypatch):
     run, _ = live_run(lambda n: "Coda fits.", "Notion, Linear and Asana lead.", monkeypatch=monkeypatch)
     control = next(p for p in run.probes if p.phase == "control")
     assert next(e for e in run.evaluations if e.probe_id == control.id).mentioned
-    assert run.drift.visibility == 0.0 and run.drift.n_blind == 3 * 12
+    assert run.drift.visibility == 0.0 and run.drift.n_blind == 3 * 6   # the category's own set
     # the model knows the brand as a category leader and still never offers it to buyers: a real 0
     assert run.drift.low_confidence is None
     assert control.id not in {e.probe_id for e in run.repeat_evaluations}
     assert all(t.topic_id != "control" for t in run.topic_evaluations)
-    assert main.run_payload(run)["insights"]["voice"]["questions"] == 12   # buyer questions, first try
+    assert main.run_payload(run)["insights"]["voice"]["questions"] == 6   # buyer questions, first try
 
 
 def test_a_zero_is_low_confidence_when_the_control_names_too_few_tools(monkeypatch):
@@ -141,9 +131,13 @@ def test_a_zero_is_low_confidence_when_even_the_control_leaves_the_brand_out(mon
     assert "named Linear, Asana, Coda but not Notion" in run.drift.low_confidence
 
 
-def test_a_brand_named_in_any_buyer_answer_is_never_flagged(monkeypatch):
+def test_a_brand_named_in_some_buyer_answers_is_still_flagged_when_the_control_leaves_it_out(monkeypatch):
+    # the live Profound run: named once by chance, absent from 38 category leaders, and never flagged
+    run, _ = live_run(lambda n: "Notion fits." if n == 3 else "Coda fits.", "Linear, Asana and Coda.",
+                      monkeypatch=monkeypatch)
+    assert run.drift.visibility > 0 and "but not Notion" in run.drift.low_confidence
     run, _ = live_run(lambda n: "Notion fits." if n == 3 else "Coda fits.", "Coda.", monkeypatch=monkeypatch)
-    assert run.drift.visibility > 0 and run.drift.low_confidence is None
+    assert "does not seem to know this category" in run.drift.low_confidence
 
 
 def test_the_flag_rule():
@@ -204,7 +198,8 @@ def test_progress_counts_every_ask():
     run.topics, blind = prov.plan(run.profile)
     run.probes = blind + F.named_probes()
     planned = main.progress(run, 3)["planned"]
-    assert planned["buyer"] == 3 * 12 + 1 and planned["brand"] == len(F.named_probes())
+    # no brand answer yet, so only the category's own front: 6 questions x 3 tries + its control
+    assert planned["buyer"] == 3 * 6 + 1 and planned["brand"] == len(F.named_probes())
 
 
 # ---------------------------------------------------------------- onboarding and the claims screen

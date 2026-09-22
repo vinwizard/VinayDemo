@@ -105,7 +105,7 @@ Onboarding: fetch/import profile → user review → approved company profile.
 
 Investigation uses LangGraph nodes:
 
-1. `plan_baseline`
+1. `plan_baseline` (now `plan_brand` → answer and evaluate the brand questions → `perceive` → `plan_buyer`, so buyer questions cover where AI places the company and its core category; see graph.py)
 2. `validate_and_freeze`
 3. `execute_or_replay`
 4. `evaluate`

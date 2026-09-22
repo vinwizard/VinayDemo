@@ -28,10 +28,12 @@ different problem from silence. Naming which one you are looking at is the point
 
 Two probe families measure two different things:
 
-- **Blind probes** never name the brand → **visibility**. Do you show up at all? At least half of
-  them ask about the company's core category, each is asked three times (visibility is the mean,
-  shown with its range, because the same question gets a different answer on every run), and a
-  control question flags a 0 as low confidence when the model does not seem to know the category.
+- **Blind probes** never name the brand → **visibility**. Do you show up at all? They are asked on
+  two fronts side by side — where AI already places you (what the brand answers endorse most) and
+  where your site aims to be (its core category) — each asked three times (visibility is the mean,
+  shown with its range, because the same question gets a different answer on every run), and each
+  front's control question flags it low confidence when the model does not count you among that
+  category's leading tools.
   Details: "Why a rerun gives a different number" in [`WEB.md`](WEB.md).
 - **Named probes** name the brand but never name an attribute → **perception**. What does AI say you are?
 
@@ -110,7 +112,7 @@ demo with no key or internet, start the API with `VISEXP_OFFLINE_REPLAY=1` and t
 company replays the bundled Notion sample, labelled as such. Stop either process with `Ctrl+C`.
 [`WEB.md`](WEB.md) has the details, live mode and the API reference.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 243 passing,
+Tests: `conda activate visexp && python -m pytest -q` (offline; 355 passing,
 incl. one journey per bundled scenario end to end through the `/api/stream` event stream, the API over
 HTTP via fastapi's TestClient, the live adapter under an injected
 transport — including how it classifies a refused key or a region block — no API key, no network).
@@ -159,7 +161,7 @@ web/              React frontend (the product UI)
 api/main.py       FastAPI server over the engine; streams each run as server-sent events
 api/admin.py      /admin: access passes for the hosted demo (see "Deploy to Render")
 access.py         access passes, sessions, and the metered gateway every OpenAI call goes through
-graph.py          LangGraph orchestrator: plan_baseline → validate_and_freeze → execute_or_replay → evaluate → choose_followup ⟲ → build_gap_report
+graph.py          LangGraph orchestrator: plan_brand → execute_or_replay → evaluate → perceive → plan_buyer → validate_and_freeze → execute_or_replay → evaluate → choose_followup ⟲ → measure_drift → build_gap_report
 schemas.py        Pydantic contracts
 agents/           onboarding.py (Agent 1), ana.py (Agent 2), evaluation.py (Agent 3 + Profound mapping table)
 providers/        fixture.py (replay), company.py (an onboarded company), imported.py (research snapshots), live.py

@@ -16,7 +16,8 @@ import os
 import re
 from typing import Callable, Optional
 
-from schemas import Attribute, ClaimCheck, CompanyProfile, Evidence, PositioningPoint
+from schemas import (Attribute, ClaimCheck, CompanyProfile, Evidence, PositioningPoint,
+                     distinctive_alias)
 
 KEY_ENV = "OPENAI_API_KEY"
 MODEL_ENV = "ONBOARDING_MODEL"
@@ -266,7 +267,10 @@ def build_profile(data: dict, pages: list[tuple[str, str]], domain: str) -> Comp
     # The name itself must be an alias: `aliases` is the vocabulary that counts as a mention, and a
     # model asked for "other names" returns "Linear Agent" but never "Linear" — so every answer
     # that just said "Linear" failed as a label/body mismatch. The fixtures always listed the name.
-    aliases = [a.strip() for a in (data.get("aliases") or []) if isinstance(a, str) and a.strip()]
+    # A generic phrase ("AI Marketer") is dropped: it would count every answer about that kind of
+    # product as naming this company.
+    aliases = [a.strip() for a in (data.get("aliases") or []) if isinstance(a, str) and a.strip()
+               and distinctive_alias(a.strip(), name)]
     return CompanyProfile(
         name=name,
         domain=domain,

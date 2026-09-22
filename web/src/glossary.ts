@@ -42,15 +42,27 @@ export const GLOSSARY = {
   },
   low_confidence: {
     term: "Low confidence",
-    def: "We also ask the AI to name the leading tools in the company's category. If it does not name "
-      + "the company there either, a low buyer visibility may say more about what the AI knows than "
-      + "about how buyers see the company, so we flag it rather than trust it.",
+    def: "For each set of buyer questions we also ask the AI to name the leading tools in that category. "
+      + "If it names too few, or does not name the company among them, the buyer visibility may say more "
+      + "about what the AI knows than about how buyers see the company, so we flag it rather than trust it.",
   },
   core_category: {
     term: "Core category",
     def: "The kind of product the company is, in a buyer's words (for example \"project management "
-      + "software\"). At least half of the buyer questions ask about it, and the check behind low "
-      + "confidence uses it.",
+      + "software\"), as its own homepage puts it. Half of the buyer questions ask about it: where "
+      + "you aim to be.",
+  },
+  where_placed: {
+    term: "Where AI places you",
+    def: "The category AI already links the company to: of everything the brand answers said about it, "
+      + "the one they endorsed most often. Half of the buyer questions ask about this category, with no "
+      + "brand named, to see whether AI also brings the company up there on its own.",
+  },
+  where_aiming: {
+    term: "Where you aim to be",
+    def: "The category the company's own homepage says it is in (the core category). Half of the buyer "
+      + "questions ask about it. The gap between this and where AI places you is how far AI's picture "
+      + "of the company is from the one it is aiming for.",
   },
   endorsed: {
     term: "Mentioned vs endorsed",

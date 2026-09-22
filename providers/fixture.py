@@ -61,7 +61,9 @@ class FixtureProvider:
                 "This profile differs in identity or positioning, so it needs regeneration, an imported research file, "
                 "or a live provider.")
 
-    def plan(self, profile: CompanyProfile) -> tuple[list[Topic], list[Probe]]:
+    def plan(self, profile: CompanyProfile, placed=None) -> tuple[list[Topic], list[Probe]]:
+        """The authored buyer topics: one unlabelled set. `placed` is ignored — replay answers were
+        written for these questions, so no other question could be answered."""
         self.check_profile(profile)
         return [Topic(**t) for t in self.data["topics"]], [Probe(**p) for p in self.data["baseline_probes"]]
 

@@ -110,11 +110,12 @@ def test_live_answers_are_marked_live_api():
 
 
 def test_live_plan_includes_attribute_derived_blind_probes():
-    """The placebo axis: one buyer topic per intended attribute, plus the perception container."""
+    """The placebo axis without a category: one buyer topic per intended attribute. The perception
+    container is the graph's (plan_brand), made before any buyer question is planned."""
     p = provider(transport=lambda *_: response())
     profile = fixture.bundled_profile("A")
     topics, probes = p.plan(profile)
-    assert [t.kind for t in topics].count("perception") == 1
+    assert "perception" not in [t.kind for t in topics]
     buyer = [t for t in topics if t.kind == "buyer"]
     assert len(buyer) == 4                      # four intended attributes
     assert all(pr.kind == "blind" for pr in probes)
@@ -159,7 +160,7 @@ def test_a_saved_vendor_addressed_question_is_named_in_the_run_log_not_fatal():
     run = graph.execute(graph.new_run(fixture.bundled_profile("A"), prov, mode="live_api"), prov)
     assert run.status == "complete"
     assert not any(p.text.startswith("How does your platform") for p in run.probes)
-    assert any("1 saved buyer question(s) dropped" in l and f"{a.id}-1 (your platform)" in l
+    assert any("1 buyer question(s) dropped" in l and f"{a.id}-1 (your platform)" in l
                for l in run.log)
 
 

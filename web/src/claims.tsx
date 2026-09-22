@@ -15,11 +15,6 @@ interface Added { label: string; description: string; weight: number }
 const ADDED_DEFAULT_WEIGHT = 0.5;
 export const ADDED_MIN_WEIGHT = 0.1;
 
-/** Mirrors ana.MAX_TOPICS: the buyer axis is capped at four topics of three questions. */
-const MAX_BUYER_TOPICS = 4;
-/** Mirrors ana.CATEGORY_TOPICS and PER_TOPIC: the core category takes the first two topics. */
-const CATEGORY_TOPICS = 2;
-const PER_TOPIC = 3;
 
 const EMPTY_DRAFT: Added = { label: "", description: "", weight: ADDED_DEFAULT_WEIGHT };
 
@@ -153,21 +148,6 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
   };
 
   const intended = Object.values(weights).filter((w) => w > 0).length;
-  // Mirrors ana.blind_probes_from_attributes: only weighted claims that still HAVE buyer questions
-  // are eligible, heaviest first (a stable sort, so ties keep their order), cut at MAX_BUYER_TOPICS.
-  // With nothing weighted the engine picks the most-stated claims instead, so nothing is named here.
-  // Everything else weighted is measured on the brand axis alone, and is named, not just counted.
-  const weighted = company.attributes.filter((a) => (weights[a.id] ?? 0) > 0);
-  const categoryTopics = company.profile.core_category
-    ? Math.min(CATEGORY_TOPICS, Math.ceil((company.profile.category_questions?.length ?? 0) / PER_TOPIC)) : 0;
-  const claimTopics = MAX_BUYER_TOPICS - categoryTopics;
-  const onBuyerAxis = new Set(
-    weighted.filter((a) => a.buyer_questions.length > 0)
-      .sort((x, y) => (weights[y.id] ?? 0) - (weights[x.id] ?? 0))
-      .slice(0, claimTopics)
-      .map((a) => a.id),
-  );
-  const brandAxisOnly = weighted.filter((a) => !onBuyerAxis.has(a.id)).map((a) => a.label);
   const nothingToMeasure = !company.attributes.length && !draft.label.trim();
   const locked = saving || running;
   const fixed = locked || company.replay;
@@ -184,20 +164,21 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
           <div>
             <label className="claim-label" htmlFor={`cat-${company.id}`}>Core category</label> <Term k="core_category" icon />
             <p className="muted" style={{ margin: ".2rem 0 .5rem" }}>
-              What a buyer shops for when they need {company.profile.name}. At least half the buyer
-              questions ask about it, and a control question asks AI for its leading tools, so a
-              score of 0 can be checked. Read from your one-line description — correct it if it is wrong.
+              What a buyer shops for when they need {company.profile.name}: where you aim to be. Half
+              the buyer questions ask about it; the other half ask about the category AI’s answers
+              about {company.profile.name} already place it in, so the two show side by side. A
+              control question asks AI for each category’s leading tools, so a low score can be
+              checked. Read from your one-line description — correct it if it is wrong.
             </p>
             <input id={`cat-${company.id}`} placeholder="e.g. payroll software for startups" value={category}
                    maxLength={80} style={{ width: "100%" }} disabled={fixed}
                    onChange={(e) => { setCategory(e.target.value); setSaved(false); }} />
             <div className="muted" style={{ marginTop: ".3rem" }}>
               {!company.profile.core_category
-                ? "No core category saved yet (this company was read before categories existed), so buyer questions follow your claims alone. Type one and save to ask about it."
+                ? "No core category saved yet (this company was read before categories existed), so where you aim to be is not asked about. Type one and save to ask about it."
                 : category.trim() !== company.profile.core_category
                 ? "Save to write new buyer questions for this category."
-                : `${plural(company.profile.category_questions?.length ?? 0, "buyer question")} ready for this category`
-                  + ` · ${categoryTopics} of ${MAX_BUYER_TOPICS} buyer topics`}
+                : `${plural(company.profile.category_questions?.length ?? 0, "buyer question")} ready for this category`}
             </div>
           </div>
         </div>
@@ -265,14 +246,6 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
         </div>
       </div>
 
-      {brandAxisOnly.length > 0 && (
-        <p className="warn" style={{ margin: 0 }}>
-          Measured on the brand questions alone: {brandAxisOnly.join(", ")}. Buyer questions go to
-          your {claimTopics} most heavily weighted claims that still have buyer questions
-          {categoryTopics > 0 && ", after your core category"}.
-        </p>
-      )}
-
       {company.checks.length > 0 && <HowWeChecked checks={company.checks} />}
 
       {company.warnings.length > 0 && (
@@ -289,7 +262,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
           {nothingToMeasure
             ? "Nothing on their site survived quote validation, so there is nothing to measure yet. Add a claim above to measure it."
             : intended === 0
-            ? `Nothing weighted: measuring compares what your site claims with what AI says, with buyer questions for ${categoryTopics ? "your core category and " : ""}your ${claimTopics} most-stated claims. Weights are optional.`
+            ? "Nothing weighted: measuring compares what your site claims with what AI says. Weights are optional."
             : `${intended} claim${intended === 1 ? "" : "s"} weighted${saved ? " · saved" : ""}`}
         </span>
         <div className="row">
