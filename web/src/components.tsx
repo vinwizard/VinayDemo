@@ -1,8 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { KeyboardEvent, ReactNode } from "react";
-import type { Answer, AttributeScore, DriftReport, Probe, QueryEvaluation, Run, WinBackAction, RunSummary, VisibilitySet, Zone } from "./api";
-import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_ORDER, ZONES, rescoreRun } from "./api";
+import type {
+  Answer, AttributeScore, Demand, DriftReport, Probe, QueryEvaluation, RetrievalRow, Run, ScoredPassage, SearchTry,
+  WinBackAction, RunSummary, VisibilitySet, Zone,
+} from "./api";
+import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_ORDER, ZONES, reaskRun, rescoreRun } from "./api";
 import { ADDED_MIN_WEIGHT, Slider } from "./claims";
 import {
   PROVENANCE_LABEL, ZONE_LABEL, ZONE_MEANING, claimShare, headline, plain, potentialText, probeLabels,
@@ -10,6 +13,7 @@ import {
 } from "./labels";
 import { GLOSSARY } from "./glossary";
 import { Popover, Term } from "./popover";
+import { WhyAIMisses } from "./audit";
 
 const ZONE_FILL: Record<Zone, string> = {
   landed: "var(--landed)",
@@ -294,6 +298,7 @@ function QRef({ id, run }: { id: string; run: Run }) {
       <p className="muted">{questionKind(p, run.profile.name)}</p>
       <p><strong>Asked:</strong> {p.text}</p>
       {why && <p className="warn">Left out of the scores: {why}.</p>}
+      {p.kind === "blind" && p.phase === "baseline" && <Searched run={run} p={p} />}
       <h4>The AI’s answer</h4>
       <p className="muted long-answer">
         {a && run.mode !== "live_api" && <span className="tag sample">sample</span>}
@@ -415,7 +420,7 @@ function RunSource({ run }: { run: Run }) {
 
 const TABS = [
   ["overview", "Overview"], ["win-back", "Win it back"], ["buyer", "Buyer questions"],
-  ["brand", "Brand questions"], ["sources", "Sources & rivals"],
+  ["why", "Why AI misses you"], ["brand", "Brand questions"], ["sources", "Sources & rivals"],
 ] as const;
 
 /** A tab label's native tooltip, for the two tabs named after a term this product invented. */
@@ -447,6 +452,8 @@ export function Report({ run, onRescored, weightNote }: {
   const uid = useId();
   const top = useRef<HTMLDivElement>(null);
   const [tab, setTabState] = useState<ReportTab>(tabFromHash);
+  const [reasks, setReasks] = useState<Record<string, RetrievalRow["reask"]>>({});
+  const reasked = (probe: string, got: RetrievalRow["reask"]) => setReasks((m) => ({ ...m, [`${run.id}:${probe}`]: got }));
   useEffect(() => {
     const follow = () => setTabState(tabFromHash());
     window.addEventListener("hashchange", follow);
@@ -477,6 +484,7 @@ export function Report({ run, onRescored, weightNote }: {
   const count: Record<ReportTab, number | undefined> = {
     overview: claims.length,
     "win-back": winBackPlan(run).actions.length,
+    why: run.audit?.claims.filter((c) => c.checks.some((k) => k.status === "fail")).length,
     buyer: run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline").length,
     brand: run.probes.filter((p) => p.kind === "named" && p.phase === "baseline").length,
     sources: run.insights?.sources.sources.length,
@@ -520,6 +528,7 @@ export function Report({ run, onRescored, weightNote }: {
             <>
               <RunSource run={run} />
               <Explain d={d} brand={run.profile.name} />
+              <FixLine run={run} onOpen={() => setTab("why")} />
               <ZoneChips run={run} />
               <Excluded run={run} />
               {weightNote ? <p className="muted">{weightNote}</p>
@@ -536,6 +545,7 @@ export function Report({ run, onRescored, weightNote }: {
             </>
           )}
           {tab === "buyer" && <BuyerQuestions run={run} />}
+          {tab === "why" && <><WhatItSearched run={run} /><WhyAIMisses run={run} /><TestAFix run={run} reasks={reasks} onReasked={reasked} /></>}
           {tab === "brand" && <BrandQuestions run={run} />}
           {tab === "sources" && (
             <>
@@ -1084,6 +1094,310 @@ function CitedSources({ run }: { run: Run }) {
   );
 }
 
+const SOURCE = { autocomplete: "Google", reddit: "Reddit" } as const;
+
+/** "real demand · Google": the question is a real search; the popover lists its group's phrasings. */
+function DemandBadge({ d }: { d: Demand }) {
+  const n = d.phrasings.length;
+  return (
+    // inside a <summary>: a tap on the badge opens the popover, not the answer
+    <span className="demand" onClick={(e) => e.preventDefault()}>
+      <Popover label="Real demand" className="demand-badge" trigger={<>real demand · {SOURCE[d.source]}</>}>
+        <strong className="pop-title">{GLOSSARY.real_demand.term}</strong>
+        <p>
+          People {d.source === "reddit" ? "ask exactly this on Reddit" : "search exactly this on Google"}.
+        </p>
+        {n > 1 && (
+          <>
+            <p className="muted">{n} real searches that mean the same, grouped together:</p>
+            <ul className="demand-list">
+              {d.phrasings.map((ph) => <li key={ph.text}>{ph.text} <span className="muted">· {SOURCE[ph.source]}</span></li>)}
+            </ul>
+          </>
+        )}
+        <p className="muted">This shows the question is real, not how often it is searched.</p>
+      </Popover>
+    </span>
+  );
+}
+
+const PHONE = "(max-width: 600px)";
+
+/** A cited page without its scheme, "www." or trailing slash. */
+const page = (u: string) => u.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+
+/** Searches as “a”, “b” and “c”. */
+const quoted = (qs: string[]) => qs.map((q, i) => (
+  <span key={i}>{i ? (i === qs.length - 1 ? " and " : ", ") : ""}“{q}”</span>
+));
+
+/** One try in one sentence: what the model searched, how many pages it cited, and whether any was yours. */
+function tryStory(t: SearchTry) {
+  const own = t.owned_pages.length;
+  return (
+    <>
+      {t.searches.length ? <>ChatGPT searched {quoted(t.searches)}</> : "ChatGPT answered without searching"}
+      {t.pages.length ? ` and cited ${plural(t.pages.length, "page")}. ` : " and cited no pages."}
+      {t.pages.length > 0 && (own ? <strong className="own">{own} {own === 1 ? "was" : "were"} yours.</strong> : "None was yours.")}
+    </>
+  );
+}
+
+const answeredOk = (run: Run, p: Probe) =>
+  [run.answers, run.repeat_answers ?? []].flat().some((a) => a.probe_id === p.id && a.status === "ok");
+
+/** What the model searched for one buyer question, every try, or that it was not recorded. */
+function Searched({ run, p }: { run: Run; p: Probe }) {
+  const s = run.insights?.searches;
+  const tries = s?.questions[p.id];
+  if (!s || p.phase !== "baseline" || (!tries && !answeredOk(run, p))) return null;
+  return (
+    <div className="searched">
+      <h4>What ChatGPT searched <Term k="fan_out" icon /></h4>
+      {tries ? tries.map((t) => (
+        <p key={t.try_no}>
+          {run.mode !== "live_api" && <span className="tag sample">sample</span>}
+          {tries.length > 1 && <strong>Try {t.try_no}: </strong>}{tryStory(t)}
+        </p>
+      )) : <p className="muted">Not recorded for this run.</p>}
+    </div>
+  );
+}
+
+/**
+ * The model's own web searches for the buyer questions, near-duplicates grouped: a story from one
+ * question, then every search with the questions it came from and the pages cited after it.
+ */
+function WhatItSearched({ run }: { run: Run }) {
+  const s = run.insights?.searches;
+  if (!s) return null;
+  const replay = run.mode !== "live_api";
+  const buyer = run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline");
+  // The story: a question whose answer cited pages, none of them yours, preferring one that did not
+  // name you either; else the first with searches.
+  const first = (p: Probe) => s.questions[p.id]?.[0];
+  const missed = buyer.filter((p) => first(p)?.pages.length && !first(p)!.owned_pages.length);
+  const story = missed.find((p) => run.evaluations.find((e) => e.probe_id === p.id)?.mentioned === false)
+    ?? missed[0] ?? buyer.find((p) => first(p)?.searches.length);
+  const found = s.reason ? (s.answers ? "no web searches" : buyer.some((p) => answeredOk(run, p)) ? "not recorded" : "no buyer answers") : `ChatGPT ran ${plural(s.searches.length, "different search", "different searches")};`
+    + ` your site was cited after ${s.owned ? s.owned : "none"} of them`;
+  return (
+    <Block open={!window.matchMedia(PHONE).matches} title="What ChatGPT searched" found={found}>
+      {s.reason ? <p className="muted" style={{ margin: 0 }}>{s.reason}</p> : (
+        <>
+          <p className="muted" style={{ margin: 0 }}>
+            {replay && <>{SAMPLE_NOTE} The searches were written by hand too. </>}
+            To answer a buyer, the AI first runs a few <Term k="fan_out">web searches</Term> of its own.
+            A search that never leads to your site is where you go missing. Tap one for details.
+          </p>
+          {story && (
+            <p className="callout story">
+              {replay && <span className="tag sample">sample</span>}
+              When a buyer asked “{story.text}”, {tryStory(first(story)!)}
+            </p>
+          )}
+          <ul className="search-list">
+            {s.searches.map((g) => (
+              <li key={g.query}>
+                <Popover wide label={`Search: ${g.query}`} className="search-row"
+                         trigger={<>
+                           <span className="search-q">“{g.query}”</span>
+                           <span className="chip-count">{plural(g.answers, "answer")}</span>
+                           {g.owned_pages.length ? <span className="pill landed">your site</span>
+                             : <span className="pill neutral">not you</span>}
+                         </>}>
+                  <strong className="pop-title">“{g.query}”</strong>
+                  {g.variants.length > 0 && (
+                    <p className="muted">Also searched as {quoted(g.variants)}: the same search with another year or spelling.</p>
+                  )}
+                  <h4>Came from</h4>
+                  <p>{refs(g.questions, run)} · run in {plural(g.answers, "answer")}</p>
+                  <h4>Pages cited in {g.answers === 1 ? "that answer" : "those answers"}</h4>
+                  {g.pages.length ? (
+                    <ul className="page-list">
+                      {g.pages.map((u) => (
+                        <li key={u}>{page(u)}{g.owned_pages.includes(u) && <> <span className="pill landed">your site</span></>}</li>
+                      ))}
+                    </ul>
+                  ) : <p className="muted">None.</p>}
+                  <p className="muted">
+                    The AI does not say which search found which page, so this lists every page{" "}
+                    {g.answers === 1 ? "that answer" : "those answers"} cited
+                    {replay && ". Every example.com address is a fictional placeholder"}.
+                  </p>
+                </Popover>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </Block>
+  );
+}
+
+const score = (x: number) => x.toFixed(2);
+const behind = (r: RetrievalRow) => !!(r.yours && r.rival && r.rival.score > r.yours.score);
+
+/** The one gap a fix does the most for: the question where the rewrite lifts your score the most. */
+function biggestFix(run: Run): RetrievalRow | undefined {
+  const lift = (r: RetrievalRow) => (r.fixed && r.yours ? r.fixed.score - r.yours.score : -1);
+  return (run.retrieval?.rows ?? []).filter((r) => behind(r) && lift(r) > 0).sort((a, b) => lift(b) - lift(a))[0];
+}
+
+/** Your passage, the cited page's and yours with the fix, as three bars on one scale (0 to 1). */
+function ScoreBars({ r }: { r: RetrievalRow }) {
+  const bars = [
+    ["You", r.yours, "var(--muted)"], ["Page AI cited", r.rival, "var(--contested)"],
+    ["With the fix", r.fixed, "var(--landed)"],
+  ] as const;
+  return (
+    <span className="score-bars">
+      {bars.filter(([, p]) => p).map(([label, p, fill]) => (
+        <span key={label} className="score-bar">
+          <span className="score-label">{label}</span>
+          <span className="bar-track thin"><span className="bar" style={{ width: `${Math.max(2, p!.score * 100)}%`, background: fill }} /></span>
+          <span className="score-num">{score(p!.score)}</span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** A passage in place: its page, the words, and which search it matched best. */
+function PassageQuote({ title, p }: { title: string; p: ScoredPassage }) {
+  return (
+    <>
+      <h4>{title} · {score(p.score)}</h4>
+      <p className="muted" style={{ margin: 0 }}>{page(p.url)} · closest to “{p.query}”</p>
+      <p className="quote">{p.text}</p>
+    </>
+  );
+}
+
+/** Ask the model once more with the rewritten passage and the cited page as its only sources. */
+function Reask({ run, r, got, onReasked }: {
+  run: Run; r: RetrievalRow; got: RetrievalRow["reask"];
+  onReasked: (probe: string, got: RetrievalRow["reask"]) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (run.mode !== "live_api" || !r.fixed) return null;
+  const ask = () => {
+    setBusy(true); setError(null);
+    reaskRun(run.id, r.probe_id)
+      .then((next) => onReasked(r.probe_id, next.retrieval?.rows.find((x) => x.probe_id === r.probe_id)?.reask ?? null))
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setBusy(false));
+  };
+  return (
+    <div className="reask">
+      {got ? (
+        <p style={{ margin: 0 }}>
+          <span className="tag sample">simulation</span>{" "}
+          Handed the rewritten passage and the cited page as its only sources, {got.model}{" "}
+          {got.named ? <strong className="own">named {run.profile.name}.</strong> : <strong>still did not name {run.profile.name}.</strong>}
+        </p>
+      ) : (
+        <button type="button" className="primary" disabled={busy} onClick={ask}>
+          {busy ? "Asking…" : "Ask the AI again with the fix"}
+        </button>
+      )}
+      <p className="muted" style={{ margin: 0 }}>
+        {got ? "One ask, not a measurement: it changes no number." : "One model call on your pass. A simulation: the AI is handed both passages as its only sources, so it shows whether the rewrite would be used, not whether a real search finds it."}
+      </p>
+      {error && <div className="callout error">{error}</div>}
+    </div>
+  );
+}
+
+/**
+ * Test a fix: per buyer question, your best passage against the best passage of a page AI cited,
+ * and yours again with the win-back rewrite in the page. Similarity only, labelled as a simulation.
+ */
+function TestAFix({ run, reasks, onReasked }: {
+  run: Run; reasks: Record<string, RetrievalRow["reask"]>;
+  onReasked: (probe: string, got: RetrievalRow["reask"]) => void;
+}) {
+  const sim = run.retrieval;
+  if (!sim) return null;
+  const replay = sim.provenance !== "live_api";
+  const probes = new Map(run.probes.map((p) => [p.id, p]));
+  const fixes = new Map((run.win_back ?? []).map((a) => [a.attribute_id, a]));
+  const compared = sim.rows.filter((r) => r.yours && r.rival);
+  const weaker = compared.filter(behind).length;
+  const found = compared.length
+    ? `Your best page is weaker than the page AI cited for ${weaker} of ${plural(compared.length, "buyer question")}`
+    : "no page AI cited could be compared";
+  const rows = [...sim.rows].sort((a, b) => Number(!!b.fixed) - Number(!!a.fixed) || Number(behind(b)) - Number(behind(a)));
+  return (
+    <Block open={!window.matchMedia(PHONE).matches} title="Test a fix" found={found}>
+      <p className="muted" style={{ margin: 0 }}>
+        {replay && <>Authored sample, not computed: the passages and scores were written by hand to show this panel. </>}
+        We split your pages and the pages AI cited into short passages and scored how closely each
+        matches the question and ChatGPT's searches for it: a <Term k="retrieval_score">retrieval score</Term> from
+        0 to 1. Then we put the suggested rewrite from “Win it back” into your page and scored it again.
+        A simulation of what the AI reads first, not a promise of a citation. Tap a question for the passages.
+      </p>
+      <ul className="search-list">
+        {rows.map((r) => {
+          const p = probes.get(r.probe_id);
+          const fix = r.fix_attribute_id ? fixes.get(r.fix_attribute_id) : undefined;
+          return (
+            <li key={r.probe_id}>
+              <Popover wide label={`Passages for: ${p?.text ?? r.probe_id}`} className="search-row fix-row"
+                       trigger={<>
+                         <span className="search-q">{p?.text ?? r.probe_id}</span>
+                         <ScoreBars r={r} />
+                       </>}>
+                <strong className="pop-title">{p?.text}</strong>
+                {replay && <p><span className="tag sample">sample</span> Written by hand; example.com pages are fictional.</p>}
+                {r.yours ? <PassageQuote title="Your best passage" p={r.yours} /> : <p className="muted">None of your pages could be read.</p>}
+                {r.rival ? <PassageQuote title="Best passage of a page AI cited" p={r.rival} />
+                  : <p className="muted">No page AI cited for this question could be read.</p>}
+                {r.fixed ? (
+                  <>
+                    <PassageQuote title={`With the fix${fix ? ` for “${fix.label}”` : ""}`} p={r.fixed} />
+                    <p className="muted" style={{ margin: 0 }}>
+                      {r.rival && r.fixed.score >= r.rival.score ? "The rewrite now matches this question at least as closely as the page AI cited."
+                        : r.yours && r.fixed.score > r.yours.score ? "The rewrite closes part of the gap."
+                        : "The rewrite does not match this question more closely than your page already does."}
+                    </p>
+                    <Reask run={run} r={r} got={r.reask ?? reasks[`${run.id}:${r.probe_id}`]} onReasked={onReasked} />
+                  </>
+                ) : <p className="muted">No suggested fix targets this question.</p>}
+                <p className="muted">Scored against {plural(r.queries, "search", "searches")}: the question and ChatGPT's own searches for it; the best match counts.</p>
+              </Popover>
+            </li>
+          );
+        })}
+      </ul>
+      {sim.skipped.length > 0 && (
+        <details className="skipped">
+          <summary className="muted">What we could not read ({sim.skipped.length})</summary>
+          <ul>{sim.skipped.map((x, i) => <li key={i} className="muted">{x}</li>)}</ul>
+        </details>
+      )}
+      {!replay && <p className="muted" style={{ margin: 0 }}>{plural(sim.passages, "passage")} from {plural(sim.pages, "page")}, scored with {sim.model}.</p>}
+    </Block>
+  );
+}
+
+/** Overview's one line on the gap a suggested fix does the most for. */
+function FixLine({ run, onOpen }: { run: Run; onOpen: () => void }) {
+  const r = biggestFix(run);
+  if (!r?.yours || !r.rival || !r.fixed) return null;
+  const q = run.probes.find((p) => p.id === r.probe_id);
+  return (
+    <p className="callout story">
+      {run.retrieval?.provenance !== "live_api" && <span className="tag sample">sample</span>}{" "}
+      <strong>Biggest fixable gap:</strong> for “{q?.text}”, your best page scores {score(r.yours.score)} and
+      the page AI cited {score(r.rival.score)}. With the suggested rewrite yours scores {score(r.fixed.score)}{" "}
+      (<Term k="retrieval_score">simulated</Term>).{" "}
+      <button type="button" className="pop-trigger linky" onClick={onOpen}>Test a fix</button>
+    </p>
+  );
+}
+
 /** One question as a compact row; opening it shows the full answer and what the scorer made of it. */
 function QuestionRow({ p, name, answer, verdict, tags, note, replay, after }: {
   p: Probe; name: string; answer?: Answer; verdict?: ReactNode; tags?: ReactNode; note?: ReactNode;
@@ -1093,7 +1407,7 @@ function QuestionRow({ p, name, answer, verdict, tags, note, replay, after }: {
     <details className="qrow">
       <summary>
         <span className="muted" title={p.id}>{name}</span>
-        <span className="qrow-text">{p.text}</span>
+        <span className="qrow-text">{p.text}{p.demand && <DemandBadge d={p.demand} />}</span>
         {verdict}
       </summary>
       <div className="qrow-body">
@@ -1120,6 +1434,7 @@ function BuyerQuestions({ run }: { run: Run }) {
   const base = run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline");
   const follow = run.probes.filter((p) => p.kind === "blind" && p.phase === "followup");
   const control = run.probes.find((p) => p.phase === "control");
+  const realAsked = base.filter((p) => p.demand).length;
   const tries = d?.tries ?? 1;
   // Every try of one question, first try first: [answer, evaluation] pairs.
   const repeatAnswers = new Map((run.repeat_answers ?? []).map((a) => [`${a.probe_id}#${a.try_no}`, a]));
@@ -1162,6 +1477,7 @@ function BuyerQuestions({ run }: { run: Run }) {
                    verdict={verdict(p)} replay={replay}
                    note={<>
                      {evals.get(p.id)?.explanation && <span className="muted">{evals.get(p.id)!.explanation}</span>}
+                     <Searched run={run} p={p} />
                      {shown.length > 1 && (
                        <span className="muted">
                          {shown.map(([a, e], i) => `Try ${i + 1}: ${tryWord(a, e)}`).join(" · ")}. Every try’s answer is below.
@@ -1197,6 +1513,13 @@ function BuyerQuestions({ run }: { run: Run }) {
               + ` context: buyer visibility is the average of the ${tries} tries, shown with its range.`
             : replay ? " A sample run replays one authored answer per question: 1 try." : " Each was asked once."}
         </p>
+        {(realAsked > 0 || !!run.demand_notes?.length) && (
+          <p style={{ margin: 0 }}>
+            {realAsked ? `${realAsked} of ${base.length} are ` : "None of them are "}
+            <Term k="real_demand" note={run.demand_notes?.join(" ")}>real searches</Term>
+            {realAsked ? (realAsked < base.length ? "; AI wrote the rest." : ".") : ": AI wrote them all."}
+          </p>
+        )}
         {fronts.length > 0 && d && gapSentence(d, brand) && <p style={{ margin: 0 }}>{gapSentence(d, brand)}<GapVerdict d={d} /></p>}
         {!fronts.length && vis != null && (
           <p style={{ margin: 0 }}>

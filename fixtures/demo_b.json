@@ -1,7 +1,7 @@
 {
  "scenario": "B",
  "title": "Scenario B \u2014 personal organization looks weak",
- "notice": "SYNTHETIC DEMO DATA. Answers were authored for illustration by a coding session that knew the target company; they are not chatbot measurements. Citation URLs on example.com are fictional.",
+ "notice": "SYNTHETIC DEMO DATA. Answers were authored for illustration by a coding session that knew the target company; they are not chatbot measurements. Citation URLs on example.com are fictional. Their web searches are authored samples too. The retrieval sample (passages and their scores) is authored too: no page was fetched and nothing was embedded.",
  "profile": {
   "name": "Notion",
   "domain": "notion.com",
@@ -325,7 +325,11 @@
     ],
     "on_topic": true,
     "outdated_claim_quote": null
-   }
+   },
+   "searches": [
+    "best internal knowledge base tools 2026",
+    "team wiki software comparison"
+   ]
   },
   {
    "probe_id": "kb-2",
@@ -352,7 +356,11 @@
     ],
     "on_topic": true,
     "outdated_claim_quote": null
-   }
+   },
+   "searches": [
+    "wiki software for startups engineers and non-technical staff",
+    "Best knowledge base software 2025"
+   ]
   },
   {
    "probe_id": "kb-3",
@@ -379,7 +387,11 @@
     "evidence_quotes": [],
     "on_topic": true,
     "outdated_claim_quote": null
-   }
+   },
+   "searches": [
+    "knowledge base tool easy setup no IT",
+    "best knowledge base software 2026"
+   ]
   },
   {
    "probe_id": "pt-1",
@@ -407,7 +419,11 @@
     ],
     "on_topic": true,
     "outdated_claim_quote": null
-   }
+   },
+   "searches": [
+    "project tracking tools for small teams",
+    "best project management software 2026"
+   ]
   },
   {
    "probe_id": "pt-2",
@@ -435,7 +451,10 @@
     ],
     "on_topic": true,
     "outdated_claim_quote": null
-   }
+   },
+   "searches": [
+    "project management tool for marketing teams briefs"
+   ]
   },
   {
    "probe_id": "pt-3",
@@ -462,7 +481,11 @@
     ],
     "on_topic": true,
     "outdated_claim_quote": null
-   }
+   },
+   "searches": [
+    "docs and tasks in one workspace under $10 per user",
+    "best project management software, 2026"
+   ]
   },
   {
    "probe_id": "mtg-1",
@@ -489,7 +512,10 @@
     ],
     "on_topic": true,
     "outdated_claim_quote": null
-   }
+   },
+   "searches": [
+    "meeting notes apps for teams"
+   ]
   },
   {
    "probe_id": "mtg-2",
@@ -514,7 +540,11 @@
     ],
     "on_topic": true,
     "outdated_claim_quote": null
-   }
+   },
+   "searches": [
+    "link meeting notes to decisions and action items remote team",
+    "meeting notes apps for teams 2026"
+   ]
   },
   {
    "probe_id": "mtg-3",
@@ -541,7 +571,10 @@
     "evidence_quotes": [],
     "on_topic": true,
     "outdated_claim_quote": null
-   }
+   },
+   "searches": [
+    "meeting transcription without bot joining the call"
+   ]
   },
   {
    "probe_id": "po-1",
@@ -569,7 +602,10 @@
     "evidence_quotes": [],
     "on_topic": true,
     "outdated_claim_quote": null
-   }
+   },
+   "searches": [
+    "best apps to organize notes goals and to-dos"
+   ]
   },
   {
    "probe_id": "po-2",
@@ -596,7 +632,11 @@
     "evidence_quotes": [],
     "on_topic": true,
     "outdated_claim_quote": null
-   }
+   },
+   "searches": [
+    "best note taking app for university students",
+    "student planner app assignments reading lists"
+   ]
   },
   {
    "probe_id": "po-3",
@@ -624,7 +664,10 @@
     ],
     "on_topic": true,
     "outdated_claim_quote": "Notion is also used for personal planning, though it is described as offline-limited."
-   }
+   },
+   "searches": [
+    "offline notes app Mac Windows phone free"
+   ]
   }
  ],
  "followup_bank": {
@@ -1440,5 +1483,136 @@
    "question_ids": [],
    "why": "The site states these controls on only one page, so answers have almost nothing to repeat."
   }
- ]
+ ],
+ "retrieval": {
+  "pages": 9,
+  "passages": 10,
+  "rows": [
+   {
+    "probe_id": "kb-1",
+    "queries": 3,
+    "yours": {
+     "url": "https://example.com/demo-source-claim-3",
+     "text": "Build a wiki your whole team can edit. Link docs to each other and to databases, so every answer is one click from the context behind it.",
+     "score": 0.49,
+     "query": "best internal knowledge base tools 2026"
+    },
+    "rival": {
+     "url": "https://example.com/demo-source-4",
+     "text": "The best internal knowledge base tools of the year, compared on search, AI answers from your own docs, permissions and how quickly a team can set one up.",
+     "score": 0.73,
+     "query": "best internal knowledge base tools 2026"
+    },
+    "fixed": {
+     "url": "https://example.com/demo-source-claim-1",
+     "text": "Notion AI is part of every workspace: it drafts and edits inside your pages, summarises meeting notes, and answers questions from your team's own docs with links to the pages it read. No separate add-on to buy.",
+     "score": 0.7,
+     "query": "best internal knowledge base tools 2026"
+    },
+    "fix_attribute_id": "ai_native"
+   },
+   {
+    "probe_id": "mtg-3",
+    "queries": 2,
+    "yours": {
+     "url": "https://example.com/demo-source-claim-1",
+     "text": "Ask Notion AI to draft a first version, fix spelling or change the tone of a page. It works wherever you write, from a quick note to a long doc.",
+     "score": 0.35,
+     "query": "meeting transcription without bot joining the call"
+    },
+    "rival": {
+     "url": "https://example.com/demo-source-11",
+     "text": "Record and transcribe calls straight from your computer's audio, with no bot joining the meeting. You get a summary, decisions and action items a minute after the call ends.",
+     "score": 0.79,
+     "query": "meeting transcription without bot joining the call"
+    },
+    "fixed": {
+     "url": "https://example.com/demo-source-claim-1",
+     "text": "Notion AI is part of every workspace: it drafts and edits inside your pages, summarises meeting notes, and answers questions from your team's own docs with links to the pages it read. No separate add-on to buy.",
+     "score": 0.66,
+     "query": "meeting transcription without bot joining the call"
+    },
+    "fix_attribute_id": "ai_native"
+   },
+   {
+    "probe_id": "po-1",
+    "queries": 2,
+    "yours": {
+     "url": "https://example.com/demo-source-claim-3",
+     "text": "Keep notes, goals and to-dos together in pages you can nest, link and rearrange. Templates help you start a reading list, a habit tracker or a weekly plan.",
+     "score": 0.42,
+     "query": "best apps to organize notes goals and to-dos"
+    },
+    "rival": {
+     "url": "https://example.com/demo-source-15",
+     "text": "Organise notes, goals and to-dos in one app that links them: a goal lists the notes and tasks behind it, and a daily view shows what is due.",
+     "score": 0.72,
+     "query": "best apps to organize notes goals and to-dos"
+    },
+    "fixed": {
+     "url": "https://example.com/demo-source-claim-3",
+     "text": "Notion pages sit on shared relational databases: one record shows up in a project board, a meeting note and a reading list at once, and editing it anywhere updates it everywhere.",
+     "score": 0.69,
+     "query": "best apps to organize notes goals and to-dos"
+    },
+    "fix_attribute_id": "connected_docs"
+   },
+   {
+    "probe_id": "po-2",
+    "queries": 3,
+    "yours": {
+     "url": "https://example.com/demo-source-claim-3",
+     "text": "Keep notes, goals and to-dos together in pages you can nest, link and rearrange. Templates help you start a reading list, a habit tracker or a weekly plan.",
+     "score": 0.47,
+     "query": "student planner app assignments reading lists"
+    },
+    "rival": {
+     "url": "https://example.com/demo-source-13",
+     "text": "Students keep class notes, assignment deadlines and reading lists in one place, with a calendar of due dates and templates for each course.",
+     "score": 0.7,
+     "query": "student planner app assignments reading lists"
+    },
+    "fixed": {
+     "url": "https://example.com/demo-source-claim-3",
+     "text": "Notion pages sit on shared relational databases: one record shows up in a project board, a meeting note and a reading list at once, and editing it anywhere updates it everywhere.",
+     "score": 0.73,
+     "query": "What app should a university student use to organize class notes, assignments and reading lists?"
+    },
+    "fix_attribute_id": "connected_docs"
+   },
+   {
+    "probe_id": "kb-3",
+    "queries": 3,
+    "yours": {
+     "url": "https://example.com/demo-source-claim-3",
+     "text": "Build a wiki your whole team can edit. Link docs to each other and to databases, so every answer is one click from the context behind it.",
+     "score": 0.4,
+     "query": "knowledge base tool easy setup no IT"
+    },
+    "rival": {
+     "url": "https://example.com/demo-source-3",
+     "text": "Set up a team knowledge base in an afternoon: start from a template, invite your team, and publish. No IT ticket needed, and the free tier covers small teams.",
+     "score": 0.68,
+     "query": "knowledge base tool easy setup no IT"
+    }
+   },
+   {
+    "probe_id": "pt-1",
+    "queries": 3,
+    "yours": {
+     "url": "https://example.com/demo-source-claim-2",
+     "text": "Write, plan and organize in one place. Pages hold notes, docs and wikis, and databases turn any list into a board, a table or a calendar. Start from a template or a blank page, then share it with your team.",
+     "score": 0.64,
+     "query": "project tracking tools for small teams"
+    },
+    "rival": {
+     "url": "https://example.com/demo-source-5",
+     "text": "Small teams track projects on boards, lists and timelines. Assign tasks, set due dates and see who is working on what, with a free plan for up to ten people and apps for every phone and desktop.",
+     "score": 0.61,
+     "query": "best project management software 2026"
+    }
+   }
+  ],
+  "skipped": []
+ }
 }

@@ -134,6 +134,8 @@ def plan_buyer(s: State):
                            f"aims for ({run.profile.core_category}), so one set of buyer questions was asked.")
     else:
         run.log.append(f"Question planner prepared {len(buyer)} buyer questions from the claims.")
+    run.demand_notes = list(getattr(provider, "demand_notes", []))
+    run.log += run.demand_notes
     for note in [*getattr(provider, "notes", []), *run.missing_fronts.values()]:
         run.log.append(note)
         run.drift_notes.append(note)
@@ -417,9 +419,30 @@ def build_gap_report(s: State):
     if run.win_back or run.win_back_notes:
         run.log.append(f"Action plan: {len(run.win_back)} fix(es) kept, "
                        f"{len(run.win_back_notes)} note(s) on what was dropped.")
+    simulate_retrieval(run, s["provider"])
     run.status = "complete"
     run.log.append(f"Gap report built: {len(run.findings)} findings.")
     return {"run": run}
+
+
+def simulate_retrieval(run: Run, provider) -> None:
+    """The retrieval simulation and the fixes re-scored (retrieval.py): after every score, moving none.
+    A provider without it (a test transport) asks nothing; a failure is stated, never fatal."""
+    simulate = getattr(provider, "retrieval", None)
+    if simulate is None:
+        return
+    try:
+        run.retrieval = simulate(run)
+    except Exception as e:
+        run.log.append(f"Retrieval simulation failed ({type(e).__name__}); no passage was scored.")
+        return
+    if run.retrieval is None:
+        return
+    rows = [r for r in run.retrieval.rows if r.yours and r.rival]
+    run.log.append(("Retrieval sample (authored, not computed)" if run.retrieval.provenance == "synthetic"
+                    else "Retrieval simulation") + f": {run.retrieval.passages} passages from {run.retrieval.pages} "
+                   f"pages; your best passage trails the cited page on "
+                   f"{sum(r.rival.score > r.yours.score for r in rows)} of {len(rows)} buyer questions.")
 
 
 def route_after_evaluate(s: State) -> str:

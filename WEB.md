@@ -111,6 +111,18 @@ things make the buyer number trustworthy anyway:
   with neither, questions follow the claims as before. The placed front cites only that attribute's
   own claim evidence, never the homepage's. Every question
   still goes through `brand_leaks` and `vendor_address`. A replayed sample is one unlabelled set.
+- **Buyer questions come from real demand first** (`demand.py`). For each front's category a live
+  run harvests Google autocomplete suggestions (a few question-prefix seeds) and Reddit's public
+  search, keeps phrasings on the category with buying intent that never name the brand or address
+  the vendor, groups them by meaning (`text-embedding-3-small`, metered through `access.py`;
+  average-link clustering at one cosine threshold) and asks the most central phrasing of the
+  biggest groups first, exactly as people typed it; no model rewords it. Each such probe carries
+  `probe.demand` (the real phrase and its whole group), shown as a "real demand" badge; the
+  written questions fill any shortfall. Harvests are cached a week under `DATA_DIR/demand/`.
+  Reddit refuses unauthenticated clients from many networks and "People also ask" would mean
+  scraping Google, so the one is stated when it fails and the other is not used. Nothing is a
+  volume estimate. With no usable searches the front keeps its written questions and
+  `run.demand_notes` says why. Tests never touch the network (`tests/conftest.py`).
 - **Each buyer question is asked `BUYER_TRIES` times** (default 3), each in a fresh context. Buyer
   visibility is the mean of the per-try visibility scores, per front, shown with its range ("33.3 /
   100 · range 16.7–50 across 3 tries"), and each question shows how stable it was ("named in 2 of 3
@@ -175,13 +187,15 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 | `GET /api/health` | liveness, whether live mode is usable, and `seed_company` — the id of the preloaded company, `showcase` — the company and run ids of the preloaded Profound report, and `contact_email` — where to ask for a pass or a higher cap (`CONTACT_EMAIL`), and `storage` — whether the pass database survives a redeploy (README "Deploy to Render") |
 | `GET /api/stream?company=<id>` or `?scenario=A&mode=demo` | SSE while the graph runs: `node` (with `planned` question counts per stage, discovered `competitors` and the run `mode`), `answer` (the question, the first 320 characters of its answer, provenance and whether a web search ran), `done` (the full run), `error`. A company is always `mode=live`, apart from the offline fallback above. The page only ever measures companies; `?scenario=` remains for the fixture path |
 | `GET /api/runs` | run history, newest first |
-| `GET /api/runs/{id}` | one full run, including the drift report and its `insights` (share of voice, cited sources); the stream's `done` event and `rescore` return the same shape |
+| `GET /api/runs/{id}` | one full run, including the drift report and its `insights` (share of voice, cited sources, searches); the stream's `done` event and `rescore` return the same shape |
+| `POST /api/runs/{id}/reask` | test a fix: `{probe_id}` asks that buyer question once more, with the rewritten passage and the cited page's passage as the only sources, and saves whether the brand was named on its retrieval row. One metered model call; live runs only, refused on the public demo without a pass. A simulation that moves no score |
 | `POST /api/runs/{id}/rescore` | lens 2 after the fact: `{weights: {id: 0..1}}` sets intent on a finished run and re-scores its saved answers — no provider is built and no model is asked. Unnamed weights keep their value; 0 unweights; with nothing weighted the run reads through the claim lens again. Saved in place, except in the public demo (`VISEXP_PUBLIC_DEMO`) and for the committed Profound run |
 | `GET /api/onboard/stream?url=&name=` | the same onboarding as SSE: `pages` (the URLs the crawl fetched) as soon as the crawl lands, then `company` once extraction is saved, or `error`. The page uses this one |
 | `GET /api/onboard?url=&name=` | Agent 1: crawl up to 6 of a company's own pages, extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. Needs the same key as live mode. A company is always saved, never refused: a site where fewer than three claims survive quote validation carries a prominent warning that it states too little for a reliable claim percentage, and the existing insufficient-evidence rules withhold the scores rather than the company |
 | `GET /api/companies` · `GET /api/companies/{id}` | onboarded companies, newest first, and one in full |
 | `PATCH /api/companies/{id}` | the customer's own input: `{weights: {id: 0..1}, added: [{label, description, intended_weight}]}`. Intent arrives only here (or on `rescore`) — never derived from their copy, and a weight of 0 leaves an extracted attribute unintended. Weights are optional: a company measured with none runs the claim lens. An **added** claim is intended by construction, so its weight cannot go below 0.1 |
 | `POST /api/access/exchange` · `GET /api/access` | access passes on the hosted demo (`access.py`): `{code}` from a personal link `/?pass=<code>` becomes an HttpOnly session cookie; `GET` is the holder's meter (`{pass: {label, spent_usd, cap_usd, capped}}` or `{pass: null}`). With a pass, live runs and onboarding are allowed on the public demo, charged to the pass, and runs and companies are listed only to the pass that made them. `/admin` (behind `ADMIN_PASSWORD`) creates passes, shows each link once, and tops up or revokes. Cookies are same-origin, so passes work on the production build, not across the Vite dev port |
+| `POST /api/companies/{id}/audit` | checks again whether AI can read the site (`audit.py`) and saves it on the company; the same check runs once during onboarding. Plain fetches, no model and no key: robots.txt for the AI crawlers, the claim's words in the no-JavaScript HTML, schema.org JSON-LD, headings, load time and llms.txt, on every page that states each claim, plus Wikidata/Wikipedia (tied to the company only by Wikidata's official website on its domain) and the Crunchbase, G2 and LinkedIn pages the site itself links to. Anything that cannot be reached, or whose robots.txt turns automated tools away, is "could not check", never a guess. A run copies the company's audit when it starts |
 | `DELETE /api/companies/{id}/attributes/{attr}` | removes a claim the customer added. Refuses for a claim extracted from their own pages: that one is evidence, and excluding it from scoring is what its zero slider is for |
 
 Comparison is done client-side from two `GET /api/runs/{id}` responses — no extra endpoint.
@@ -216,7 +230,7 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   today") — buyer visibility (on a live run, side by side: **Where AI places you** and **Where you
   aim to be**, each with its category, range, 95% confidence interval and any low-confidence badge, then
   one plain gap sentence ending in whether the gap is real), the count of claims to win back, and **Download summary (PDF)**.
-  Below it, five tabs with counts (`role=tablist`, arrow keys, Home/End; the tab is kept in the URL
+  Below it, six tabs with counts (`role=tablist`, arrow keys, Home/End; the tab is kept in the URL
   hash, so `#report-buyer` opens Buyer questions; on a phone the strip scrolls sideways):
   - **Overview** — where the answers came from (measured live with the model, or the SYNTHETIC
     DEMO banner for a replayed run), what the figures mean, then one **chip per zone** with its
@@ -250,7 +264,46 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     2 of 3 tries"); a row opens to the full answer (every try's, for a buyer question) and the scorer's
     note. Buyer questions are grouped by front, each group with its visibility and range, its
     questions and its **control question** with its answer and, when flagged, why the result is
-    low confidence.
+    low confidence. A buyer row, and its question popover, also says what the model searched for
+    it and whether any cited page was the brand's own.
+  - **Why AI misses you** — diagnosis sections, each headed by one finding sentence and collapsed
+    on a phone. **What ChatGPT searched** (`insights.searches`): the web searches the measured model
+    ran for the buyer questions (every try), read from the Responses API's `web_search_call` items
+    into `Answer.searches` and grouped when they differ only by case, a year or punctuation; one
+    question told as a sentence, then each search with the questions it came from and the pages
+    cited in those answers, the brand's own marked. The API does not say which search found which
+    page, so pages belong to the answer. Runs saved before searches were kept say "not recorded";
+    the bundled samples carry authored searches, labelled sample, that move no score.
+    **Can AI read your site?** is a red/green mark per check for each claim's page (AI crawlers, text without JavaScript,
+    structured data, headings, speed; a claim that passes all five is one green mark). The page
+    checked is the first that states the claim and AI can read; any other page that states it but
+    blocks an AI crawler or is an empty script shell is listed under the claim as advice ("It is also on
+    /pricing, but robots.txt blocks GPTBot there"), never as a failure. Headings pass on a main
+    heading plus subheadings; phrasing one as a buyer's question is advice too. Then the whole site
+    (llms.txt, pages without JavaScript) and **where AI gets its facts** (Wikipedia, Wikidata,
+    Crunchbase, G2, LinkedIn: found, not found or not checked). Every mark opens its reason, the
+    page checked and what the check means; Wikipedia and Wikidata show their own short description
+    beside the site's one-liner, and a Crunchbase, G2 or LinkedIn profile the site does not link
+    is "not checked", with a one-tap search link to look by hand. It is the audit the run carried; runs from before it
+    say so. The same section, closed, sits on the claims step with **Check again**. The onboarding
+    crawler never ran JavaScript, so a quote it kept was in the plain HTML by construction: the
+    JavaScript mark says whether it still is, and near-empty shells (under 100 characters of text,
+    filled in by inline script or script files) are flagged; a short page with an analytics tag is not.
+    **Test a fix** (`run.retrieval`, `retrieval.py`): a mini version of how an AI search picks what
+    to read. After scoring, the brand's pages (fetched again, with the onboarding text as fallback)
+    and the pages AI cited for each buyer question (up to 10, most-cited first, robots.txt respected,
+    5 s timeouts) are split into 80–150-word passages on heading and paragraph boundaries, embedded
+    with `text-embedding-3-small` (`embeddings.py`: metered, cached on disk by text hash) and scored
+    by cosine similarity against the question and its fan-out searches. Per question: your best
+    passage, the best passage of a page AI cited, and — where a "Win it back" fix targets the
+    question — the rewrite spliced into its page (in place of the copy it replaces, else as a new
+    passage) and scored again; tap a row for the passages. Every number is labelled a
+    **retrieval score**, a similarity-based simulation, never a guarantee of citation, and moves no
+    score. On a live run, "Ask the AI again with the fix" asks the buyer question once with the
+    rewritten passage and the cited page as the only sources and says whether the brand is named:
+    one metered call, off until pressed, refused without a pass. Pages not read are listed with the
+    reason. The bundled samples carry an authored sample, labelled as such. Overview gets one line
+    on the biggest fixable gap.
   - **Sources & rivals** — **where AI gets its opinion** (every site cited in a counted buyer or
     brand answer, ranked by answers citing it; a third-party site cited in two or more is flagged
     as a target), **share of voice** (answers recommending the brand beside the three

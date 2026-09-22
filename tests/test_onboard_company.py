@@ -325,6 +325,9 @@ def test_a_thin_site_is_saved_with_a_warning_rather_than_refused(store, monkeypa
     # how each claim fared travels as structure, saved with the company, never as a warning string
     assert [(c["label"], c["kept"], c["quotes_matched"]) for c in out["checks"]] == [("Fast to set up", True, 1)]
     assert reports.load_company(out["id"]).checks[0].label == "Fast to set up"
+    # the retrievability audit runs during onboarding, is saved, and is not a model call
+    assert [c["attribute_id"] for c in out["audit"]["claims"]] == ["fast"]
+    assert reports.load_company(out["id"]).audit is not None
 
 
 def test_a_repeated_buyer_question_is_dropped_before_the_company_is_saved():

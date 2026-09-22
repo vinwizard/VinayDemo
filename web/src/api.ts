@@ -107,6 +107,15 @@ export interface Topic {
   fit: string;
 }
 
+/** Where a buyer question came from when it is a real search, not one AI wrote. */
+export interface Demand {
+  /** The real search, verbatim: the question asked. */
+  phrase: string;
+  source: "autocomplete" | "reddit";
+  /** Every real phrasing grouped with it, the phrase included. */
+  phrasings: { text: string; source: "autocomplete" | "reddit" }[];
+}
+
 export interface Probe {
   id: string;
   topic_id: string;
@@ -114,6 +123,7 @@ export interface Probe {
   kind: "blind" | "named";
   phase: string;
   purpose: string;
+  demand?: Demand | null;
 }
 
 export interface Answer {
@@ -171,9 +181,12 @@ export interface Run {
   scenario: string | null;
   status: string;
   mode: string;
-  profile: { name: string; domain: string; logo_url?: string | null; core_category?: string | null };
+  profile: { name: string; domain: string; logo_url?: string | null; core_category?: string | null;
+             positioning_points?: { text: string }[] };
   topics: Topic[];
   probes: Probe[];
+  /** Per front: how many buyer questions are real searches, or why none are. Absent before grounding. */
+  demand_notes?: string[];
   answers: Answer[];
   evaluations: QueryEvaluation[];
   /** Buyer questions asked again (try 2 onward); absent on runs saved before repeats. */
@@ -186,8 +199,26 @@ export interface Run {
   /** Absent on runs saved before the action plan existed. */
   win_back?: WinBackAction[];
   win_back_notes?: string[];
+  /** Simulated retrieval and the fixes re-scored; absent on runs saved before it existed. */
+  retrieval?: RetrievalSim | null;
+  /** The company's site audit when the run started; absent on replays and older runs. */
+  audit?: SiteAudit | null;
   log: string[];
   insights?: Insights;  // derived by the API from the saved answers; absent on a run read raw
+}
+
+/** One passage and how closely it matches a buyer question or search: cosine similarity of embeddings. */
+export interface ScoredPassage { url: string; text: string; score: number; query: string }
+export interface Reask { named: boolean; answer: string; model: string; collected_at: string }
+export interface RetrievalRow {
+  probe_id: string; queries: number;
+  yours: ScoredPassage | null; rival: ScoredPassage | null; fixed: ScoredPassage | null;
+  fix_attribute_id: string | null; reask: Reask | null;
+}
+/** A mini version of how an AI search picks what to read (retrieval.py). Moves no score. */
+export interface RetrievalSim {
+  provenance: string; model: string | null; pages: number; passages: number;
+  rows: RetrievalRow[]; skipped: string[];
 }
 
 /** Two panels the API reads off a run's counted baseline answers (insights.py). `reason` says why one is empty. */
@@ -200,6 +231,16 @@ export interface Insights {
     questions: number; brand: string; brand_recommended: number; reason: string | null;
     rivals: { name: string; count: number }[]; tied_top: number;
   };
+  /** Absent from an API older than search capture. */
+  searches?: Searches;
+}
+
+/** What the model searched for the buyer questions (insights.searches): near-duplicates grouped. */
+export interface SearchTry { try_no: number; searches: string[]; pages: string[]; owned_pages: string[] }
+export interface Searches {
+  answers: number; searched_answers: number; runs: number; owned: number; reason: string | null;
+  searches: { query: string; variants: string[]; answers: number; questions: string[]; pages: string[]; owned_pages: string[] }[];
+  questions: Record<string, SearchTry[]>;
 }
 
 export interface RunSummary {
@@ -309,7 +350,28 @@ export interface CompanyDetail {
   warnings: string[];
   checks: ClaimCheck[];   // empty for companies saved before checks existed: their notes are in warnings
   replay: boolean;
+  /** Null for companies onboarded before the audit existed. */
+  audit: SiteAudit | null;
 }
+
+/** Could AI read the site, and where else it learns about the company. Mirrors schemas.SiteAudit. */
+export type AuditStatus = "pass" | "fail" | "unknown";
+export interface AuditCheck {
+  key: "crawlers" | "raw_text" | "markup" | "headings" | "speed" | "llms_txt" | "no_js";
+  status: AuditStatus;
+  detail: string;
+}
+export interface SiteAudit {
+  checked_at: string;
+  site: AuditCheck[];
+  claims: { attribute_id: string; label: string; page_url: string | null; checks: AuditCheck[];
+            advice?: string[] }[];  // advice is absent on audits saved before it existed
+  entities: { source: string; status: "found" | "missing" | "not_checked"; summary: string;
+              says: string | null; url: string | null }[];
+}
+
+/** Checks again whether AI can read the site: plain fetches on the server, no model. */
+export const reaudit = (id: string) => json<CompanyDetail>(`/api/companies/${id}/audit`, { method: "POST" });
 
 export interface CompanySummary {
   id: string; name: string; domain: string; created_at: string;
@@ -369,6 +431,14 @@ export const getPass = (visit = false) =>
   json<{ pass: PassStatus | null }>(`/api/access${visit ? "?visit=1" : ""}`);
 export const getRuns = () => json<RunSummary[]>("/api/runs");
 export const getRun = (id: string) => json<Run>(`/api/runs/${id}`);
+
+/** Asks one buyer question again with the rewritten passage as a source: one metered model call. */
+export const reaskRun = (id: string, probe_id: string) =>
+  json<Run>(`/api/runs/${id}/reask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ probe_id }),
+  });
 
 /** Re-scores a finished run's saved answers with intent weights. No model is asked. */
 export const rescoreRun = (id: string, weights: Record<string, number>) =>
