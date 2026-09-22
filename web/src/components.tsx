@@ -1139,9 +1139,9 @@ function CitationNetwork({ run }: { run: Run }) {
   const names = probeLabels(run.probes, run.topics);
   const title = gaps.length
     ? `AI cited ${plural(gaps.length, "site")} beside your rivals, never beside ${brand}`
-    : s.sources.some((r) => r.rivals?.length)
-      ? `Every site AI cited beside a rival was cited beside ${brand} too`
-      : `AI cited ${plural(s.sources.length, "site")}, none beside a rival`;
+    : s.sources.some((r) => r.rivals?.length && r.kind !== "owned" && r.kind !== "rival")
+      ? `Every third-party site AI cited beside a rival was cited beside ${brand} too`
+      : `AI cited ${plural(s.sources.length, "site")}, no third-party site beside a rival`;
   const gapRow = (r: Source, i: number) => <GapSource key={r.domain} r={r} rank={i + 1} run={run} names={names} />;
   return (
     <Block open={open} className="finding" title={<>{title} <Term k="rival_only" icon /></>} found={null}>
