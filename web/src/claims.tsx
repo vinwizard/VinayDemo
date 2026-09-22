@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ClaimCheck, CompanyDetail } from "./api";
 import { deleteAttribute, patchCompany } from "./api";
 import { statedOn } from "./labels";
+import { Term } from "./popover";
 
 interface Added { label: string; description: string; weight: number }
 
@@ -181,7 +182,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
       {!company.replay && (
         <div className="claim category">
           <div>
-            <label className="claim-label" htmlFor={`cat-${company.id}`}>Core category</label>
+            <label className="claim-label" htmlFor={`cat-${company.id}`}>Core category</label> <Term k="core_category" icon />
             <p className="muted" style={{ margin: ".2rem 0 .5rem" }}>
               What a buyer shops for when they need {company.profile.name}. At least half the buyer
               questions ask about it, and a control question asks AI for its leading tools, so a

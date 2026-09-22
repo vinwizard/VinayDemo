@@ -8,6 +8,8 @@ import {
   PROVENANCE_LABEL, ZONE_LABEL, ZONE_MEANING, claimShare, headline, plain, potentialText, probeLabels,
   provenanceLabel, runLabels, when,
 } from "./labels";
+import { GLOSSARY } from "./glossary";
+import { Popover, Term } from "./popover";
 
 const ZONE_FILL: Record<Zone, string> = {
   landed: "var(--landed)",
@@ -60,7 +62,7 @@ export function Logo({ name, url, size = 40 }: { name: string; url?: string | nu
 
 /** A collapsible section whose header already says what it found, so a closed page still reads. */
 function Block({ title, found, children, open }: {
-  title: string; found: ReactNode; children: ReactNode; open?: boolean;
+  title: ReactNode; found: ReactNode; children: ReactNode; open?: boolean;
 }) {
   return (
     <details className="block" open={open}>
@@ -74,7 +76,7 @@ function Block({ title, found, children, open }: {
 }
 
 /** One titled part of a report tab, headed by what it found. */
-function Section({ title, found, children }: { title: string; found: ReactNode; children: ReactNode }) {
+function Section({ title, found, children }: { title: ReactNode; found: ReactNode; children: ReactNode }) {
   return (
     <section className="panel-sec">
       <div className="panel-sec-head">
@@ -85,15 +87,6 @@ function Section({ title, found, children }: { title: string; found: ReactNode; 
     </section>
   );
 }
-
-const ZONE_COUNT: Record<Zone, (d: DriftReport) => number> = {
-  landed: (d) => d.landed.length,
-  lost_claim: (d) => d.lost_claims.length,
-  contested: (d) => d.contested?.length ?? 0,
-  unstated_intent: (d) => d.unstated_intent.length,
-  imposed: (d) => d.imposed.length,
-  unprioritised: (d) => d.unprioritised?.length ?? 0,
-};
 
 /** How often each buyer question was asked, and the spread across those tries. */
 const triesText = (d: DriftReport) => (d.tries ?? 1) > 1 && d.visibility_range
@@ -106,7 +99,9 @@ function Visibility({ d }: { d: DriftReport }) {
   return (
     <>
       {d.visibility}<small> / 100</small>
-      {d.low_confidence && <span className="tag warn" title={d.low_confidence}>low confidence</span>}
+      {d.low_confidence && (
+        <Term k="low_confidence" note={d.low_confidence}><span className="tag warn">low confidence</span></Term>
+      )}
     </>
   );
 }
@@ -126,55 +121,180 @@ function Figures({ d }: { d: DriftReport }) {
     <div className="figures">
       <div className="fig potential">
         <span className="fig-value">{h.potential == null ? "n/a" : `${h.potential}%`}</span>
-        <span className="fig-label">{h.potential == null ? h.label : "untapped potential"}</span>
+        <span className="fig-label">
+          {h.potential == null ? h.label : <Term k="untapped_potential">untapped potential</Term>}
+        </span>
         <span className="fig-sub">{h.today ?? d.na_reasons?.[h.field]}</span>
       </div>
       <div className="fig">
         <span className="fig-value"><Visibility d={d} /></span>
-        <span className="fig-label">buyer visibility</span>
-        <span className="fig-sub">{d.visibility == null ? d.na_reasons?.visibility : triesText(d)}</span>
+        <span className="fig-label"><Term k="buyer_visibility">buyer visibility</Term></span>
+        <span className="fig-sub">{d.visibility == null ? d.na_reasons?.visibility : <Term k="tries">{triesText(d)}</Term>}</span>
       </div>
       <div className="fig">
         <span className="fig-value">{lost}</span>
-        <span className="fig-label">{lost === 1 ? "claim" : "claims"} to win back</span>
+        <span className="fig-label"><Term k="lost_claim">{lost === 1 ? "claim" : "claims"} to win back</Term></span>
       </div>
     </div>
   );
 }
 
-/** What the pinned figures mean, the zone legend and any excluded answers: the top of the Overview. */
+/** What the pinned figures mean, in plain words with every invented term defined in place. */
 function Explain({ d, brand }: { d: DriftReport; brand: string }) {
   return (
-    <>
-      <p className="muted" style={{ margin: 0 }}>
-        {d.lens === "claim"
-          ? `Untapped potential is weighted by how often your site states each claim: the share of what the site says that AI’s answers about ${brand} do not yet repeat supportively.`
-          : `Untapped potential is weighted by how much each claim matters to you: the share of what you want to be known for that AI’s answers about ${brand} do not yet say.`}
-        {" "}Buyer visibility is how often {brand} came up when a buyer asked without naming it — a
-        mention scores half, a recommendation full; a separate measure that does not move the headline.
-        {" "}{d.n_named} brand questions answered drive the headline · {d.n_blind} buyer answers
-        drive buyer visibility · source: {provenanceLabel(d.provenance)}
+    <p className="muted" style={{ margin: 0 }}>
+      <Term k="untapped_potential">Untapped potential</Term> is the share of{" "}
+      {d.lens === "claim"
+        ? <>what {brand}’s site says (claims on more pages count for more)</>
+        : <>what {brand} wants to be known for (weighted by how much each claim matters)</>}
+      {" "}that AI’s answers about {brand} do not yet say supportively.{" "}
+      <Term k="buyer_visibility">Buyer visibility</Term> is a separate score: how often {brand} came up
+      when a buyer asked without naming it.
+      {" "}Based on {d.n_named} <Term k="brand_question">brand question</Term> answers and{" "}
+      {d.n_blind} <Term k="buyer_question">buyer question</Term> answers · source: {provenanceLabel(d.provenance)}
+    </p>
+  );
+}
+
+/**
+ * Why an answer is left out of the scores, in words a reader can follow, or null when it counts.
+ * Mirrors scoring.eligible, rule for rule; `counts` below is its yes/no.
+ */
+function leftOut(a: Answer | undefined, e: QueryEvaluation | undefined, brand: string): string | null {
+  if (!a || !e) return "no answer came back";
+  if (a.provenance === "web_research_snapshot") return "it came from a web research snapshot, not an AI answer";
+  if (a.status !== "ok") return "the AI call failed";
+  if (a.provenance === "live_api" && !a.search_executed) return "the AI answered from memory instead of searching the web";
+  if (!e.valid) {
+    return e.warnings?.includes("Off-topic answer.") ? `the AI answered about something other than ${brand}`
+      : "our checker could not confirm what the answer said";
+  }
+  return null;
+}
+
+/** Mirrors scoring.eligible: only an answer that counts toward the scores can name anything here. */
+const counts = (a: Answer, e: QueryEvaluation) => leftOut(a, e, "") == null;
+
+/** What a reader needs to know about one kind of question, in one sentence. */
+function questionKind(p: Probe, brand: string) {
+  if (p.kind === "named") {
+    return p.phase === "followup"
+      ? `The comparison question: it names ${brand} beside the products AI named instead. Exploratory — never counted in the scores.`
+      : `A brand question: it names ${brand} but never a claim, so whatever AI says ${brand} is known for, it said on its own.`;
+  }
+  if (p.phase === "control") return "The control question: can the AI name this category’s leading tools at all? Never scored.";
+  if (p.phase === "followup") return `A follow-up buyer question: exploratory, never counted in the scores.`;
+  return `A buyer question: it never names ${brand}, so it shows whether AI brings ${brand} up on its own.`;
+}
+
+/**
+ * "Brand question 2" as something you can read in place: hover or tap shows the question, whether
+ * it counted and why not, and the AI's answer — no trip to another tab.
+ */
+function QRef({ id, run }: { id: string; run: Run }) {
+  const p = run.probes.find((x) => x.id === id);
+  const name = probeLabels(run.probes, run.topics)[id] ?? id;
+  if (!p) return <>{name}</>;
+  const a = run.answers.find((x) => x.probe_id === id), e = run.evaluations.find((x) => x.probe_id === id);
+  const why = p.phase === "baseline" ? leftOut(a, e, run.profile.name) : null;
+  const tab = p.kind === "named" && p.phase !== "followup" ? "brand" : p.kind === "named" ? "sources" : "buyer";
+  return (
+    <Popover wide label={name} className="qref" trigger={name.replace(/ — .*/, "")}>
+      <strong className="pop-title">{name}</strong>
+      <p className="muted">{questionKind(p, run.profile.name)}</p>
+      <p><strong>Asked:</strong> {p.text}</p>
+      {why && <p className="warn">Left out of the scores: {why}.</p>}
+      <h4>The AI’s answer</h4>
+      <p className="muted long-answer">
+        {a && run.mode !== "live_api" && <span className="tag sample">sample</span>}
+        {a ? plain(a.text) : "no answer"}
       </p>
-      <div className="zones" role="list" aria-label="Claims by zone">
-        {ZONES.map((z) => (
-          <div key={z} role="listitem" className={`zone ${ZONE_COUNT[z](d) ? "" : "zero"}`}>
-            <span className="dot" style={{ background: ZONE_FILL[z] }} />
-            <strong>{ZONE_LABEL[z]} · {ZONE_COUNT[z](d)}</strong>
-            <span className="muted"> — {ZONE_MEANING[z]}</span>
-          </div>
-        ))}
+      <a href={`#report-${tab}`}>Open in the {TABS.find(([t]) => t === tab)![1]} tab</a>
+    </Popover>
+  );
+}
+
+/** Question names and raw probe ids inside a server sentence, each made readable in place. */
+function Linked({ text, run }: { text: string; run: Run }) {
+  const byName = new Map<string, string>();
+  for (const [id, n] of Object.entries(probeLabels(run.probes, run.topics))) {
+    byName.set(n.replace(/ — .*/, ""), id);
+    byName.set(id, id);
+  }
+  const keys = [...byName.keys()].sort((x, y) => y.length - x.length).map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  if (!keys.length) return <>{text}</>;
+  const parts = text.split(new RegExp(`\\b(${keys.join("|")})\\b`));
+  return <>{parts.map((t, i) => (i % 2 ? <QRef key={i} id={byName.get(t)!} run={run} /> : t))}</>;
+}
+
+/** Several question references as "A, B and C". */
+const refs = (ids: string[], run: Run) => ids.map((id, i) => (
+  <span key={id}>{i ? (i === ids.length - 1 ? " and " : ", ") : ""}<QRef id={id} run={run} /></span>
+));
+
+/**
+ * The six zones as chips with counts. Each opens a popover listing its claims — site share, AI
+ * share, the AI's own words, the questions behind them and the fix — scrolling when there are many.
+ * An empty zone is greyed but still says what it means.
+ */
+function ZoneChips({ run }: { run: Run }) {
+  const sorted = sortClaims(run.attribute_scores);
+  return (
+    <Section title="Your claims, grouped by what AI does with them" found="hover or tap a group to see its claims">
+      <div className="chips" role="list">
+        {ZONES.map((z) => {
+          const rows = sorted.filter((s) => s.zone === z);
+          return (
+            <div role="listitem" key={z}>
+              <Popover wide label={`${GLOSSARY[z].term}: ${plural(rows.length, "claim")}`}
+                       className={`chip ${rows.length ? "" : "zero"}`}
+                       trigger={<><span className="dot" style={{ background: ZONE_FILL[z] }} />{ZONE_LABEL[z]}
+                                  <span className="chip-count">{rows.length}</span></>}>
+                <strong className="pop-title">{GLOSSARY[z].term} · {plural(rows.length, "claim")}</strong>
+                <p className="muted">{GLOSSARY[z].def}</p>
+                {rows.length ? rows.map((s) => <ClaimDetail key={s.attribute_id} s={s} run={run} />)
+                  : <p className="muted">No claim is in this group in this run.</p>}
+              </Popover>
+            </div>
+          );
+        })}
       </div>
-      {d.excluded_named > 0 && (
-        <div className="bubble" style={{ borderLeftColor: "var(--lost)" }}>
-          <h4 className="warn">{d.excluded_named} of {d.named_asked} brand answers excluded</h4>
-          <p style={{ margin: ".2rem 0 .4rem" }}>
-            The headline rests on {d.n_named}. An excluded answer cannot count against the brand, so this
-            score is biased upward — read it as a ceiling, not a measurement.
-          </p>
-          <ul>{d.excluded_reasons.map((r, i) => <li key={i} className="log">{r}</li>)}</ul>
-        </div>
-      )}
-    </>
+    </Section>
+  );
+}
+
+/**
+ * The excluded brand answers, in plain words: how many the headline rests on, why each was left out
+ * (each question readable in place), and which way that tilts the number.
+ */
+function Excluded({ run }: { run: Run }) {
+  const d = run.drift!;
+  if (!d.excluded_named) return null;
+  const brand = run.profile.name;
+  const h = headline(d);
+  const byReason = new Map<string, string[]>();
+  for (const p of run.probes.filter((x) => x.kind === "named" && x.phase === "baseline")) {
+    const why = leftOut(run.answers.find((a) => a.probe_id === p.id), run.evaluations.find((e) => e.probe_id === p.id), brand);
+    if (why) byReason.set(why, [...(byReason.get(why) ?? []), p.id]);
+  }
+  const found = [...byReason.values()].flat().length;
+  const them = d.excluded_named === 1 ? "it" : "them";
+  return (
+    <div className="callout excluded">
+      <h4>Based on {d.n_named} of {d.named_asked} brand answers</h4>
+      <p>
+        {found === d.excluded_named
+          ? [...byReason].map(([why, ids], i) => (
+              <span key={why}>{i ? " " : ""}For {ids.length === 1 ? "one question" : `${ids.length} questions`} ({refs(ids, run)}), {why}.</span>
+            ))
+          : <>Left out: {d.excluded_reasons.map((r, i) => <span key={i}>{i ? "; " : ""}<Linked text={r} run={run} /></span>)}.</>}
+        {" "}We left {them} out rather than guess what {them === "it" ? "it" : "they"} would have said.
+      </p>
+      <p className="muted">
+        A left-out answer cannot count against {brand}, so this can only flatter it
+        {h.value != null ? <>: read today’s {h.value}% as a best case, and the {h.potential}% untapped potential as a minimum.</> : "."}
+      </p>
+    </div>
   );
 }
 
@@ -206,6 +326,11 @@ const TABS = [
   ["overview", "Overview"], ["win-back", "Win it back"], ["buyer", "Buyer questions"],
   ["brand", "Brand questions"], ["sources", "Sources & rivals"],
 ] as const;
+
+/** A tab label's native tooltip, for the two tabs named after a term this product invented. */
+const TAB_HINT: Partial<Record<ReportTab, string>> = {
+  buyer: GLOSSARY.buyer_question.def, brand: GLOSSARY.brand_question.def,
+};
 type ReportTab = (typeof TABS)[number][0];
 
 /** "#report-buyer" opens the Buyer questions tab, so a link can land on one. */
@@ -218,7 +343,7 @@ const sortClaims = (scores: AttributeScore[]) => [...scores].sort(
 
 /**
  * One run as a product: a summary pinned at the top, then one tab per question a reader asks —
- * each fitting about one screen — and a drawer with everything about a single claim. Same numbers
+ * each fitting about one screen — with every claim and question readable in place. Same numbers
  * and data as ever; only the layout. `onRescored` enables the optional weights step; without it the
  * report is read-only. `weightNote` replaces the weights step with one plain line.
  */
@@ -231,7 +356,6 @@ export function Report({ run, onRescored, weightNote }: {
   const uid = useId();
   const top = useRef<HTMLDivElement>(null);
   const [tab, setTabState] = useState<ReportTab>(tabFromHash);
-  const [claim, setClaim] = useState<string | null>(null);
   useEffect(() => {
     const follow = () => setTabState(tabFromHash());
     window.addEventListener("hashchange", follow);
@@ -259,7 +383,6 @@ export function Report({ run, onRescored, weightNote }: {
   };
 
   const claims = run.attribute_scores.filter((s) => !s.discovered);
-  const opened = run.attribute_scores.find((s) => s.attribute_id === claim);
   const count: Record<ReportTab, number | undefined> = {
     overview: claims.length,
     "win-back": winBackPlan(run).actions.length,
@@ -290,7 +413,8 @@ export function Report({ run, onRescored, weightNote }: {
           <div className="report-tabs" role="tablist" aria-label="Report sections" onKeyDown={onKey}>
             {TABS.map(([t, label]) => (
               <button key={t} id={`${uid}-tab-${t}`} role="tab" className="rtab" aria-selected={tab === t}
-                      aria-controls={`${uid}-panel-${t}`} tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)}>
+                      aria-controls={`${uid}-panel-${t}`} tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)}
+                      title={TAB_HINT[t]}>
                 {label}
                 {count[t] != null && <span className="rtab-count">{count[t]}</span>}
               </button>
@@ -305,20 +429,18 @@ export function Report({ run, onRescored, weightNote }: {
             <>
               <RunSource run={run} />
               <Explain d={d} brand={run.profile.name} />
-              <section>
-                <h3>Claim by claim — tap one for its evidence and fix</h3>
-                <ClaimCards scores={claims} onOpen={setClaim} />
-              </section>
+              <ZoneChips run={run} />
+              <Excluded run={run} />
               {weightNote ? <p className="muted">{weightNote}</p>
                 : onRescored && <Weights key={run.id} run={run} onRescored={onRescored} />}
-              <Evidence run={run} />
+              <HowWeChecked run={run} />
             </>
           )}
           {tab === "win-back" && (
             <>
               <WinBack run={run} />
               <Section title="Where the upside is" found="the biggest open claims first">
-                <GapCards scores={run.attribute_scores} onOpen={setClaim} />
+                <GapCards run={run} />
               </Section>
             </>
           )}
@@ -329,7 +451,7 @@ export function Report({ run, onRescored, weightNote }: {
               <CitedSources run={run} />
               <ShareOfVoice run={run} />
               <Competitors run={run} />
-              <Discovered run={run} onOpen={setClaim} />
+              <Discovered run={run} />
             </>
           )}
         </div>
@@ -339,11 +461,6 @@ export function Report({ run, onRescored, weightNote }: {
           <div className="callout">This run finished without a drift report.</div>
         </>
       )}
-      {opened && <ClaimDrawer s={opened} run={run} onClose={() => {
-        setClaim(null);
-        // Back to the card or link that opened it, which a click in Safari never focused.
-        top.current?.parentElement?.querySelector<HTMLElement>(`[data-claim="${CSS.escape(opened.attribute_id)}"]`)?.focus();
-      }} />}
     </article>
   );
 }
@@ -511,126 +628,83 @@ const standing = (s: AttributeScore) =>
     : s.claim_pages > 0 || (s.claim_strength ?? 0) > 0 ? "on your site, not weighted"
     : "not claimed by you";
 
-/** Every claim as a card; tapping one opens its drawer. */
-function ClaimCards({ scores, onOpen }: { scores: AttributeScore[]; onOpen: (id: string) => void }) {
+/** Every claim as a card; hovering or tapping one shows everything about it in place. */
+function ClaimCards({ scores, run }: { scores: AttributeScore[]; run: Run }) {
   return (
     <div className="claim-cards">
       {sortClaims(scores).map((s) => (
-        <button key={s.attribute_id} className="claim-card" data-claim={s.attribute_id} aria-haspopup="dialog" onClick={() => onOpen(s.attribute_id)}>
-          <span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span>
-          <strong>{s.label}</strong>
-          <AiBar s={s} />
-          <span className="muted">Site: {siteShare(s)}</span>
-          <span className="muted">AI: {aiShare(s)}</span>
-          <span className="muted">{standing(s)}</span>
-        </button>
+        <Popover key={s.attribute_id} wide label={s.label} className="claim-card"
+                 trigger={<>
+                   <span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span>
+                   <strong>{s.label}</strong>
+                   <AiBar s={s} />
+                   <span className="muted">Site: {siteShare(s)}</span>
+                   <span className="muted">AI: {aiShare(s)}</span>
+                   <span className="muted">{standing(s)}</span>
+                 </>}>
+          <ClaimDetail s={s} run={run} />
+        </Popover>
       ))}
     </div>
   );
 }
 
 /**
- * Everything about one claim: what the site says, what AI said, and its win-back fix. A native
- * modal dialog, so the browser traps focus, closes it on Esc and returns focus to the card.
+ * Everything about one claim: what the site says, what AI said and where, and its win-back fix.
+ * One row in a zone chip's popover; every question it cites opens in place.
  */
-function ClaimDrawer({ s, run, onClose }: { s: AttributeScore; run: Run; onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  // Unmounting removes the dialog, which ends the modal; closing here would fire onClose.
-  useEffect(() => { if (!ref.current?.open) ref.current?.showModal(); }, []);
-  const names = probeLabels(run.probes, run.topics);
-  const probes = new Map(run.probes.map((p) => [p.id, p]));
-  const answers = new Map(run.answers.map((a) => [a.probe_id, a]));
+function ClaimDetail({ s, run }: { s: AttributeScore; run: Run }) {
   const site = (run.attributes ?? []).find((a) => a.id === s.attribute_id);
   const fix = winBackPlan(run).actions.find((a) => a.attribute_id === s.attribute_id);
-  const replay = run.mode !== "live_api";
   return (
-    <dialog ref={ref} className="drawer" aria-labelledby={`${s.attribute_id}-title`} onClose={onClose}
-            onClick={(e) => { if (e.target === ref.current) ref.current.close(); }}>
-      <div className="drawer-body">
-        <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <h3 id={`${s.attribute_id}-title`} style={{ margin: 0 }}>{s.label}</h3>
-            <span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span>{" "}
-            <span className="muted">{standing(s)}</span>
-          </div>
-          <button className="ghost" onClick={() => ref.current?.close()} aria-label="Close">✕</button>
-        </div>
-        {s.description && <p style={{ margin: 0 }}>{s.description}</p>}
-        <p style={{ margin: 0 }}><strong>{OWNER_TITLE[s.owner]}.</strong> {OWNER_TEXT[s.owner]}</p>
-
-        <h4>What your site says</h4>
-        <p className="muted" style={{ margin: 0 }}>
-          {claimShare(s.claim_pages, s.claim_pages_total, s.claim_strength)
-            ? `States it on ${siteShare(s)}` : siteShare(s)}
-        </p>
-        {site?.claim_quotes.map((q, i) => <p className="quote" key={i}>{q}</p>)}
-        {!site?.claim_quotes.length && (
-          <p className="muted" style={{ margin: 0 }}>
-            {s.discovered ? "Nothing — found in the answers, never supplied by you or your site."
-              : "No verbatim quote from your pages is saved with this run."}
-          </p>
-        )}
-
-        <h4>What AI said</h4>
-        <p className="muted" style={{ margin: 0 }}>
-          {s.echo_rate == null ? na(s.na_reasons, "echo_rate")
-            : <>Mentioned in {s.echoes} of {s.n} eligible answers · {endorsed(s)} endorsed{s.negative_echoes > 0 && ` · ${s.negative_echoes} negative`}</>}
-          {s.intended_weight != null && ` · intent weight ${s.intended_weight}`}
-        </p>
-        {s.quotes.map((q, i) => <p className="quote" key={i}>{plain(q)}</p>)}
-        {s.quotes.length === 0 && (
-          <p className="muted" style={{ margin: 0 }}>
-            No verbatim quote supports this attribute in any eligible answer. Absence of evidence, not
-            evidence of absence — but nothing here was scored on faith.
-          </p>
-        )}
-        {s.probe_ids.length > 0 && (
-          <div className="qlist">
-            {s.probe_ids.map((id) => (
-              <details className="qrow" key={id}>
-                <summary>
-                  <span className="muted" title={id}>{names[id] ?? id}</span>
-                  <span className="qrow-text">{probes.get(id)?.text ?? ""}</span>
-                </summary>
-                <p className="muted long-answer">
-                  {answers.get(id) && replay && <span className="tag sample">sample</span>}
-                  {answers.get(id) ? plain(answers.get(id)!.text) : "no answer"}
-                </p>
-              </details>
-            ))}
-          </div>
-        )}
-        {s.limitations.length > 0 && (
-          <ul style={{ margin: 0 }}>{s.limitations.map((l, i) => <li className="warn" key={i}>{l}</li>)}</ul>
-        )}
-
-        <h4>How to win it back</h4>
-        {fix ? <FixCard a={fix} run={run} />
-          : <p className="muted" style={{ margin: 0 }}>
-              {s.zone === "lost_claim" || s.zone === "unstated_intent"
-                ? "No verified fix for this claim yet."
-                : s.zone === "landed" ? "Nothing to win back: AI already says it."
-                : "The action plan covers claims to win back or amplify only."}
-            </p>}
-        {s.owner === "authority_gap" && (
-          <p className="muted" style={{ margin: 0 }}>
-            Relevant capability:{" "}
-            <a href="https://www.tryprofound.com/features/answer-engine-insights" target="_blank" rel="noreferrer">
-              Answer Engine Insights / citation analysis
-            </a>
-          </p>
-        )}
+    <div className="claim-row">
+      <div className="claim-row-head">
+        <strong>{s.label}</strong>
+        <span className="muted">{standing(s)}</span>
       </div>
-    </dialog>
+      {s.description && <p>{s.description}</p>}
+      <AiBar s={s} />
+      <p className="muted">Your site: {siteShare(s)}</p>
+      <p className="muted">AI: {aiShare(s)} <Term k="endorsed" icon /></p>
+      {s.quotes.length > 0 ? (
+        <>
+          <h4>In the AI’s own words</h4>
+          {s.quotes.map((q, i) => <p className="quote" key={i}>{plain(q)}</p>)}
+        </>
+      ) : <p className="muted">No word-for-word quote from an AI answer supports this claim.</p>}
+      {s.probe_ids.length > 0 && <p className="muted">Raised in {refs(s.probe_ids, run)}.</p>}
+      {site && site.claim_quotes.length > 0 && (
+        <>
+          <h4>What your site says</h4>
+          {site.claim_quotes.map((q, i) => <p className="quote" key={i}>{q}</p>)}
+        </>
+      )}
+      <p><strong>{OWNER_TITLE[s.owner]}.</strong> {OWNER_TEXT[s.owner]}</p>
+      {s.limitations.map((l, i) => <p className="warn" key={i}>{l}</p>)}
+      {fix && (
+        <>
+          <h4>How to win it back</h4>
+          <FixCard a={fix} run={run} />
+        </>
+      )}
+      {s.owner === "authority_gap" && (
+        <p className="muted">
+          Relevant capability:{" "}
+          <a href="https://www.tryprofound.com/features/answer-engine-insights" target="_blank" rel="noreferrer">
+            Answer Engine Insights / citation analysis
+          </a>
+        </p>
+      )}
+    </div>
   );
 }
 
-function GapCard({ s, onOpen }: { s: AttributeScore; onOpen: (id: string) => void }) {
+function GapCard({ s, run }: { s: AttributeScore; run: Run }) {
   return (
     <div className="card">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <h3>{s.label}</h3>
-        <span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span>
+        <Term k={s.zone}><span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span></Term>
       </div>
       <p style={{ margin: ".4rem 0 0" }}><strong>{OWNER_TITLE[s.owner]}.</strong> {OWNER_TEXT[s.owner]}</p>
       {s.limitations.filter((l) => l.includes("does not endorse it")).map((l, i) => (
@@ -654,15 +728,15 @@ function GapCard({ s, onOpen }: { s: AttributeScore; onOpen: (id: string) => voi
           Not an AI problem: your own copy does not state this clearly enough to be repeated.
         </p>
       )}
-      <button className="linky" style={{ marginTop: ".4rem" }} data-claim={s.attribute_id} aria-haspopup="dialog" onClick={() => onOpen(s.attribute_id)}>
-        All evidence
-      </button>
+      <div style={{ marginTop: ".4rem" }}>
+        <Popover wide label={s.label} className="linky" trigger="All evidence"><ClaimDetail s={s} run={run} /></Popover>
+      </div>
     </div>
   );
 }
 
-function GapCards({ scores, onOpen }: { scores: AttributeScore[]; onOpen: (id: string) => void }) {
-  const gaps = scores
+function GapCards({ run }: { run: Run }) {
+  const gaps = run.attribute_scores
     .filter((s) => GAP_ZONES.includes(s.zone))
     .sort((a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.intended_weight ?? 0) - (a.intended_weight ?? 0))
     .slice(0, 4);
@@ -671,15 +745,10 @@ function GapCards({ scores, onOpen }: { scores: AttributeScore[]; onOpen: (id: s
   }
   return (
     <div className="gaps">
-      {gaps.map((s) => <GapCard key={s.attribute_id} s={s} onOpen={onOpen} />)}
+      {gaps.map((s) => <GapCard key={s.attribute_id} s={s} run={run} />)}
     </div>
   );
 }
-
-/** Mirrors scoring.eligible: only an answer that counts toward the scores can name anything here. */
-const counts = (a: Answer, e: QueryEvaluation) =>
-  a.status === "ok" && e.valid && a.provenance !== "web_research_snapshot"
-  && !(a.provenance === "live_api" && !a.search_executed);
 
 /**
  * The stretch of an answer around the first mention of a name, as plain text, so the reader can see
@@ -814,7 +883,7 @@ const SAMPLE_NOTE = "Authored sample data, not a measurement: a live run fills t
 /** Brand vs the most-recommended competitors, on the buyer questions that count. One bar per name. */
 function ShareOfVoice({ run }: { run: Run }) {
   const v = run.insights?.voice;
-  const title = "Share of voice on buyer questions";
+  const title = <><Term k="share_of_voice">Share of voice</Term> on buyer questions</>;
   if (!v) return null;
   if (v.reason) {
     return (
@@ -997,7 +1066,7 @@ function BuyerQuestions({ run }: { run: Run }) {
   const vis = d?.visibility;
   return (
     <>
-      <Section title="Buyer questions"
+      <Section title={<Term k="buyer_question">Buyer questions</Term>}
                found={!base.length ? na(d?.na_reasons, "visibility")
                  : `${base.length} asked${tries > 1 ? ` × ${tries} tries` : " · 1 try each"}`
                    + ` · named you in ${namedIn} of ${all.length} answers${recIn ? ` · recommended you in ${recIn}` : ""}`
@@ -1020,7 +1089,7 @@ function BuyerQuestions({ run }: { run: Run }) {
         )}
         {!control && run.mode === "live_api" && !run.profile.core_category && (
           <p className="warn" style={{ margin: 0 }}>
-            No core category was saved for {brand}, so these questions follow its claims alone and no
+            No <Term k="core_category">core category</Term> was saved for {brand}, so these questions follow its claims alone and no
             control question was asked. Set the category on the claims screen and measure again.
           </p>
         )}
@@ -1050,7 +1119,8 @@ function Control({ run, p }: { run: Run; p: Probe }) {
     : `named ${plural(e.competitor_recommendations.length + (e.mentioned ? 1 : 0), "tool")}`
       + ` · ${e.mentioned ? `including ${run.profile.name}` : `not ${run.profile.name}`}`;
   return (
-    <Section title="Control question" found={flag ? <><span className="tag warn">low confidence</span> {found}</> : found}>
+    <Section title="Control question"
+             found={flag ? <><Term k="low_confidence"><span className="tag warn">low confidence</span></Term> {found}</> : found}>
       <p className="muted" style={{ margin: 0 }}>
         One question asked beside the buyer questions and never scored: does the answering model know
         who leads this category? When {run.profile.name} is named in no buyer answer, this decides
@@ -1087,7 +1157,6 @@ function winBackPlan(run: Run) {
 /** One verified fix: the page to change, the suggested rewrite and the buyer questions it serves. */
 function FixCard({ a, run }: { a: WinBackAction; run: Run }) {
   const zone = run.attribute_scores.find((s) => s.attribute_id === a.attribute_id)?.zone ?? a.zone;
-  const names = probeLabels(run.probes, run.topics);
   const probes = new Map(run.probes.map((p) => [p.id, p]));
   return (
     <div className="question">
@@ -1107,7 +1176,7 @@ function FixCard({ a, run }: { a: WinBackAction; run: Run }) {
       {a.question_ids.length ? (
         <ul style={{ margin: 0 }}>
           {a.question_ids.map((q) => (
-            <li key={q}><span className="muted" title={q}>{names[q] ?? q}:</span> {probes.get(q)?.text}</li>
+            <li key={q}><QRef id={q} run={run} />: {probes.get(q)?.text}</li>
           ))}
         </ul>
       ) : (
@@ -1173,7 +1242,7 @@ function BrandQuestions({ run }: { run: Run }) {
   const withClaims = named.filter((p) => raised.get(p.id)?.some((s) => !s.discovered)).length;
   const d = run.drift;
   return (
-    <Section title="Brand questions"
+    <Section title={<Term k="brand_question">Brand questions</Term>}
            found={`${named.length} asked · your claims came up in ${withClaims}`
              + (d?.excluded_named ? ` · ${d.excluded_named} excluded` : "")}>
       <p className="muted" style={{ margin: 0 }}>
@@ -1197,11 +1266,11 @@ function BrandQuestions({ run }: { run: Run }) {
 }
 
 /** Things AI says the company is known for that neither the company nor its site ever supplied. */
-function Discovered({ run, onOpen }: { run: Run; onOpen: (id: string) => void }) {
+function Discovered({ run }: { run: Run }) {
   const found = run.attribute_scores.filter((s) => s.discovered);
   const toShape = found.filter((s) => s.zone === "imposed").length;
   return (
-    <Section title="Discovered identities"
+    <Section title={<>Discovered <Term k="imposed">identities</Term></>}
            found={found.length ? `${found.length} found in the answers${toShape ? ` · ${toShape} to shape` : ""}`
              : "none found"}>
       {found.length ? (
@@ -1210,7 +1279,7 @@ function Discovered({ run, onOpen }: { run: Run; onOpen: (id: string) => void })
             Found in the answers by the discovery pass — never supplied by you or your site. Each is
             an identity AI already gives {run.profile.name}: adopt it, or reframe it.
           </p>
-          <ClaimCards scores={found} onOpen={onOpen} />
+          <ClaimCards scores={found} run={run} />
         </>
       ) : (
         <p className="muted" style={{ margin: 0 }}>
@@ -1221,17 +1290,118 @@ function Discovered({ run, onOpen }: { run: Run; onOpen: (id: string) => void })
   );
 }
 
-export function Evidence({ run }: { run: Run }) {
+const DROPPED = "Dropped unverifiable observation — ";
+const DISCOVERY = "Discovery — ";
+
+/** One dropped reading of an answer, as "Brand question 3 — the quote … did not match word for word". */
+function DroppedLine({ text, run }: { text: string; run: Run }) {
+  const m = /^(.*?): (?:Attribute (\S+): quote not verbatim|Unknown attribute id '([^']+)')/.exec(text);
+  if (!m) return <Linked text={text} run={run} />;
+  const label = (id: string) => run.attribute_scores.find((s) => s.attribute_id === id)?.label ?? id.replaceAll("_", " ");
   return (
-    <details className="card">
-      <summary style={{ cursor: "pointer", fontWeight: 500 }}>
-        How do you know? Limitations and the workflow log
-      </summary>
-      <h3 style={{ marginTop: "1rem" }}>Limitations</h3>
-      <ul className="muted">{run.drift?.limitations.map((l, i) => <li key={i}>{l}</li>)}</ul>
-      <h3>Workflow log</h3>
-      <ul className="log">{run.log.map((l, i) => <li key={i}>{l}</li>)}</ul>
-    </details>
+    <>
+      <Linked text={m[1]} run={run} /> —{" "}
+      {m[2] ? <>the quote for “{label(m[2])}” did not match the answer word for word</>
+        : <>it named “{label(m[3])}”, a trait this run was not measuring</>}
+    </>
+  );
+}
+
+/** One possible new trait the answers suggested, and why it was not kept. */
+function DiscoveryLine({ text, run }: { text: string; run: Run }) {
+  const m = /^'(.+?)': (.*)$/.exec(text);
+  if (!m) return <Linked text={text} run={run} />;
+  const thin = /in (\d+) eligible answer\(s\), needs (\d+)/.exec(m[2]);
+  return (
+    <>
+      “{m[1]}” —{" "}
+      {thin ? `found word for word in only ${plural(Number(thin[1]), "answer")}; it needs ${thin[2]}`
+        : m[2].startsWith("same attribute") ? "the same as a trait already measured"
+        : <Linked text={m[2]} run={run} />}
+    </>
+  );
+}
+
+/** A count with its items one small toggle away. */
+function Count({ summary, items }: { summary: ReactNode; items: ReactNode[] }) {
+  if (!items.length) return <li>{summary}</li>;
+  return (
+    <li>
+      <details>
+        <summary>{summary}</summary>
+        <ul>{items.map((x, i) => <li key={i}>{x}</li>)}</ul>
+      </details>
+    </li>
+  );
+}
+
+/** The whole run as JSON, workflow log included: the page shows the checks, the file keeps every step. */
+function downloadRun(run: Run) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(run, null, 2)], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${run.profile.name.replace(/\W+/g, "-")}-${run.id}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * "How we checked this report": the drift limitations, excluded answers, dropped observations and
+ * discovery notes turned into a few counts in plain sentences, each with its items behind a toggle.
+ * The raw workflow log stays out of the page and in the downloadable data.
+ */
+function HowWeChecked({ run }: { run: Run }) {
+  const d = run.drift!;
+  const lim = d.limitations;
+  const dropped = lim.filter((l) => l.startsWith(DROPPED)).map((l) => l.slice(DROPPED.length));
+  const notVerbatim = dropped.filter((l) => l.includes("quote not verbatim")).length;
+  const discovery = lim.filter((l) => l.startsWith(DISCOVERY)).map((l) => l.slice(DISCOVERY.length));
+  const thin = discovery.filter((l) => / needs \d+/.test(l)).length;
+  const kept = run.attribute_scores.filter((s) => s.discovered);
+  const small = lim.some((l) => l.startsWith("Small sample"));
+  const other = lim.filter((l) => !l.startsWith(DROPPED) && !l.startsWith(DISCOVERY) && !l.startsWith("Small sample")
+    && !/^\d+ of \d+ brand answers were excluded/.test(l));
+  const buyer = run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline").length;
+  const tries = d.tries ?? 1;
+  return (
+    <section className="card checks-panel">
+      <h3>How we checked this report</h3>
+      <ul className="checks-list">
+        <li>
+          <strong>{d.n_named} of {d.named_asked}</strong> <Term k="brand_question">brand question</Term> answers
+          counted{d.excluded_named > 0 && `; ${d.excluded_named} left out, explained above`}.
+          {small && " That is a small sample, so treat a difference of a few points as noise."}
+        </li>
+        {buyer > 0 && (
+          <li>
+            <strong>{d.n_blind} of {buyer * tries}</strong> <Term k="buyer_question">buyer question</Term> answers
+            counted ({plural(buyer, "question")}{tries > 1 ? ` × ${tries} tries each` : ", asked once each"}).
+          </li>
+        )}
+        <Count summary={<>
+          <strong>{dropped.length}</strong> {dropped.length === 1 ? "reading" : "readings"} of the AI’s answers thrown away
+          {notVerbatim > 0 && <>, {notVerbatim} because the quote did not match the answer word for word</>}
+          {dropped.length - notVerbatim > 0 && <>, {dropped.length - notVerbatim} for naming a trait this run was not measuring</>}.
+          {" "}Nothing is counted without a word-for-word quote.
+        </>} items={dropped.map((l, i) => <DroppedLine key={i} text={l} run={run} />)} />
+        {kept.length + discovery.length > 0 && (
+          <Count summary={<>
+            <strong>{kept.length + discovery.length}</strong> possible new traits suggested by reading the answers
+            together; {kept.length} kept{kept.length > 0 && <> ({kept.map((s) => `“${s.label}”`).join(", ")})</>}
+            {thin > 0 && <>, {thin} rejected for too little support</>}
+            {discovery.length - thin > 0 && <>, {discovery.length - thin} rejected as repeats of a trait already measured</>}.
+          </>} items={discovery.map((l, i) => <DiscoveryLine key={i} text={l} run={run} />)} />
+        )}
+        {other.length > 0 && (
+          <Count summary={<>{plural(other.length, "more caveat")} to keep in mind</>}
+                 items={other.map((l, i) => <Linked key={i} text={l} run={run} />)} />
+        )}
+      </ul>
+      <p className="muted" style={{ margin: 0 }}>
+        Every step the workflow took is in the{" "}
+        <button className="linky" onClick={() => downloadRun(run)}>full data download (JSON)</button>.
+      </p>
+    </section>
   );
 }
 
