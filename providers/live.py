@@ -23,19 +23,40 @@ KEY_ENV = "OPENAI_API_KEY"
 # (EVALUATOR_MODEL, agents/evaluator_model.py). It must (a) accept the Responses API web_search tool
 # and (b) know the present: gpt-4.1's training stops in 2024, so asked about a 2025-founded brand it
 # searched for — and reasoned about — a world that brand was not in yet.
-# Checked against OpenAI's model reference on 2026-09-22: gpt-5.6-luna lists web_search among its
-# tools, has a 2026-02-16 knowledge cutoff, costs $0.20/$1.20 per 1M tokens (a tenth of gpt-4.1's
-# input, a sixth of its output) and is in the pinned SDK's own model list (openai==3.16.2), so the
-# installed client accepts it. gpt-6-luna is cheaper still ($0.10/$0.50, 2026-05-18 cutoff) but the
-# pinned SDK predates it; set MEASURED_MODEL to it once the SDK is bumped.
+# Checked against OpenAI's model reference on 2026-09-22: gpt-6-luna lists web_search among its
+# tools, has a 2026-05-18 knowledge cutoff and costs $0.10/$0.50 per 1M tokens — a twentieth of
+# gpt-4.1's input and a sixteenth of its output. It is newer than the pinned SDK's model list
+# (openai==3.16.2), but the Responses API takes the model as a plain string, so the client sends it;
+# whether the ACCOUNT may call it is only knowable from a real call, which is what `preflight` and
+# FALLBACK_MODEL below are for.
 # Note: the *-search-preview models are Chat Completions only and 400 here ("not supported with the
 # Responses API"), and gpt-4.1-nano rejects the web_search tool.
 MODEL_ENV = "MEASURED_MODEL"
-DEFAULT_MODEL = "gpt-5.6-luna"
+DEFAULT_MODEL = "gpt-6-luna"
+# Where preflight drops to when the API refuses the model or the tool shape below, for the judge as
+# well as the measured model. gpt-5-nano, read from the model reference on 2026-09-22: web_search
+# among its tools, $0.05/$0.40 per 1M, and in the pinned SDK's model list. Its knowledge stops in
+# May 2024 — the staleness this change was made to escape — but it is only ever reached when the
+# account cannot call the real default, and forced search grounds each answer in pages fetched now.
+# Never silently: /api/health reports the model and search mode actually in use.
+FALLBACK_MODEL = "gpt-5-nano"
 # Search is REQUIRED, not merely offered: an answer the model wrote from memory is excluded from
 # live scores (scoring.eligible), so an optional search means paying for calls that are then thrown
 # away. "required" forces a call to the one tool this adapter passes, which is web_search.
 TOOL_CHOICE = "required"
+# external_web_access asks for live internet rather than the tool's offline/cache-only mode. The
+# pinned SDK documents it as defaulting to true when omitted, so stating it is an assertion, not a
+# change of behaviour — and an API that does not know the field is a 400 the fallback catches.
+SEARCH_TOOL = {"type": "web_search", "external_web_access": True}
+FALLBACK_TOOL = {"type": "web_search"}
+# Set by `preflight` when it had to drop from the configured pair: the reason, in words safe to
+# show, and whether any web_search tool is sent at all. Process-wide on purpose — one deployment
+# talks to one account, and every later call in that process must use what was proven to work.
+# `_search` False is the last resort: the fallback model would not take the tool either, so answers
+# come back ungrounded and are excluded from the scores, which the report says plainly. No third
+# model is tried — quietly measuring something nobody chose would be worse than measuring nothing.
+_fallback: Optional[str] = None
+_search: bool = True
 # The buyer budget, spent on distinct questions rather than repeats. Re-asking one question moves
 # the number by a few points; different questions disagree by tens, so questions — not tries — are
 # what narrows the confidence interval. BUYER_QUESTIONS per front are asked once each; REPEAT_SAMPLE
@@ -59,8 +80,33 @@ def measured_prompt(probe: Probe) -> list[dict]:
             {"role": "user", "content": probe.text}]
 
 
-def model_name() -> str:
+def configured_model() -> str:
+    """What MEASURED_MODEL asks for, before preflight has tried it."""
     return os.environ.get(MODEL_ENV) or DEFAULT_MODEL
+
+
+def model_name() -> str:
+    """The model actually in use: the configured one, or the fallback preflight proved it needed."""
+    return FALLBACK_MODEL if _fallback else configured_model()
+
+
+def search_tool() -> Optional[dict]:
+    """The web_search tool as it is actually sent, or None when no tool is sent at all."""
+    if not _search:
+        return None
+    return FALLBACK_TOOL if _fallback else SEARCH_TOOL
+
+
+def search_mode() -> str:
+    """Which search mode is in use, for /api/health and the report."""
+    if not _search:
+        return "none — answers are ungrounded and excluded from the scores"
+    return "web_search" if _fallback else "web_search with external_web_access"
+
+
+def fallback_reason() -> Optional[str]:
+    """Why the fallback model and search mode are in use, or None while the configured pair works."""
+    return _fallback
 
 
 def buyer_tries() -> int:
@@ -77,7 +123,8 @@ def repeat_sample() -> int:
 def status() -> str:
     if not os.environ.get(KEY_ENV):
         return f"Disabled: no {KEY_ENV} configured."
-    return f"Ready: OpenAI Responses API, model {model_name()}, web_search required on every answer."
+    return (f"Ready: OpenAI Responses API, model {model_name()}, {search_mode()} required on every "
+            f"answer." + (f" {_fallback}" if _fallback else ""))
 
 
 def available() -> bool:
@@ -107,35 +154,80 @@ def safe_error(e: Exception) -> str:
     return f"{type(e).__name__} (HTTP {status})" if status else type(e).__name__
 
 
-def preflight(model: Optional[str] = None, transport: Optional[Callable] = None) -> None:
+PING = [{"role": "user", "content": "hi"}]
+
+
+def preflight(model: Optional[str] = None, transport: Optional[Callable] = None) -> Optional[str]:
     """One trivial call before a run, so an unusable setup fails once with a clear message.
+    -> None normally, or the reason the fallback pair is now in use.
 
     Without this, a model that cannot take the web_search tool produces N identical 400s — one per
     probe — and the report is an unreadable wall of the same error. Failures are classified on the
     HTTP status and error code, never the message text: OpenAI's 401 body also says
     "invalid_request_error", and its 403 region block also says "not supported".
+
+    A 400 is the one failure worth retrying: it means this model, or this tool shape, is not
+    accepted — not that the key, the account or the network is wrong. So it steps down, at most
+    twice, and records where it landed; every later call in this process uses the pair that actually
+    worked, and /api/health reports which model and which search mode that is.
+
+      1. the configured model, web_search with external_web_access
+      2. FALLBACK_MODEL, plain web_search
+      3. FALLBACK_MODEL, no tool at all — answers then come back ungrounded and `scoring.eligible`
+         excludes them, which the report says plainly. This is deliberately the end of the line: a
+         third model nobody chose would be a quiet substitution, and measuring the wrong model is
+         worse than measuring nothing.
     """
-    model = model or model_name()
+    global _fallback, _search
+    _fallback, _search = None, True
+    model = model or configured_model()
+    call = transport or default_transport
+
+    def step(m: str) -> Optional[Exception]:
+        """-> None if this pair works, the 400 if it does not; anything else is raised as itself."""
+        try:
+            call(PING, m, 30)
+            return None
+        except Exception as e:
+            status, code = getattr(e, "status_code", None), getattr(e, "code", None)
+            if status == 401 or code == "invalid_api_key":
+                raise CredentialRejected(
+                    f"OpenAI refused your API key ({safe_error(e)}). Check that {KEY_ENV} is correct "
+                    f"and has not been revoked.") from e
+            if status == 403:
+                raise AccessDenied(
+                    f"OpenAI refused the request ({safe_error(e)}). This is an account-level refusal — "
+                    f"most often OpenAI not serving your country or region, or your project lacking "
+                    f"access to model {m!r} — not a problem with the model or the key's format.") from e
+            if status != 400:
+                raise
+            return e
+
     try:
-        (transport or default_transport)([{"role": "user", "content": "hi"}], model, 30)
-    except Exception as e:
-        status, code = getattr(e, "status_code", None), getattr(e, "code", None)
-        if status == 401 or code == "invalid_api_key":
-            raise CredentialRejected(
-                f"OpenAI refused your API key ({safe_error(e)}). Check that {KEY_ENV} is correct "
-                f"and has not been revoked.") from e
-        if status == 403:
-            raise AccessDenied(
-                f"OpenAI refused the request ({safe_error(e)}). This is an account-level refusal — "
-                f"most often OpenAI not serving your country or region, or your project lacking "
-                f"access to model {model!r} — not a problem with the model or the key's format.") from e
-        if status == 400:
-            raise ModelUnsupported(
-                f"Model {model!r} cannot be used: it does not accept the Responses API web_search "
-                f"tool. Set {MODEL_ENV} to one that does (gpt-5.6-luna, gpt-5.4-mini, gpt-5.5, "
-                f"gpt-4.1-mini, gpt-4.1). Note the *-search-preview models are Chat Completions only. "
-                f"({safe_error(e)})") from e
+        refused = step(model)
+        if refused is None:
+            return None
+        _fallback = (f"OpenAI would not take {model!r} with live web search ({safe_error(refused)}), "
+                     f"so this run used {FALLBACK_MODEL!r} with the plain web_search tool instead.")
+        if step(FALLBACK_MODEL) is None:   # _fallback is set: default_transport sends FALLBACK_TOOL
+            return _fallback
+        _search = False                    # last resort: no tool at all, and nothing is hidden
+        _fallback = (f"OpenAI would not take {model!r} with live web search, and {FALLBACK_MODEL!r} "
+                     f"would not take the web_search tool either ({safe_error(refused)}). This run "
+                     f"asked {FALLBACK_MODEL!r} with NO web search, so every answer is ungrounded "
+                     f"and excluded from the scores. Set {MODEL_ENV} to a model your account can "
+                     f"call with web search to measure anything.")
+        if step(FALLBACK_MODEL) is None:
+            return _fallback
+    except Exception:
+        _fallback, _search = None, True    # a failed step-down is never left switched on
         raise
+    _fallback, _search = None, True
+    raise ModelUnsupported(
+        f"Model {model!r} cannot be used, and neither could the fallback {FALLBACK_MODEL!r}, with or "
+        f"without the web_search tool. Set {MODEL_ENV} to a model your account can call "
+        f"(gpt-6-luna, gpt-5.6-luna, gpt-5-nano, gpt-5.4-mini, gpt-4.1-mini, gpt-4.1). Note the "
+        f"*-search-preview models are Chat Completions only. ({safe_error(refused)})")
 
 
 # ---------------------------------------------------------------- response parsing
@@ -190,8 +282,9 @@ def default_transport(messages: list[dict], model: str, timeout: int):
     import access  # metered: refused at a pass's cap, charged to it after
     # tool_choice is the whole point of forcing search: with "auto" the model decides, and the
     # answers it decides not to search for are paid for and then excluded from the score.
-    return access.openai_response(timeout, model=model, tools=[{"type": "web_search"}],
-                                  tool_choice=TOOL_CHOICE, input=messages)
+    tool = search_tool()
+    extra = dict(tools=[tool], tool_choice=TOOL_CHOICE) if tool else {}
+    return access.openai_response(timeout, model=model, input=messages, **extra)
 
 
 class LiveProvider:
@@ -245,7 +338,10 @@ class LiveProvider:
         company (`placed`, read off the brand answers) and the site's core category. The claims'
         own buyer questions fill whatever budget the fronts leave: all of it with neither front."""
         from agents.ana import blind_probes_for_fronts, same_category, set_questions
-        self.notes, self.demand_notes = [], []
+        # A preflight step-down is a caveat on the whole report, not a server-log line: graph puts
+        # `notes` into run.log AND run.drift_notes, so it reaches the report's limitations.
+        self.notes = [_fallback] if _fallback else []
+        self.demand_notes = []
         per_front = set_questions()
         real: dict[str, object] = {}              # question text -> the real demand it came from
 
@@ -311,7 +407,7 @@ class LiveProvider:
         base = dict(probe_id=probe.id, provenance="live_api", provider=self.name,
                     model=self.model, collected_at=now, try_no=try_no)
         raw, err = self._call(probe)
-        if raw is not None and not parse_response(raw)[2]:
+        if raw is not None and _search and not parse_response(raw)[2]:
             # tool_choice asked for a search and none ran. One retry: a model that skips a forced
             # tool once usually searches on the next draw, and an ungrounded answer is excluded from
             # the score anyway (scoring.eligible), so the first call is already spent for nothing.

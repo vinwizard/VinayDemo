@@ -30,8 +30,10 @@ Live runs ask real searches first (`demand.py`: autocomplete, grouped by embeddi
 fill the rest; tests never reach that network (`tests/conftest.py`).
 Each is asked once; `REPEAT_SAMPLE` of them are also asked `BUYER_TRIES` times for the wobble, and
 tries 2+ live in `run.repeat_answers`, so `run.answers` stays one answer per probe for every other
-consumer. Every measured call forces the web_search tool (`live.TOOL_CHOICE`) and retries once when
-none ran, because an ungrounded answer is paid for and then excluded. Budget and model settings are
+consumer. Every measured call forces live web search (`live.TOOL_CHOICE`, `live.SEARCH_TOOL`) and
+retries once when none ran, because an ungrounded answer is paid for and then excluded; `preflight`
+steps down to `live.FALLBACK_MODEL`, then to no search at all, never to a third model, and says
+which in `/api/health` and the report. Budget and model settings are
 env-driven with defaults; the whole table is in WEB.md ("Live mode", "Why a rerun gives a different
 number").
 

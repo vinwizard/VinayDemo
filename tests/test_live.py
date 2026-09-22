@@ -51,16 +51,27 @@ def test_transport_receives_nothing_but_the_neutral_prompt():
 
 
 # --- search is required of the model, not merely offered ---------------------
-def test_the_request_forces_the_web_search_tool(monkeypatch):
+def test_the_request_forces_live_web_search(monkeypatch):
     """An answer written from memory is excluded from live scores, so a call that did not search is
-    money spent for nothing. tool_choice makes the tool the only way to answer."""
+    money spent for nothing. tool_choice makes the tool the only way to answer, and
+    external_web_access asks for the open internet rather than the tool's cache-only mode."""
     import access
     sent = {}
     monkeypatch.setenv(access.KEY_ENV, "test-key")
     monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.update(kw) or response())
     live.default_transport(live.measured_prompt(PROBE), "test-model", 30)
-    assert sent["tools"] == [{"type": "web_search"}]
+    assert sent["tools"] == [{"type": "web_search", "external_web_access": True}]
     assert sent["tool_choice"] == live.TOOL_CHOICE == "required"
+
+
+def test_after_a_fallback_the_request_drops_the_field_the_api_refused(monkeypatch):
+    import access
+    sent = {}
+    monkeypatch.setenv(access.KEY_ENV, "test-key")
+    monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.update(kw) or response())
+    monkeypatch.setattr(live, "_fallback", "refused")
+    live.default_transport(live.measured_prompt(PROBE), live.FALLBACK_MODEL, 30)
+    assert sent["tools"] == [{"type": "web_search"}] and sent["tool_choice"] == "required"
 
 
 def test_an_answer_that_still_did_not_search_is_asked_once_more():
@@ -300,12 +311,120 @@ def raising(exc):
     return boom
 
 
+# --- the fallback pair, when the API will not take the configured one -------
+@pytest.fixture(autouse=True)
+def _no_leftover_fallback():
+    """The fallback is process-wide, so a test that sets it must not colour the next one."""
+    yield
+    live._fallback, live._search = None, True
+
+
+def test_a_refused_model_falls_back_once_and_says_so(monkeypatch):
+    """A 400 means this model or this tool shape is not accepted — worth one retry on the pair that
+    has always worked, rather than failing a run the account could still have measured."""
+    monkeypatch.delenv(live.MODEL_ENV, raising=False)
+    seen = []
+
+    def picky(messages, model, timeout):
+        seen.append(model)
+        if model == live.DEFAULT_MODEL:
+            raise StatusError(400, "unknown parameter: 'external_web_access'")
+        return response()
+
+    why = live.preflight(transport=picky)
+    assert seen == [live.DEFAULT_MODEL, live.FALLBACK_MODEL]
+    assert why and live.DEFAULT_MODEL in why and live.FALLBACK_MODEL in why
+    # everything downstream now uses the pair that actually worked
+    assert live.model_name() == live.FALLBACK_MODEL and live.fallback_reason() == why
+    assert live.search_tool() == live.FALLBACK_TOOL == {"type": "web_search"}
+    assert live.search_mode() == "web_search"
+    assert live.configured_model() == live.DEFAULT_MODEL   # what was asked for is still readable
+
+
+def test_the_judge_follows_the_measured_fallback_rather_than_failing_every_answer(monkeypatch):
+    """Both default to the same model, so a refusal of it refuses the judge too."""
+    from agents import evaluator_model
+    monkeypatch.delenv(evaluator_model.MODEL_ENV, raising=False)
+    assert evaluator_model.model_name() == live.DEFAULT_MODEL
+    live._fallback = "refused"
+    assert evaluator_model.model_name() == live.FALLBACK_MODEL
+    monkeypatch.setenv(evaluator_model.MODEL_ENV, "gpt-4o")   # a judge chosen on purpose is left alone
+    assert evaluator_model.model_name() == "gpt-4o"
+
+
+def test_a_working_model_records_no_fallback():
+    assert live.preflight("gpt-4o-mini", transport=lambda *_: response()) is None
+    assert live.fallback_reason() is None and live.search_tool() == live.SEARCH_TOOL
+
+
+def test_a_fallback_that_cannot_search_measures_ungrounded_rather_than_swapping_model(monkeypatch):
+    """The captain's rule: no third model. If the fallback will not take the tool, the run goes
+    ahead with no search at all, every answer is marked ungrounded, and the report says so."""
+    monkeypatch.delenv(live.MODEL_ENV, raising=False)
+    sent = []
+
+    def toolless_only(messages, model, timeout):
+        sent.append((model, live.search_tool()))
+        if live.search_tool() is not None:
+            raise StatusError(400, "tool not supported")
+        return response()
+
+    why = live.preflight(transport=toolless_only)
+    assert [m for m, _ in sent] == [live.DEFAULT_MODEL, live.FALLBACK_MODEL, live.FALLBACK_MODEL]
+    assert [t for _, t in sent] == [live.SEARCH_TOOL, live.FALLBACK_TOOL, None]
+    assert live.model_name() == live.FALLBACK_MODEL and live.search_tool() is None
+    assert "NO web search" in why and "excluded from the scores" in why
+    assert live.search_mode().startswith("none")
+
+
+def test_a_step_down_is_a_caveat_on_the_report_not_just_a_health_field(monkeypatch):
+    import graph
+    monkeypatch.setattr(live, "_fallback", "OpenAI would not take it, so this run used something else.")
+    prov = provider(transport=lambda *_: response(text="Notion is a notes app."),
+                    profile=fixture.bundled_profile("A"))
+    run = graph.execute(graph.new_run(fixture.bundled_profile("A"), prov, mode="live_api"), prov)
+    assert live.fallback_reason() in run.log
+    assert live.fallback_reason() in run.drift.limitations
+
+
+def test_with_no_search_asked_for_an_answer_is_not_retried(monkeypatch):
+    """The retry exists to recover a search that should have run; with no tool sent there is
+    nothing to recover, and a second call would double the bill for the same ungrounded answer."""
+    monkeypatch.setattr(live, "_search", False)
+    calls = []
+    a = provider(transport=lambda *_: (calls.append(1), response(searched=False))[1]).answer(PROBE)
+    assert len(calls) == 1 and a.search_executed is False
+
+
+def test_every_pair_refused_is_fatal_and_names_what_to_set(monkeypatch):
+    monkeypatch.delenv(live.MODEL_ENV, raising=False)
+    with pytest.raises(live.ModelUnsupported) as info:
+        live.preflight(transport=raising(StatusError(400, "not supported")))
+    assert live.MODEL_ENV in str(info.value) and live.FALLBACK_MODEL in str(info.value)
+    assert "with or without the web_search tool" in str(info.value)
+    assert live.fallback_reason() is None and live.search_tool() == live.SEARCH_TOOL
+
+
+def test_only_a_400_is_retried(monkeypatch):
+    """A bad key or a region block is not a model problem: retrying spends a second call for nothing."""
+    for exc in (BAD_KEY, REGION):
+        calls = []
+
+        def boom(messages, model, timeout):
+            calls.append(model)
+            raise exc
+
+        with pytest.raises(live.PreflightFailed):
+            live.preflight(transport=boom)
+        assert len(calls) == 1 and live.fallback_reason() is None
+
+
 def test_preflight_rejects_a_model_that_cannot_take_the_tool():
     """Regression: gpt-4o-mini-search-preview 400s on the Responses API, producing 20 identical
     errors and an unreadable report. Preflight turns that into one clear message."""
     exc = StatusError(400, "Error code: 400 - {'error': {'message': \"The requested model "
                       "'gpt-4o-mini-search-preview' is not supported with the Responses API.\"}}")
-    with pytest.raises(live.ModelUnsupported, match="does not accept the Responses API"):
+    with pytest.raises(live.ModelUnsupported, match="cannot be used"):
         live.preflight("gpt-4o-mini-search-preview", transport=raising(exc))
 
 

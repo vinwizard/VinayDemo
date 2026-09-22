@@ -232,14 +232,18 @@ the full table, with what each one does, is in [WEB.md](WEB.md#live-mode).
 
 | Variable | Default | Raise it to… | Lower it to… |
 | --- | --- | --- | --- |
-| `MEASURED_MODEL` | `gpt-5.6-luna` | — set it to a bigger searching model (`gpt-5.4-mini`, `gpt-5.5`) if the answers read thin | — |
-| `EVALUATOR_MODEL` | `gpt-4.1-mini` | — | — keep it different from `MEASURED_MODEL` |
+| `MEASURED_MODEL` | `gpt-6-luna` | — set it to a bigger searching model (`gpt-5.6-luna`, `gpt-5.4-mini`, `gpt-5.5`) if the answers read thin | — |
+| `EVALUATOR_MODEL` | `gpt-6-luna` | — set it to `gpt-4.1-mini` so the judge is not grading its own answers | — |
 | `BUYER_QUESTIONS` | `12` per front | narrow the confidence range further | spend less per run |
 | `REPEAT_SAMPLE` | `2` | see the wobble on more questions | `0` removes repeats, the wobble and the interval |
 | `BUYER_TRIES` | `3` | — | — |
 
 `<site>/api/health` shows what is actually in force: `measured_model`, `evaluator_model`,
-`forced_search`, `buyer_questions`, `repeat_sample` and `buyer_tries`.
+`search_mode`, `forced_search`, `buyer_questions`, `repeat_sample` and `buyer_tries`. If OpenAI
+refuses the configured model or the live-search tool, the one preflight call steps down to
+`gpt-5-nano` — and, if that will not search either, to no search at all, with every answer marked
+ungrounded. It never substitutes a third model. `model_fallback` then says why, in the same words
+the run log and the report's caveats carry.
 
 Use a **separate OpenAI key for this demo**, in its own OpenAI project with a monthly budget set, as
 a backstop: the caps here are enforced by this app, and a budget on the key holds even if something

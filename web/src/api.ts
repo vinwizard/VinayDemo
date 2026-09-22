@@ -435,8 +435,14 @@ export interface Health {
   /** Where to ask for a personal live link, or for a pass's cap to be raised. */
   contact_email: string;
   /** The model that answers the questions, and the separate one that judges them; null without a key. */
+  /** The models ACTUALLY in use: preflight drops to a fallback when OpenAI refuses the configured
+   * pair, and `model_fallback` then says why in words safe to show. */
   measured_model: string | null;
   evaluator_model: string | null;
+  configured_measured_model: string | null;
+  /** Which search mode is in force, down to "none" when no model would take the tool. */
+  search_mode: string | null;
+  model_fallback: string | null;
   /** Every measured call is made with tool_choice forcing the web_search tool. */
   forced_search: boolean;
   /** Buyer questions per front, how many of them are re-asked, and how many times. */

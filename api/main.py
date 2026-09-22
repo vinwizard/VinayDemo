@@ -782,7 +782,12 @@ def health(request: Request = None):
             "public_demo": public_demo(),
             "contact_email": access.contact_email(),
             "storage": access.storage(),
+            # what is ACTUALLY in use, not what was asked for: preflight drops to live.FALLBACK_MODEL
+            # with the plain web_search tool when OpenAI refuses the configured pair, and says so here.
             "measured_model": measured, "evaluator_model": evaluator,
+            "configured_measured_model": live.configured_model() if live.available() else None,
+            "search_mode": live.search_mode() if live.available() else None,
+            "model_fallback": live.fallback_reason(),
             # every measured call is made with tool_choice forcing the web_search tool
             "forced_search": live.TOOL_CHOICE != "auto",
             "buyer_questions": set_questions(), "repeat_sample": live.repeat_sample(),

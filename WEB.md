@@ -61,8 +61,8 @@ Everything else has a working default. The full list, and what each one changes:
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `OPENAI_API_KEY` | — | The only required one. Without it live mode errors rather than replaying fixtures. |
-| `MEASURED_MODEL` | `gpt-5.6-luna` | The model that ANSWERS the buyer and brand questions: the one being measured. It must accept the Responses API `web_search` tool. The default is the cheapest recent model that does ($0.20/$1.20 per 1M tokens, knowledge to Feb 2026). `gpt-4.1` was the old default and its training stops in 2024, so it answered about brands it had never heard of. |
-| `EVALUATOR_MODEL` | `gpt-4.1-mini` | The separate model that grades those answers. It reads text it is handed and needs no search. Keep it different from `MEASURED_MODEL`: a model grading its own output has a self-preference bias, and `/api/health` flags it with `same_model_warning`. |
+| `MEASURED_MODEL` | `gpt-6-luna` | The model that ANSWERS the buyer and brand questions: the one being measured. It must accept the Responses API `web_search` tool. The default is the cheapest current model that does ($0.10/$0.50 per 1M tokens, knowledge to May 2026). `gpt-4.1` was the old default and its training stops in 2024, so it answered about brands it had never heard of. |
+| `EVALUATOR_MODEL` | `gpt-6-luna` | The separate model that grades those answers. It is sent no tools at all — it reads text it is handed. It defaults to the same model as the measured side, so both halves of a run are priced the same; that means one model grades its own answers, which `/api/health` surfaces as `same_model_warning`. Set it to something else (`gpt-4.1-mini` is the tested one) to remove the self-preference bias. |
 | `ONBOARDING_MODEL` | `gpt-4.1-mini` | Reads a company's own pages and extracts what they claim, and writes buyer questions for a category. |
 | `BUYER_QUESTIONS` | `12` | How many buyer questions are asked **per front**, once each. More distinct questions is what narrows the confidence interval; the two fronts together are the whole buyer budget. |
 | `REPEAT_SAMPLE` | `2` | How many of those questions are also asked `BUYER_TRIES` times, to show how much one question wobbles between asks. `0` turns repeats off, and with them the wobble and the confidence interval. |
@@ -75,8 +75,9 @@ Everything else has a working default. The full list, and what each one changes:
 `MEASURED_MODEL` replaced `LIVE_MODEL`, which is no longer read: an old `.env` that still pins
 `LIVE_MODEL=gpt-4o-mini` would otherwise have kept the model that named obscure tools for a category
 leader's own category. Every live report names both models ("answered by gpt-5.6-luna, judged by
-gpt-4.1-mini"); `/api/health` reports `measured_model`, `evaluator_model`, `forced_search`,
-`buyer_questions`, `repeat_sample` and `buyer_tries`.
+gpt-6-luna"); `/api/health` reports `measured_model`, `evaluator_model`, `forced_search`,
+`buyer_questions`, `repeat_sample` and `buyer_tries`, plus `configured_measured_model`,
+`search_mode` and `model_fallback` when a step-down happened.
 
 Any model you point `MEASURED_MODEL` or `EVALUATOR_MODEL` at should be in `access.PRICES`, or the
 spend meter charges it `UNKNOWN_PRICE` — deliberately above every listed model, so a pass is never
@@ -104,11 +105,23 @@ shown, because a 401 body quotes part of the key back.
 Set `EVALUATOR_MODEL` to a different model from `MEASURED_MODEL`: a model grading its own output has
 a self-preference bias.
 
-**Search is required, not offered.** Every measured call carries `tool_choice` forcing the
-`web_search` tool (`live.TOOL_CHOICE`), because an answer written from memory is excluded from live
-scores (`scoring.eligible`) — paid for and then thrown away. A response that still comes back with no
+**Search is required, not offered.** Every measured call carries `tool_choice: "required"`
+(`live.TOOL_CHOICE`) and the tool `{"type": "web_search", "external_web_access": true}`
+(`live.SEARCH_TOOL`), because an answer written from memory is excluded from live scores
+(`scoring.eligible`) — paid for and then thrown away. `external_web_access` asks for the open
+internet rather than the tool's offline/cache-only mode. A response that still comes back with no
 `web_search_call` is asked once more; if the second try does not search either, the answer is kept
 and marked ungrounded exactly as before. Grounding is still read off the response, never assumed.
+
+**If OpenAI refuses that pair, preflight steps down — never silently.** The one trivial call before
+a run tries, in order: the configured model with `external_web_access`; then `live.FALLBACK_MODEL`
+(`gpt-5-nano`) with plain `web_search`; then `gpt-5-nano` with **no tool at all**, where every answer
+comes back ungrounded and is excluded from the scores. Only a 400 steps down — that means the model
+or the tool shape was not accepted, not that the key, account or network is wrong. There is no third
+model: substituting one nobody chose would be a quieter failure than measuring nothing. Wherever it
+lands applies to the judge too, since both default to the same model. `/api/health` reports
+`measured_model`, `evaluator_model`, `configured_measured_model`, `search_mode` and
+`model_fallback`, and the reason appears in the run log and the report's limitations.
 
 #### Why a rerun gives a different number, and what the report does about it
 

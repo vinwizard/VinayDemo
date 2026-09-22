@@ -199,8 +199,8 @@ def test_the_answering_model_defaults_to_a_recent_searching_model_and_is_priced_
     """gpt-4.1's training stopped in 2024, so it answered about brands it had never heard of. The
     default is a 2026 model that takes web_search and costs a fraction of it."""
     monkeypatch.delenv(live.MODEL_ENV, raising=False)
-    assert live.model_name() == "gpt-5.6-luna" and live.MODEL_ENV == "MEASURED_MODEL"
-    assert access.PRICES["gpt-5.6-luna"] < access.PRICES["gpt-4.1"]
+    assert live.model_name() == "gpt-6-luna" and live.MODEL_ENV == "MEASURED_MODEL"
+    assert access.PRICES["gpt-6-luna"] < access.PRICES["gpt-4.1"]
     assert all(access.UNKNOWN_PRICE[i] > max(p[i] for p in access.PRICES.values()) for i in (0, 1))
     monkeypatch.setenv(live.MODEL_ENV, "gpt-4o")
     assert live.model_name() == "gpt-4o"
@@ -210,8 +210,10 @@ def test_every_model_the_app_can_be_pointed_at_is_priced(monkeypatch):
     """A model missing from the table is metered at UNKNOWN_PRICE, which would bill a pass for far
     more than it spent; the defaults and the models the error message offers must all be listed."""
     from agents import evaluator_model, onboarding_model
-    offered = {live.DEFAULT_MODEL, evaluator_model.DEFAULT_MODEL, onboarding_model.DEFAULT_MODEL,
-               "gpt-5.6-luna", "gpt-5.4-mini", "gpt-5.5", "gpt-4.1-mini", "gpt-4.1"}
+    offered = {live.DEFAULT_MODEL, live.FALLBACK_MODEL, evaluator_model.DEFAULT_MODEL,
+               onboarding_model.DEFAULT_MODEL,
+               "gpt-6-luna", "gpt-5-nano", "gpt-5.6-luna", "gpt-5.4-mini", "gpt-5.5",
+               "gpt-4.1-mini", "gpt-4.1"}
     assert offered <= set(access.PRICES)
 
 
@@ -245,9 +247,12 @@ def test_health_names_both_models_the_budget_and_that_search_is_forced(monkeypat
     for env in (live.MODEL_ENV, live.TRIES_ENV, live.SAMPLE_ENV, ana.QUESTIONS_ENV):
         monkeypatch.delenv(env, raising=False)
     h = main.health()
-    assert (h["measured_model"], h["buyer_tries"]) == ("gpt-5.6-luna", 3)
+    assert (h["measured_model"], h["buyer_tries"]) == ("gpt-6-luna", 3)
     assert (h["buyer_questions"], h["repeat_sample"], h["forced_search"]) == (12, 2, True)
-    assert h["evaluator_model"] and h["evaluator_model"] != h["measured_model"]
+    assert h["search_mode"] == "web_search with external_web_access" and h["model_fallback"] is None
+    assert h["configured_measured_model"] == h["measured_model"] == h["evaluator_model"]
+    # the captain's default points both halves at one cheap model; the bias is surfaced, not hidden
+    assert h["same_model_warning"] is True
 
 
 def test_progress_counts_every_ask(monkeypatch):
