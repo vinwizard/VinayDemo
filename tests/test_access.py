@@ -136,7 +136,9 @@ def test_admin_creates_a_pass_keeps_showing_its_link_and_tops_up(env):
     code = page.split("/?pass=")[1].split("<")[0]
     ada = next(p for p in access.all_passes() if p["label"] == "Ada")
     assert ada["cap_usd"] == 10 and ada["code_hash"] == access._hash(code)
-    assert f"https://testserver/?pass={code}" in c.get("/admin").text and "Copy link" in c.get("/admin").text
+    shown = c.get("/admin")
+    assert f"https://testserver/?pass={code}" in shown.text and "Copy link" in shown.text
+    assert shown.headers["cache-control"] == "no-store"
     assert browser().post("/api/access/exchange", json={"code": code}).status_code == 200
     c.post("/admin/action", data={"do": "cap", "pass_id": ada["id"], "cap": "12.5"})
     c.post("/admin/action", data={"do": "revoke", "pass_id": "person-2"})

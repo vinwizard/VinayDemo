@@ -50,7 +50,8 @@ def page(body: str, status: int = 200) -> HTMLResponse:
     return HTMLResponse(f"<!doctype html><html lang=en><head><meta charset=utf-8>"
                         f"<meta name=viewport content='width=device-width, initial-scale=1'>"
                         f"<title>Pass admin</title><style>{STYLE}</style></head>"
-                        f"<body><main><h1>Access passes</h1>{body}</main></body></html>", status)
+                        f"<body><main><h1>Access passes</h1>{body}</main></body></html>", status,
+                        headers={"Cache-Control": "no-store"})
 
 
 def login_page(message: Optional[str] = None, status: int = 200) -> HTMLResponse:
