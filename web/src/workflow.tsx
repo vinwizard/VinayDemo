@@ -64,10 +64,11 @@ function AnswerList({ answers, replay }: { answers: StreamAnswer[]; replay: bool
   return (
     <ol className="answers" ref={list}>
       {answers.map((a) => (
-        <li key={a.probe_id} className={a.status === "ok" ? "" : "bad"}>
+        <li key={`${a.probe_id}#${a.try_no ?? 1}`} className={a.status === "ok" ? "" : "bad"}>
           <div className="answer-q">
             <span className="muted" title={a.probe_id}>
               {streamingProbeLabel(a.probe_id, a.kind, a.phase, a.topic_label)}
+              {(a.try_no ?? 1) > 1 && ` · try ${a.try_no}`}
             </span>
             <span>{a.text}</span>
           </div>
@@ -170,7 +171,8 @@ export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }
   const replay = !!company?.replay || p.node?.mode === "demo_replay" || p.run?.mode === "demo_replay";
   const planned = p.node?.planned;
   const of = (pred: (a: StreamAnswer) => boolean) => p.answers.filter(pred);
-  const buyer = of((a) => a.phase === "baseline" && a.kind === "blind");
+  // every ask of every buyer question, plus the one control question: planned.buyer counts them all
+  const buyer = of((a) => a.phase !== "followup" && a.kind === "blind");
   const brand = of((a) => a.phase === "baseline" && a.kind === "named");
   const follow = of((a) => a.phase === "followup");
   const decided = p.nodes.includes("choose_followup");
@@ -314,8 +316,10 @@ export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }
         {s4 !== "pending" && s4 !== "skipped" && (
           <div className="stack">
             <p className="muted" style={{ margin: 0 }}>
-              Each one is what a buyer who wants one of your weighted claims would type, with no brand
-              named. Does AI bring {brandName} up on its own?
+              Each one is what a buyer shopping for your category, or for one of your claims, would
+              type, with no brand named. Does AI bring {brandName} up on its own?
+              {!replay && " Each is asked more than once, because the same question gets a different"
+                + " answer each time; the control question asks for the category's leading tools."}
             </p>
             {(s4 !== "failed" || buyer.length > 0) && <AnswerList answers={buyer} replay={replay} />}
             {errorAt(s4)}

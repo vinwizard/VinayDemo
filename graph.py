@@ -10,7 +10,7 @@ import drift
 from agents import ana, evaluation, win_back
 from labels import probe_name
 from schemas import Run
-from scoring import score_topic, visibility_score
+from scoring import low_confidence, score_topic, visibility_over_tries
 
 MAX_BASELINE = 12
 MAX_NAMED = 8
@@ -62,7 +62,7 @@ def validate_and_freeze(s: State):
     run = s["run"]
     errors = ana.validate_probes(run.probes, run.topics, run.profile)
     errors += ana.validate_named_probes(run.probes, run.attributes)
-    blind = [p for p in run.probes if p.kind == "blind"]
+    blind = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
     if len(blind) > MAX_BASELINE:
         errors.append(f"{len(blind)} baseline questions exceeds {MAX_BASELINE}")
     named = [p for p in run.probes if p.kind == "named"]
@@ -78,27 +78,38 @@ def validate_and_freeze(s: State):
 
 
 def execute_or_replay(s: State):
-    run = s["run"]
+    run, provider = s["run"], s["provider"]
     done = {a.probe_id for a in run.answers}
     todo = [p for p in run.probes if p.id not in done]
+    # Every baseline buyer question is asked `tries` times, each in a fresh context. Replay has one
+    # authored answer per question, so a fixture provider has no `tries` and is asked once.
+    tries = getattr(provider, "tries", 1)
+    have = {(a.probe_id, a.try_no) for a in run.repeat_answers}
+    again = [(p, t) for p in run.probes if p.kind == "blind" and p.phase == "baseline"
+             for t in range(2, tries + 1) if (p.id, t) not in have]
+    jobs = [(p, 1) for p in todo] + again
+    ask = lambda p, t: provider.answer(p) if t == 1 else provider.answer(p, try_no=t)
     # Live answers are two slow calls each (measured + evaluator). Serially that is ~8 minutes for a
     # 12-probe run; results are collected in submission order so they stay deterministic.
-    workers = min(getattr(s["provider"], "concurrency", 1), len(todo)) if todo else 1
+    workers = min(getattr(provider, "concurrency", 1), len(jobs)) if jobs else 1
     if workers > 1:
         with ThreadPoolExecutor(max_workers=workers) as pool:
             # each answer runs in a copy of this thread's context, so the pass paying for it
             # (access.SPENDER) reaches the pool threads
-            run.answers += [f.result() for f in [pool.submit(contextvars.copy_context().run,
-                                                             s["provider"].answer, p) for p in todo]]
+            got = [f.result() for f in [pool.submit(contextvars.copy_context().run, ask, p, t)
+                                        for p, t in jobs]]
     else:
-        run.answers += [s["provider"].answer(p) for p in todo]
+        got = [ask(p, t) for p, t in jobs]
+    new = got[:len(todo)]
+    run.answers += new
+    run.repeat_answers += got[len(todo):]
     phase = ("follow-up" if todo[0].phase == "followup" else todo[0].phase) if todo else "?"
-    new = [a for a in run.answers if a.probe_id in {p.id for p in todo}]
-    failed = sum(a.status != "ok" for a in new)
+    failed = sum(a.status != "ok" for a in got)
     # the log must not claim "replayed from fixtures" for answers a real provider produced
     verb = "Replayed" if all(a.provenance == "synthetic" for a in new) else "Collected"
-    src = "fixtures" if verb == "Replayed" else f"{s['provider'].name} ({getattr(s['provider'], 'model', '?')})"
-    run.log.append(f"{verb} {len(todo)} {phase} answers from {src} ({failed} failed).")
+    src = "fixtures" if verb == "Replayed" else f"{provider.name} ({getattr(provider, 'model', '?')})"
+    extra = f", plus {len(again)} repeat asks of the buyer questions ({tries} tries each)" if again else ""
+    run.log.append(f"{verb} {len(todo)} {phase} answers{extra} from {src} ({failed} failed).")
     return {"run": run}
 
 
@@ -109,6 +120,10 @@ def evaluate(s: State):
     new = [evaluation.evaluate(p, answers[p.id], run.profile) for p in run.probes
            if p.id not in done and p.id in answers]
     run.evaluations += new
+    # Repeat asks are validated exactly like the first: deterministic, from the labels they carry.
+    by_id = {p.id: p for p in run.probes}
+    run.repeat_evaluations = [evaluation.evaluate(by_id[a.probe_id], a, run.profile)
+                              .model_copy(update={"try_no": a.try_no}) for a in run.repeat_answers]
     ev = {e.probe_id: e for e in run.evaluations}
     run.topic_evaluations = []
     for phase in ("baseline", "followup"):
@@ -197,6 +212,11 @@ def measure_drift(s: State):
             if any(p.kind == "blind" for p in run.probes) else
             "No buyer question was asked — no claim has a buyer question — so the buyer axis was "
             "not measured and no competitor could be discovered.")
+    if run.mode == "live_api" and not run.profile.core_category:
+        run.drift_notes.append(
+            "No core category is saved for this company (onboarded before categories existed), so "
+            "buyer questions follow its claims alone and no control question was asked. Set the "
+            "category on the claims screen to measure it.")
     score_drift(run)
     run.log.append(f"Drift measured over {run.drift.n_named} brand answers: claim echo "
                    f"{run.drift.claim_echo if run.drift.claim_echo is not None else 'n/a'}, alignment "
@@ -215,8 +235,12 @@ def score_drift(run: Run) -> None:
     answers = {a.probe_id: a for a in run.answers}
     blind = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
     ev = {e.probe_id: e for e in run.evaluations}
-    strengths = [ev[p.id].strength for p in blind
-                 if p.id in ev and ev[p.id].valid and ev[p.id].strength is not None]
+    buyer_ids = {p.id for p in blind}
+    counted = [e for e in [ev[p.id] for p in blind if p.id in ev] + run.repeat_evaluations
+               if e.probe_id in buyer_ids and e.valid and e.strength is not None]
+    tries = max([1] + [e.try_no for e in run.repeat_evaluations])
+    visibility, spread = visibility_over_tries(
+        [[e.strength for e in counted if e.try_no == t] for t in range(1, tries + 1)])
     # provenance is read off the answers that actually fed the perception layer — never hardcoded,
     # or a live run would publish its drift report under a synthetic label (and vice versa)
     named_provenance = {answers[p.id].provenance for p in run.probes
@@ -228,14 +252,19 @@ def score_drift(run: Run) -> None:
     run.attribute_scores = drift.score_attributes(run.attributes, run.probes, run.answers,
                                                   run.evaluations, run.observations)
     lens = "intent" if any(a.intended for a in run.attributes) else "claim"
-    run.drift = drift.build_report(run.attribute_scores, provenance, n_blind=len(strengths),
-                                   visibility=visibility_score(strengths),
+    run.drift = drift.build_report(run.attribute_scores, provenance, n_blind=len(counted),
+                                   visibility=visibility,
                                    asked=asked, excluded_reasons=excluded,
                                    echo=drift.claim_echo(run.attributes, kept, run.observations),
                                    lens=lens)
+    run.drift.tries, run.drift.visibility_range = tries, spread
     if run.drift.visibility is None and not blind:
         run.drift.na_reasons["visibility"] = ("No buyer question was asked: no claim had a buyer "
                                               "question, so visibility is not measured.")
+    control = next((p for p in run.probes if p.phase == "control"), None)
+    if control and visibility is not None and not any(e.mentioned for e in counted):
+        run.drift.low_confidence = low_confidence(run.profile.name, run.profile.core_category or "",
+                                                  ev.get(control.id), answers.get(control.id))
     run.drift.limitations += run.drift_notes
 
 

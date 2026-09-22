@@ -1,0 +1,271 @@
+"""Buyer visibility you can trust: the core category is always asked about, each buyer question is
+asked several times with the range shown, and a control question decides whether a 0 means anything.
+
+No key, no network: transports and the evaluator are injected.
+"""
+import json
+from collections import Counter
+
+import pytest
+from fastapi import HTTPException
+
+import access
+import api.main as main
+import graph
+import reports
+from agents import ana, onboarding_model
+from providers import fixture, live
+from schemas import Company, QueryEvaluation, Answer
+from scoring import MIN_CONTROL_VENDORS, low_confidence, visibility_over_tries
+
+F = fixture.FixtureProvider("A")
+CATEGORY = "connected workspace software"
+CAT_QS = [f"Which workspace tool suits a team of {n}?" for n in (5, 10, 20, 50, 100, 200)]
+
+
+def with_category(questions=CAT_QS, category=CATEGORY):
+    return F.profile.model_copy(update=dict(core_category=category, category_questions=list(questions)))
+
+
+# ---------------------------------------------------------------- 1. the core category is always asked
+def test_at_least_half_the_buyer_topics_ask_about_the_core_category():
+    topics, probes, _ = ana.blind_probes_from_attributes(F.attributes(), with_category())
+    assert [t.id for t in topics][:ana.CATEGORY_TOPICS] == ["cat-1", "cat-2"]
+    assert len(topics) == ana.MAX_TOPICS and ana.CATEGORY_TOPICS == 2
+    cat = [p for p in probes if p.topic_id.startswith("cat-")]
+    assert [p.text for p in cat] == CAT_QS and len(cat) >= len(probes) / 2
+    assert [p.id for p in cat] == [f"cat-b{i}" for i in range(1, 7)]   # one numbering across both topics
+    assert all(t.label == CATEGORY for t in topics[:2])
+
+
+def test_without_a_category_buyer_topics_follow_the_claims_as_before():
+    old = ana.blind_probes_from_attributes(F.attributes(), F.profile)
+    assert all(t.id.startswith("pos-") for t in old[0]) and len(old[0]) == ana.MAX_TOPICS
+    prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=F.profile, model="m")
+    topics, blind = prov.plan(F.profile)
+    assert not [p for p in blind if p.phase == "control"] and "control" not in {t.kind for t in topics}
+
+
+def test_a_category_question_naming_the_brand_is_still_rejected():
+    with pytest.raises(ValueError, match="leak the brand"):
+        ana.blind_probes_from_attributes(F.attributes(), with_category(["Is Notion the best workspace?"]))
+
+
+def test_the_control_question_is_never_also_a_scored_question():
+    control = ana.control_probe(with_category())
+    topics, probes, _ = ana.blind_probes_from_attributes(
+        F.attributes(), with_category([control.text, *CAT_QS[:5]]))
+    assert control.text not in {p.text for p in probes}
+    assert control.phase == "control" and not ana.brand_leaks(control.text, F.profile)
+
+
+# ---------------------------------------------------------------- 3 & 4. repeats, range, control
+def test_visibility_over_tries_is_the_mean_with_the_range():
+    assert visibility_over_tries([[2, 0, 0], [0, 0, 0], [1, 1, 0]]) == (22.2, [0.0, 33.3])
+    assert visibility_over_tries([[2, 1, 0]]) == (50.0, [50.0, 50.0])   # one try is its own range
+    assert visibility_over_tries([[1], []]) == (50.0, [50.0, 50.0])       # an empty try is not a zero
+    assert visibility_over_tries([]) == (None, None)
+
+
+class Judge:
+    """Labels what the answer actually says, so the validators accept it."""
+    model = "test-judge"
+
+    def label(self, probe, answer, attributes, profile):
+        named = profile.name in answer.text
+        return dict(mentioned=named, recommended=False, negative_mention=False,
+                    competitor_recommendations=[c for c in ("Linear", "Asana", "Coda") if c in answer.text],
+                    evidence_quotes=[answer.text] if named else [], on_topic=True, attributes=[])
+
+    def discover(self, profile, attributes, answers):
+        return []
+
+
+def live_run(buyer_text, control_text, tries=3, monkeypatch=None):
+    """buyer_text(ask number of that question) -> answer text. Named questions get a plain answer."""
+    asked = Counter()
+    profile = with_category()
+    buyer = {q for q in CAT_QS} | {q for a in F.attributes() for q in a.buyer_questions}
+
+    def transport(messages, model, timeout):
+        q = messages[-1]["content"]
+        asked[q] += 1
+        text = (control_text if q.startswith("What are the leading tools") else
+                buyer_text(asked[q]) if q in buyer else "A workspace tool.")
+        return {"output": [{"type": "web_search_call"},
+                           {"type": "message", "content": [{"type": "output_text", "text": text}]}]}
+
+    monkeypatch.setenv(live.TRIES_ENV, str(tries))
+    prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="test-model",
+                             transport=transport, evaluator=Judge())
+    prov.concurrency = 1
+    return graph.execute(graph.new_run(profile, prov, mode="live_api"), prov), asked
+
+
+def test_each_buyer_question_is_asked_three_times_and_brand_questions_once(monkeypatch):
+    run, asked = live_run(lambda n: "Notion fits." if n == 2 else "Coda fits.", "Linear, Asana and Coda.",
+                          monkeypatch=monkeypatch)
+    buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
+    assert all(asked[p.text] == 3 for p in buyer)
+    assert all(asked[p.text] == 1 for p in run.probes if p.kind == "named" or p.phase == "control")
+    assert len(run.answers) == len(run.probes) and len(run.repeat_answers) == 2 * len(buyer)
+    assert Counter(a.try_no for a in run.repeat_evaluations) == {2: len(buyer), 3: len(buyer)}
+    d = run.drift
+    # named on every second ask only: tries score 0, 50, 0
+    assert (d.tries, d.visibility, d.visibility_range) == (3, 16.7, [0.0, 50.0])
+    assert d.n_blind == 3 * len(buyer) and d.low_confidence is None
+    named = Counter(e.probe_id for e in run.evaluations + run.repeat_evaluations if e.mentioned)
+    assert set(named.values()) == {1}   # "named in 1 of 3 tries" for every question
+
+
+def test_the_control_question_never_moves_visibility(monkeypatch):
+    run, _ = live_run(lambda n: "Coda fits.", "Notion, Linear and Asana lead.", monkeypatch=monkeypatch)
+    control = next(p for p in run.probes if p.phase == "control")
+    assert next(e for e in run.evaluations if e.probe_id == control.id).mentioned
+    assert run.drift.visibility == 0.0 and run.drift.n_blind == 3 * 12
+    # the model knows the brand as a category leader and still never offers it to buyers: a real 0
+    assert run.drift.low_confidence is None
+    assert control.id not in {e.probe_id for e in run.repeat_evaluations}
+    assert all(t.topic_id != "control" for t in run.topic_evaluations)
+    assert main.run_payload(run)["insights"]["voice"]["questions"] == 12   # buyer questions, first try
+
+
+def test_a_zero_is_low_confidence_when_the_control_names_too_few_tools(monkeypatch):
+    run, _ = live_run(lambda n: "Coda fits.", "Hard to say; Coda maybe.", monkeypatch=monkeypatch)
+    assert run.drift.visibility == 0.0
+    assert "does not seem to know this category" in run.drift.low_confidence
+
+
+def test_a_zero_is_low_confidence_when_even_the_control_leaves_the_brand_out(monkeypatch):
+    run, _ = live_run(lambda n: "Coda fits.", "Linear, Asana and Coda lead.", monkeypatch=monkeypatch)
+    assert "named Linear, Asana, Coda but not Notion" in run.drift.low_confidence
+
+
+def test_a_brand_named_in_any_buyer_answer_is_never_flagged(monkeypatch):
+    run, _ = live_run(lambda n: "Notion fits." if n == 3 else "Coda fits.", "Coda.", monkeypatch=monkeypatch)
+    assert run.drift.visibility > 0 and run.drift.low_confidence is None
+
+
+def test_the_flag_rule():
+    ok = Answer(probe_id="ctl-1", text="x", provenance="live_api", provider="openai", model="m",
+                collected_at="t", search_executed=True)
+    ev = lambda names, mentioned=False: QueryEvaluation(
+        probe_id="ctl-1", valid=True, mentioned=mentioned, competitor_recommendations=names, strength=0,
+        explanation="")
+    assert MIN_CONTROL_VENDORS == 2
+    assert "only Coda" in low_confidence("Notion", CATEGORY, ev(["Coda"]), ok)
+    assert "but not Notion" in low_confidence("Notion", CATEGORY, ev(["Coda", "Linear"]), ok)
+    assert low_confidence("Notion", CATEGORY, ev(["Coda", "Linear"], mentioned=True), ok) is None
+    failed = QueryEvaluation(probe_id="ctl-1", valid=False, explanation="Collection failed")
+    assert "could not be scored" in low_confidence("Notion", CATEGORY, failed, ok)
+
+
+# ---------------------------------------------------------------- offline replay is one try, unchanged
+@pytest.mark.parametrize("scenario,alignment", [("A", 21.4), ("B", 27.9)])
+def test_offline_replay_is_one_try_and_its_numbers_do_not_move(scenario, alignment):
+    p = fixture.FixtureProvider(scenario)
+    run = graph.execute(graph.new_run(p.profile, p), p)
+    d = run.drift
+    assert (d.alignment, d.visibility, d.n_blind) == (alignment, 54.2, 12)
+    assert (d.tries, d.visibility_range, d.low_confidence) == (1, [54.2, 54.2], None)
+    assert run.repeat_answers == [] and not [x for x in run.probes if x.phase == "control"]
+
+
+# ---------------------------------------------------------------- 2. the answering model is a setting
+def test_the_answering_model_defaults_to_gpt_4_1_and_is_priced_exactly(monkeypatch):
+    monkeypatch.delenv(live.MODEL_ENV, raising=False)
+    assert live.model_name() == "gpt-4.1" and live.MODEL_ENV == "MEASURED_MODEL"
+    assert "gpt-4.1" in access.PRICES
+    assert all(access.UNKNOWN_PRICE[i] > max(p[i] for p in access.PRICES.values()) for i in (0, 1))
+    monkeypatch.setenv(live.MODEL_ENV, "gpt-4o")
+    assert live.model_name() == "gpt-4o"
+
+
+@pytest.mark.parametrize("raw,tries", [(None, 3), ("5", 5), ("0", 1), ("lots", 3)])
+def test_buyer_tries_setting(monkeypatch, raw, tries):
+    monkeypatch.delenv(live.TRIES_ENV, raising=False)
+    if raw is not None:
+        monkeypatch.setenv(live.TRIES_ENV, raw)
+    assert live.buyer_tries() == tries
+
+
+def test_health_names_the_answering_model_the_judge_and_the_tries(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.delenv(live.MODEL_ENV, raising=False)
+    monkeypatch.delenv(live.TRIES_ENV, raising=False)
+    h = main.health()
+    assert (h["measured_model"], h["buyer_tries"]) == ("gpt-4.1", 3)
+    assert h["evaluator_model"] and h["evaluator_model"] != h["measured_model"]
+
+
+def test_progress_counts_every_ask():
+    run = graph.new_run(with_category(), F)
+    prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=with_category(), model="m")
+    run.topics, blind = prov.plan(run.profile)
+    run.probes = blind + F.named_probes()
+    planned = main.progress(run, 3)["planned"]
+    assert planned["buyer"] == 3 * 12 + 1 and planned["brand"] == len(F.named_probes())
+
+
+# ---------------------------------------------------------------- onboarding and the claims screen
+@pytest.fixture
+def store(tmp_path, monkeypatch):
+    monkeypatch.setattr(reports, "COMPANIES", tmp_path)
+    return tmp_path
+
+
+def company():
+    return Company(id="abc123", profile=F.profile, attributes=F.attributes(), pages=["https://notion.com/"])
+
+
+def test_the_category_is_corrected_on_the_claims_screen_and_gets_new_questions(store, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(onboarding_model, "default_transport",
+                        lambda *_: json.dumps({"buyer_questions": CAT_QS + ["Can your platform sync?"]}))
+    reports.save_company(company())
+    out = main.patch_company("abc123", main.CompanyPatch(core_category="  AI  search visibility tracking "))
+    assert out["profile"]["core_category"] == "AI search visibility tracking"
+    assert out["profile"]["category_questions"] == CAT_QS          # the vendor-addressed one is dropped
+    assert reports.load_company("abc123").profile.category_questions == CAT_QS
+
+
+def test_a_category_naming_the_brand_is_refused(store):
+    reports.save_company(company())
+    with pytest.raises(HTTPException) as e:
+        main.patch_company("abc123", main.CompanyPatch(core_category="Notion alternatives"))
+    assert e.value.status_code == 400
+
+
+def test_without_a_key_the_category_is_kept_and_the_missing_questions_are_stated(store, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    reports.save_company(company())
+    out = main.patch_company("abc123", main.CompanyPatch(core_category=CATEGORY))
+    assert out["profile"]["core_category"] == CATEGORY and out["profile"]["category_questions"] == []
+    assert any("follow your claims alone" in w for w in out["warnings"])
+
+
+def test_onboarding_names_the_core_category(store, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    page = "Acme runs payroll for startups in minutes, with taxes filed for you."
+    monkeypatch.setattr(main.fetching, "fetch_site", lambda url, max_pages: ([("https://acme.example/", page)], None))
+
+    def transport(prompt, model, timeout):
+        if "buyer is shopping" in prompt:
+            return json.dumps({"buyer_questions": ["Which payroll software suits a small startup?"]})
+        return json.dumps({"name": "Acme", "one_liner": "Payroll for startups.",
+                           "core_category": "payroll software for startups", "attributes": []})
+    monkeypatch.setattr(onboarding_model, "default_transport", transport)
+    out = main.onboard(url="https://acme.example/", name="Acme")
+    assert out["profile"]["core_category"] == "payroll software for startups"
+    assert out["profile"]["category_questions"] == ["Which payroll software suits a small startup?"]
+
+
+def test_an_old_run_without_the_new_fields_still_reads():
+    p = fixture.FixtureProvider("A")
+    run = graph.execute(graph.new_run(p.profile, p), p)
+    raw = json.loads(run.model_dump_json())
+    for k in ("tries", "visibility_range", "low_confidence"):
+        raw["drift"].pop(k)
+    raw.pop("repeat_answers"), raw.pop("repeat_evaluations")
+    old = type(run).model_validate(raw)
+    assert old.drift.tries == 1 and old.drift.visibility_range is None

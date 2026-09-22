@@ -95,6 +95,29 @@ const ZONE_COUNT: Record<Zone, (d: DriftReport) => number> = {
   unprioritised: (d) => d.unprioritised?.length ?? 0,
 };
 
+/** How often each buyer question was asked, and the spread across those tries. */
+const triesText = (d: DriftReport) => (d.tries ?? 1) > 1 && d.visibility_range
+  ? `range ${d.visibility_range[0]}–${d.visibility_range[1]} across ${d.tries} tries`
+  : "1 try per question";
+
+/** Buyer visibility, never a bare number when the control question says it is not to be trusted. */
+function Visibility({ d }: { d: DriftReport }) {
+  if (d.visibility == null) return <>n/a</>;
+  return (
+    <>
+      {d.visibility}<small> / 100</small>
+      {d.low_confidence && <span className="tag warn" title={d.low_confidence}>low confidence</span>}
+    </>
+  );
+}
+
+/** The model that answered the questions and the separate one that judged them, as the answers record. */
+const modelsOf = (run: Run) => {
+  const all = [run.answers, run.repeat_answers ?? []].flat();
+  const list = (xs: (string | null | undefined)[]) => [...new Set(xs.filter(Boolean))].join(", ");
+  return { answered: list(all.map((a) => a.model)), judged: list(all.map((a) => a.evaluator_model)) };
+};
+
 /** The headline, buyer visibility and the claims to win back: pinned above every tab. */
 function Figures({ d }: { d: DriftReport }) {
   const h = headline(d);
@@ -107,9 +130,9 @@ function Figures({ d }: { d: DriftReport }) {
         <span className="fig-sub">{h.today ?? d.na_reasons?.[h.field]}</span>
       </div>
       <div className="fig">
-        <span className="fig-value">{d.visibility == null ? "n/a" : d.visibility}{d.visibility != null && <small> / 100</small>}</span>
+        <span className="fig-value"><Visibility d={d} /></span>
         <span className="fig-label">buyer visibility</span>
-        {d.visibility == null && <span className="fig-sub">{d.na_reasons?.visibility}</span>}
+        <span className="fig-sub">{d.visibility == null ? d.na_reasons?.visibility : triesText(d)}</span>
       </div>
       <div className="fig">
         <span className="fig-value">{lost}</span>
@@ -129,7 +152,7 @@ function Explain({ d, brand }: { d: DriftReport; brand: string }) {
           : `Untapped potential is weighted by how much each claim matters to you: the share of what you want to be known for that AI’s answers about ${brand} do not yet say.`}
         {" "}Buyer visibility is how often {brand} came up when a buyer asked without naming it — a
         mention scores half, a recommendation full; a separate measure that does not move the headline.
-        {" "}{d.n_named} brand questions answered drive the headline · {d.n_blind} buyer questions answered
+        {" "}{d.n_named} brand questions answered drive the headline · {d.n_blind} buyer answers
         drive buyer visibility · source: {provenanceLabel(d.provenance)}
       </p>
       <div className="zones" role="list" aria-label="Claims by zone">
@@ -168,12 +191,13 @@ function RunSource({ run }: { run: Run }) {
       </div>
     );
   }
-  const models = [...new Set(run.answers.map((a) => a.model).filter(Boolean))].join(", ");
+  const { answered, judged } = modelsOf(run);
   return (
     <p className="source">
-      <strong>{PROVENANCE_LABEL.live_api}</strong> — {models || "the configured model"} via the OpenAI
-      Responses API with web search. This measures that API at this moment, not the ChatGPT consumer
-      app. Answers with no search behind them are excluded from scores.
+      <strong>{PROVENANCE_LABEL.live_api}</strong> — answered by {answered || "the configured model"} via
+      the OpenAI Responses API with web search{judged && `, judged by a separate model (${judged})`}. This
+      measures that API at this moment, not the ChatGPT consumer app. Answers with no search behind
+      them are excluded from scores.
     </p>
   );
 }
@@ -254,6 +278,8 @@ export function Report({ run, onRescored, weightNote }: {
               <h2>{run.profile.name}</h2>
               <div className="muted" title={run.id}>
                 {when(run.created_at)} · {run.mode === "live_api" ? PROVENANCE_LABEL.live_api : "Sample run — authored answers"}
+                {run.mode === "live_api" && modelsOf(run).answered && ` · answered by ${modelsOf(run).answered}`}
+                {run.mode === "live_api" && modelsOf(run).judged && `, judged by ${modelsOf(run).judged}`}
               </div>
             </div>
           </div>
@@ -380,6 +406,11 @@ function ExecSummary({ run }: { run: Run }) {
         </div>
         <div className="today">{h.today ?? d.na_reasons?.[h.field]}</div>
       </div>
+      <p className="exec-vis">
+        <strong>Buyer visibility:</strong> <Visibility d={d} />
+        {d.visibility == null ? ` — ${d.na_reasons?.visibility ?? "not measured"}` : ` — ${triesText(d)}`}
+        {d.low_confidence && <><br /><span className="muted">{d.low_confidence}</span></>}
+      </p>
       <div className="exec-cols">
         <div>
           <h3>Top wins — AI already says it</h3>
@@ -403,6 +434,7 @@ function ExecSummary({ run }: { run: Run }) {
       </div>
       <p className="exec-foot">
         Source: <strong>{live ? PROVENANCE_LABEL.live_api : "SYNTHETIC SAMPLE — authored answers, not measured"}</strong>
+        {live && modelsOf(run).answered && ` · answered by ${modelsOf(run).answered}`}
         {" "}· run {when(run.created_at)} · {d.n_named} brand and {d.n_blind} buyer answers
         · printed {new Date().toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
         <br />Independent portfolio demo — not a Profound product or integration.
@@ -904,20 +936,40 @@ function QuestionRow({ p, name, answer, verdict, tags, note, replay }: {
 /** Buyer questions never name the company: did AI bring it up on its own? */
 function BuyerQuestions({ run }: { run: Run }) {
   const replay = run.mode !== "live_api";
+  const d = run.drift;
+  const brand = run.profile.name;
   const names = probeLabels(run.probes, run.topics);
   const answers = new Map(run.answers.map((a) => [a.probe_id, a]));
   const evals = new Map(run.evaluations.map((e) => [e.probe_id, e]));
   const base = run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline");
   const follow = run.probes.filter((p) => p.kind === "blind" && p.phase === "followup");
+  const control = run.probes.find((p) => p.phase === "control");
+  const tries = d?.tries ?? 1;
+  // Every try of one question, first try first: [answer, evaluation] pairs.
+  const repeatAnswers = new Map((run.repeat_answers ?? []).map((a) => [`${a.probe_id}#${a.try_no}`, a]));
+  const triesOf = (p: Probe) => [
+    [answers.get(p.id), evals.get(p.id)] as const,
+    ...(run.repeat_evaluations ?? []).filter((e) => e.probe_id === p.id)
+      .sort((x, y) => (x.try_no ?? 1) - (y.try_no ?? 1))
+      .map((e) => [repeatAnswers.get(`${p.id}#${e.try_no}`), e] as const),
+  ];
+  const countedTries = (p: Probe) => triesOf(p)
+    .filter(([a, e]) => a && e && counts(a, e)).map(([, e]) => e!);
   const counted = (p: Probe) => {
     const a = answers.get(p.id), e = evals.get(p.id);
     return a && e && counts(a, e) ? e : null;
   };
-  const kept = base.map(counted).filter((e): e is QueryEvaluation => !!e);
-  const namedIn = kept.filter((e) => e.mentioned).length;
-  const recIn = kept.filter((e) => e.recommended).length;
-  const excluded = base.length - kept.length;
+  const all = base.flatMap(countedTries);
+  const namedIn = all.filter((e) => e.mentioned).length;
+  const recIn = all.filter((e) => e.recommended).length;
+  const excluded = base.length * tries - all.length;
   const verdict = (p: Probe) => {
+    if (tries > 1) {
+      const got = countedTries(p), k = got.filter((e) => e.mentioned).length;
+      if (!got.length) return <span className="tag warn">excluded from scores</span>;
+      const tone = k === 0 ? "lost_claim" : k === got.length ? "landed" : "unprioritised";
+      return <span className={`pill ${tone}`}>named in {k} of {got.length} tries</span>;
+    }
     const e = counted(p);
     if (!e) return <span className="tag warn">excluded from scores</span>;
     if (e.recommended) return <span className="pill landed">recommended you</span>;
@@ -925,27 +977,98 @@ function BuyerQuestions({ run }: { run: Run }) {
     if (e.mentioned) return <span className="pill unprioritised">named you</span>;
     return <span className="pill lost_claim">did not name you yet</span>;
   };
-  const card = (p: Probe) => (
-    <QuestionRow key={p.id} p={p} name={names[p.id] ?? p.id} answer={answers.get(p.id)}
-                 verdict={verdict(p)} replay={replay}
-                 note={evals.get(p.id)?.explanation && <span className="muted">{evals.get(p.id)!.explanation}</span>} />
-  );
+  const tryWord = (a?: Answer, e?: QueryEvaluation) =>
+    !a || !e || !counts(a, e) ? "excluded" : e.recommended ? "recommended you" : e.mentioned ? "named you" : "did not name you";
+  const card = (p: Probe) => {
+    const shown = triesOf(p);
+    return (
+      <QuestionRow key={p.id} p={p} name={names[p.id] ?? p.id} answer={answers.get(p.id)}
+                   verdict={verdict(p)} replay={replay}
+                   note={<>
+                     {evals.get(p.id)?.explanation && <span className="muted">{evals.get(p.id)!.explanation}</span>}
+                     {shown.length > 1 && (
+                       <span className="muted">
+                         {shown.map(([a, e], i) => `Try ${i + 1}: ${tryWord(a, e)}`).join(" · ")}. Try 1’s answer is below.
+                       </span>
+                     )}
+                   </>} />
+    );
+  };
+  const vis = d?.visibility;
   return (
-    <Section title="Buyer questions"
-           found={!base.length ? na(run.drift?.na_reasons, "visibility")
-             : `${base.length} asked · named you in ${namedIn}${recIn ? ` · recommended you in ${recIn}` : ""}`
-               + (excluded ? ` · ${excluded} excluded` : "")}>
+    <>
+      <Section title="Buyer questions"
+               found={!base.length ? na(d?.na_reasons, "visibility")
+                 : `${base.length} asked${tries > 1 ? ` × ${tries} tries` : " · 1 try each"}`
+                   + ` · named you in ${namedIn} of ${all.length} answers${recIn ? ` · recommended you in ${recIn}` : ""}`
+                   + (excluded ? ` · ${excluded} excluded` : "")}>
+        <p className="muted" style={{ margin: 0 }}>
+          What a buyer would ask without naming {brand}. Each one AI answered without
+          bringing {brand} up is room to be found.
+          {tries > 1
+            ? ` The model answers the same question differently each time, so each was asked ${tries} times in a fresh`
+              + ` context: buyer visibility is the average of the ${tries} tries, shown with its range.`
+            : replay ? " A sample run replays one authored answer per question: 1 try." : " Each was asked once."}
+        </p>
+        {vis != null && (
+          <p style={{ margin: 0 }}>
+            <strong>Buyer visibility <Visibility d={d!} /></strong> <span className="muted">— {triesText(d!)}</span>
+          </p>
+        )}
+        {d?.low_confidence && (
+          <p className="warn" style={{ margin: 0 }}>{d.low_confidence} The control question is below the questions.</p>
+        )}
+        {!control && run.mode === "live_api" && !run.profile.core_category && (
+          <p className="warn" style={{ margin: 0 }}>
+            No core category was saved for {brand}, so these questions follow its claims alone and no
+            control question was asked. Set the category on the claims screen and measure again.
+          </p>
+        )}
+        <div className="qlist">{base.map(card)}</div>
+        {follow.length > 0 && (
+          <>
+            <h4>Follow-up questions (exploratory — not counted in the scores)</h4>
+            <div className="qlist">{follow.map(card)}</div>
+          </>
+        )}
+      </Section>
+      {control && <Control run={run} p={control} />}
+    </>
+  );
+}
+
+/**
+ * The control question: can the answering model name this category's leading tools at all? It is
+ * not a buyer question and never moves visibility; it only says whether a 0 there can be trusted.
+ */
+function Control({ run, p }: { run: Run; p: Probe }) {
+  const a = run.answers.find((x) => x.probe_id === p.id);
+  const e = run.evaluations.find((x) => x.probe_id === p.id);
+  const flag = run.drift?.low_confidence;
+  const ok = a && e && counts(a, e);
+  const found = !ok ? "could not be scored"
+    : `named ${plural(e.competitor_recommendations.length + (e.mentioned ? 1 : 0), "tool")}`
+      + ` · ${e.mentioned ? `including ${run.profile.name}` : `not ${run.profile.name}`}`;
+  return (
+    <Section title="Control question" found={flag ? <><span className="tag warn">low confidence</span> {found}</> : found}>
       <p className="muted" style={{ margin: 0 }}>
-        What a buyer would ask without naming {run.profile.name}. Each one AI answered without
-        bringing {run.profile.name} up is room to be found.
+        One question asked beside the buyer questions and never scored: does the answering model know
+        who leads this category? When {run.profile.name} is named in no buyer answer, this decides
+        whether that 0 means anything.
       </p>
-      <div className="qlist">{base.map(card)}</div>
-      {follow.length > 0 && (
-        <>
-          <h4>Follow-up questions (exploratory — not counted in the scores)</h4>
-          <div className="qlist">{follow.map(card)}</div>
-        </>
+      {flag && <div className="callout warn-box" style={{ margin: 0 }}><strong>Low confidence.</strong> {flag}</div>}
+      {!flag && ok && run.drift?.visibility === 0 && (
+        <p style={{ margin: 0 }}>
+          The model names {run.profile.name} among this category’s leading tools, yet never brought it
+          up for a buyer: the 0 is a finding, not a gap in what the model knows.
+        </p>
       )}
+      <div className="qlist">
+        <QuestionRow p={p} name="Control question" answer={a} replay={run.mode !== "live_api"}
+                     note={ok && e.competitor_recommendations.length > 0 && (
+                       <span className="muted">Tools it named: {e.competitor_recommendations.join(", ")}</span>
+                     )} />
+      </div>
     </Section>
   );
 }

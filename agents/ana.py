@@ -6,6 +6,7 @@ replace `choose_followup` behind the same signature later.
 """
 import hashlib
 import json
+import math
 import re
 from collections import Counter
 
@@ -14,6 +15,9 @@ from schemas import (AdaptiveDecision, Attribute, CompanyProfile, Probe, QueryEv
 
 MAX_TOPICS = 4
 PER_TOPIC = 3
+CATEGORY_TOPICS = math.ceil(MAX_TOPICS / 2)  # at least half the buyer topics ask about the core category
+CATEGORY_QUESTIONS = CATEGORY_TOPICS * PER_TOPIC
+CONTROL_TOPIC = "control"
 MAX_FOLLOWUP_TOPICS = 2
 PER_FOLLOWUP_TOPIC = 2
 MAX_COMPARED = 3
@@ -68,8 +72,11 @@ def attribute_leaks(text: str, attributes: list[Attribute]) -> list[str]:
 
 def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyProfile
                                  ) -> tuple[list[Topic], list[Probe], list[str]]:
-    """The placebo test: one buyer topic per intended (or, unweighted, most-stated) claim, questions
-    that never name the brand.
+    """The placebo test: buyer topics whose questions never name the brand.
+
+    With a core category, the first CATEGORY_TOPICS topics ask about the category itself and the
+    rest go to claims; without one (a company saved before categories existed) every topic is a
+    claim, as before. One claim topic per intended (or, unweighted, most-stated) claim.
 
     If a company claims to be X, a buyer asking for X should find them. Asking the question the
     company's own positioning implies — with no brand name, in a fresh context — is a stronger test
@@ -81,6 +88,41 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
     names the skipped question ids so the run log can say why a topic is missing.
     """
     topics, probes, dropped, skipped = [], [], [], []
+
+    def ask(topic: Topic, key: str, questions: list[str], purpose: str, first: int = 1) -> None:
+        kept = 0
+        for i, text in enumerate(questions, start=first):
+            if leaks := brand_leaks(text, profile):
+                dropped.append(f"{key}-{i} ({', '.join(leaks)})")
+                continue
+            # Saved before onboarding vetted for this: refused, not rewritten, and not fatal — it
+            # measures our question, not the brand, but raising would strand every older company.
+            if vendor := vendor_address(text):
+                skipped.append(f"{key}-{i} ({', '.join(vendor)})")
+                continue
+            probes.append(Probe(id=f"{key}-b{i}", topic_id=topic.id, text=text, kind="blind",
+                                phase="baseline", purpose=purpose))
+            kept += 1
+        if kept:
+            topics.append(topic)
+
+    # The company's own category first: a buyer shopping for exactly what it sells is the fairest
+    # test there is, and claims alone once left a category leader's category unasked. The control
+    # question's wording is never also a scored question.
+    category = profile.core_category
+    control = control_probe(profile)
+    cat_qs = [q for q in profile.category_questions
+              if not control or q.strip().lower() != control.text.strip().lower()]
+    for n in range(CATEGORY_TOPICS):
+        chunk = cat_qs[n * PER_TOPIC:(n + 1) * PER_TOPIC]
+        if category and chunk:
+            ask(Topic(id=f"cat-{n + 1}", label=category, kind="buyer",
+                      buyer_need=f"A buyer looking for: {category}",
+                      positioning_point_ids=[pp.id for pp in profile.positioning_points[:1]],
+                      fit="strong"),
+                # numbered across both topics: they share a label, so "question 4" must not repeat "1"
+                "cat", chunk, f"Core category: would a buyer shopping for {category} be shown this brand?",
+                first=n * PER_TOPIC + 1)
     # Heaviest intent first, so truncation to MAX_TOPICS keeps the claims the customer cares about
     # most rather than whichever the extraction model emitted first. With nothing weighted the run
     # still goes ahead (the claim lens): the claims stated on the most pages go first instead. The
@@ -92,33 +134,40 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
         eligible = sorted((x for x in attributes if x.buyer_questions and (x.claimed or x.claim_pages)),
                           key=lambda x: -x.claim_pages)
     for a in eligible:
-        topic = Topic(id=f"pos-{a.id}", label=a.label, kind="buyer",
-                      buyer_need=f"A buyer looking for: {a.label.lower()}",
-                      positioning_point_ids=[], fit="strong" if a.claimed else "partial",
-                      fit_evidence_ids=list(a.claim_evidence_ids))
-        kept = 0
-        for i, text in enumerate(a.buyer_questions[:PER_TOPIC], start=1):
-            if leaks := brand_leaks(text, profile):
-                dropped.append(f"{a.id}-{i} ({', '.join(leaks)})")
-                continue
-            # Saved before onboarding vetted for this: refused, not rewritten, and not fatal — it
-            # measures our question, not the brand, but raising would strand every older company.
-            if vendor := vendor_address(text):
-                skipped.append(f"{a.id}-{i} ({', '.join(vendor)})")
-                continue
-            probes.append(Probe(
-                id=f"{a.id}-b{i}", topic_id=topic.id, text=text, kind="blind", phase="baseline",
-                purpose=f"Placebo: would a buyer wanting '{a.label}' be shown this brand?"))
-            kept += 1
-        if kept:
-            topics.append(topic)
+        ask(Topic(id=f"pos-{a.id}", label=a.label, kind="buyer",
+                  buyer_need=f"A buyer looking for: {a.label.lower()}",
+                  positioning_point_ids=[], fit="strong" if a.claimed else "partial",
+                  fit_evidence_ids=list(a.claim_evidence_ids)),
+            a.id, a.buyer_questions[:PER_TOPIC],
+            f"Placebo: would a buyer wanting '{a.label}' be shown this brand?")
     if dropped:
         raise ValueError("buyer questions leak the brand and were not rewritten: " + "; ".join(dropped))
     # Truncation drops topics, so it must drop their questions too: a probe whose topic no longer
-    # exists fails validation and kills the whole run.
+    # exists fails validation and kills the whole run. Category topics come first, so they are kept.
     topics = topics[:MAX_TOPICS]
     kept_topics = {t.id for t in topics}
     return topics, [p for p in probes if p.topic_id in kept_topics], skipped
+
+
+def control_probe(profile: CompanyProfile) -> Probe | None:
+    """The control: does the answering model know this category's leading tools at all?
+
+    A 0 on the buyer questions means little when the model cannot name the category's leaders, so
+    one blind question asks exactly that. It is never scored as visibility (phase "control"); its
+    answer only decides whether a 0 is trusted (scoring.low_confidence).
+    """
+    if not profile.core_category:
+        return None
+    return Probe(id="ctl-1", topic_id=CONTROL_TOPIC, kind="blind", phase="control",
+                 text=f"What are the leading tools for {profile.core_category}?",
+                 purpose="Control: does the answering model know this category's leading tools? "
+                         "Excluded from the visibility score.")
+
+
+def control_topic(profile: CompanyProfile) -> Topic:
+    return Topic(id=CONTROL_TOPIC, label=f"Control — {profile.core_category}", kind="control",
+                 buyer_need="Whether the answering model knows the category's leading tools",
+                 positioning_point_ids=[], fit="strong")
 
 
 def validate_named_probes(probes: list[Probe], attributes: list[Attribute]) -> list[str]:
@@ -182,7 +231,7 @@ def comparison_probe(profile: CompanyProfile, names: list[str], parents: list[st
 
 
 def baseline_hash(probes: list[Probe]) -> str:
-    base = [p.model_dump() for p in probes if p.phase == "baseline"]
+    base = [p.model_dump() for p in probes if p.phase in ("baseline", "control")]
     return hashlib.sha256(json.dumps(base, sort_keys=True).encode()).hexdigest()
 
 

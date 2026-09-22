@@ -24,7 +24,9 @@ is a *messaging gap* (AI does not say it because they never clearly did). Naming
 
 Leaks are rejected in code (`agents/ana.py`: `attribute_leaks`, `vendor_address`, `brand_leaks`).
 The measured model gets only the neutral question in a fresh context, never the company
-profile.
+profile. Buyer questions are asked `BUYER_TRIES` times; tries 2+ live in `run.repeat_answers`, so
+`run.answers` stays one answer per probe for every other consumer (WEB.md, "Why a rerun gives a
+different number").
 
 ## Authored evidence is never presented as measured
 

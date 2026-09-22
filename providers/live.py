@@ -17,12 +17,19 @@ from typing import Callable, Optional
 from schemas import Answer, Attribute, CompanyProfile, Probe, Topic
 
 KEY_ENV = "OPENAI_API_KEY"
-MODEL_ENV = "LIVE_MODEL"
-# Cheap default that is VERIFIED to accept the Responses API web_search tool and to actually invoke
-# it on buyer questions. Note: the *-search-preview models are Chat Completions only and 400 here
-# ("not supported with the Responses API"), so they cannot be used. gpt-4.1-nano also rejects the
-# tool. Override with LIVE_MODEL (gpt-5.5, gpt-4.1-mini, gpt-4o and gpt-5* all work).
-DEFAULT_MODEL = "gpt-4o-mini"
+# The model that ANSWERS the questions — the one being measured. The judge is separate
+# (EVALUATOR_MODEL, agents/evaluator_model.py). gpt-4o-mini with web search named obscure tools for a
+# category leader's own category (a saved tryprofound.com run), so the default is gpt-4.1. Note: the
+# *-search-preview models are Chat Completions only and 400 here ("not supported with the Responses
+# API"), and gpt-4.1-nano rejects the web_search tool. gpt-4o-mini, gpt-4.1-mini, gpt-4o and gpt-5*
+# all take it.
+MODEL_ENV = "MEASURED_MODEL"
+DEFAULT_MODEL = "gpt-4.1"
+# Each buyer question is asked this many times, fresh each time: one ask is one draw from a model
+# that answers differently on every run, so visibility is the mean with its range. Brand questions
+# are asked once.
+TRIES_ENV = "BUYER_TRIES"
+DEFAULT_TRIES = 3
 
 LIMITS = dict(max_unique_probes=16, max_probe_retries=4, max_model_attempts=40, concurrency=3,
               per_call_timeout_s=90, investigation_deadline_s=600)
@@ -39,6 +46,14 @@ def measured_prompt(probe: Probe) -> list[dict]:
 
 def model_name() -> str:
     return os.environ.get(MODEL_ENV) or DEFAULT_MODEL
+
+
+def buyer_tries() -> int:
+    """BUYER_TRIES, at least 1; anything unreadable is the default rather than a crash at run time."""
+    try:
+        return max(1, int(os.environ.get(TRIES_ENV) or DEFAULT_TRIES))
+    except ValueError:
+        return DEFAULT_TRIES
 
 
 def status() -> str:
@@ -99,7 +114,7 @@ def preflight(model: Optional[str] = None, transport: Optional[Callable] = None)
         if status == 400:
             raise ModelUnsupported(
                 f"Model {model!r} cannot be used: it does not accept the Responses API web_search "
-                f"tool. Set LIVE_MODEL to one that does (gpt-4o-mini, gpt-4.1-mini, gpt-4o, "
+                f"tool. Set {MODEL_ENV} to one that does (gpt-4.1, gpt-4o-mini, gpt-4.1-mini, gpt-4o, "
                 f"gpt-5-mini, gpt-5.5). Note the *-search-preview models are Chat Completions only. "
                 f"({safe_error(e)})") from e
         raise
@@ -163,18 +178,22 @@ class LiveProvider:
         self._named = named_probes
         self._profile = profile
         self.model = model or model_name()
+        self.tries = buyer_tries()
         self._transport = transport or default_transport
         self.evaluator = evaluator          # None -> answers come back unlabelled ("needs review")
         self.calls = 0
         self.skipped_questions: list[str] = []
 
     def plan(self, profile: CompanyProfile) -> tuple[list[Topic], list[Probe]]:
-        """Both axes: attribute-derived blind probes (placebo) plus the perception container."""
-        from agents.ana import blind_probes_from_attributes
+        """Both axes: category- and attribute-derived blind probes (placebo), the category control
+        question when there is a category, plus the perception container."""
+        from agents.ana import blind_probes_from_attributes, control_probe, control_topic
         topics, blind, self.skipped_questions = blind_probes_from_attributes(self._attributes, profile)
         perception = Topic(id="perception", label="Brand perception", kind="perception",
                            buyer_need="How AI characterises the brand when asked about it directly",
                            positioning_point_ids=[], fit="strong")
+        if control := control_probe(profile):
+            return topics + [control_topic(profile), perception], blind + [control]
         return topics + [perception], blind
 
     def attributes(self) -> list[Attribute]:
@@ -197,11 +216,11 @@ class LiveProvider:
         ask = getattr(self.evaluator, "win_back", None)  # a stub evaluator may not offer it
         return ask(prompt) if ask else None
 
-    def answer(self, probe: Probe) -> Answer:
+    def answer(self, probe: Probe, try_no: int = 1) -> Answer:
         self.calls += 1
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         base = dict(probe_id=probe.id, provenance="live_api", provider=self.name,
-                    model=self.model, collected_at=now)
+                    model=self.model, collected_at=now, try_no=try_no)
         try:
             raw = self._transport(measured_prompt(probe), self.model,
                                   LIMITS["per_call_timeout_s"])
