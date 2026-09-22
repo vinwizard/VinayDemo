@@ -362,6 +362,45 @@ class WinBackAction(BaseModel):
     provenance: Provenance
 
 
+class ScoredPassage(BaseModel):
+    """One passage of a page and how closely it matches a question, by embedding similarity."""
+    url: str
+    text: str
+    score: float  # cosine similarity, 2 decimals: a simulation of retrieval, not a citation odds
+    query: str    # the buyer question or fan-out search it matched best
+
+
+class Reask(BaseModel):
+    """The buyer question asked once more, with the rewritten passage and the rival's as the only
+    sources. A simulation: it never feeds a score."""
+    named: bool
+    answer: str
+    model: str
+    collected_at: str
+
+
+class RetrievalRow(BaseModel):
+    """One buyer question: your best passage against the best passage of a page AI cited for it,
+    and your best passage once the win-back rewrite is in the page."""
+    probe_id: str
+    queries: int = 1                        # the question plus the fan-out searches scored
+    yours: Optional[ScoredPassage] = None
+    rival: Optional[ScoredPassage] = None   # None: no page cited for it could be read
+    fixed: Optional[ScoredPassage] = None   # None: no win-back fix targets this question
+    fix_attribute_id: Optional[str] = None
+    reask: Optional[Reask] = None
+
+
+class RetrievalSim(BaseModel):
+    """A mini version of how an AI search picks what to read (retrieval.py). Moves no score."""
+    provenance: Provenance
+    model: Optional[str] = None     # the embedding model; None for the authored sample
+    pages: int = 0                  # pages split into passages
+    passages: int = 0
+    rows: list[RetrievalRow] = []
+    skipped: list[str] = []         # plain sentences: what was not read, and why
+
+
 class Company(BaseModel):
     """One onboarded company: what its own pages claim, plus what the customer says they intend.
 
@@ -408,5 +447,6 @@ class Run(BaseModel):
     drift: Optional[DriftReport] = None
     win_back: list[WinBackAction] = []  # how to win it back; additive, never feeds a score
     win_back_notes: list[str] = []      # why a proposed action was dropped, or none was proposed
+    retrieval: Optional[RetrievalSim] = None  # simulated retrieval and the fix re-scored; no score
     log: list[str] = []
     status: str = "planned"

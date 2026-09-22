@@ -1,7 +1,7 @@
 {
  "scenario": "A",
  "title": "Scenario A \u2014 project tracking looks weak",
- "notice": "SYNTHETIC DEMO DATA. Answers were authored for illustration by a coding session that knew the target company; they are not chatbot measurements. Citation URLs on example.com are fictional. Their web searches are authored samples too.",
+ "notice": "SYNTHETIC DEMO DATA. Answers were authored for illustration by a coding session that knew the target company; they are not chatbot measurements. Citation URLs on example.com are fictional. Their web searches are authored samples too. The retrieval sample (passages and their scores) is authored too: no page was fetched and nothing was embedded.",
  "profile": {
   "name": "Notion",
   "domain": "notion.com",
@@ -1492,5 +1492,159 @@
    "question_ids": [],
    "why": "The site states these controls on only one page, so answers have almost nothing to repeat."
   }
- ]
+ ],
+ "retrieval": {
+  "pages": 10,
+  "passages": 11,
+  "rows": [
+   {
+    "probe_id": "pt-1",
+    "queries": 3,
+    "yours": {
+     "url": "https://example.com/demo-source-claim-2",
+     "text": "Write, plan and organize in one place. Pages hold notes, docs and wikis, and databases turn any list into a board, a table or a calendar. Start from a template or a blank page, then share it with your team.",
+     "score": 0.41,
+     "query": "project tracking tools for small teams"
+    },
+    "rival": {
+     "url": "https://example.com/demo-source-5",
+     "text": "Small teams track projects on boards, lists and timelines. Assign tasks, set due dates and see who is working on what, with a free plan for up to ten people and apps for every phone and desktop.",
+     "score": 0.78,
+     "query": "project tracking tools for small teams"
+    },
+    "fixed": {
+     "url": "https://example.com/demo-source-claim-2",
+     "text": "One Notion workspace holds your docs, task tracker and team wiki, so a team can cancel three or four single-purpose subscriptions. Tasks live beside the briefs and specs they belong to.",
+     "score": 0.74,
+     "query": "What are good project tracking tools for small teams?"
+    },
+    "fix_attribute_id": "replaces_stack"
+   },
+   {
+    "probe_id": "pt-2",
+    "queries": 2,
+    "yours": {
+     "url": "https://example.com/demo-source-claim-2",
+     "text": "Write, plan and organize in one place. Pages hold notes, docs and wikis, and databases turn any list into a board, a table or a calendar. Start from a template or a blank page, then share it with your team.",
+     "score": 0.38,
+     "query": "project management tool for marketing teams briefs"
+    },
+    "rival": {
+     "url": "https://example.com/demo-source-7",
+     "text": "Marketing teams plan campaigns on a shared calendar, keep creative briefs attached to each task, and route drafts for approval, so the brief and the work never live in different tools.",
+     "score": 0.71,
+     "query": "project management tool for marketing teams briefs"
+    },
+    "fixed": {
+     "url": "https://example.com/demo-source-claim-2",
+     "text": "One Notion workspace holds your docs, task tracker and team wiki, so a team can cancel three or four single-purpose subscriptions. Tasks live beside the briefs and specs they belong to.",
+     "score": 0.63,
+     "query": "project management tool for marketing teams briefs"
+    },
+    "fix_attribute_id": "replaces_stack"
+   },
+   {
+    "probe_id": "pt-3",
+    "queries": 3,
+    "yours": {
+     "url": "https://example.com/demo-source-claim-2",
+     "text": "Write, plan and organize in one place. Pages hold notes, docs and wikis, and databases turn any list into a board, a table or a calendar. Start from a template or a blank page, then share it with your team.",
+     "score": 0.52,
+     "query": "docs and tasks in one workspace under $10 per user"
+    },
+    "rival": {
+     "url": "https://example.com/demo-source-8",
+     "text": "One workspace for tasks and the documents behind them: specs, briefs and meeting notes sit next to the tasks they describe. Plans start at $8 per user per month.",
+     "score": 0.69,
+     "query": "docs and tasks in one workspace under $10 per user"
+    },
+    "fixed": {
+     "url": "https://example.com/demo-source-claim-2",
+     "text": "One Notion workspace holds your docs, task tracker and team wiki, so a team can cancel three or four single-purpose subscriptions. Tasks live beside the briefs and specs they belong to.",
+     "score": 0.77,
+     "query": "docs and tasks in one workspace under $10 per user"
+    },
+    "fix_attribute_id": "replaces_stack"
+   },
+   {
+    "probe_id": "mtg-1",
+    "queries": 2,
+    "yours": {
+     "url": "https://example.com/demo-source-claim-1",
+     "text": "Ask Notion AI to draft a first version, fix spelling or change the tone of a page. It works wherever you write, from a quick note to a long doc.",
+     "score": 0.44,
+     "query": "meeting notes apps for teams"
+    },
+    "rival": {
+     "url": "https://example.com/demo-source-9",
+     "text": "Capture meeting notes together in real time, then share them with a link. Action items become tasks with an owner and a due date, and every note is searchable later.",
+     "score": 0.74,
+     "query": "meeting notes apps for teams"
+    },
+    "fixed": {
+     "url": "https://example.com/demo-source-claim-1",
+     "text": "Notion AI is part of every workspace: it drafts and edits inside your pages, summarises meeting notes, and answers questions from your team's own docs with links to the pages it read. No separate add-on to buy.",
+     "score": 0.68,
+     "query": "What tools help teams capture and share meeting notes?"
+    },
+    "fix_attribute_id": "ai_native"
+   },
+   {
+    "probe_id": "mtg-3",
+    "queries": 2,
+    "yours": {
+     "url": "https://example.com/demo-source-claim-1",
+     "text": "Ask Notion AI to draft a first version, fix spelling or change the tone of a page. It works wherever you write, from a quick note to a long doc.",
+     "score": 0.36,
+     "query": "meeting transcription without bot joining the call"
+    },
+    "rival": {
+     "url": "https://example.com/demo-source-11",
+     "text": "Record and transcribe calls straight from your computer's audio, with no bot joining the meeting. You get a summary, decisions and action items a minute after the call ends.",
+     "score": 0.8,
+     "query": "meeting transcription without bot joining the call"
+    },
+    "fixed": {
+     "url": "https://example.com/demo-source-claim-1",
+     "text": "Notion AI is part of every workspace: it drafts and edits inside your pages, summarises meeting notes, and answers questions from your team's own docs with links to the pages it read. No separate add-on to buy.",
+     "score": 0.58,
+     "query": "meeting transcription without bot joining the call"
+    },
+    "fix_attribute_id": "ai_native"
+   },
+   {
+    "probe_id": "kb-1",
+    "queries": 3,
+    "yours": {
+     "url": "https://example.com/demo-source-claim-3",
+     "text": "Build a wiki your whole team can edit. Link docs to each other and to databases, so every answer is one click from the context behind it.",
+     "score": 0.72,
+     "query": "team wiki software comparison"
+    },
+    "rival": {
+     "url": "https://example.com/demo-source-1",
+     "text": "A team knowledge base works best when anyone can write and search it. Compare wiki tools on editing, search, permissions and how well pages link to each other.",
+     "score": 0.66,
+     "query": "best internal knowledge base tools 2026"
+    }
+   },
+   {
+    "probe_id": "po-3",
+    "queries": 2,
+    "yours": {
+     "url": "https://example.com/demo-source-claim-3",
+     "text": "Keep notes, goals and to-dos together in pages you can nest, link and rearrange. Templates help you start a reading list, a habit tracker or a weekly plan.",
+     "score": 0.33,
+     "query": "offline notes app Mac Windows phone free"
+    },
+    "rival": {
+     "url": "https://example.com/demo-source-14",
+     "text": "Take notes offline on Mac, Windows, iPhone and Android; they sync when you reconnect. Free for personal use, with no limit on notes.",
+     "score": 0.62,
+     "query": "offline notes app Mac Windows phone free"
+    }
+   }
+  ],
+  "skipped": []
+ }
 }

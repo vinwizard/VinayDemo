@@ -186,7 +186,7 @@ class LiveProvider:
     def __init__(self, attributes: list[Attribute], named_probes: list[Probe],
                  profile: Optional[CompanyProfile] = None, model: Optional[str] = None,
                  transport: Optional[Callable] = None, evaluator=None,
-                 writer: Optional[Callable] = None):
+                 writer: Optional[Callable] = None, retrieval: Optional[Callable] = None):
         if not attributes:
             raise ValueError("live run needs the attribute set being measured")
         self._attributes = attributes
@@ -195,6 +195,12 @@ class LiveProvider:
         self.model = model or model_name()
         self.tries = buyer_tries()
         self._transport = transport or default_transport
+        # run -> RetrievalSim. The real one fetches pages and embeds them, so an injected transport
+        # (a test) gets none unless it injects one too.
+        if retrieval is None and transport is None:
+            import retrieval as sim
+            retrieval = sim.simulate
+        self.retrieval = retrieval
         self.evaluator = evaluator          # None -> answers come back unlabelled ("needs review")
         self.calls = 0
         self.skipped_questions: list[str] = []

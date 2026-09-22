@@ -95,7 +95,7 @@ def test_redirect_to_a_private_address_is_refused(monkeypatch):
     """An allowed public page must not be able to bounce us onto the LAN."""
     calls = {"n": 0}
 
-    def fake_get(scheme, host, port, path):
+    def fake_get(scheme, host, port, path, timeout):
         calls["n"] += 1
         return 302, {"Location": "http://169.254.169.254/latest/meta-data/"}, b""
 
@@ -161,3 +161,29 @@ def test_icon_prefers_apple_touch_then_icon_then_favicon_and_only_http():
     assert fetching.icon_url(base, '<link rel="icon" href="javascript:alert(1)">') \
         == "https://acme.example/favicon.ico"
     assert fetching.icon_url(base, "<p>no links</p>") == "https://acme.example/favicon.ico"
+
+
+# --- passages and robots.txt (retrieval.py) ---------------------------------------------------------
+
+def test_blocks_follow_headings_and_paragraphs():
+    html = "<h2>Pricing</h2><p>Free for <b>small</b> teams.</p><ul><li>One</li><li>Two</li></ul><script>x</script>"
+    assert fetching.extract_blocks(html) == ["Pricing", "Free for small teams.", "One", "Two"]
+    assert fetching.extract_text(html) == "Pricing Free for small teams. One Two"
+
+
+def test_robots_txt_is_respected_and_a_missing_one_allows(monkeypatch):
+    robots = "User-agent: *\nDisallow: /private/\n"
+    monkeypatch.setattr(fetching, "fetch_raw", lambda url, timeout=10: (url, robots))
+    assert fetching.robots_allow("https://example.com/blog/post")
+    assert not fetching.robots_allow("https://example.com/private/page")
+
+    def missing(url, timeout=10):
+        raise FetchError(f"HTTP 404 for {url}")
+    monkeypatch.setattr(fetching, "fetch_raw", missing)
+    assert fetching.robots_allow("https://example.com/private/page")
+
+    def down(url, timeout=10):
+        raise FetchError(f"HTTP 503 for {url}")
+    monkeypatch.setattr(fetching, "fetch_raw", down)
+    with pytest.raises(FetchError):
+        fetching.robots_allow("https://example.com/")
