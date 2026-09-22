@@ -414,6 +414,7 @@ def test_a_fallback_that_cannot_search_measures_ungrounded_rather_than_swapping_
     assert live.model_name() == live.FALLBACK_MODEL and live.search_tool() is None
     assert "NO web search" in why and "excluded from the scores" in why
     assert live.search_mode().startswith("none")
+    assert "required on every answer" not in live.status()
 
 
 def test_a_step_down_is_a_caveat_on_the_report_not_just_a_health_field(monkeypatch):

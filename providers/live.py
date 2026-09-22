@@ -138,8 +138,9 @@ def repeat_sample() -> int:
 def status() -> str:
     if not os.environ.get(KEY_ENV):
         return f"Disabled: no {KEY_ENV} configured."
-    return (f"Ready: OpenAI Responses API, model {model_name()}, {search_mode()} required on every "
-            f"answer." + (f" {_fallback}" if _fallback else ""))
+    required = " required on every answer" if _search else ""
+    return (f"Ready: OpenAI Responses API, model {model_name()}, {search_mode()}{required}."
+            + (f" {_fallback}" if _fallback else ""))
 
 
 def available() -> bool:
