@@ -169,7 +169,8 @@ export const GLOSSARY = {
     def: "A picture of how alike things sound, not a measurement. We turn what AI says about you, what "
       + "it says about each rival and what your own site says into numbers by meaning, then flatten "
       + "them onto two axes. Dots close together were described in similar words; the arrow runs from "
-      + "where AI places you to where your site aims.",
+      + "where AI places you to where you want to be (the claims you weighted) or, until you weight "
+      + "any, to where your site aims.",
   },
 } satisfies Record<string, { term: string; def: string }>;
 

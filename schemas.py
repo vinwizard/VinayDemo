@@ -430,12 +430,14 @@ class PositioningMap(BaseModel):
     similarity picture in 2D, never a measurement. Moves no score."""
     provenance: Provenance
     model: Optional[str] = None      # the embedding model; None for the authored sample
+    # what the arrow's head is built from: the claims the customer weighted, or the site's positioning
+    aim: Literal["intended", "site"] = "site"
     points: list[MapPoint] = []
     x_axis: list[str] = []           # [left end, right end] in plain words; [] = unlabelled
     y_axis: list[str] = []           # [bottom end, top end]
     explained: Optional[float] = None  # share of the spread between the points the two axes show
     closest: list[str] = []          # rivals nearest the brand as AI describes it, nearest first
-    toward: Optional[str] = None     # the axis end the site aims toward, when an axis is labelled
+    toward: Optional[str] = None     # the axis end the aim lies toward, when an axis is labelled
     reason: Optional[str] = None     # why no map was drawn
     notes: list[str] = []            # what was left out, in plain sentences
 

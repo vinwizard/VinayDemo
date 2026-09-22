@@ -356,6 +356,9 @@ def rescore(run: Run, weights: dict[str, float]) -> Run:
     for aid, w in weights.items():
         by_id[aid].intended_weight = round(w, 2) or None
     score_drift(run)
+    if run.positioning is not None and run.positioning.provenance == "live_api":
+        import positioning  # the aim follows the weights; every text is already embedded and cached
+        map_positioning(run, positioning.build)
     run.drift.limitations.append("Re-scored after the run with intent weights: the questions were "
                                  "planned when it was measured and were not re-asked.")
     run.log.append("Re-scored with intent weights on the saved answers; no model was asked. "
@@ -375,7 +378,7 @@ def build_gap_report(s: State):
         run.log.append(f"Action plan: {len(run.win_back)} fix(es) kept, "
                        f"{len(run.win_back_notes)} note(s) on what was dropped.")
     simulate_retrieval(run, s["provider"])
-    map_positioning(run, s["provider"])
+    map_positioning(run, getattr(s["provider"], "positioning", None))
     run.status = "complete"
     run.log.append(f"Gap report built: {len(run.findings)} findings.")
     return {"run": run}
@@ -401,10 +404,9 @@ def simulate_retrieval(run: Run, provider) -> None:
                    f"{sum(r.rival.score > r.yours.score for r in rows)} of {len(rows)} buyer questions.")
 
 
-def map_positioning(run: Run, provider) -> None:
+def map_positioning(run: Run, build) -> None:
     """The positioning map (positioning.py): after every score, moving none. A provider without it
     asks nothing; a failure is stated, never fatal."""
-    build = getattr(provider, "positioning", None)
     if build is None:
         return
     try:

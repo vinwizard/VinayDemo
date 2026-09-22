@@ -1,8 +1,9 @@
 """The positioning map: where AI places the brand, where its rivals sit, and where the brand aims to be.
 
 Each point is the mean embedding of the sentences it is built from: the brand as AI describes it (its
-brand answers), each rival as AI describes it (the buyer-answer sentences that name it), and the
-brand as its site describes it (its positioning points). The points are projected to 2D by PCA, and
+brand answers), each rival as AI describes it (the buyer-answer sentences that name it), and the aim:
+where the customer wants to be (the claims they weighted, by weight) or, with no weights, where the
+site aims (its positioning points). The points are projected to 2D by PCA, and
 each axis is named by the claim whose embedding lines up with it best, or left unnamed when none does.
 
 A similarity picture, never a measurement: it runs after every score exists and moves none of them.
@@ -24,8 +25,13 @@ def _sentences(text: str) -> list[str]:
     return [s.strip() for s in re.split(r"(?<=[.!?])\s+", text) if len(s.split()) >= 3]
 
 
-def _mean(vs: list[list[float]]) -> list[float]:
-    return [sum(c) / len(vs) for c in zip(*vs)]
+def _mean(vs: list[list[float]], ws: Optional[list[float]] = None) -> list[float]:
+    ws = ws or [1.0] * len(vs)
+    return [sum(w * x for w, x in zip(ws, c)) / sum(ws) for c in zip(*vs)]
+
+
+def _text(a) -> str:
+    return f"{a.label}: {a.description}" if a.description else a.label
 
 
 def _dot(a, b) -> float:
@@ -68,12 +74,14 @@ def build(run: Run, embed: Optional[Callable] = None) -> PositioningMap:
     brand = run.profile.name
     by_id = {p.id: p for p in run.probes}
     ok = [a for a in [*run.answers, *run.repeat_answers] if a.status == "ok" and a.probe_id in by_id]
-    seen = [s for a in ok if by_id[a.probe_id].kind == "named" and by_id[a.probe_id].phase == "baseline"
-            for s in _sentences(a.text)]
-    intended = [p.text for p in run.profile.positioning_points] \
+    seen = list(dict.fromkeys(s for a in ok if by_id[a.probe_id].kind == "named"
+                              and by_id[a.probe_id].phase == "baseline" for s in _sentences(a.text)))
+    wanted = [a for a in run.attributes if a.label and a.intended_weight]
+    aim = "intended" if wanted else "site"
+    intended = [_text(a) for a in wanted] or [p.text for p in run.profile.positioning_points] \
         or [q for a in run.attributes for q in a.claim_quotes]
     blind = {pid for pid, p in by_id.items() if p.kind == "blind" and p.phase == "baseline"}
-    buyer = [s for a in ok if a.probe_id in blind for s in _sentences(a.text)]
+    buyer = list(dict.fromkeys(s for a in ok if a.probe_id in blind for s in _sentences(a.text)))
     named = Counter()
     spelled: dict[str, str] = {}
     for e in [*run.evaluations, *run.repeat_evaluations]:
@@ -92,20 +100,23 @@ def build(run: Run, embed: Optional[Callable] = None) -> PositioningMap:
     reason = ("No brand answer came back, so there is nothing AI said about the brand to place." if not seen
               else "The site gave no positioning to place." if not intended
               else "No buyer answer named a rival, so there is nothing to place the brand against."
-              if not rivals else None)
+              if not named
+              else "Buyer answers named rivals but never described one in a sentence, so there is nothing "
+                   "to place the brand against." if not rivals else None)
     if reason:
-        return PositioningMap(provenance="live_api", reason=reason, notes=notes)
+        return PositioningMap(provenance="live_api", aim=aim, reason=reason, notes=notes)
 
     groups = [(brand, "seen", seen[:MAX_SENTENCES]), (brand, "intended", intended[:MAX_SENTENCES]),
               *((name, "rival", ss) for name, ss in rivals.items())]
     candidates = [a for a in run.attributes if a.label]
-    ends = [f"{a.label}: {a.description}" if a.description else a.label for a in candidates]
+    ends = [_text(a) for a in candidates]
     texts = list(dict.fromkeys([*(s for _, _, ss in groups for s in ss), *ends]))
     vec = dict(zip(texts, embed(texts)))
-    means = [_mean([vec[s] for s in ss]) for _, _, ss in groups]
+    weights = {1: [a.intended_weight for a in wanted][:MAX_SENTENCES]} if wanted else {}
+    means = [_mean([vec[s] for s in ss], weights.get(i)) for i, (_, _, ss) in enumerate(groups)]
     coords, axes, shown = pca2(means)
 
-    # PCA signs are arbitrary: orient each axis so the site's aim sits at or beyond where AI places it.
+    # PCA signs are arbitrary: orient each axis so the aim sits at or beyond where AI places it.
     flip = [-1 if coords[1][k] < coords[0][k] else 1 for k in range(2)]
     centre = _mean(means)
     labels = []
@@ -122,6 +133,6 @@ def build(run: Run, embed: Optional[Callable] = None) -> PositioningMap:
                        sentences=ss, similarity=None if i == 0 else round(embeddings.cosine(m, means[0]), 2))
               for i, ((name, kind, ss), c, m) in enumerate(zip(groups, coords, means))]
     closest = [p.name for p in sorted((p for p in points if p.kind == "rival"), key=lambda p: -p.similarity)][:2]
-    return PositioningMap(provenance="live_api", model=embeddings.MODEL, points=points, x_axis=labels[0],
+    return PositioningMap(provenance="live_api", model=embeddings.MODEL, aim=aim, points=points, x_axis=labels[0],
                           y_axis=labels[1], explained=round(shown, 2), closest=closest, toward=toward,
                           notes=notes)

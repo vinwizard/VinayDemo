@@ -220,7 +220,7 @@ export interface MapPoint {
 }
 /** Where AI places the brand, its rivals and where it aims (positioning.py): a similarity picture, no score. */
 export interface PositioningMap {
-  provenance: string; model: string | null; points: MapPoint[];
+  provenance: string; model: string | null; aim?: "intended" | "site"; points: MapPoint[];
   x_axis: string[]; y_axis: string[]; explained: number | null;
   closest: string[]; toward: string | null; reason: string | null; notes: string[];
 }

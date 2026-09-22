@@ -1046,18 +1046,18 @@ function placeLabels(dots: { x: number; y: number; r: number; text: string }[], 
 }
 
 /** What one dot was built from, verbatim, and how close it sits to the brand as AI describes it. */
-function PointDetail({ p, brand, sample }: { p: MapPoint; brand: string; sample: boolean }) {
+function PointDetail({ p, title, site, brand, sample }: {
+  p: MapPoint; title: string; site: boolean; brand: string; sample: boolean;
+}) {
   const n = p.sentences.length;
   return (
     <>
-      <strong className="pop-title">
-        {p.kind === "seen" ? `${brand}, as AI describes it` : p.kind === "intended" ? `${brand}, as your site describes it`
-          : `${p.name}, as AI describes it`}
-      </strong>
+      <strong className="pop-title">{title}</strong>
       <p className="muted">
         {sample && <><span className="tag sample">sample</span> Placed by hand, not computed. </>}
         {p.kind === "seen" ? `Built from ${plural(n, "sentence")} in AI's answers about ${brand}.`
-          : p.kind === "intended" ? `Built from ${plural(n, "positioning line")} on your site.`
+          : p.kind === "intended" ? (site ? `Built from ${plural(n, "positioning line")} on your site.`
+            : `Built from the ${plural(n, "claim")} you weighted; a heavier weight pulls harder.`)
           : `Built from ${plural(n, "sentence")} in buyer answers that name ${p.name}.`}
       </p>
       {p.similarity != null && (
@@ -1077,10 +1077,12 @@ function PointDetail({ p, brand, sample }: { p: MapPoint; brand: string; sample:
 function PositioningMapView({ run }: { run: Run }) {
   const m = run.positioning;
   if (!m) return null;
-  const brand = run.profile.name, sample = m.provenance !== "live_api";
+  const brand = run.profile.name, sample = m.provenance !== "live_api", site = m.aim !== "intended";
+  const aim = site ? "where your site aims" : "where you want to be";
   const found = m.reason ? "not drawn"
     : `AI places ${brand} closest to ${listed(m.closest)}`
-      + (m.toward ? `; your site aims further toward “${m.toward}”` : "; your site aims somewhere else on the map");
+      + (m.toward ? `; ${site ? "your site aims" : "you want to be"} further toward “${m.toward}”`
+        : `; ${aim} is somewhere else on the map`);
   const body = () => {
     if (m.reason) return <p className="muted" style={{ margin: 0 }}>{m.reason}</p>;
     const order = { seen: 0, intended: 1, rival: 2 };
@@ -1089,7 +1091,7 @@ function PositioningMapView({ run }: { run: Run }) {
     const scale = Math.min((MAP_W / 2 - MAP_PAD) / mx, (MAP_H / 2 - MAP_PAD) / my);
     const dots = pts.map((p) => ({
       p, x: MAP_W / 2 + p.x * scale, y: MAP_H / 2 - p.y * scale, r: p.kind === "rival" ? 7 : 9,
-      text: p.kind === "intended" ? "your aim" : p.name,
+      text: p.kind === "intended" ? aim : p.name,
     }));
     const ends = axisEnds(m.x_axis, m.y_axis, dots);
     const labels = placeLabels(dots, ends.map(([t, x, y, a]) => boxOf(t, x, y, a, AXIS_FONT)));
@@ -1099,7 +1101,7 @@ function PositioningMapView({ run }: { run: Run }) {
     const dx = aim.x - seen.x, dy = aim.y - seen.y, len = Math.hypot(dx, dy);
     const ux = dx / len, uy = dy / len, tip = [aim.x - ux * (aim.r + 2), aim.y - uy * (aim.r + 2)];
     const title = (d: (typeof dots)[number]) => d.p.kind === "seen" ? `${brand}, as AI describes it`
-      : d.p.kind === "intended" ? `${brand}, as your site describes it` : `${d.p.name}, as AI describes it`;
+      : d.p.kind === "intended" ? `${brand}, ${aim}` : `${d.p.name}, as AI describes it`;
     return (
       <>
         <p className="muted" style={{ margin: 0 }}>
@@ -1107,7 +1109,7 @@ function PositioningMapView({ run }: { run: Run }) {
           A <Term k="positioning_map"
                   note={m.explained != null && `These two axes show ${Math.round(m.explained * 100)}% of the differences between the dots; the rest is flattened away.`}>
             similarity picture</Term>, not a measurement: dots close together were described in similar words.
-          The arrow runs from where AI places {brand} to where your site aims. Tap a dot for the sentences behind it.
+          The arrow runs from where AI places {brand} to {aim}. Tap a dot for the sentences behind it.
         </p>
         <div className="pmap">
           <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} aria-hidden="true">
@@ -1134,7 +1136,7 @@ function PositioningMapView({ run }: { run: Run }) {
                   style={{ left: `${(100 * d.x) / MAP_W}%`, top: `${(100 * d.y) / MAP_H}%` }}>
               <Popover wide label={title(d)} className="pmap-tap"
                        trigger={<span className="sr-only">{title(d)}</span>}>
-                <PointDetail p={d.p} brand={brand} sample={sample} />
+                <PointDetail p={d.p} title={title(d)} site={site} brand={brand} sample={sample} />
               </Popover>
             </span>
           ))}
@@ -1145,9 +1147,9 @@ function PositioningMapView({ run }: { run: Run }) {
               <Popover wide label={title(d)} className="chip"
                        trigger={<>
                          <span className={`pmap-swatch ${d.p.kind}`} aria-hidden="true">{num[i] ?? ""}</span>
-                         {d.p.kind === "seen" ? `${brand}, as AI sees it` : d.p.kind === "intended" ? "Your aim, from your site" : d.p.name}
+                         {d.p.kind === "seen" ? `${brand}, as AI sees it` : d.p.kind === "intended" ? aim[0].toUpperCase() + aim.slice(1) : d.p.name}
                        </>}>
-                <PointDetail p={d.p} brand={brand} sample={sample} />
+                <PointDetail p={d.p} title={title(d)} site={site} brand={brand} sample={sample} />
               </Popover>
             </li>
           ))}
