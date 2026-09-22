@@ -418,9 +418,12 @@ export function Report({ run, onRescored, weightNote }: {
   const top = useRef<HTMLDivElement>(null);
   const [tab, setTabState] = useState<ReportTab>(tabFromHash);
   const [reasks, setReasks] = useState<Record<string, RetrievalRow["reask"]>>({});
-  const reasked = (next: Run, probe: string, got: RetrievalRow["reask"]) => {
-    setReasks((m) => ({ ...m, [`${next.id}:${probe}`]: got }));
-    onRescored?.(next);
+  const reasked = (probe: string, got: RetrievalRow["reask"]) => {
+    setReasks((m) => ({ ...m, [`${run.id}:${probe}`]: got }));
+    if (onRescored && run.retrieval) onRescored({
+      ...run,
+      retrieval: { ...run.retrieval, rows: run.retrieval.rows.map((x) => (x.probe_id === probe ? { ...x, reask: got } : x)) },
+    });
   };
   useEffect(() => {
     const follow = () => setTabState(tabFromHash());
@@ -1218,7 +1221,7 @@ function PassageQuote({ title, p }: { title: string; p: ScoredPassage }) {
 /** Ask the model once more with the rewritten passage and the cited page as its only sources. */
 function Reask({ run, r, got, onReasked }: {
   run: Run; r: RetrievalRow; got: RetrievalRow["reask"];
-  onReasked: (next: Run, probe: string, got: RetrievalRow["reask"]) => void;
+  onReasked: (probe: string, got: RetrievalRow["reask"]) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1226,7 +1229,7 @@ function Reask({ run, r, got, onReasked }: {
   const ask = () => {
     setBusy(true); setError(null);
     reaskRun(run.id, r.probe_id)
-      .then((next) => onReasked(next, r.probe_id, next.retrieval?.rows.find((x) => x.probe_id === r.probe_id)?.reask ?? null))
+      .then((next) => onReasked(r.probe_id, next.retrieval?.rows.find((x) => x.probe_id === r.probe_id)?.reask ?? null))
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
   };
@@ -1257,7 +1260,7 @@ function Reask({ run, r, got, onReasked }: {
  */
 function TestAFix({ run, reasks, onReasked }: {
   run: Run; reasks: Record<string, RetrievalRow["reask"]>;
-  onReasked: (next: Run, probe: string, got: RetrievalRow["reask"]) => void;
+  onReasked: (probe: string, got: RetrievalRow["reask"]) => void;
 }) {
   const sim = run.retrieval;
   if (!sim) return null;
