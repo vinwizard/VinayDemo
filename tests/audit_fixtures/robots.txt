@@ -1,0 +1,8 @@
+User-agent: GPTBot
+Disallow: /pricing
+
+User-agent: ClaudeBot
+Disallow: /pricing
+
+User-agent: *
+Allow: /

@@ -95,7 +95,7 @@ def test_redirect_to_a_private_address_is_refused(monkeypatch):
     """An allowed public page must not be able to bounce us onto the LAN."""
     calls = {"n": 0}
 
-    def fake_get(scheme, host, port, path):
+    def fake_get(scheme, host, port, path, *_):
         calls["n"] += 1
         return 302, {"Location": "http://169.254.169.254/latest/meta-data/"}, b""
 

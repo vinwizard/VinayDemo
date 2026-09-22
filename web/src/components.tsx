@@ -10,6 +10,7 @@ import {
 } from "./labels";
 import { GLOSSARY } from "./glossary";
 import { Popover, Term } from "./popover";
+import { WhyAIMisses } from "./audit";
 
 const ZONE_FILL: Record<Zone, string> = {
   landed: "var(--landed)",
@@ -380,7 +381,7 @@ function RunSource({ run }: { run: Run }) {
 }
 
 const TABS = [
-  ["overview", "Overview"], ["win-back", "Win it back"], ["buyer", "Buyer questions"],
+  ["overview", "Overview"], ["win-back", "Win it back"], ["why", "Why AI misses you"], ["buyer", "Buyer questions"],
   ["brand", "Brand questions"], ["sources", "Sources & rivals"],
 ] as const;
 
@@ -443,6 +444,7 @@ export function Report({ run, onRescored, weightNote }: {
   const count: Record<ReportTab, number | undefined> = {
     overview: claims.length,
     "win-back": winBackPlan(run).actions.length,
+    why: run.audit?.claims.filter((c) => c.checks.some((k) => k.status === "fail")).length,
     buyer: run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline").length,
     brand: run.probes.filter((p) => p.kind === "named" && p.phase === "baseline").length,
     sources: run.insights?.sources.sources.length,
@@ -501,6 +503,7 @@ export function Report({ run, onRescored, weightNote }: {
               </Section>
             </>
           )}
+          {tab === "why" && <WhyAIMisses run={run} />}
           {tab === "buyer" && <BuyerQuestions run={run} />}
           {tab === "brand" && <BrandQuestions run={run} />}
           {tab === "sources" && (

@@ -359,6 +359,43 @@ class WinBackAction(BaseModel):
     provenance: Provenance
 
 
+AuditStatus = Literal["pass", "fail", "unknown"]
+
+
+class AuditCheck(BaseModel):
+    """One red/green line of the retrievability audit, with its root cause as a plain sentence."""
+    key: str                  # crawlers | raw_text | markup | headings | speed | llms_txt | no_js
+    status: AuditStatus       # unknown = could not check, never a guess
+    detail: str
+
+
+class ClaimAudit(BaseModel):
+    attribute_id: str
+    label: str
+    page_url: Optional[str] = None  # the first fetched page that states it now; None = none does
+    checks: list[AuditCheck] = []
+
+
+class EntitySource(BaseModel):
+    """What one outside source that AI leans on for facts says about the company, if anything."""
+    source: str                           # Wikipedia | Wikidata | Crunchbase | G2 | LinkedIn
+    status: Literal["found", "missing", "not_checked"]
+    summary: str                          # one plain sentence, including how we looked
+    says: Optional[str] = None            # its own short description, verbatim
+    url: Optional[str] = None
+
+
+class SiteAudit(BaseModel):
+    """Could AI even read the site, and where else it could learn about the company.
+
+    Plain fetches and parsing (audit.py), no model: every line is a deterministic check.
+    """
+    checked_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
+    site: list[AuditCheck] = []
+    claims: list[ClaimAudit] = []
+    entities: list[EntitySource] = []
+
+
 class Company(BaseModel):
     """One onboarded company: what its own pages claim, plus what the customer says they intend.
 
@@ -375,6 +412,7 @@ class Company(BaseModel):
     pages: list[str] = []      # the URLs actually fetched; claim_pages_total counts these
     warnings: list[str] = []
     checks: list[ClaimCheck] = []
+    audit: Optional[SiteAudit] = None  # None: onboarded before the audit existed
 
 
 class Run(BaseModel):
@@ -405,5 +443,8 @@ class Run(BaseModel):
     drift: Optional[DriftReport] = None
     win_back: list[WinBackAction] = []  # how to win it back; additive, never feeds a score
     win_back_notes: list[str] = []      # why a proposed action was dropped, or none was proposed
+    # The company's retrievability audit as it stood when the run started; None for replays and
+    # companies onboarded before the audit existed.
+    audit: Optional[SiteAudit] = None
     log: list[str] = []
     status: str = "planned"

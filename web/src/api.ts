@@ -161,7 +161,8 @@ export interface Run {
   scenario: string | null;
   status: string;
   mode: string;
-  profile: { name: string; domain: string; logo_url?: string | null; core_category?: string | null };
+  profile: { name: string; domain: string; logo_url?: string | null; core_category?: string | null;
+             positioning_points?: { text: string }[] };
   topics: Topic[];
   probes: Probe[];
   answers: Answer[];
@@ -176,6 +177,8 @@ export interface Run {
   /** Absent on runs saved before the action plan existed. */
   win_back?: WinBackAction[];
   win_back_notes?: string[];
+  /** The company's site audit when the run started; absent on replays and older runs. */
+  audit?: SiteAudit | null;
   log: string[];
   insights?: Insights;  // derived by the API from the saved answers; absent on a run read raw
 }
@@ -299,7 +302,27 @@ export interface CompanyDetail {
   warnings: string[];
   checks: ClaimCheck[];   // empty for companies saved before checks existed: their notes are in warnings
   replay: boolean;
+  /** Null for companies onboarded before the audit existed. */
+  audit: SiteAudit | null;
 }
+
+/** Could AI read the site, and where else it learns about the company. Mirrors schemas.SiteAudit. */
+export type AuditStatus = "pass" | "fail" | "unknown";
+export interface AuditCheck {
+  key: "crawlers" | "raw_text" | "markup" | "headings" | "speed" | "llms_txt" | "no_js";
+  status: AuditStatus;
+  detail: string;
+}
+export interface SiteAudit {
+  checked_at: string;
+  site: AuditCheck[];
+  claims: { attribute_id: string; label: string; page_url: string | null; checks: AuditCheck[] }[];
+  entities: { source: string; status: "found" | "missing" | "not_checked"; summary: string;
+              says: string | null; url: string | null }[];
+}
+
+/** Checks again whether AI can read the site: plain fetches on the server, no model. */
+export const reaudit = (id: string) => json<CompanyDetail>(`/api/companies/${id}/audit`, { method: "POST" });
 
 export interface CompanySummary {
   id: string; name: string; domain: string; created_at: string;

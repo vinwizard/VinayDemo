@@ -458,3 +458,20 @@ tr.pick:hover { background: #f5f8fc; cursor: pointer; }
   .chip.pop-trigger { font-size: .84rem; padding: .4rem .7rem; }
 }
 @media print { .pop-trigger.term, .pop-trigger.qref { text-decoration: none; } .pop-trigger.term-icon { display: none; } }
+
+/* ---------------------------------------------------------------- can AI read your site? */
+.audit-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .9rem; }
+.audit-rows li { display: flex; flex-direction: column; gap: .4rem; }
+.audit-page { color: var(--muted); font-size: .8rem; margin-left: .5rem; overflow-wrap: anywhere; }
+.checks-row { display: flex; flex-wrap: wrap; gap: .4rem; }
+.check.pop-trigger {
+  display: inline-flex; align-items: center; gap: .35rem; min-height: 40px; padding: .3rem .75rem;
+  border-radius: 999px; border: 1px solid; font-size: .85rem; font-weight: 550;
+}
+.check.pass { background: #e9f7ee; border-color: #b7e1c4; color: #1a6b34; }
+.check.fail { background: #fdecec; border-color: #f3c0c0; color: #8a1c1c; }
+.check.unknown { background: var(--bg); border-color: var(--border); color: var(--muted); }
+.check.pop-trigger:hover, .check.pop-trigger[aria-expanded="true"] { box-shadow: 0 1px 4px rgb(23 32 43 / 12%); }
+.audit-foot { margin: 0; font-size: .82rem; }
+.audit-foot button.linky { min-height: 40px; }
+@media (max-width: 600px) { .block.audit > summary .block-found { flex-basis: 100%; padding-left: 1.2rem; } }

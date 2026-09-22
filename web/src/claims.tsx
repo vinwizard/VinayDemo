@@ -2,7 +2,8 @@
 // claims the customer actually wants to be known for. Every claim here came from GET /api/onboard.
 import { useState } from "react";
 import type { ClaimCheck, CompanyDetail } from "./api";
-import { deleteAttribute, patchCompany } from "./api";
+import { deleteAttribute, patchCompany, reaudit } from "./api";
+import { SiteReadability } from "./audit";
 import { statedOn } from "./labels";
 import { Term } from "./popover";
 
@@ -247,6 +248,10 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
       </div>
 
       {company.checks.length > 0 && <HowWeChecked checks={company.checks} />}
+      {!company.replay && (
+        <SiteReadability audit={company.audit} siteSays={company.profile.one_liner}
+                         onRecheck={() => reaudit(company.id).then(onCompany)} />
+      )}
 
       {company.warnings.length > 0 && (
         <div className="callout warn-box">

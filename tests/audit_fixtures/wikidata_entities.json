@@ -1,0 +1,6 @@
+{"entities":{
+ "Q111":{"id":"Q111","descriptions":{"en":{"value":"fictional company"}},"claims":{},"sitelinks":{}},
+ "Q222":{"id":"Q222","descriptions":{"en":{"value":"cartoon company"}},"claims":{"P856":[{"mainsnak":{"datavalue":{"value":"https://acme.example.org/"}}}]},"sitelinks":{}},
+ "Q333":{"id":"Q333","descriptions":{"en":{"value":"contract management software company"}},
+   "claims":{"P856":[{"mainsnak":{"datavalue":{"value":"https://www.acme.example/"}}}]},
+   "sitelinks":{"enwiki":{"site":"enwiki","title":"Acme Contracts"}}}}}
