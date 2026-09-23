@@ -114,7 +114,7 @@ demo with no key or internet, start the API with `VISEXP_OFFLINE_REPLAY=1` and t
 company replays the bundled Notion sample, labelled as such. Stop either process with `Ctrl+C`.
 [`WEB.md`](WEB.md) has the details, live mode and the API reference.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 457 passing,
+Tests: `conda activate visexp && python -m pytest -q` (offline; 460 passing,
 incl. one journey per bundled scenario end to end through the `/api/stream` event stream, the API over
 HTTP via fastapi's TestClient, the live adapter under an injected
 transport — including how it classifies a refused key or a region block — no API key, no network).
@@ -192,8 +192,11 @@ startup so History and Compare are not empty.
 **Access passes** let chosen people run it live on your OpenAI key. Each pass has a name, a dollar
 cap and a personal link, `<site>/?pass=<code>`. Opening the link signs the browser in (an HttpOnly
 session cookie; the code leaves the address bar), after which the holder can onboard and measure
-companies live, sees a meter such as "$1.40 of $5.00 used", and sees the saved demo reports plus their
-own runs and companies — nobody else's. Every OpenAI call is checked against the cap before it is
+companies live, sees a meter such as "$1.40 of $5.00 used", and sees only their own runs and companies
+— nobody else's, and none of the preloaded examples: the Notion and Profound tabs, their reports and
+the sample runs are hidden, so the page opens on "Onboard your own company". Every run a pass makes,
+replay or live, is saved under `DATA_DIR` and owned by that pass, so it is back in History after a
+restart, a redeploy onto the same disk, or a new browser opened with the same link. Every OpenAI call is checked against the cap before it is
 made and charged afterwards from the usage OpenAI reports, at the dated per-model prices in
 [`access.py`](access.py); a call whose usage or model price is unknown is charged a deliberately high
 estimate, never zero. A run or onboarding that reaches the cap stops with a message and saves nothing.
@@ -218,12 +221,12 @@ estimate, never zero. A run or onboarding that reaches the cap stops with a mess
    long one). `SESSION_SECRET` is generated for you; changing it signs every pass holder and the admin
    out. **Apply**; the first build takes a few minutes.
 4. The Blueprint attaches a 1 GB persistent disk at `/var/data` and sets `DATA_DIR=/var/data`, so
-   passes, spend, the visit log, runs and companies survive a redeploy. A disk needs a paid instance
+   passes, spend, the visit log, runs and companies — every pass holder's History — survive a redeploy. A disk needs a paid instance
    (`plan: starter`), and a service with a disk cannot scale past one instance, which is what the pass
    database expects.
 5. **Check your storage**: `<site>/api/health` must show `"storage": {"persistent": true, ...}`. If it
    is `false`, the admin page shows a red banner (and the startup log a warning) saying why: passes
-   then vanish on the next deploy. Fix it by giving the service a disk (Settings → Disks) and setting
+   and every pass holder's runs then vanish on the next deploy. Fix it by giving the service a disk (Settings → Disks) and setting
    `DATA_DIR` to exactly that disk's mount path, e.g. `/var/data`.
 6. Open `<site>/admin`, sign in, and **Generate link** for each person.
 

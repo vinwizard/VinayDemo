@@ -137,12 +137,13 @@ def db():
 
 
 def storage() -> dict:
-    """Whether the pass database survives a redeploy: DATA_DIR set, on a mounted disk, writable.
+    """Whether DATA_DIR survives a redeploy: set, on a mounted disk, writable. It holds the pass
+    database and every saved run and company, so this is also whether a pass holder's History lasts.
     Names no path but DATA_DIR's own value, so it is safe in /api/health."""
     data_dir = os.environ.get("DATA_DIR")
     if not data_dir:
-        return dict(persistent=False, reason="DATA_DIR is not set, so passes are kept inside the "
-                                             "container and a redeploy wipes them.")
+        return dict(persistent=False, reason="DATA_DIR is not set, so passes, runs and companies "
+                                             "are kept inside the container and a redeploy wipes them.")
     path = Path(data_dir).resolve()
     # "/" is always a mount point, and inside a container it is the image itself, not a disk
     if not any(os.path.ismount(d) for d in [path, *path.parents] if d != Path(d.anchor)):
@@ -325,12 +326,12 @@ def owner(kind: str, item_id: str) -> Optional[str]:
 
 
 def visible(kind: str, item_id: str, pass_id: Optional[str]) -> bool:
-    """Off the public demo everything is visible. On it: the shared demo items (owned by nobody)
-    and the viewer's own."""
+    """Off the public demo everything is visible. On it: a visitor without a pass sees the shared
+    demo items (owned by nobody), and a pass holder sees only their own — the preloaded examples are
+    for browsing, not for someone who came to measure their own company."""
     if not public_demo():
         return True
-    o = owner(kind, item_id)
-    return o is None or o == pass_id
+    return owner(kind, item_id) == pass_id
 
 
 # ---------------------------------------------------------------- metering

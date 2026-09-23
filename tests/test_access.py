@@ -268,6 +268,48 @@ def test_a_visitor_without_a_pass_is_replay_only_with_zero_model_calls(env):
     assert kind == "done"                                                # the seed still replays
 
 
+def preload_examples(tmp_path):
+    """The preloaded Notion company, the Profound report and its company, as a deploy's DATA_DIR has them."""
+    for kind, item in (("companies", main.SEED_COMPANY), ("companies", main.SHOWCASE_COMPANY),
+                       ("runs", main.SHOWCASE_RUN)):
+        (tmp_path / kind / f"{item}.json").write_bytes((reports.BUNDLED / kind / f"{item}.json").read_bytes())
+
+
+def test_a_pass_sees_none_of_the_preloaded_examples_and_a_visitor_still_does(env, tmp_path):
+    preload_examples(tmp_path)
+    access.own("company", CO, "person-1", "Notion")
+    c, _, _ = with_pass()
+    public = browser()
+    for viewer, shown in ((public, True), (c, False)):
+        assert (main.SHOWCASE_RUN in [r["id"] for r in viewer.get("/api/runs").json()]) is shown
+        assert (viewer.get(f"/api/runs/{main.SHOWCASE_RUN}").status_code == 200) is shown
+        companies = {x["id"] for x in viewer.get("/api/companies").json()}
+        assert {main.SEED_COMPANY, main.SHOWCASE_COMPANY} <= companies if shown else \
+            companies == {CO}                                            # only what the pass onboarded
+
+
+def test_a_pass_holders_runs_survive_a_restart_and_a_new_session(env, tmp_path):
+    """The reproduction: a pass holder's replay was shown and never saved, so it was gone from History
+    by their next visit. Every run a pass makes is now on disk under DATA_DIR, owned by that pass."""
+    preload_examples(tmp_path)
+    c, code, _ = with_pass()
+    made = [events(c.get(q).text)[-1][1]["run_id"]                       # replays: no model is called
+            for q in ("/api/stream?scenario=A", f"/api/stream?company={main.SEED_COMPANY}&mode=live")]
+    for run_id in made:
+        assert (tmp_path / "runs" / f"{run_id}.json").exists()           # under DATA_DIR, not the image
+        assert access.owner("run", run_id) == "person-1"                 # in DATA_DIR/access.db
+    assert access.db_path() == tmp_path / "access.db"
+    main.seed_data_dir()                                                 # what a restart or redeploy runs
+    main.seed_public_runs()
+    access.seed_passes()
+    again = browser()                                                    # a new browser, the same link
+    assert again.post("/api/access/exchange", json={"code": code}).status_code == 200
+    assert {r["id"] for r in again.get("/api/runs").json()} == set(made)
+    other, _, _ = with_pass("person-2")
+    for viewer in (other, browser()):
+        assert not set(made) & {r["id"] for r in viewer.get("/api/runs").json()}
+
+
 def test_a_fresh_data_dir_gets_every_committed_company_and_run(env, tmp_path):
     stale = tmp_path / "runs" / f"{main.SHOWCASE_RUN}.json"
     stale.write_text("{}")

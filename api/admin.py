@@ -85,8 +85,8 @@ def dashboard(request: Request, note: str = "") -> HTMLResponse:
     base = f"{request.headers.get('x-forwarded-proto', request.url.scheme)}://{request.headers.get('host', request.url.netloc)}"
     store = access.storage()
     alert = ("" if store["persistent"] else
-             f"<div class='card alert'><strong>Passes are not on a persistent disk — the next deploy will "
-             f"delete every pass, link and spend record.</strong><p>{escape(store['reason'])} "
+             f"<div class='card alert'><strong>Passes and runs are not on a persistent disk — the next deploy will "
+             f"delete every pass, link, spend record and every pass holder's History.</strong><p>{escape(store['reason'])} "
              f"{escape(access.STORAGE_FIX)}</p></div>")
     rows = []
     for p in access.all_passes():
