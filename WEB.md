@@ -394,7 +394,8 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     positioning points), and up to six rivals as the buyer-answer sentences naming them describe
     them, each the mean embedding of its sentences; a rival named as a division of another it names
     ("Johnson & Johnson Innovative Medicine" beside "Johnson & Johnson") counts as that company
-    (`evaluation.merge_divisions`). Each axis is one of the company's own claims, so it is always
+    only when the rest of its name is a known division or legal suffix, so "Merck KGaA" stays apart
+    from "Merck" (`evaluation.merge_divisions`). Each axis is one of the company's own claims, so it is always
     named, in the chart above and below the plot: across, how strongly a dot's sentences talk
     about the claim weighted highest (with no weights, the one the dots spread along most); up, the
     claim the dots differ on most once the first is taken out. Every dot carries its own full name

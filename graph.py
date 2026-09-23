@@ -370,8 +370,8 @@ def score_drift(run: Run) -> None:
                 f"Too few answers for an interval: {len(kept)} brand answer(s), at least "
                 f"{MIN_INTERVAL_ANSWERS} needed.")
     if run.drift.visibility is None and not blind:
-        run.drift.na_reasons["visibility"] = ("No unbranded question was asked: no claim had a buyer "
-                                              "question, so visibility is not measured.")
+        run.drift.na_reasons["visibility"] = ("No unbranded question was asked: no claim had an "
+                                              "unbranded question, so visibility is not measured.")
     # One set per front, each with its own tries, range and control question. Replay has one
     # unlabelled set (front None), so its numbers are the run's own.
     topic = {t.id: t for t in run.topics}

@@ -153,3 +153,7 @@ def test_a_division_is_counted_as_its_parent_company_and_never_shown_twice():
         ["Johnson & Johnson", "Pfizer"], ["Johnson & Johnson"], ["Pfizer", "Novartis"]]
     merge_divisions(evals)  # idempotent
     assert evals[1].competitor_recommendations == ["Johnson & Johnson"]
+    other = [QueryEvaluation(probe_id="b4", valid=True, explanation="x",
+                             competitor_recommendations=["Merck", "Merck KGaA", "Merck Inc."])]
+    merge_divisions(other)
+    assert other[0].competitor_recommendations == ["Merck", "Merck KGaA"]
