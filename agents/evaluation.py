@@ -157,6 +157,19 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
         explanation=expl, warnings=warnings)
 
 
+def merge_divisions(evals: list[QueryEvaluation]) -> None:
+    """A rival named as a division of another rival the run names ("Johnson & Johnson Innovative
+    Medicine" beside "Johnson & Johnson") is counted as that company, in place. The division's own
+    name starts with the company's, so the answer's words make the link plain and the kept name is
+    still verbatim in it. Without this the map, share of voice and "Who AI named instead" showed the
+    one company twice. Idempotent: run after every evaluation round and on re-score."""
+    names = {c for e in evals for c in e.competitor_recommendations}
+    parent = {n: min(ps, key=len) for n in names
+              if (ps := [p for p in names if p != n and n.startswith(p + " ")])}
+    for e in evals:
+        e.competitor_recommendations = list(dict.fromkeys(parent.get(c, c) for c in e.competitor_recommendations))
+
+
 def extract_attributes(answer: Answer, attributes: list[Attribute]) -> tuple[list[AttributeObservation], list[str]]:
     """Fixture (later: model) proposes attribute observations; this code refuses to trust them.
 

@@ -136,3 +136,20 @@ def test_rescore_moves_the_aim_to_the_weighted_claims_without_asking_a_model(mon
     monkeypatch.setattr(embeddings, "_path", lambda: tmp_path / "embeddings.db")
     graph.rescore(live, {live.attributes[2].id: 0.4})
     assert live.positioning.points == before.points and "ZeroDivisionError" in live.log[-2]
+
+
+def test_a_division_is_counted_as_its_parent_company_and_never_shown_twice():
+    # Amgen on gpt-6-luna, 22 Sep 2026: the map drew "Johnson & Johnson" and "Johnson & Johnson
+    # Innovative Medicine" as two rivals, from two answers naming the one company two ways.
+    from agents.evaluation import merge_divisions
+    evals = [QueryEvaluation(probe_id="b1", valid=True, explanation="x",
+                             competitor_recommendations=["Johnson & Johnson", "Pfizer"]),
+             QueryEvaluation(probe_id="b2", valid=True, explanation="x",
+                             competitor_recommendations=["Johnson & Johnson Innovative Medicine", "Johnson & Johnson"]),
+             QueryEvaluation(probe_id="b3", valid=True, explanation="x",
+                             competitor_recommendations=["Pfizer Oncology", "Novartis"])]
+    merge_divisions(evals)
+    assert [e.competitor_recommendations for e in evals] == [
+        ["Johnson & Johnson", "Pfizer"], ["Johnson & Johnson"], ["Pfizer", "Novartis"]]
+    merge_divisions(evals)  # idempotent
+    assert evals[1].competitor_recommendations == ["Johnson & Johnson"]

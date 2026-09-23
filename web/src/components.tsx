@@ -13,7 +13,7 @@ import {
 } from "./labels";
 import { tabBadge } from "./badge";
 import { GLOSSARY } from "./glossary";
-import { LINE, placeLabels, short } from "./maplabels";
+import { LINE, layoutMap } from "./maplabels";
 import { PHONE, Popover, Term } from "./popover";
 import { WhyAIMisses } from "./audit";
 
@@ -1087,10 +1087,10 @@ const measure = (text: string, bold = false) => {
 /** An axis in words, above or below the map, never inside it: a claim the axis measures (a live
  * map), or its two ends (the authored sample). */
 const axisName = (ends: string[], across: boolean) => {
-  const dir = across ? "→ Across" : "↑ Up";
-  return ends.length === 1 ? <>{dir}: talks more about “{ends[0]}”</>
-    : ends.length === 2 ? <>{dir}: from “{ends[0]}” to “{ends[1]}”</>
-    : <>{dir}: drawn before axes were named after your claims. Measure again to name it.</>;
+  const dir = across ? "→ Across:" : "↑ Up:";
+  return ends.length === 1 ? `${dir} talks more about “${ends[0]}”`
+    : ends.length === 2 ? `${dir} from “${ends[0]}” to “${ends[1]}”`
+    : `${dir} drawn before axes were named after your claims; measure again to name it`;
 };
 
 /** What one dot was built from, verbatim, and how close it sits to the brand as AI describes it. */
@@ -1137,13 +1137,13 @@ function PositioningMapView({ run }: { run: Run }) {
     const pts = [...m.points].sort((a, b) => order[a.kind] - order[b.kind] || (b.similarity ?? 0) - (a.similarity ?? 0));
     const mx = Math.max(...pts.map((p) => Math.abs(p.x)), 1e-9), my = Math.max(...pts.map((p) => Math.abs(p.y)), 1e-9);
     const scale = Math.min((MAP_W / 2 - MAP_PAD) / mx, (MAP_H / 2 - MAP_PAD) / my);
-    const dots = pts.map((p) => {
-      const text = short(p.kind === "intended" ? aim : p.name);
-      return { p, x: MAP_W / 2 + p.x * scale, y: MAP_H / 2 - p.y * scale, r: p.kind === "rival" ? 7 : 9,
-               text, w: measure(text, p.kind !== "rival") };
-    });
+    // bold widths for every text: the brand's labels and the axis names are bold, and wider is safe
+    const at = layoutMap(pts.map((p) => ({ x: MAP_W / 2 + p.x * scale, y: MAP_H / 2 - p.y * scale,
+                                           r: p.kind === "rival" ? 7 : 9, text: p.kind === "intended" ? aim : p.name })),
+                         MAP_W, MAP_H, axisName(m.y_axis, false), axisName(m.x_axis, true), (t) => measure(t, true), [0, 1]);
+    const dots = at.dots.map((d, i) => ({ ...d, p: pts[i] }));
+    const { labels, height, top } = at;
     const [seenDot, aimDot] = dots;
-    const { labels, height } = placeLabels(dots, MAP_W, MAP_H, [[seenDot.x, seenDot.y, aimDot.x, aimDot.y]]);
     const dx = aimDot.x - seenDot.x, dy = aimDot.y - seenDot.y, len = Math.hypot(dx, dy);
     const ux = dx / len, uy = dy / len, tip = [aimDot.x - ux * (aimDot.r + 2), aimDot.y - uy * (aimDot.r + 2)];
     const title = (d: (typeof dots)[number]) => d.p.kind === "seen" ? `${brand}, as AI describes it`
@@ -1157,12 +1157,18 @@ function PositioningMapView({ run }: { run: Run }) {
             similarity picture</Term>, not a measurement: dots close together were described in similar words.
           The arrow runs from where AI places {brand} to {aim}. Tap a dot for the sentences behind it.
         </p>
-        <p className="pmap-axis-name">{axisName(m.y_axis, false)}</p>
         <div className="pmap" style={{ aspectRatio: `${MAP_W} / ${height}` }}>
           <svg viewBox={`0 0 ${MAP_W} ${height}`} aria-hidden="true">
+            {at.up.lines.map((t, j) => (
+              <text key={t} className="pmap-title" x={MAP_W / 2} y={at.up.y + j * LINE} textAnchor="middle">{t}</text>
+            ))}
+            {at.across.lines.map((t, j) => (
+              <text key={t} className="pmap-title" x={MAP_W / 2} y={at.across.y + j * LINE} textAnchor="middle">{t}</text>
+            ))}
+            <g transform={`translate(0 ${top})`}>
+            <rect className="pmap-frame" x={0} y={0} width={MAP_W} height={MAP_H} />
             <line className="pmap-axis" x1={MAP_W / 2} y1={0} x2={MAP_W / 2} y2={MAP_H} />
             <line className="pmap-axis" x1={0} y1={MAP_H / 2} x2={MAP_W} y2={MAP_H / 2} />
-            {height > MAP_H && <line className="pmap-axis" x1={0} y1={MAP_H} x2={MAP_W} y2={MAP_H} />}
             {len > seenDot.r + aimDot.r + 4 && (
               <>
                 <line className="pmap-drift" x1={seenDot.x + ux * (seenDot.r + 2)} y1={seenDot.y + uy * (seenDot.r + 2)}
@@ -1172,18 +1178,19 @@ function PositioningMapView({ run }: { run: Run }) {
             )}
             {dots.map((d) => <circle key={`${d.p.kind}-${d.p.name}`} className={`pmap-dot ${d.p.kind}`} cx={d.x} cy={d.y} r={d.r} />)}
             {labels.map((l) => (
-              <g key={l.lines.join()}>
+              <g key={l.dot}>
                 {l.lead && <line className="pmap-lead" x1={l.lead[0]} y1={l.lead[1]} x2={l.lead[2]} y2={l.lead[3]} />}
                 {l.lines.map((t, j) => (
-                  <text key={t} className={`pmap-label ${dots[l.members[j]].p.kind}`} x={l.box[0]}
+                  <text key={t} className={`pmap-label ${dots[l.dot].p.kind}`} x={l.box[0]}
                         y={l.box[1] + LINE * (j + 1) - 3.5}>{t}</text>
                 ))}
               </g>
             ))}
+            </g>
           </svg>
           {dots.map((d) => (
             <span key={`${d.p.kind}-${d.p.name}`} className="pmap-hit"
-                  style={{ left: `${(100 * d.x) / MAP_W}%`, top: `${(100 * d.y) / height}%` }}>
+                  style={{ left: `${(100 * d.x) / MAP_W}%`, top: `${(100 * (top + d.y)) / height}%` }}>
               <Popover wide label={title(d)} className="pmap-tap"
                        trigger={<span className="sr-only">{title(d)}</span>}>
                 <PointDetail p={d.p} title={title(d)} site={site} brand={brand} sample={sample} />
@@ -1191,7 +1198,11 @@ function PositioningMapView({ run }: { run: Run }) {
             </span>
           ))}
         </div>
-        <p className="pmap-axis-name" style={{ marginTop: 0 }}>{axisName(m.x_axis, true)}</p>
+        {at.moved && (
+          <p className="muted" style={{ margin: 0 }}>
+            Dots that sat on top of each other are drawn a little apart, so each can carry its name.
+          </p>
+        )}
         <ul className="pmap-legend">
           {dots.map((d) => (
             <li key={`${d.p.kind}-${d.p.name}`}>

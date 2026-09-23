@@ -392,12 +392,14 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     (`run.positioning`, `positioning.py`: the brand as its brand answers describe it, where it
     wants to be (the claims weighted, by weight) or, with no weights, where its site aims (its
     positioning points), and up to six rivals as the buyer-answer sentences naming them describe
-    them, each the mean embedding of its sentences. Each axis is one of the company's own claims,
-    so it is always named, above and below the plot: across, how strongly a dot's sentences talk
+    them, each the mean embedding of its sentences; a rival named as a division of another it names
+    ("Johnson & Johnson Innovative Medicine" beside "Johnson & Johnson") counts as that company
+    (`evaluation.merge_divisions`). Each axis is one of the company's own claims, so it is always
+    named, in the chart above and below the plot: across, how strongly a dot's sentences talk
     about the claim weighted highest (with no weights, the one the dots spread along most); up, the
-    claim the dots differ on most once the first is taken out. Every dot carries its name in the
-    plot (`web/src/maplabels.ts`, measured widths, dots that touch share a label a line each, a
-    leader line when a label sits apart, never a bare number; `npm test` checks it); an arrow is
+    claim the dots differ on most once the first is taken out. Every dot carries its own full name
+    (`web/src/maplabels.ts`: measured widths, dots on top of each other drawn a little apart, a
+    leader line when a label sits apart, never a bare number or a cut name; `npm test` checks it); an arrow is
     the drift, and every dot opens its sentences. A similarity picture that moves no score; a
     re-score redraws it from cached embeddings only, else keeps the old map with a note; the
     samples carry hand-placed points and named axis ends, labelled as such), **who AI named instead**

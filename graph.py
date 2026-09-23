@@ -234,6 +234,7 @@ def evaluate(s: State):
     by_id = {p.id: p for p in run.probes}
     run.repeat_evaluations = [evaluation.evaluate(by_id[a.probe_id], a, run.profile)
                               .model_copy(update={"try_no": a.try_no}) for a in run.repeat_answers]
+    evaluation.merge_divisions([*run.evaluations, *run.repeat_evaluations])
     ev = {e.probe_id: e for e in run.evaluations}
     run.topic_evaluations = []
     for phase in ("baseline", "followup"):
@@ -435,6 +436,7 @@ def rescore(run: Run, weights: dict[str, float]) -> Run:
     by_id = {a.id: a for a in run.attributes}
     for aid, w in weights.items():
         by_id[aid].intended_weight = round(w, 2) or None
+    evaluation.merge_divisions([*run.evaluations, *run.repeat_evaluations])  # a run saved before it existed
     score_drift(run)
     if run.positioning is not None and run.positioning.provenance == "live_api":
         import embeddings
