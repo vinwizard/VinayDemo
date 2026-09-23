@@ -260,7 +260,7 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 | `GET /api/onboard?url=&name=` | Agent 1: crawl up to 6 of a company's own pages, extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. Needs the same key as live mode. A company is always saved, never refused: a site where fewer than three claims survive quote validation carries a prominent warning that it states too little for a reliable claim percentage, and the existing insufficient-evidence rules withhold the scores rather than the company |
 | `GET /api/companies` · `GET /api/companies/{id}` | onboarded companies, newest first, and one in full |
 | `PATCH /api/companies/{id}` | the customer's own input: `{weights: {id: 0..1}, added: [{label, description, intended_weight}]}`. Intent arrives only here (or on `rescore`) — never derived from their copy, and a weight of 0 leaves an extracted attribute unintended. Weights are optional: a company measured with none runs the claim lens. An **added** claim is intended by construction, so its weight cannot go below 0.1 |
-| `POST /api/access/exchange` · `GET /api/access` | access passes on the hosted demo (`access.py`): `{code}` from a personal link `/?pass=<code>` becomes an HttpOnly session cookie; `GET` is the holder's meter (`{pass: {label, spent_usd, cap_usd, capped}}` or `{pass: null}`). With a pass, live runs and onboarding are allowed on the public demo, charged to the pass, and runs and companies are listed only to the pass that made them. `/admin` (behind `ADMIN_PASSWORD`) creates passes, shows each link once, and tops up or revokes. Cookies are same-origin, so passes work on the production build, not across the Vite dev port |
+| `POST /api/access/exchange` · `GET /api/access` | access passes on the hosted demo (`access.py`): `{code}` from a personal link `/?pass=<code>` becomes an HttpOnly session cookie; `GET` is the holder's meter (`{pass: {label, spent_usd, cap_usd, capped}}` or `{pass: null}`). With a pass, live runs and onboarding are allowed on the public demo, charged to the pass, every run it makes (replay or live) is saved under `DATA_DIR`, and runs and companies are listed only to the pass that made them — a pass sees none of the shared preloaded ones. `/admin` (behind `ADMIN_PASSWORD`) creates passes, shows each link once, and tops up or revokes. Cookies are same-origin, so passes work on the production build, not across the Vite dev port |
 | `POST /api/companies/{id}/audit` | checks again whether AI can read the site (`audit.py`) and saves it on the company; the same check runs once during onboarding. Plain fetches, no model and no key: robots.txt for the AI crawlers, the claim's words in the no-JavaScript HTML, schema.org JSON-LD, headings, load time and llms.txt, on every page that states each claim, plus Wikidata/Wikipedia (tied to the company only by Wikidata's official website on its domain) and the Crunchbase, G2 and LinkedIn pages the site itself links to. Anything that cannot be reached, or whose robots.txt turns automated tools away, is "could not check", never a guess. A run copies the company's audit when it starts |
 | `DELETE /api/companies/{id}/attributes/{attr}` | removes a claim the customer added. Refuses for a claim extracted from their own pages: that one is evidence, and excluding it from scoring is what its zero slider is for |
 
@@ -276,7 +276,9 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   tryprofound.com (`data/companies/998420ffae.json` its onboarding), committed so every clone and the
   public demo open it straight away, labelled as measured live with its date. Opening it asks no
   model; re-weighting it re-scores in the page but never rewrites the committed file
-  (`SHOWCASE_RUN` in `api/main.py`). It also appears in History and Compare
+  (`SHOWCASE_RUN` in `api/main.py`). It also appears in History and Compare. Neither preloaded
+  tab, nor their reports in History and Compare, is shown to a pass holder on the hosted demo: they
+  see only their own work, starting on the next tab
 - **Onboard your own company** — one workflow on one screen, seven stages that complete in order:
   read their site (the pages fetched), extract what they claim (claims kept, each with its verbatim
   quote and page count, and a "How we checked these claims" panel listing each extracted claim once:
@@ -421,7 +423,8 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   claims, top 3 claims to win back / correct / amplify / shape, run date and live-vs-sample source);
   "Save as PDF" makes the file. It is print CSS over a view that never renders on screen — no PDF
   library, no server call (`screenshots/exec-summary-pdf.png`)
-- **History** — every saved run from `data/runs/` with its untapped potential; click one to open
+- **History** — every saved run from `data/runs/` (under `DATA_DIR` when set; a pass holder's own
+  runs only) with its untapped potential; click one to open
   its report in place
 - **Compare** — two runs side by side as untapped potential with the real score beneath, the change
   in untapped potential, and per-attribute zone changes (`claim to win back → landed`)

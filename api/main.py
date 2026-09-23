@@ -85,7 +85,7 @@ OFFLINE_FIXED = "offline replay: the bundled sample's claims and weights are fix
 # spend the owner's key. Implies the offline replay, and refuses every path that would call a model
 # or change a saved company — even when a key happens to be configured.
 # A pass (access.py) lifts that for its holder only: they can onboard and measure live, charged to
-# their pass, and see the shared demo items plus their own.
+# their pass, and see only their own companies and runs — none of the preloaded examples.
 PUBLIC_ENV = access.PUBLIC_ENV
 PUBLIC_REFUSED = ("This is the public demo: it replays the saved sample only, so {what} is switched "
                   "off here. Want to try it live on your own company? Email {email} from your work "
@@ -256,10 +256,10 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
                 q.put(("node", dict(node=node, stage=stage, agent=agent,
                                     log=run.log[-1] if run.log else "",
                                     **progress(run, getattr(prov, "tries", 1), getattr(prov, "repeat_sample", 0)))))
-            if not public_demo():
+            # a pass's every run is kept, replay or live, owned by it; only a passless visitor's is not
+            if not public_demo() or holder:
                 save_run(run)
-            elif holder and run.mode == "live_api":   # a pass's replay of the seed is not its run
-                save_run(run)
+            if holder:
                 access.own("run", run.id, holder["id"], profile.name)
                 access.log(holder["id"], f"measured {profile.name}")
             q.put(("done", dict(run_id=run.id, run=run_payload(run))))
@@ -842,7 +842,7 @@ seed_public_runs()
 if access.configured():
     access.seed_passes()
     if not (store := access.storage())["persistent"]:
-        print(f"WARNING: passes will not survive a redeploy. {store['reason']} {access.STORAGE_FIX}", flush=True)
+        print(f"WARNING: passes and runs will not survive a redeploy. {store['reason']} {access.STORAGE_FIX}", flush=True)
 app.include_router(admin.router)
 
 # Production: serve the built web app from the same origin (render.yaml builds it with VITE_API="").

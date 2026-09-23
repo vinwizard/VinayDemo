@@ -49,12 +49,15 @@ export default function App() {
     const signIn = PASS_CODE
       ? exchangePass(PASS_CODE).then((r) => r.pass).catch((e: Error) => { setError(e.message); return null; })
       : getPass(true).then((r) => r.pass).catch(() => null);
+    // A pass holder came to measure their own company: the preloaded examples are not theirs to show.
     signIn.then((p) => {
       setPass(p);
+      if (p) setTab("onboard");
       refreshRuns();
-      return getHealth();
-    }).then((h) => {
+      return getHealth().then((h) => ({ h, p }));
+    }).then(({ h, p }) => {
       setHealth(h);
+      if (p) return;
       getCompany(h.seed_company).then((c) => setSeed(c.profile)).catch(() => {});
       getRun(h.showcase.run).then(setShowcase).catch(() => {});
     })
@@ -79,7 +82,8 @@ export default function App() {
   const tabs: [Tab, string][] = [
     ["preloaded", seed?.name ?? "Notion"], ["showcase", showcase?.profile.name ?? "Profound"],
     ["onboard", "Onboard your own company"], ["history", "History"], ["compare", "Compare"],
-  ].filter(([t]) => !(health?.public_demo && !pass && t === "onboard") && (t !== "showcase" || showcase)) as [Tab, string][];
+  ].filter(([t]) => !(health?.public_demo && !pass && t === "onboard") && (t !== "showcase" || showcase)
+    && !(pass && t === "preloaded")) as [Tab, string][];
 
   return (
     <div className="shell">
@@ -129,7 +133,7 @@ export default function App() {
 
       {/* Both company tabs stay mounted, so a measurement keeps streaming while you look elsewhere. */}
       <div hidden={tab !== "preloaded"}>
-        {health && <CompanyWorkflow companyId={health.seed_company} preloaded publicDemo={health.public_demo}
+        {health && !pass && <CompanyWorkflow companyId={health.seed_company} preloaded publicDemo={health.public_demo}
                                      onRunSaved={refreshRuns} />}
       </div>
       {tab === "showcase" && showcase && (
