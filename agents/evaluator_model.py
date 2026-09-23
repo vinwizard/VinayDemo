@@ -44,10 +44,13 @@ SCHEMA_HINT = """Return ONLY JSON with exactly these keys:
   "mentioned": bool,                       // is the target named in the answer lines?
   "recommended": bool,                     // is it positively recommended, not merely described?
   "negative_mention": bool,                // is it described critically?
-  "competitor_recommendations": [string],  // other products the answer recommends for the need:
-                                           // the product NAME only, spelled exactly as in the lines
-                                           // ("Sarge", never "Sarge — AI Agent Orchestrator"). Not
-                                           // sources, websites, or tools the target integrates with.
+  "competitor_recommendations": [string],  // other COMPANIES the answer recommends for the need:
+                                           // the company NAME only, spelled exactly as in the lines
+                                           // ("Sarge", never "Sarge — AI Agent Orchestrator"). For a
+                                           // recommended product, the company the lines say makes
+                                           // it; if the lines never name that company, leave it
+                                           // out. Not sources, websites, or companies the target
+                                           // integrates with.
   "evidence_quotes": [string],             // quotes showing the target is mentioned
   "on_topic": bool,
   "outdated_claim_quote": string|null,     // a product claim that looks out of date, as a quote
@@ -171,7 +174,7 @@ def repair_quotes(labels: dict, text: str, ask: Callable[[str], str]) -> dict:
     if not near:
         return labels
     try:
-        raw = ask(REPAIR_PROMPT.format(items="\n".join(f"- quote: {json.dumps(q)}\n  line:  {json.dumps(x)}"
+        raw = ask(REPAIR_PROMPT.format(items="\n".join(f"- quote: {json.dumps(q, ensure_ascii=False)}\n  line:  {json.dumps(x, ensure_ascii=False)}"
                                                        for q, x in near.items())))
         fixed = json.loads(raw[raw.find("{"):raw.rfind("}") + 1]).get("fixed") or {}
     except Exception:

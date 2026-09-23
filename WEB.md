@@ -218,7 +218,7 @@ things make the buyer number trustworthy anyway:
   category), does not name the brand (the model does not count it among the category's leaders —
   a brand named once by chance is still not known there), or could not be scored. If the control
   names the brand, the number stands. A flagged number is never shown bare — the badge sits beside
-  it in the pinned summary, the Buyer questions tab and the PDF summary.
+  it in the pinned summary, the Questions we asked AI tab and the PDF summary.
 - **A generic phrase is never the brand's name.** An alias counts as a mention unless every word in
   it is a generic noun (`schemas.distinctive_alias`), so a product name such as "Conversation
   Explorer" still counts and is still a brand leak. "AI Marketer" and "AI Agents" are dropped at
@@ -296,8 +296,11 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   today") — buyer visibility (on a live run, side by side: **Where AI places you** and **Where you
   aim to be**, each with its category, range, 95% confidence interval and any low-confidence badge, then
   one plain gap sentence ending in whether the gap is real), the count of claims to win back, and **Download summary (PDF)**.
-  Below it, six tabs with counts (`role=tablist`, arrow keys, Home/End; the tab is kept in the URL
-  hash, so `#report-buyer` opens Buyer questions; on a phone the strip scrolls sideways):
+  Below it, five tabs, each badge saying what it counts in words ("3 claims", "31 questions") and
+  never a bare 0 (`web/src/badge.ts`: a tick where nothing is left to fix, else no badge;
+  `role=tablist`, arrow keys, Home/End; the tab is kept in the URL
+  hash, so `#report-questions` opens Questions we asked AI, and the old `#report-buyer` and
+  `#report-brand` links land there too; on a phone the strip scrolls sideways):
   - **Overview** — where the answers came from (measured live with the model, or the SYNTHETIC
     DEMO banner for a replayed run), what the figures mean, then one **chip per zone** with its
     count (an empty zone is greyed). Hovering, tapping or focusing a chip opens a popover listing
@@ -311,24 +314,30 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     and why, possible new traits kept and rejected, sample size), each list behind
     a toggle. The workflow log is not on the page; it is in the run's JSON download.
 
-    One popover (`web/src/popover.tsx`) serves every in-place explanation: any "Brand question 2"
-    or "Buyer question 7" reference opens the question, whether it counted and the AI's answer,
-    with a link to its tab; every term the product invented (zone names, brand and buyer question,
+    One popover (`web/src/popover.tsx`) serves every in-place explanation: any "Branded question 2"
+    or "Unbranded question 7" reference opens the question, whether it counted and the AI's answer,
+    with a link to its tab; every term the product invented (zone names, branded and unbranded question,
     untapped potential, buyer visibility, tries, low confidence…) has a dotted underline or ⓘ that
     opens its definition from `web/src/glossary.ts`, the one place those definitions live. Hover
     opens it on a desktop, a tap pins it, Enter moves focus into it, Esc closes it; on a phone it is
     a bottom sheet.
-  - **Win it back** — the action plan (per claim to win back or amplify, the page of theirs to
+  - **Quick wins** (the tab once called Win it back; its badge and the pinned figure count the
+    claims with room to grow: claims to win back plus claims to amplify) — the action plan (per claim, the page of theirs to
     change, a suggested rewrite and the buyer questions that did not recommend them which it should
     help with — one evaluator-model call at the end of a live run over the saved answers and pages,
     authored and labelled sample in replay; `agents/win_back.py` drops any action whose page was
     not read, whose replaced copy is not verbatim on it, whose rewrite is marketing language, or
-    whose question was not asked, and says why; it moves no number), then "where the upside is"
+    whose question was not asked, and says why in a plain sentence under "Suggestions we could not
+    confirm"; it moves no number), then "where the upside is"
     cards for the biggest open claims.
-  - **Buyer questions** and **Brand questions** — one compact row per question with its verdict
-    ("recommended you", "did not name you yet", the claims it raised; with several tries, "named in
-    2 of 3 tries"); a row opens to the full answer (every try's, for a buyer question) and the scorer's
-    note. Buyer questions are grouped by front, each group with its visibility and range, its
+  - **Questions we asked AI** — second, because the questions are the evidence for every number:
+    the **unbranded questions** (the code's buyer questions) and **branded questions** (its brand
+    questions) side by side, each set in its own bordered frame (stacked on a narrow screen), what
+    each set is and how it was asked folded behind "How these were asked". Every question is a card
+    headed by its own text, with its verdict ("recommended you", "did not name you yet", the claims it
+    raised; with several tries, "named in 2 of 3 tries") and who AI named instead; a card opens to
+    the full answer (every try's, for an unbranded question) and the scorer's note. Unbranded
+    questions are grouped by front, each group with its visibility and range, its
     questions and its **control question** with its answer and, when flagged, why the result is
     low confidence. A buyer row, and its question popover, also says what the model searched for
     it and whether any cited page was the brand's own.
@@ -361,7 +370,7 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     5 s timeouts) are split into 80–150-word passages on heading and paragraph boundaries, embedded
     with `text-embedding-3-small` (`embeddings.py`: metered, cached on disk by text hash) and scored
     by cosine similarity against the question and its fan-out searches. Per question: your best
-    passage, the best passage of a page AI cited, and — where a "Win it back" fix targets the
+    passage, the best passage of a page AI cited, and — where a "Quick wins" fix targets the
     question — the rewrite spliced into its page (in place of the copy it replaces, else as a new
     passage) and scored again; tap a row for the passages. Every number is labelled a
     **retrieval score**, a similarity-based simulation, never a guarantee of citation, and moves no
@@ -383,12 +392,19 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
     (`run.positioning`, `positioning.py`: the brand as its brand answers describe it, where it
     wants to be (the claims weighted, by weight) or, with no weights, where its site aims (its
     positioning points), and up to six rivals as the buyer-answer sentences naming them describe
-    them, each the mean embedding of its sentences, projected to 2D by PCA in plain Python; an axis
-    is named by the claims lining up with it, else left unnamed; an arrow is the drift, and every
-    dot opens its sentences. A similarity picture that moves no score; a re-score redraws it from
-    cached embeddings only, else keeps the old map with a note; the samples carry hand-placed
-    points, labelled as such), **who AI named instead**
-    (every product named in a buyer answer that counts, beside the line that names it — the first
+    them, each the mean embedding of its sentences; a rival named as a division of another it names
+    ("Johnson & Johnson Innovative Medicine" beside "Johnson & Johnson") counts as that company
+    only when the rest of its name is a known division or legal suffix, so "Merck KGaA" stays apart
+    from "Merck" (`evaluation.merge_divisions`). Each axis is one of the company's own claims, so it is always
+    named, in the chart above and below the plot: across, how strongly a dot's sentences talk
+    about the claim weighted highest (with no weights, the one the dots spread along most); up, the
+    claim the dots differ on most once the first is taken out. Every dot carries its own full name
+    (`web/src/maplabels.ts`: measured widths, dots on top of each other drawn a little apart, a
+    leader line when a label sits apart, never a bare number or a cut name; `npm test` checks it); an arrow is
+    the drift, and every dot opens its sentences. A similarity picture that moves no score; a
+    re-score redraws it from cached embeddings only, else keeps the old map with a note; the
+    samples carry hand-placed points and named axis ends, labelled as such), **who AI named instead**
+    (every company named in a buyer answer that counts, beside the line that names it — the first
     three shown, the rest behind a toggle — plus the round-two comparison question) and **discovered identities** (cards that open the same claim popover).
 
   Every n/a shows the server's reason from `na_reasons`. Two lenses: with
@@ -417,7 +433,7 @@ restores the example weights.
 ## Wording
 
 No engine identifier is the only name a reader gets: where a raw id is still shown for traceability
-it follows the words it stands for, as in "Buyer question 3 — Project tracking (`pt-3`)".
+it follows the words it stands for, as in "Unbranded question 3 — Project tracking (`pt-3`)".
 `web/src/labels.ts` names everything the browser holds (probe ids, run ids, provenance, probe kinds);
 `labels.py` names the ids the engine bakes into strings it hands over whole (exclusion reasons, the
 follow-up rationale, gap findings, the Markdown export), and `reports.py` names strengths and topic

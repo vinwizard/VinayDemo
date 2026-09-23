@@ -11,7 +11,9 @@ import {
   PROVENANCE_LABEL, ZONE_LABEL, ZONE_MEANING, claimShare, headline, plain, potentialText, probeLabels,
   provenanceLabel, runLabels, when,
 } from "./labels";
+import { tabBadge } from "./badge";
 import { GLOSSARY } from "./glossary";
+import { LINE, layoutMap } from "./maplabels";
 import { PHONE, Popover, Term } from "./popover";
 import { WhyAIMisses } from "./audit";
 
@@ -80,9 +82,11 @@ function Block({ title, found, children, open, className = "" }: {
 }
 
 /** One titled part of a report tab, headed by what it found. */
-function Section({ title, found, children }: { title: ReactNode; found: ReactNode; children: ReactNode }) {
+function Section({ title, found, children, className }: {
+  title: ReactNode; found: ReactNode; children: ReactNode; className?: string;
+}) {
   return (
-    <section className="panel-sec">
+    <section className={className ? `panel-sec ${className}` : "panel-sec"}>
       <div className="panel-sec-head">
         <h3>{title}</h3>
         <span className="block-found">{found}</span>
@@ -129,10 +133,10 @@ function gapSentence(d: DriftReport, brand: string): string | null {
   const fronts = frontsOf(d);
   const placed = fronts.find((v) => v.front === "placed"), aiming = fronts.find((v) => v.front === "aiming");
   const both = fronts.find((v) => v.front === "both");
-  if (both) return `Where AI places ${brand} is the category its site aims for, ${both.category}, so one set of buyer questions was asked.`;
+  if (both) return `Where AI places ${brand} is the category its site aims for, ${both.category}, so one set of unbranded questions was asked.`;
   if (placed && aiming) {
     if (d.visibility_gap == null) return null;
-    const flagged = placed.low_confidence || aiming.low_confidence ? " (low confidence: see Buyer questions)" : "";
+    const flagged = placed.low_confidence || aiming.low_confidence ? " (low confidence: see Unbranded questions)" : "";
     if (d.visibility_gap > 0) {
       return `AI already brings ${brand} up for ${placed.category} (${placed.visibility}) but less for ${aiming.category}, `
         + `where its site aims to be (${aiming.visibility}): a gap of ${d.visibility_gap} points${flagged}.`;
@@ -211,10 +215,10 @@ const modelsOf = (run: Run) => {
 const untapped = (iv?: [number, number] | null): [number, number] | null =>
   iv ? [Math.round((100 - iv[1]) * 10) / 10, Math.round((100 - iv[0]) * 10) / 10] : null;
 
-/** The headline, buyer visibility and the claims to win back: pinned above every tab. */
+/** The headline, buyer visibility and the quick wins: pinned above every tab. */
 function Figures({ d, brand }: { d: DriftReport; brand: string }) {
   const h = headline(d);
-  const lost = d.lost_claims.length;
+  const wins = d.lost_claims.length + d.unstated_intent.length;  // the Quick wins tab's claims
   const fronts = frontsOf(d);
   const gap = gapSentence(d, brand);
   return (
@@ -245,10 +249,12 @@ function Figures({ d, brand }: { d: DriftReport; brand: string }) {
           </span>
         </div>
       )}
-      <div className="fig">
-        <span className="fig-value">{lost}</span>
-        <span className="fig-label"><Term k="lost_claim">{lost === 1 ? "claim" : "claims"} to win back</Term></span>
-      </div>
+      {wins > 0 && (
+        <div className="fig">
+          <span className="fig-value">{wins}</span>
+          <span className="fig-label"><Term k="quick_wins">{wins === 1 ? "quick win" : "quick wins"}</Term></span>
+        </div>
+      )}
     </div>
     {fronts.length > 0 && gap && <p className="gap-line">{gap}<GapVerdict d={d} /></p>}
     </>
@@ -266,8 +272,8 @@ function Explain({ d, brand }: { d: DriftReport; brand: string }) {
       {" "}that AI’s answers about {brand} do not yet say supportively.{" "}
       <Term k="buyer_visibility">Buyer visibility</Term> is a separate score: how often {brand} came up
       when a buyer asked without naming it.
-      {" "}Based on {d.n_named} <Term k="brand_question">brand question</Term> answers and{" "}
-      {d.n_blind} <Term k="buyer_question">buyer question</Term> answers · source: {provenanceLabel(d.provenance)}
+      {" "}Based on {d.n_named} <Term k="brand_question">branded question</Term> answers and{" "}
+      {d.n_blind} <Term k="buyer_question">unbranded question</Term> answers · source: {provenanceLabel(d.provenance)}
     </p>
   );
 }
@@ -295,12 +301,12 @@ const counts = (a: Answer, e: QueryEvaluation) => leftOut(a, e, "") == null;
 function questionKind(p: Probe, brand: string) {
   if (p.kind === "named") {
     return p.phase === "followup"
-      ? `The comparison question: it names ${brand} beside the products AI named instead. Exploratory — never counted in the scores.`
-      : `A brand question: it names ${brand} but never a claim, so whatever AI says ${brand} is known for, it said on its own.`;
+      ? `The comparison question: it names ${brand} beside the companies AI named instead. Exploratory — never counted in the scores.`
+      : `A branded question: it names ${brand} but never a claim, so whatever AI says ${brand} is known for, it said on its own.`;
   }
-  if (p.phase === "control") return "The control question: can the AI name this category’s leading tools at all? Never scored.";
-  if (p.phase === "followup") return `A follow-up buyer question: exploratory, never counted in the scores.`;
-  return `A buyer question: it never names ${brand}, so it shows whether AI brings ${brand} up on its own.`;
+  if (p.phase === "control") return "The control question: can the AI name the companies that lead this category at all? Never scored.";
+  if (p.phase === "followup") return `A follow-up unbranded question: exploratory, never counted in the scores.`;
+  return `An unbranded question: it never names ${brand}, so it shows whether AI brings ${brand} up on its own.`;
 }
 
 /**
@@ -313,7 +319,7 @@ function QRef({ id, run }: { id: string; run: Run }) {
   if (!p) return <>{name}</>;
   const a = run.answers.find((x) => x.probe_id === id), e = run.evaluations.find((x) => x.probe_id === id);
   const why = p.phase === "baseline" ? leftOut(a, e, run.profile.name) : null;
-  const tab = p.kind === "named" && p.phase !== "followup" ? "brand" : p.kind === "named" ? "sources" : "buyer";
+  const tab = p.kind === "named" && p.phase === "followup" ? "sources" : "questions";
   return (
     <Popover wide label={name} className="qref" trigger={name}>
       <strong className="pop-title">{name}</strong>
@@ -441,19 +447,22 @@ function RunSource({ run }: { run: Run }) {
 }
 
 const TABS = [
-  ["overview", "Overview"], ["win-back", "Win it back"], ["buyer", "Buyer questions"],
-  ["why", "Why AI misses you"], ["brand", "Brand questions"], ["sources", "Sources & rivals"],
+  ["overview", "Overview"], ["questions", "Questions we asked AI"], ["win-back", "Quick wins"],
+  ["why", "Why AI misses you"], ["sources", "Sources & rivals"],
 ] as const;
 
-/** A tab label's native tooltip, for the two tabs named after a term this product invented. */
+/** A tab label's native tooltip, for the tab named after the terms this product invented. */
 const TAB_HINT: Partial<Record<ReportTab, string>> = {
-  buyer: GLOSSARY.buyer_question.def, brand: GLOSSARY.brand_question.def,
+  questions: `${GLOSSARY.buyer_question.term}: ${GLOSSARY.buyer_question.def} ${GLOSSARY.brand_question.term}: ${GLOSSARY.brand_question.def}`,
 };
 type ReportTab = (typeof TABS)[number][0];
 
-/** "#report-buyer" opens the Buyer questions tab, so a link can land on one. */
-const tabFromHash = (): ReportTab =>
-  TABS.find(([t]) => window.location.hash === `#report-${t}`)?.[0] ?? "overview";
+/** "#report-questions" opens the questions tab, so a link can land on one; the two tabs it replaced
+ * ("#report-buyer", "#report-brand") land there too. */
+const tabFromHash = (): ReportTab => {
+  const hash = window.location.hash.replace(/^#report-(buyer|brand)$/, "#report-questions");
+  return TABS.find(([t]) => hash === `#report-${t}`)?.[0] ?? "overview";
+};
 
 const sortClaims = (scores: AttributeScore[]) => [...scores].sort(
   (a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.mention_rate ?? b.echo_rate ?? 0) - (a.mention_rate ?? a.echo_rate ?? 0),
@@ -503,13 +512,14 @@ export function Report({ run, onRescored, weightNote }: {
   };
 
   const claims = run.attribute_scores.filter((s) => !s.discovered);
-  const count: Record<ReportTab, number | undefined> = {
-    overview: claims.length,
-    "win-back": winBackPlan(run).actions.length,
-    why: run.audit?.claims.filter((c) => c.checks.some((k) => k.status === "fail")).length,
-    buyer: run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline").length,
-    brand: run.probes.filter((p) => p.kind === "named" && p.phase === "baseline").length,
-    sources: run.insights?.sources.sources.length,
+  // Badges say what they count, in words, and never a bare 0 that reads as a grade: a tab with
+  // nothing to fix shows a tick, and one with nothing to list shows no badge.
+  const badge: Record<ReportTab, string | undefined> = {
+    overview: tabBadge(claims.length, "claim"),
+    questions: tabBadge(run.probes.filter((p) => p.phase === "baseline").length, "question"),
+    "win-back": tabBadge(winBackPlan(run).targets.length, "claim", "✓"),
+    why: tabBadge(run.audit?.claims.filter((c) => c.checks.some((k) => k.status === "fail")).length, "claim", "✓"),
+    sources: tabBadge(run.insights?.sources.sources.length, "site"),
   };
 
   return (
@@ -537,7 +547,7 @@ export function Report({ run, onRescored, weightNote }: {
                       aria-controls={`${uid}-panel-${t}`} tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)}
                       title={TAB_HINT[t]}>
                 {label}
-                {count[t] != null && <span className="rtab-count">{count[t]}</span>}
+                {badge[t] && <span className="rtab-count">{badge[t]}</span>}
               </button>
             ))}
           </div>
@@ -566,9 +576,8 @@ export function Report({ run, onRescored, weightNote }: {
               </Section>
             </>
           )}
-          {tab === "buyer" && <BuyerQuestions run={run} />}
+          {tab === "questions" && <div className="qboard"><BuyerQuestions run={run} /><BrandQuestions run={run} /></div>}
           {tab === "why" && <><WhatItSearched run={run} /><WhyAIMisses run={run} /><TestAFix run={run} reasks={reasks} onReasked={reasked} /></>}
-          {tab === "brand" && <BrandQuestions run={run} />}
           {tab === "sources" && (
             <>
               <CitationNetwork run={run} />
@@ -823,7 +832,7 @@ function ClaimDetail({ s, run }: { s: AttributeScore; run: Run }) {
       {s.limitations.map((l, i) => <p className="warn" key={i}>{l}</p>)}
       {fix && (
         <>
-          <h4>How to win it back</h4>
+          <h4>Quick win</h4>
           <FixCard a={fix} run={run} />
         </>
       )}
@@ -908,7 +917,7 @@ function mention(text: string, name: string): [string, string, string] | null {
 }
 
 /**
- * Every product named in a buyer answer, beside the line that names it, and what AI said when asked
+ * Every company named in a buyer answer, beside the line that names it, and what AI said when asked
  * to compare.
  *
  * A name here is only what the evidence supports: the model named it in an answer to a question that
@@ -952,10 +961,10 @@ export function Competitors({ run }: { run: Run }) {
       <Section title={title} found="none named">
         <p className="muted" style={{ margin: 0 }}>
         {!askedBuyerQuestions
-          ? "No buyer question was asked — nothing is weighted as intended — so the buyer axis was not measured and no other product could be named."
+          ? "No unbranded question was asked — nothing is weighted as intended — so the buyer axis was not measured and no other company could be named."
           : replay
             ? "This sample scenario names no competitor in its authored buyer answers. Replay never asks the comparison question either: that round exists only in a live run."
-            : "No other product was named in any buyer answer that counts toward the scores, so there was nothing to compare against and no comparison question was asked."}
+            : "No other company was named in any buyer answer that counts toward the scores, so there was nothing to compare against and no comparison question was asked."}
         </p>
       </Section>
     );
@@ -964,7 +973,7 @@ export function Competitors({ run }: { run: Run }) {
   const namedTable = (shown: typeof rows) => (
     <table className="named">
       <thead>
-        <tr><th>Product</th>{repeats && <th>Answers</th>}<th>Buyer topic</th><th>Where the answer names it</th></tr>
+        <tr><th>Company</th>{repeats && <th>Answers</th>}<th>Buyer topic</th><th>Where the answer names it</th></tr>
       </thead>
       <tbody>
         {shown.map((r) => (
@@ -982,13 +991,13 @@ export function Competitors({ run }: { run: Run }) {
   );
   return (
     <Section title={title}
-           found={`${plural(rows.length, "product")} named${repeats ? ` · most often ${top.name} (${top.count})` : ""}`}>
+           found={`${plural(rows.length, "company", "companies")} named${repeats ? ` · most often ${top.name} (${top.count})` : ""}`}>
       <p className="muted" style={{ margin: "0 0 .6rem" }}>
         {replay
           ? "Authored sample data, not a measurement: no model volunteered these names. A live run"
             + " puts here the brands the model itself offered when a buyer described what you do"
             + " without naming you, and only a live run asks the comparison question below."
-          : `Every product the model named when a buyer asked about what ${run.profile.name} does`
+          : `Every company the model named when a buyer asked about what ${run.profile.name} does`
             + " without naming it. Being named is not being recommended, or being a competitor:"
             + " each sits beside the part of the answer that names it, so judge it yourself."}
         {" "}
@@ -999,7 +1008,7 @@ export function Competitors({ run }: { run: Run }) {
       {namedTable(rows.slice(0, SHOWN_NAMED))}
       {rows.length > SHOWN_NAMED && (
         <details>
-          <summary className="muted">Show the other {plural(rows.length - SHOWN_NAMED, "product")}</summary>
+          <summary className="muted">Show the other {plural(rows.length - SHOWN_NAMED, "company", "companies")}</summary>
           {namedTable(rows.slice(SHOWN_NAMED))}
         </details>
       )}
@@ -1023,7 +1032,7 @@ const SAMPLE_NOTE = "Authored sample data, not a measurement: a live run fills t
 /** Brand vs the most-recommended competitors, on the buyer questions that count. One bar per name. */
 function ShareOfVoice({ run }: { run: Run }) {
   const v = run.insights?.voice;
-  const title = <><Term k="share_of_voice">Share of voice</Term> on buyer questions</>;
+  const title = <><Term k="share_of_voice">Share of voice</Term> on unbranded questions</>;
   if (!v) return null;
   if (v.reason) {
     return (
@@ -1041,14 +1050,14 @@ function ShareOfVoice({ run }: { run: Run }) {
                 ...v.rivals.map((r) => ({ ...r, brand: false }))];
   return (
     <Section title={title}
-           found={`On ${v.questions} buyer questions, AI recommended ${v.brand} ${plural(v.brand_recommended, "time")} and ${rivalText}`}>
+           found={`On ${v.questions} unbranded questions, AI recommended ${v.brand} ${plural(v.brand_recommended, "time")} and ${rivalText}`}>
       <p className="muted" style={{ margin: 0 }}>
         {run.mode !== "live_api" && <>{SAMPLE_NOTE} </>}
-        How many of the {v.questions} buyer questions that count got an answer recommending each product. None
-        of those questions named {v.brand}; a mention without a recommendation does not count, and a product
+        How many of the {v.questions} unbranded questions that count got an answer recommending each company. None
+        of those questions named {v.brand}; a mention without a recommendation does not count, and a company
         counts once per answer, however often it repeats.
       </p>
-      <div className="sov" role="list" aria-label={`Answers recommending each product, out of ${v.questions}`}>
+      <div className="sov" role="list" aria-label={`Answers recommending each company, out of ${v.questions}`}>
         {bars.map((b) => (
           <div key={b.name} role="listitem" className="sov-row" title={`${b.name}: recommended in ${b.count} of ${v.questions} answers`}>
             <span className={b.brand ? "sov-name brand" : "sov-name"}>{b.name}</span>
@@ -1063,44 +1072,26 @@ function ShareOfVoice({ run }: { run: Run }) {
   );
 }
 
-const MAP_W = 360, MAP_H = 300, MAP_PAD = 36, MAP_FONT = 12, AXIS_FONT = 11;
-type Box = [number, number, number, number];
+const MAP_W = 360, MAP_H = 300, MAP_PAD = 36, MAP_FONT = 12;
 
-/** Axis ends in plain words, drawn inside the map's edges: [text, x, y, text-anchor]. An x-axis end
- * sits just above its axis line, or just below it when a dot is in the way. */
-type End = readonly [string, number, number, "start" | "middle" | "end"];
-const axisEnds = (x: string[], y: string[], dots: { x: number; y: number; r: number }[]): End[] => {
-  const clear = (t: string, ex: number, ey: number, a: string) => {
-    const b = boxOf(t, ex, ey, a, AXIS_FONT);
-    return !dots.some((d) => d.x + d.r > b[0] && d.x - d.r < b[2] && d.y + d.r > b[1] && d.y - d.r < b[3]);
-  };
-  const side = (t: string, ex: number, a: "start" | "end"): End =>
-    [t, ex, clear(t, ex, MAP_H / 2 - 6, a) ? MAP_H / 2 - 6 : MAP_H / 2 + 15, a];
-  return [
-    ...(y.length ? [[`↑ ${y[1]}`, MAP_W / 2, 14, "middle"], [`↓ ${y[0]}`, MAP_W / 2, MAP_H - 6, "middle"]] as const : []),
-    ...(x.length ? [side(`← ${x[0]}`, 4, "start"), side(`${x[1]} →`, MAP_W - 4, "end")] : []),
-  ];
+let measurer: CanvasRenderingContext2D | null | undefined;
+/** A label's real width in map units (the SVG is MAP_W units wide at a 12-unit font), in the page's
+ * own font. Only without a canvas does it fall back to a generous estimate. */
+const measure = (text: string, bold = false) => {
+  measurer ??= document.createElement("canvas").getContext("2d");
+  if (!measurer) return text.length * MAP_FONT * 0.65;
+  measurer.font = `${bold ? 650 : 400} ${MAP_FONT}px ${getComputedStyle(document.body).fontFamily}`;
+  return measurer.measureText(text).width;
 };
 
-const boxOf = (text: string, x: number, y: number, anchor: string, font: number): Box => {
-  const w = text.length * font * 0.56, left = anchor === "start" ? x : anchor === "end" ? x - w : x - w / 2;
-  return [left, y - font, left + w, y + 3];
+/** An axis in words, above or below the map, never inside it: a claim the axis measures (a live
+ * map), or its two ends (the authored sample). */
+const axisName = (ends: string[], across: boolean) => {
+  const dir = across ? "→ Across:" : "↑ Up:";
+  return ends.length === 1 ? `${dir} talks more about “${ends[0]}”`
+    : ends.length === 2 ? `${dir} from “${ends[0]}” to “${ends[1]}”`
+    : `${dir} drawn before axes were named after your claims; measure again to name it`;
 };
-
-/** Each dot's label beside it, trying right, left, above, below; null where none fits (it gets a number). */
-function placeLabels(dots: { x: number; y: number; r: number; text: string }[], taken: Box[]) {
-  const boxes = [...taken, ...dots.map((d): Box => [d.x - d.r, d.y - d.r, d.x + d.r, d.y + d.r])];
-  const free = (b: Box) => b[0] >= 2 && b[2] <= MAP_W - 2 && b[1] >= 2 && b[3] <= MAP_H - 2
-    && !boxes.some((o) => b[0] < o[2] && o[0] < b[2] && b[1] < o[3] && o[1] < b[3]);
-  return dots.map((d) => {
-    const w = d.text.length * MAP_FONT * 0.56, h = MAP_FONT + 3, g = d.r + 4;
-    for (const [x, y] of [[d.x + g, d.y - h / 2], [d.x - g - w, d.y - h / 2], [d.x - w / 2, d.y - g - h], [d.x - w / 2, d.y + g]]) {
-      const b: Box = [x, y, x + w, y + h];
-      if (free(b)) { boxes.push(b); return { x, y: y + h - 3.5 }; }
-    }
-    return null;
-  });
-}
 
 /** What one dot was built from, verbatim, and how close it sits to the brand as AI describes it. */
 function PointDetail({ p, title, site, brand, sample }: {
@@ -1146,14 +1137,12 @@ function PositioningMapView({ run }: { run: Run }) {
     const pts = [...m.points].sort((a, b) => order[a.kind] - order[b.kind] || (b.similarity ?? 0) - (a.similarity ?? 0));
     const mx = Math.max(...pts.map((p) => Math.abs(p.x)), 1e-9), my = Math.max(...pts.map((p) => Math.abs(p.y)), 1e-9);
     const scale = Math.min((MAP_W / 2 - MAP_PAD) / mx, (MAP_H / 2 - MAP_PAD) / my);
-    const dots = pts.map((p) => ({
-      p, x: MAP_W / 2 + p.x * scale, y: MAP_H / 2 - p.y * scale, r: p.kind === "rival" ? 7 : 9,
-      text: p.kind === "intended" ? aim : p.name,
-    }));
-    const ends = axisEnds(m.x_axis, m.y_axis, dots);
-    const labels = placeLabels(dots, ends.map(([t, x, y, a]) => boxOf(t, x, y, a, AXIS_FONT)));
-    let k = 0;
-    const num = labels.map((l) => (l ? null : ++k));
+    // bold widths for every text: the brand's labels and the axis names are bold, and wider is safe
+    const at = layoutMap(pts.map((p) => ({ x: MAP_W / 2 + p.x * scale, y: MAP_H / 2 - p.y * scale,
+                                           r: p.kind === "rival" ? 7 : 9, text: p.kind === "intended" ? aim : p.name })),
+                         MAP_W, MAP_H, axisName(m.y_axis, false), axisName(m.x_axis, true), (t) => measure(t, true), [0, 1]);
+    const dots = at.dots.map((d, i) => ({ ...d, p: pts[i] }));
+    const { labels, height, top } = at;
     const [seenDot, aimDot] = dots;
     const dx = aimDot.x - seenDot.x, dy = aimDot.y - seenDot.y, len = Math.hypot(dx, dy);
     const ux = dx / len, uy = dy / len, tip = [aimDot.x - ux * (aimDot.r + 2), aimDot.y - uy * (aimDot.r + 2)];
@@ -1168,8 +1157,16 @@ function PositioningMapView({ run }: { run: Run }) {
             similarity picture</Term>, not a measurement: dots close together were described in similar words.
           The arrow runs from where AI places {brand} to {aim}. Tap a dot for the sentences behind it.
         </p>
-        <div className="pmap">
-          <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} aria-hidden="true">
+        <div className="pmap" style={{ aspectRatio: `${MAP_W} / ${height}` }}>
+          <svg viewBox={`0 0 ${MAP_W} ${height}`} aria-hidden="true">
+            {at.up.lines.map((t, j) => (
+              <text key={t} className="pmap-title" x={MAP_W / 2} y={at.up.y + j * LINE} textAnchor="middle">{t}</text>
+            ))}
+            {at.across.lines.map((t, j) => (
+              <text key={t} className="pmap-title" x={MAP_W / 2} y={at.across.y + j * LINE} textAnchor="middle">{t}</text>
+            ))}
+            <g transform={`translate(0 ${top})`}>
+            <rect className="pmap-frame" x={0} y={0} width={MAP_W} height={MAP_H} />
             <line className="pmap-axis" x1={MAP_W / 2} y1={0} x2={MAP_W / 2} y2={MAP_H} />
             <line className="pmap-axis" x1={0} y1={MAP_H / 2} x2={MAP_W} y2={MAP_H / 2} />
             {len > seenDot.r + aimDot.r + 4 && (
@@ -1179,18 +1176,21 @@ function PositioningMapView({ run }: { run: Run }) {
                 <polygon className="pmap-head" points={`${tip[0]},${tip[1]} ${tip[0] - ux * 10 - uy * 5},${tip[1] - uy * 10 + ux * 5} ${tip[0] - ux * 10 + uy * 5},${tip[1] - uy * 10 - ux * 5}`} />
               </>
             )}
-            {dots.map((d, i) => (
-              <g key={`${d.p.kind}-${d.p.name}`}>
-                <circle className={`pmap-dot ${d.p.kind}`} cx={d.x} cy={d.y} r={num[i] ? 8 : d.r} />
-                {num[i] && <text className="pmap-num" x={d.x} y={d.y + 3.5} textAnchor="middle">{num[i]}</text>}
-                {labels[i] && <text className={`pmap-label ${d.p.kind}`} x={labels[i]!.x} y={labels[i]!.y}>{d.text}</text>}
+            {dots.map((d) => <circle key={`${d.p.kind}-${d.p.name}`} className={`pmap-dot ${d.p.kind}`} cx={d.x} cy={d.y} r={d.r} />)}
+            {labels.map((l) => (
+              <g key={l.dot}>
+                {l.lead && <line className="pmap-lead" x1={l.lead[0]} y1={l.lead[1]} x2={l.lead[2]} y2={l.lead[3]} />}
+                {l.lines.map((t, j) => (
+                  <text key={t} className={`pmap-label ${dots[l.dot].p.kind}`} x={l.box[0]}
+                        y={l.box[1] + LINE * (j + 1) - 3.5}>{t}</text>
+                ))}
               </g>
             ))}
-            {ends.map(([t, x, y, a]) => <text key={t} className="pmap-end" x={x} y={y} textAnchor={a}>{t}</text>)}
+            </g>
           </svg>
           {dots.map((d) => (
             <span key={`${d.p.kind}-${d.p.name}`} className="pmap-hit"
-                  style={{ left: `${(100 * d.x) / MAP_W}%`, top: `${(100 * d.y) / MAP_H}%` }}>
+                  style={{ left: `${(100 * d.x) / MAP_W}%`, top: `${(100 * (top + d.y)) / height}%` }}>
               <Popover wide label={title(d)} className="pmap-tap"
                        trigger={<span className="sr-only">{title(d)}</span>}>
                 <PointDetail p={d.p} title={title(d)} site={site} brand={brand} sample={sample} />
@@ -1198,12 +1198,17 @@ function PositioningMapView({ run }: { run: Run }) {
             </span>
           ))}
         </div>
+        {at.moved && (
+          <p className="muted" style={{ margin: 0 }}>
+            Dots that sat on top of each other are drawn a little apart, so each can carry its name.
+          </p>
+        )}
         <ul className="pmap-legend">
-          {dots.map((d, i) => (
+          {dots.map((d) => (
             <li key={`${d.p.kind}-${d.p.name}`}>
               <Popover wide label={title(d)} className="chip"
                        trigger={<>
-                         <span className={`pmap-swatch ${d.p.kind}`} aria-hidden="true">{num[i] ?? ""}</span>
+                         <span className={`pmap-swatch ${d.p.kind}`} aria-hidden="true" />
                          {d.p.kind === "seen" ? `${brand}, as AI sees it` : d.p.kind === "intended" ? aim[0].toUpperCase() + aim.slice(1) : d.p.name}
                        </>}>
                 <PointDetail p={d.p} title={title(d)} site={site} brand={brand} sample={sample} />
@@ -1211,11 +1216,6 @@ function PositioningMapView({ run }: { run: Run }) {
             </li>
           ))}
         </ul>
-        {!m.x_axis.length && !m.y_axis.length && (
-          <p className="muted" style={{ margin: 0 }}>
-            No claim lines up with either axis, so they have no name: read only which dots sit close together.
-          </p>
-        )}
         {m.notes.map((n) => <p key={n} className="muted" style={{ margin: 0 }}>{n}</p>)}
       </>
     );
@@ -1649,7 +1649,7 @@ function TestAFix({ run, reasks, onReasked }: {
   const compared = sim.rows.filter((r) => r.yours && r.rival);
   const weaker = compared.filter(behind).length;
   const found = compared.length
-    ? `Your best page is weaker than the page AI cited for ${weaker} of ${plural(compared.length, "buyer question")}`
+    ? `Your best page is weaker than the page AI cited for ${weaker} of ${plural(compared.length, "unbranded question")}`
     : "no page AI cited could be compared";
   const rows = [...sim.rows].sort((a, b) => Number(!!b.fixed) - Number(!!a.fixed) || Number(behind(b)) - Number(behind(a)));
   return (
@@ -1658,7 +1658,7 @@ function TestAFix({ run, reasks, onReasked }: {
         {replay && <>Authored sample, not computed: the passages and scores were written by hand to show this panel. </>}
         We split your pages and the pages AI cited into short passages and scored how closely each
         matches the question and ChatGPT's searches for it: a <Term k="retrieval_score">retrieval score</Term> from
-        0 to 1. Then we put the suggested rewrite from “Win it back” into your page and scored it again.
+        0 to 1. Then we put the suggested rewrite from “Quick wins” into your page and scored it again.
         A simulation of what the AI reads first, not a promise of a citation. Tap a question for the passages.
       </p>
       <ul className="search-list">
@@ -1722,14 +1722,14 @@ function FixLine({ run, onOpen }: { run: Run; onOpen: () => void }) {
 }
 
 /** One question as a compact row; opening it shows the full answer and what the scorer made of it. */
-function QuestionRow({ p, name, answer, verdict, tags, note, replay, after }: {
+function QuestionRow({ p, name, answer, verdict, tags, note, replay, after, sub }: {
   p: Probe; name: string; answer?: Answer; verdict?: ReactNode; tags?: ReactNode; note?: ReactNode;
-  replay: boolean; after?: ReactNode;
+  replay: boolean; after?: ReactNode; sub?: ReactNode;
 }) {
   return (
     <details className="qrow">
       <summary>
-        <span className="muted" title={p.id}>{name}</span>
+        <span className="muted qrow-name" title={p.id}>{name}{sub && <> · {sub}</>}</span>
         <span className="qrow-text">{p.text}{p.demand && <DemandBadge d={p.demand} />}</span>
         {verdict}
       </summary>
@@ -1796,11 +1796,17 @@ function BuyerQuestions({ run }: { run: Run }) {
   };
   const tryWord = (a?: Answer, e?: QueryEvaluation) =>
     !a || !e || !counts(a, e) ? "excluded" : e.recommended ? "recommended you" : e.mentioned ? "named you" : "did not name you";
+  // who AI named in the answer, on the card itself: the rival a buyer was shown instead
+  const others = (p: Probe) => {
+    const e = evals.get(p.id), named = e?.competitor_recommendations ?? [];
+    return named.length ? `${e!.mentioned ? "also named" : "named instead"}: ${named.slice(0, 3).join(", ")}`
+      + (named.length > 3 ? ` +${named.length - 3}` : "") : undefined;
+  };
   const card = (p: Probe) => {
     const shown = triesOf(p);
     return (
       <QuestionRow key={p.id} p={p} name={names[p.id] ?? p.id} answer={answers.get(p.id)}
-                   verdict={verdict(p)} replay={replay}
+                   verdict={verdict(p)} replay={replay} sub={others(p)}
                    note={<>
                      {evals.get(p.id)?.explanation && <span className="muted">{evals.get(p.id)!.explanation}</span>}
                      <Searched run={run} p={p} />
@@ -1823,13 +1829,14 @@ function BuyerQuestions({ run }: { run: Run }) {
   const fronts = d ? frontsOf(d) : [];
   const probeById = new Map(run.probes.map((p) => [p.id, p]));
   return (
-    <>
-      <Section title={<Term k="buyer_question">Buyer questions</Term>}
+    <Section className="qset" title={<Term k="buyer_question">Unbranded questions</Term>}
                found={!base.length ? na(d?.na_reasons, "visibility")
                  : `${plural(base.length, "question")} asked once`
                    + (sampled ? `, ${sampled} of them ${tries} times over` : "")
                    + ` · named you in ${namedIn} of ${all.length} answers${recIn ? ` · recommended you in ${recIn}` : ""}`
                    + (excluded ? ` · ${excluded} excluded` : "")}>
+        <details className="qhow">
+        <summary>How these were asked ⓘ</summary>
         <p className="muted" style={{ margin: 0 }}>
           What a buyer would ask without naming {brand}. Each one AI answered without
           bringing {brand} up is room to be found.
@@ -1851,6 +1858,7 @@ function BuyerQuestions({ run }: { run: Run }) {
           </p>
         )}
         {fronts.length > 0 && d && gapSentence(d, brand) && <p style={{ margin: 0 }}>{gapSentence(d, brand)}<GapVerdict d={d} /></p>}
+        </details>
         {!fronts.length && vis != null && (
           <p style={{ margin: 0 }}>
             <strong>Buyer visibility <Visibility d={d!} explain /></strong>{" "}
@@ -1892,14 +1900,13 @@ function BuyerQuestions({ run }: { run: Run }) {
             <div className="qlist">{follow.map(card)}</div>
           </>
         )}
-      </Section>
       {!fronts.length && control && d && <Control run={run} p={control} v={d} />}
-    </>
+    </Section>
   );
 }
 
 /**
- * The control question of one set: can the answering model name this category's leading tools, and
+ * The control question of one set: can the answering model name the companies leading this category, and
  * does it count the brand among them? It is not a buyer question and never moves visibility; it only
  * says whether that set's number can be trusted.
  */
@@ -1909,27 +1916,27 @@ function Control({ run, p, v }: { run: Run; p: Probe; v: Vis }) {
   const flag = v.low_confidence;
   const ok = a && e && counts(a, e);
   const found = !ok ? "could not be scored"
-    : `named ${plural(e.competitor_recommendations.length + (e.mentioned ? 1 : 0), "tool")}`
+    : `named ${plural(e.competitor_recommendations.length + (e.mentioned ? 1 : 0), "company", "companies")}`
       + ` · ${e.mentioned ? `including ${run.profile.name}` : `not ${run.profile.name}`}`;
   return (
     <Section title="Control question"
              found={flag ? <><Term k="low_confidence"><span className="tag warn">low confidence</span></Term> {found}</> : found}>
       <p className="muted" style={{ margin: 0 }}>
-        One question asked beside the buyer questions and never scored: does the answering model know
+        One question asked beside the unbranded questions and never scored: does the answering model know
         who leads this category, and is {run.profile.name} among them? If not, this set’s buyer
         visibility is flagged low confidence.
       </p>
       {flag && <div className="callout warn-box" style={{ margin: 0 }}><strong>Low confidence.</strong> {flag}</div>}
       {!flag && ok && v.visibility === 0 && (
         <p style={{ margin: 0 }}>
-          The model names {run.profile.name} among this category’s leading tools, yet never brought it
+          The model names {run.profile.name} among the companies leading this category, yet never brought it
           up for a buyer: the 0 is a finding, not a gap in what the model knows.
         </p>
       )}
       <div className="qlist">
         <QuestionRow p={p} name="Control question" answer={a} replay={run.mode !== "live_api"}
                      note={ok && e.competitor_recommendations.length > 0 && (
-                       <span className="muted">Tools it named: {e.competitor_recommendations.join(", ")}</span>
+                       <span className="muted">Companies it named: {e.competitor_recommendations.join(", ")}</span>
                      )} />
       </div>
     </Section>
@@ -1973,7 +1980,7 @@ function FixCard({ a, run }: { a: WinBackAction; run: Run }) {
           ))}
         </ul>
       ) : (
-        <span className="muted">No buyer question in this run asks for this — add one to the next run to measure it.</span>
+        <span className="muted">No unbranded question in this run asks for this — add one to the next run to measure it.</span>
       )}
       {a.why && <span className="muted">{a.why}</span>}
     </div>
@@ -1987,12 +1994,14 @@ function WinBack({ run }: { run: Run }) {
   const unplanned = targets.filter((s) => !planned.has(s.attribute_id));
   const questions = new Set(actions.flatMap((a) => a.question_ids)).size;
   return (
-    <Section title="How to win it back"
-           found={actions.length ? `${plural(actions.length, "fix", "fixes")} · ${plural(questions, "buyer question")} to win`
-             : "no verified fix"}>
+    <Section title={<Term k="quick_wins">Quick wins</Term>}
+           found={`${plural(targets.length, "claim")} with room to grow · `
+             + (actions.length ? `${plural(actions.length, "fix", "fixes")} ready to check`
+                 + (questions ? ` · ${plural(questions, "unbranded question")} to win` : "")
+               : "no suggested fix passed our checks yet")}>
       <p className="muted" style={{ margin: 0 }}>
-        For each claim to win back or amplify: the page of yours to change, a suggested rewrite, and
-        the buyer questions that did not recommend {run.profile.name} which it should help with. A
+        For each claim with room to grow: the page of yours to change, a suggested rewrite, and
+        the unbranded questions that did not recommend {run.profile.name} which it should help with. A
         draft — check every statement against the product before publishing, then measure again.
         It changes no number in this report.
       </p>
@@ -2003,14 +2012,18 @@ function WinBack({ run }: { run: Run }) {
       )}
       {unplanned.length > 0 && (
         <p className="muted" style={{ margin: 0 }}>
-          No fix yet for {unplanned.map((s) => s.label).join(", ")}
-          {(run.win_back_notes ?? []).length > 0 ? " — it has no verified action (see below), or became a target when the run was re-scored." : " — no verified action was proposed for it."}
+          No suggested fix passed our checks yet for {unplanned.map((s) => s.label).join(", ")}
+          {(run.win_back_notes ?? []).length > 0 ? ": the reasons are below, or it became a claim with room to grow when the run was re-scored." : "."}
         </p>
       )}
       {(run.win_back_notes ?? []).length > 0 && (
         <>
-          <h4>Dropped as unverifiable</h4>
-          <ul>{run.win_back_notes!.map((n, i) => <li key={i} className="log">{n}</li>)}</ul>
+          <h4>Suggestions we could not confirm</h4>
+          <p className="muted" style={{ margin: 0 }}>
+            A suggestion is shown only if the page it names is one we read, the sentence it replaces is on
+            that page word for word, and the new copy states facts, not marketing words.
+          </p>
+          <ul>{run.win_back_notes!.map((n, i) => <li key={i}>{n}</li>)}</ul>
         </>
       )}
     </Section>
@@ -2035,13 +2048,16 @@ function BrandQuestions({ run }: { run: Run }) {
   const withClaims = named.filter((p) => raised.get(p.id)?.some((s) => !s.discovered)).length;
   const d = run.drift;
   return (
-    <Section title={<Term k="brand_question">Brand questions</Term>}
+    <Section className="qset brand" title={<Term k="brand_question">Branded questions</Term>}
            found={`${named.length} asked · your claims came up in ${withClaims}`
              + (d?.excluded_named ? ` · ${d.excluded_named} excluded` : "")}>
-      <p className="muted" style={{ margin: 0 }}>
-        Each names {run.profile.name} and never a claim, so whatever AI says it is known for, it said
-        unprompted. These answers drive the headline.
-      </p>
+      <details className="qhow">
+        <summary>How these were asked ⓘ</summary>
+        <p className="muted" style={{ margin: 0 }}>
+          Each names {run.profile.name} and never a claim, so whatever AI says it is known for, it said
+          unprompted. These answers drive the headline.
+        </p>
+      </details>
       <div className="qlist">
         {named.map((p) => (
           <QuestionRow key={p.id} p={p} name={names[p.id] ?? p.id} answer={answers.get(p.id)} replay={replay}
@@ -2049,6 +2065,7 @@ function BrandQuestions({ run }: { run: Run }) {
                          ? <span className="tag warn">excluded from scores</span>
                          : raised.get(p.id)?.length ? <span className="muted">{plural(raised.get(p.id)!.length, "claim")}</span>
                          : undefined}
+                       sub={(raised.get(p.id) ?? []).filter((s) => !s.discovered).map((s) => s.label).join(" · ") || undefined}
                        tags={(raised.get(p.id) ?? []).map((s) => (
                          <span key={s.attribute_id} className={`pill ${s.zone}`}>{s.label}</span>
                        ))} />
@@ -2173,13 +2190,13 @@ function HowWeChecked({ run }: { run: Run }) {
       <h3>How we checked this report</h3>
       <ul className="checks-list">
         <li>
-          <strong>{d.n_named} of {d.named_asked}</strong> <Term k="brand_question">brand question</Term> answers
+          <strong>{d.n_named} of {d.named_asked}</strong> <Term k="brand_question">branded question</Term> answers
           counted{d.excluded_named > 0 && `; ${d.excluded_named} left out, explained above`}.
           {small && " That is a small sample, so treat a difference of a few points as noise."}
         </li>
         {buyer > 0 && (
           <li>
-            <strong>{d.n_blind} of {buyerAsks}</strong> <Term k="buyer_question">buyer question</Term> answers
+            <strong>{d.n_blind} of {buyerAsks}</strong> <Term k="buyer_question">unbranded question</Term> answers
             counted ({plural(buyer, "question")} asked once
             {sampled > 0 && `, ${sampled} of them ${tries} times over`}).
           </li>

@@ -227,3 +227,39 @@ def test_description_restating_a_hyphenated_label_is_rejected():
     assert not _useful_description("All-in-one workspace", "An all-in-one workspace for teams.")
     assert _useful_description("Real-time collaboration",
                                "Several people edit the same page and see each other's cursors live.")
+
+
+def test_own_products_count_as_the_brand_and_are_never_its_rivals():
+    # Amgen on gpt-6-luna, 22 Sep 2026: an answer's table row "**Tezepelumab** (Tezspire)" was
+    # scored "Amgen absent", and judged again it listed Tezspire as Amgen's rival. Only "Amgen" and
+    # "Amgen Inc." counted as naming it.
+    from agents.evaluation import evaluate
+    from agents.onboarding_model import build_profile
+    from schemas import Answer, Probe
+    profile = build_profile({"name": "Amgen", "aliases": ["Amgen Inc."], "products": ["Tezspire", "Repatha", "Humira"]},
+                            [("https://www.amgen.com/", "Amgen makes Tezspire and Repatha.")], "amgen.com")
+    assert {"Amgen", "Amgen Inc.", "Tezspire", "Repatha"} <= set(profile.names())
+    assert "Humira" not in profile.names()  # not on its pages: a product named from memory credits nobody
+    text = "| **Severe asthma** | **Tezepelumab** (Tezspire) | Add-on maintenance treatment. Humira is AbbVie's."
+    probe = Probe(id="cat-b1", topic_id="cat-1", kind="blind", phase="baseline", purpose="p",
+                  text="What biologic medicines are available for treating serious illnesses?")
+    labels = dict(mentioned=True, recommended=False, negative_mention=False, on_topic=True,
+                  competitor_recommendations=["Tezspire", "AbbVie"], evidence_quotes=["Tezepelumab (Tezspire)"],
+                  outdated_claim_quote=None, attributes=[])
+    answer = Answer(probe_id="cat-b1", text=text, provenance="live_api", provider="openai", model="m",
+                    search_executed=True, evaluator_labels=labels)
+    e = evaluate(probe, answer, profile)
+    assert e.valid and e.mentioned and e.competitor_recommendations == ["AbbVie"]
+
+
+def test_no_question_assumes_the_company_sells_software():
+    # A drugmaker got "Which software supports oncology treatment planning?", "the leading tools for
+    # biologic medicines" (answered with no tool at all) and "…to a 200-person company?".
+    from agents import ana, onboarding
+    from agents.onboarding_model import QUESTIONS_PROMPT
+    from schemas import CompanyProfile
+    assert "software" not in QUESTIONS_PROMPT and "which companies" in QUESTIONS_PROMPT.lower()
+    profile = CompanyProfile(name="Amgen", domain="amgen.com")
+    assert ana.control_probe(profile, "biologic medicines").text == "Which companies lead in biologic medicines?"
+    shaped = ("200-person", "day to day", "never used", "team")
+    assert not [t for t in onboarding.NAMED_TEMPLATES if any(s in t for s in shaped)]

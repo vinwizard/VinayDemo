@@ -28,7 +28,7 @@ COMPARISON_PROBE_ID = "np-cmp"
 
 
 def set_questions() -> int:
-    """BUYER_QUESTIONS: buyer questions per front, at least one topic's worth."""
+    """BUYER_QUESTIONS: unbranded questions per front, at least one topic's worth."""
     return setting(QUESTIONS_ENV, DEFAULT_QUESTIONS, floor=PER_TOPIC)
 
 
@@ -63,7 +63,7 @@ VENDOR_ADDRESS = re.compile(
 
 
 def vendor_address(text: str) -> list[str]:
-    """What in a buyer question addresses the vendor instead of describing the need, or []."""
+    """What in an unbranded question addresses the vendor instead of describing the need, or []."""
     return [m.group(0) for m in VENDOR_ADDRESS.finditer(text)]
 
 
@@ -136,7 +136,7 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
             a.id, a.buyer_questions[:PER_TOPIC],
             f"Placebo: would a buyer wanting '{a.label}' be shown this brand?")
     if dropped:
-        raise ValueError("buyer questions leak the brand and were not rewritten: " + "; ".join(dropped))
+        raise ValueError("unbranded questions leak the brand and were not rewritten: " + "; ".join(dropped))
     # Truncation drops topics, so it must drop their questions too: a probe whose topic no longer
     # exists fails validation and kills the whole run.
     topics = topics[:limit]
@@ -146,7 +146,7 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
 
 def control_probe(profile: CompanyProfile, category: str | None = None, pid: str = "ctl-1",
                   topic_id: str = CONTROL_TOPIC) -> Probe | None:
-    """The control: does the answering model know this category's leading tools at all?
+    """The control: does the answering model know which companies lead this category at all?
 
     A low buyer visibility means little when the model cannot name the category's leaders, or does
     not count the brand among them, so one blind question asks exactly that. It is never scored as
@@ -157,15 +157,17 @@ def control_probe(profile: CompanyProfile, category: str | None = None, pid: str
     if not category:
         return None
     return Probe(id=pid, topic_id=topic_id, kind="blind", phase="control",
-                 text=f"What are the leading tools for {category}?",
-                 purpose="Control: does the answering model know this category's leading tools? "
+                 # companies, not "tools": asked for the leading tools for biologic medicines,
+                 # the model named none at all
+                 text=f"Which companies lead in {category}?",
+                 purpose="Control: does the answering model know which companies lead this category? "
                          "Excluded from the visibility score.")
 
 
 def control_topic(profile: CompanyProfile, category: str | None = None, tid: str = CONTROL_TOPIC,
                   front: str | None = None) -> Topic:
     return Topic(id=tid, label=f"Control — {category or profile.core_category}", kind="control",
-                 front=front, buyer_need="Whether the answering model knows the category's leading tools",
+                 front=front, buyer_need="Whether the answering model knows the category's leading companies",
                  positioning_point_ids=[], fit="strong")
 
 
@@ -199,7 +201,8 @@ def placed_attribute(scores: list[AttributeScore], attributes: list[Attribute],
 
 
 def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
-                            placed_questions: list[str], attributes: list[Attribute] = ()
+                            placed_questions: list[str], attributes: list[Attribute] = (),
+                            placed_category: str | None = None
                             ) -> tuple[list[Topic], list[Probe], list[str], dict[str, str]]:
     """Buyer questions on both fronts: where AI places the company (`placed`, its questions already
     written) and where its homepage says it aims to be (the core category). -> (topics, probes with
@@ -209,15 +212,17 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
     Whatever budget the fronts leave goes to the claims' own buyer questions
     (blind_probes_from_attributes), an unlabelled group counted as neither front, so the sample
     never shrinks. Blind questions are vetted like any other: one that names the brand or addresses
-    the vendor is skipped, never rewritten.
+    the vendor is skipped, never rewritten. `placed_category` is where AI places the company as a
+    buyer would name it; without one the attribute's own label stands in.
     """
     aiming = profile.core_category
+    placed_as = placed_category or (placed.label if placed else None)
     fronts, missing = [], {}
-    if placed and aiming and same_category(placed.label, aiming):
+    if placed and aiming and same_category(placed_as, aiming):
         fronts.append(("both", aiming, [*profile.category_questions, *placed_questions]))
     else:
         if placed:
-            fronts.append(("placed", placed.label, placed_questions))
+            fronts.append(("placed", placed_as, placed_questions))
         else:
             missing["placed"] = (f"No brand answer endorsed any attribute, so there is no category where "
                                  f"AI already places {profile.name}.")
@@ -259,8 +264,8 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
             topics.append(control_topic(profile, category, control.topic_id, front))
             probes.append(control)
             continue
-        why = (f"every buyer question for {category} named {profile.name} or addressed the vendor"
-               if questions else f"no buyer questions are saved or could be written for {category}")
+        why = (f"every unbranded question for {category} named {profile.name} or addressed the vendor"
+               if questions else f"no unbranded questions are saved or could be written for {category}")
         for f in (("placed", "aiming") if front == "both" else (front,)):
             where = f"Where AI places {profile.name}" if f == "placed" else f"Where {profile.name} aims to be"
             missing[f] = (f"{where} was not measured: {why}."
@@ -375,7 +380,7 @@ def choose_followup(topics: list[Topic], topic_evals: list[TopicEvaluation], eva
             if p.text.strip().lower() in asked or brand_leaks(p.text, profile):
                 continue  # not novel or not neutral: skip rather than ask
             new.append(p)
-        uncertainty = ("whether the absence persists under differently framed buyer questions"
+        uncertainty = ("whether the absence persists under differently framed unbranded questions"
                        if te.status == "candidate gap" else "why results were split across similar questions")
         found = (f"not recommended in any of {te.n} answers" if not te.recommendations
                  else f"recommended in only {te.recommendations} of {te.n} answers")

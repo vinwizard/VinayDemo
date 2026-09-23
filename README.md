@@ -39,7 +39,7 @@ Two probe families measure two different things:
   Details: "Why a rerun gives a different number" in [`WEB.md`](WEB.md).
 - **Named probes** name the brand but never name an attribute → **perception**. What does AI say you are?
 
-The ids and these code names stay internal; on screen they are *buyer questions* and *brand questions*
+The ids and these code names stay internal; on screen they are *unbranded questions* and *branded questions*
 (see the wording rules in [`WEB.md`](WEB.md)).
 
 A named probe that contains the attribute it measures invites the model to agree, so `ana.attribute_leaks`
@@ -114,12 +114,13 @@ demo with no key or internet, start the API with `VISEXP_OFFLINE_REPLAY=1` and t
 company replays the bundled Notion sample, labelled as such. Stop either process with `Ctrl+C`.
 [`WEB.md`](WEB.md) has the details, live mode and the API reference.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 407 passing,
+Tests: `conda activate visexp && python -m pytest -q` (offline; 457 passing,
 incl. one journey per bundled scenario end to end through the `/api/stream` event stream, the API over
 HTTP via fastapi's TestClient, the live adapter under an injected
 transport — including how it classifies a refused key or a region block — no API key, no network).
 
-CI runs those tests plus the web typecheck (`npx tsc -b`) and lint (`npx oxlint`) on every pull request.
+CI runs those tests plus the web typecheck (`npx tsc -b`), lint (`npx oxlint`) and unit tests
+(`npm test`: the positioning map's label placement and the report tab badges, under `node --test`) on every pull request.
 `.github/workflows/ci.yml` states what a green tick does and does not cover.
 
 ### If you get `command not found: conda`

@@ -25,7 +25,7 @@ states each one. Enterprise-ready is at 12% — they told us they want it, their
 
 **0:30 — run it (10s)**
 
-Start the measurement. Call out the stages as they complete: each brand and buyer question is answered
+Start the measurement. Call out the stages as they complete: each branded and unbranded question is answered
 one by one, the observations are extracted and validated, then classified. Real graph transitions,
 fixture-backed nodes.
 
@@ -40,7 +40,7 @@ invented term has a dotted underline — hover it for the definition.
 **1:00 — the zone chips (30s)**
 
 Hover a chip: each claim in it shows what they claim beside what AI says, in the AI's own words,
-with its win-back fix. Hover any "Brand question 3" to read that question and answer in place. The
+with its win-back fix. Hover any "Branded question 3" to read that question and answer in place. The
 asymmetry is the product:
 
 - Strong claim, no echo → they say it, AI ignores it
@@ -66,7 +66,7 @@ If there is time, put the two runs side by side in the comparison view to show t
 
 **Close**
 
-Open the evidence behind the report — the Buyer and Brand questions tabs hold every question asked
+Open the evidence behind the report — the Questions we asked AI tab holds every question asked
 and every answer; the Overview ends with "How we checked this report" — answers counted and left
 out, quotes thrown away, traits rejected — and the full data download holds the workflow log.
 Nothing on the screen is unsourced.

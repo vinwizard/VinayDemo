@@ -14,14 +14,16 @@ from schemas import Attribute, CompanyProfile, Probe
 # name; AnA's whole job is to ask what a buyer would ask, and it must never see the name it is
 # testing for. Each template says the brand and nothing else about it — never an attribute, or the
 # answer would only echo the question back (see ana.attribute_leaks).
+# Worded for any kind of company: "a 200-person company", "day to day" and "never used it" assume
+# software, and a drugmaker's answers then described it as "not a standalone service".
 NAMED_TEMPLATES = [
     "What is {brand}, and who is it for?",
-    "How would you describe {brand} to someone who has never used it?",
-    "What do people typically use {brand} for day to day?",
+    "How would you describe {brand} to someone who has never heard of it?",
+    "What is {brand} best known for?",
     "What are {brand}'s main strengths and weaknesses?",
-    "Would you recommend {brand} to a 200-person company? Why or why not?",
+    "Would you recommend {brand}? Why or why not?",
     "What has changed about {brand} in the past year?",
-    "What kind of team gets the most value out of {brand}?",
+    "Who gets the most value out of {brand}?",
 ]
 NAMED_PURPOSE = "Measure how AI characterises the brand when asked about it directly."
 
@@ -33,8 +35,8 @@ def named_probes_for(profile: CompanyProfile, attributes: list[Attribute] = ()) 
     up front would put the answer in the model's mouth. Competitors are discovered from the blind
     answers instead, and the comparison is asked in the adaptive round (ana.comparison_probe).
 
-    A template whose ordinary English collides with a measured claim ("What kind of TEAM…" against
-    the alias "team") is dropped here rather than rewritten, so the collision costs one question at
+    A template whose ordinary English collides with a measured claim (a template word that is also
+    one of a claim's aliases) is dropped here rather than rewritten, so the collision costs one question at
     onboarding instead of failing validation and killing every later run. Ids come from the template
     position, so np-3 is the same question whether or not np-7 survived.
     """

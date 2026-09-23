@@ -85,3 +85,22 @@ def test_a_repair_may_bring_the_rest_of_the_line():
     got = repair_quotes(labels(evidence_quotes=[slip]), TEXT,
                         lambda _: json.dumps({"fixed": {slip: "Its interface opens issues instantly."}}))
     assert got["evidence_quotes"] == ["Its interface opens issues instantly."]
+
+
+def test_the_repair_prompt_shows_a_dash_as_a_dash():
+    # json.dumps escapes by default: a line with "—" reached the model as "—", and a copy of
+    # that could never be verbatim in the answer.
+    text = "Linear—the issue tracker—opens issues instantly."
+    asked = []
+    repair_quotes(labels(evidence_quotes=["linear—the issue tracker"]), text,
+                  lambda prompt: asked.append(prompt) or "{}")
+    assert "Linear—the issue tracker—opens" in asked[0] and "\\u2014" not in asked[0]
+
+
+def test_rivals_asked_for_are_companies_named_in_the_answer():
+    # With "other products … the product NAME only", a drugmaker's rivals were drugs (Yescarta,
+    # Kymriah) beside companies (AbbVie, Novartis). Re-judged asking for companies, the drug names
+    # went and "Regeneron, Sanofi, Novo Nordisk" came back.
+    prompt = build_prompt(PROBE, ANSWER, ATTRS, PROFILE)
+    assert "other COMPANIES the answer recommends" in prompt and "other products" not in prompt
+    assert "if the lines never name that company, leave it" in prompt

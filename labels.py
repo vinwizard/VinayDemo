@@ -20,7 +20,7 @@ def spoken(value: str) -> str:
 
 
 def probe_name(probe: Probe) -> str:
-    """`np-4` -> "Brand question 4", `kb-2` -> "Buyer question 2", `kb-f1` -> "Follow-up question 1".
+    """`np-4` -> "Branded question 4", `kb-2` -> "Unbranded question 2", `kb-f1` -> "Follow-up question 1".
 
     The number comes from the id, not from a list position, so the same question is called the same
     thing on every screen and in every rerender. The adaptive comparison question is the one probe
@@ -29,10 +29,10 @@ def probe_name(probe: Probe) -> str:
     m = re.search(r"(\d+)$", probe.id)
     n = m.group(1) if m else "?"
     if probe.kind == "named":
-        return "Comparison question" if probe.phase == "followup" else f"Brand question {n}"
+        return "Comparison question" if probe.phase == "followup" else f"Branded question {n}"
     if probe.phase == "followup":
         return f"Follow-up question {n}"
-    return f"Buyer question {n}"
+    return f"Unbranded question {n}"
 
 
 def source_names(evidence: list[Evidence]) -> dict[str, str]:
@@ -48,12 +48,12 @@ def source_names(evidence: list[Evidence]) -> dict[str, str]:
 
 
 def probe_names(probes: list[Probe], topics: list[Topic] = ()) -> dict[str, str]:
-    """id -> "Buyer question 3 — Project tracking". Buyer questions carry their topic; brand ones have none."""
+    """id -> "Unbranded question 3 — Project tracking". Unbranded questions carry their topic; branded ones have none."""
     label = {t.id: t.label for t in topics}
     return {p.id: probe_name(p) + (f" — {label[p.topic_id]}" if p.kind == "blind" and p.topic_id in label else "")
             for p in probes}
 
 
 def with_ids(ids, names: dict[str, str]) -> str:
-    """"Buyer question 3 — Project tracking (`pt-3`)": the name a reader needs, the id traceability needs."""
+    """"Unbranded question 3 — Project tracking (`pt-3`)": the name a reader needs, the id traceability needs."""
     return ", ".join(f"{names.get(i, i)} (`{i}`)" for i in ids)

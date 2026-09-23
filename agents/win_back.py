@@ -56,7 +56,7 @@ def pages(run: Run) -> dict:
 
 
 def verdicts(run: Run) -> dict[str, str]:
-    """Baseline buyer question id -> what AI did with the company. The only ids an action may cite."""
+    """Baseline unbranded question id -> what AI did with the company. The only ids an action may cite."""
     ev = {e.probe_id: e for e in run.evaluations}
     out = {}
     for p in run.probes:
@@ -74,7 +74,7 @@ def build_prompt(run: Run) -> str:
         + (f" — {attrs[s.attribute_id].description}" if attrs.get(s.attribute_id) and attrs[s.attribute_id].description else "")
         + ("\n  (stated on the site; AI does not repeat it)" if s.zone == "lost_claim"
            else "\n  (wanted, but the site barely says it)")
-        + "".join(f"\n  site says: {json.dumps(q)}" for q in attrs[s.attribute_id].claim_quotes[:2]
+        + "".join(f"\n  site says: {json.dumps(q, ensure_ascii=False)}" for q in attrs[s.attribute_id].claim_quotes[:2]
                   if s.attribute_id in attrs)
         for s in targets(run))
     page_text = "\n\n".join(f'--- {url} ---\n"""\n{e.excerpt}\n"""' for url, e in pages(run).items())
@@ -85,7 +85,8 @@ def build_prompt(run: Run) -> str:
 
 
 def validate(raw, run: Run) -> tuple[list[WinBackAction], list[str]]:
-    """-> (kept actions, reasons for everything dropped). Nothing unverifiable reaches the report."""
+    """-> (kept actions, reasons for everything dropped, as plain sentences a marketer reads on the
+    Quick wins tab). Nothing unverifiable reaches the report."""
     by_target = {s.attribute_id: s for s in targets(run)}
     known, asked = pages(run), verdicts(run)
     probes = {p.id: p for p in run.probes}
@@ -98,31 +99,31 @@ def validate(raw, run: Run) -> tuple[list[WinBackAction], list[str]]:
         s = by_target.get(aid) if isinstance(aid, str) else None
         label = s.label if s else repr(aid)
         if not isinstance(aid, str) or not isinstance(url, str):
-            dropped.append(f"{label}: attribute_id and page_url must be text")
+            dropped.append(f"{label}: the suggestion did not say which claim or page, so it could not be checked.")
         elif not isinstance(a.get("question_ids") or [], list):
-            dropped.append(f"{label}: question_ids must be a list")
+            dropped.append(f"{label}: the suggestion's list of questions was malformed, so it could not be checked.")
         elif not s:
-            dropped.append(f"{label}: not a claim to win back or amplify in this run")
+            dropped.append(f"{label}: not one of this run's claims with room to grow.")
         elif aid in kept:
-            dropped.append(f"{label}: a second action for the same claim")
+            dropped.append(f"{label}: a second suggestion for the same claim; the first one was kept.")
         elif url not in known:
-            dropped.append(f"{label}: page {url!r} was not among the pages read")
+            dropped.append(f"{label}: it pointed at {url}, a page we did not read, so we could not check it.")
         elif copy is not None and not (real(copy) and quoted_in(copy, known[url].excerpt)):
-            dropped.append(f"{label}: the copy it would replace is not on {url} ({copy!r})")
+            dropped.append(f"{label}: the sentence it would replace is not on {url} word for word: “{copy}”")
         elif not rewrite or len(rewrite.split()) > MAX_REWRITE_WORDS:
-            dropped.append(f"{label}: rewrite is empty or over {MAX_REWRITE_WORDS} words")
+            dropped.append(f"{label}: the new copy was empty or longer than {MAX_REWRITE_WORDS} words.")
         elif vague := sorted({m.group(0).lower() for m in MARKETING.finditer(rewrite)}):
-            dropped.append(f"{label}: rewrite uses marketing language no answer could repeat as a "
-                           f"fact ({', '.join(vague)})")
+            dropped.append(f"{label}: the new copy uses marketing words no answer could repeat as a "
+                           f"fact ({', '.join(vague)}).")
         else:
             qids = [q for q in a.get("question_ids") or [] if isinstance(q, str)]
             for q in qids:
                 if q not in asked:
-                    dropped.append(f"{label}: question {q!r} is not a buyer question in this run")
+                    dropped.append(f"{label}: it cited {q}, which is not an unbranded question in this run.")
                 elif asked[q] in ("recommended", "excluded"):
-                    dropped.append(f"{label}: {probe_name(probes[q])} dropped — it was "
+                    dropped.append(f"{label}: {probe_name(probes[q])} left off this fix, as it was "
                                    f"{'already recommending' if asked[q] == 'recommended' else 'excluded from'} "
-                                   f"{'you' if asked[q] == 'recommended' else 'the scores'}")
+                                   f"{'you' if asked[q] == 'recommended' else 'the scores'}.")
             kept[aid] = WinBackAction(
                 attribute_id=aid, label=s.label, zone=s.zone, page_url=url, current_copy=copy,
                 rewrite=rewrite, question_ids=list(dict.fromkeys(
@@ -138,8 +139,8 @@ def plan(run: Run, provider) -> None:
         return
     raw: Optional[list] = propose(build_prompt(run))
     if raw is None:
-        run.win_back_notes = ["The action-plan call failed, so no fix was proposed."]
+        run.win_back_notes = ["The call that suggests fixes failed, so none was suggested."]
         return
     run.win_back, run.win_back_notes = validate(raw, run)
     if missing := [s.label for s in targets(run) if s.attribute_id not in {x.attribute_id for x in run.win_back}]:
-        run.win_back_notes.append(f"No verified action for: {', '.join(missing)}.")
+        run.win_back_notes.append(f"No suggested fix passed our checks for: {', '.join(missing)}.")

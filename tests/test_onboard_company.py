@@ -219,9 +219,10 @@ def test_weighting_more_claims_than_there_are_topics_still_plans_a_valid_run():
 
 
 def test_a_brand_question_colliding_with_an_attribute_is_dropped_at_onboarding(store):
-    """'What kind of TEAM…' against the alias 'team' used to pass onboarding and then abort every
-    later run in validate_and_freeze, with no way to repair the saved company from the UI."""
-    attrs = [Attribute(id="collab", label="Built for collaboration", aliases=["team", "people"])]
+    """'Who gets the most VALUE…' against the alias 'value' (once 'What kind of TEAM…' against
+    'team') used to pass onboarding and then abort every later run in validate_and_freeze, with no
+    way to repair the saved company from the UI."""
+    attrs = [Attribute(id="value", label="Great value for money", aliases=["value", "price"])]
     probes = onboarding.named_probes_for(PROFILE, attrs)
     assert probes and len(probes) < len(onboarding.NAMED_TEMPLATES)
     assert ana.validate_named_probes(probes, attrs) == []
@@ -267,10 +268,10 @@ def test_the_buyers_own_product_or_company_is_not_the_vendor(q):
 
 def test_onboard_vetting_says_how_many_brand_questions_are_left():
     attrs = [Attribute(id=f"a{i}", label=f"Claim {i}",
-                       aliases=["describe", "use", "strengths", "recommend", "changed", "team"])
+                       aliases=["describe", "known", "strengths", "recommend", "changed", "value"])
              for i in range(1, 3)]
     warnings = main.vet_questions(PROFILE, attrs)
-    assert any("brand question(s) remain" in w for w in warnings)
+    assert any("branded question(s) remain" in w for w in warnings)
 
 
 # ---------------------------------------------------------------- added claims

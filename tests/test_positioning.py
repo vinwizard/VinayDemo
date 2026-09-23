@@ -1,5 +1,5 @@
-"""The positioning map: PCA on fake vectors is deterministic, the drift arrow runs from where AI
-places the brand to where its site aims, axes are named only when a claim lines up with them, and
+"""The positioning map: deterministic on fake vectors, the drift arrow runs from where AI places the
+brand to where its site aims, both axes are always named after one of the company's claims, and
 replays carry the authored sample without moving a score."""
 import pytest
 
@@ -36,17 +36,30 @@ def test_projection_is_deterministic_and_the_arrow_points_at_the_site():
     seen, aim, *rivals = m.points
     assert (seen.kind, aim.kind, [r.name for r in rivals]) == ("seen", "intended", ["Wikia", "Taskly"])
     assert m.aim == "site"
-    assert aim.x >= seen.x and aim.y >= seen.y  # axes oriented so the drift runs up and right
     assert m.closest == ["Wikia", "Taskly"]      # the brand as AI tells it is a wiki
     assert rivals[0].sentences == ["Wikia is a wiki with wiki pages for docs."]
-    assert m.x_axis == ["Knowledge wiki", "AI agents"] and m.toward == "AI agents"
+    assert m.x_axis == ["AI agents"] and m.y_axis == ["Knowledge wiki"]  # what the dots differ on most
+    assert aim.x > seen.x and m.toward == "AI agents"  # the site talks about agents more than AI does
     assert "1 less-named rivals were left off" in m.notes[0]  # Ghost: named, never described
 
 
-def test_pca_recovers_the_spread_on_a_line():
-    coords, _, shown = positioning.pca2([[0, 0, 0], [1, 0, 0], [2, 0, 0]])
-    assert [round(abs(x), 6) for x, _ in coords] == [1, 0, 1] and all(abs(y) < 1e-9 for _, y in coords)
-    assert shown == 1.0
+def test_both_axes_are_named_even_when_every_claim_sits_at_one_end():
+    # Amgen, Notion and Profound, live: every claim describes the company, so all of them sat at one
+    # end of each PCA axis, and an axis was named only with a claim at BOTH ends. No live map ever
+    # named an axis ("No claim lines up with either axis, so they have no name").
+    r = run()
+    r.attributes = [Attribute(id="a1", label="Knowledge wiki"), Attribute(id="a2", label="Wiki pages"),
+                    Attribute(id="a3", label="Team wiki", intended_weight=1.0)]
+    m = positioning.build(r, embed=by_words)
+    assert m.x_axis == ["Team wiki"]            # across: the claim weighted highest
+    assert len(m.y_axis) == 1 and m.y_axis != m.x_axis and m.explained is not None
+
+
+def test_an_axis_is_one_claim_and_the_other_axis_is_what_is_left():
+    means = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0]]
+    claims = [Attribute(id="x", label="X"), Attribute(id="y", label="Y", intended_weight=0.5)]
+    coords, ix, iy, shown = positioning.claim_axes(means, claims, [[1, 1, 0], [0, 1, 0]])
+    assert (ix, iy) == (1, 0) and 0 < shown <= 1  # across is the weighted claim, however little it spreads
 
 
 def test_no_rival_means_no_map_and_a_reason():
@@ -61,6 +74,7 @@ def test_replay_carries_the_authored_sample_and_moves_no_score():
         r = replay(scenario)
         m = r.positioning
         assert m.provenance == "synthetic" and m.model is None
+        assert len(m.x_axis) == 2 and len(m.y_axis) == 2  # the authored sample is labelled too
         assert r.drift.alignment == score
         texts = " ".join(a.text for a in [*r.answers, *r.repeat_answers])
         for p in m.points:  # verbatim: every sentence is in an answer or on the site
@@ -118,7 +132,28 @@ def test_rescore_moves_the_aim_to_the_weighted_claims_without_asking_a_model(mon
     assert live.positioning.points == before.points
     assert "a text it needs was never embedded" in live.positioning.notes[-1]
 
-    monkeypatch.setattr(positioning, "pca2", lambda *a: 1 / 0)
+    monkeypatch.setattr(positioning, "claim_axes", lambda *a: 1 / 0)
     monkeypatch.setattr(embeddings, "_path", lambda: tmp_path / "embeddings.db")
     graph.rescore(live, {live.attributes[2].id: 0.4})
     assert live.positioning.points == before.points and "ZeroDivisionError" in live.log[-2]
+
+
+def test_a_division_is_counted_as_its_parent_company_and_never_shown_twice():
+    # Amgen on gpt-6-luna, 22 Sep 2026: the map drew "Johnson & Johnson" and "Johnson & Johnson
+    # Innovative Medicine" as two rivals, from two answers naming the one company two ways.
+    from agents.evaluation import merge_divisions
+    evals = [QueryEvaluation(probe_id="b1", valid=True, explanation="x",
+                             competitor_recommendations=["Johnson & Johnson", "Pfizer"]),
+             QueryEvaluation(probe_id="b2", valid=True, explanation="x",
+                             competitor_recommendations=["Johnson & Johnson Innovative Medicine", "Johnson & Johnson"]),
+             QueryEvaluation(probe_id="b3", valid=True, explanation="x",
+                             competitor_recommendations=["Pfizer Oncology", "Novartis"])]
+    merge_divisions(evals)
+    assert [e.competitor_recommendations for e in evals] == [
+        ["Johnson & Johnson", "Pfizer"], ["Johnson & Johnson"], ["Pfizer", "Novartis"]]
+    merge_divisions(evals)  # idempotent
+    assert evals[1].competitor_recommendations == ["Johnson & Johnson"]
+    other = [QueryEvaluation(probe_id="b4", valid=True, explanation="x",
+                             competitor_recommendations=["Merck", "Merck KGaA", "Merck Inc."])]
+    merge_divisions(other)
+    assert other[0].competitor_recommendations == ["Merck", "Merck KGaA"]

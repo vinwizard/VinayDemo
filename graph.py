@@ -62,7 +62,7 @@ class ValidationError(Exception):
 
 
 def plan_brand(s: State):
-    """Brand questions first: the buyer questions are planned from what their answers say."""
+    """Branded questions first: the unbranded questions are planned from what their answers say."""
     run, provider = s["run"], s["provider"]
     if check := getattr(provider, "check_profile", None):
         check(run.profile)   # an edited profile never receives the bundled replay
@@ -74,8 +74,8 @@ def plan_brand(s: State):
     if errors:
         raise ValidationError("; ".join(errors))
     run.topics, run.probes = ([ana.perception_topic()] if named else []), named
-    run.log.append(f"Question planner prepared {len(named)} brand questions and "
-                   f"{len(run.attributes)} attributes; buyer questions are planned from their answers.")
+    run.log.append(f"Question planner prepared {len(named)} branded questions and "
+                   f"{len(run.attributes)} attributes; unbranded questions are planned from their answers.")
     return {"run": run}
 
 
@@ -146,20 +146,20 @@ def plan_buyer(s: State):
             (f"Where AI places {run.profile.name}: {placed.label} (endorsed in {endorsed} "
              f"of {sc.n if sc else 0} brand answers). " if placed else "")
             + (f"Where it aims to be: {run.profile.core_category}. " if run.profile.core_category else "")
-            + f"{len(buyer)} buyer questions planned across {len(fronts)} set(s)"
+            + f"{len(buyer)} unbranded questions planned across {len(fronts)} set(s)"
             + (", the rest from the claims." if any(not t.front for t in topics if t.kind == "buyer") else "."))
         if "both" in fronts:
             run.log.append(f"Where AI places {run.profile.name} ({placed.label}) is the category its site "
-                           f"aims for ({run.profile.core_category}), so one set of buyer questions was asked.")
+                           f"aims for ({run.profile.core_category}), so one set of unbranded questions was asked.")
     else:
-        run.log.append(f"Question planner prepared {len(buyer)} buyer questions from the claims.")
+        run.log.append(f"Question planner prepared {len(buyer)} unbranded questions from the claims.")
     run.demand_notes = list(getattr(provider, "demand_notes", []))
     run.log += run.demand_notes
     for note in [*getattr(provider, "notes", []), *run.missing_fronts.values()]:
         run.log.append(note)
         run.drift_notes.append(note)
     if skipped := getattr(provider, "skipped_questions", []):
-        run.log.append(f"{len(skipped)} buyer question(s) dropped for naming the brand or addressing "
+        run.log.append(f"{len(skipped)} unbranded question(s) dropped for naming the brand or addressing "
                        f"the vendor instead of describing a need: {'; '.join(skipped)}.")
     return {"run": run}
 
@@ -178,7 +178,7 @@ def validate_and_freeze(s: State):
         raise ValidationError("; ".join(errors))
     run.baseline_hash = ana.baseline_hash(run.probes)
     run.status = "baseline_frozen"
-    run.log.append("Baseline validated (buyer questions leak no brand, brand questions leak no attribute) "
+    run.log.append("Baseline validated (unbranded questions leak no brand, branded questions leak no attribute) "
                    f"and frozen with fingerprint {run.baseline_hash[:12]}.")
     return {"run": run}
 
@@ -217,7 +217,7 @@ def execute_or_replay(s: State):
     # the log must not claim "replayed from fixtures" for answers a real provider produced
     verb = "Replayed" if all(a.provenance == "synthetic" for a in new) else "Collected"
     src = "fixtures" if verb == "Replayed" else f"{provider.name} ({getattr(provider, 'model', '?')})"
-    extra = (f", plus {len(again)} repeat asks of {len(sampled)} sampled buyer question(s) "
+    extra = (f", plus {len(again)} repeat asks of {len(sampled)} sampled unbranded question(s) "
              f"({tries} tries each)") if again else ""
     run.log.append(f"{verb} {len(todo)} {phase} answers{extra} from {src} ({failed} failed).")
     return {"run": run}
@@ -234,6 +234,7 @@ def evaluate(s: State):
     by_id = {p.id: p for p in run.probes}
     run.repeat_evaluations = [evaluation.evaluate(by_id[a.probe_id], a, run.profile)
                               .model_copy(update={"try_no": a.try_no}) for a in run.repeat_answers]
+    evaluation.merge_divisions([*run.evaluations, *run.repeat_evaluations])
     ev = {e.probe_id: e for e in run.evaluations}
     run.topic_evaluations = []
     for phase in ("baseline", "followup"):
@@ -286,7 +287,7 @@ def measure_drift(s: State):
         run.drift_notes.append(
             "No competitor was named in any baseline answer, so no comparison question was asked."
             if any(p.kind == "blind" for p in run.probes) else
-            "No buyer question was asked — no claim has a buyer question — so the buyer axis was "
+            "No unbranded question was asked — no claim has an unbranded question — so the buyer axis was "
             "not measured and no competitor could be discovered.")
     score_drift(run)
     run.log.append(f"Drift measured over {run.drift.n_named} brand answers: claim echo "
@@ -345,7 +346,7 @@ def score_drift(run: Run) -> None:
         if qs and max(map(len, qs)) < 2:
             return ("No question was asked twice, so there is no interval: a sample of repeat asks "
                     "is what shows how much the same question varies.")
-        return (f"Too few buyer questions for an interval: {len(qs)} scored, at least "
+        return (f"Too few unbranded questions for an interval: {len(qs)} scored, at least "
                 f"{MIN_INTERVAL_ANSWERS} needed.")
     if run.drift.visibility is not None:
         qs = per_question([p.id for p in blind])
@@ -369,8 +370,8 @@ def score_drift(run: Run) -> None:
                 f"Too few answers for an interval: {len(kept)} brand answer(s), at least "
                 f"{MIN_INTERVAL_ANSWERS} needed.")
     if run.drift.visibility is None and not blind:
-        run.drift.na_reasons["visibility"] = ("No buyer question was asked: no claim had a buyer "
-                                              "question, so visibility is not measured.")
+        run.drift.na_reasons["visibility"] = ("No unbranded question was asked: no claim had an "
+                                              "unbranded question, so visibility is not measured.")
     # One set per front, each with its own tries, range and control question. Replay has one
     # unlabelled set (front None), so its numbers are the run's own.
     topic = {t.id: t for t in run.topics}
@@ -435,6 +436,7 @@ def rescore(run: Run, weights: dict[str, float]) -> Run:
     by_id = {a.id: a for a in run.attributes}
     for aid, w in weights.items():
         by_id[aid].intended_weight = round(w, 2) or None
+    evaluation.merge_divisions([*run.evaluations, *run.repeat_evaluations])  # a run saved before it existed
     score_drift(run)
     if run.positioning is not None and run.positioning.provenance == "live_api":
         import embeddings
@@ -489,7 +491,7 @@ def simulate_retrieval(run: Run, provider) -> None:
     run.log.append(("Retrieval sample (authored, not computed)" if run.retrieval.provenance == "synthetic"
                     else "Retrieval simulation") + f": {run.retrieval.passages} passages from {run.retrieval.pages} "
                    f"pages; your best passage trails the cited page on "
-                   f"{sum(r.rival.score > r.yours.score for r in rows)} of {len(rows)} buyer questions.")
+                   f"{sum(r.rival.score > r.yours.score for r in rows)} of {len(rows)} unbranded questions.")
 
 
 def map_positioning(run: Run, build) -> None:
@@ -510,7 +512,7 @@ def map_positioning(run: Run, build) -> None:
 
 
 def route_after_evaluate(s: State) -> str:
-    """Brand answers are in and nothing is frozen yet: read them, then plan the buyer questions."""
+    """Brand answers are in and nothing is frozen yet: read them, then plan the unbranded questions."""
     return "perceive" if s["run"].baseline_hash is None else "choose_followup"
 
 
