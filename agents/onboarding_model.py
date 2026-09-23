@@ -305,9 +305,12 @@ def build_profile(data: dict, pages: list[tuple[str, str]], domain: str) -> Comp
                and distinctive_alias(a.strip(), name)]
     # Its own products count as naming it: "Tezepelumab (Tezspire)" in an answer is Amgen showing
     # up, and was scored absent and even listed as Amgen's rival. They are never rivals either
-    # (evaluation drops a competitor that brand_leaks).
+    # (evaluation drops a competitor that brand_leaks). Only a name its own pages write: every name
+    # here credits the company with a mention, and the model also lists products from memory.
+    texts = [text for _, text in pages]
     products = [p.strip() for p in (data.get("products") or []) if isinstance(p, str) and p.strip()
-                and distinctive_alias(p.strip(), name)]
+                and distinctive_alias(p.strip(), name)
+                and any(re.search(rf"(?<!\w){re.escape(p.strip())}(?!\w)", t) for t in texts)]
     return CompanyProfile(
         name=name,
         domain=domain,

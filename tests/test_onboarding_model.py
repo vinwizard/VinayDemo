@@ -236,9 +236,10 @@ def test_own_products_count_as_the_brand_and_are_never_its_rivals():
     from agents.evaluation import evaluate
     from agents.onboarding_model import build_profile
     from schemas import Answer, Probe
-    profile = build_profile({"name": "Amgen", "aliases": ["Amgen Inc."], "products": ["Tezspire", "Repatha"]},
+    profile = build_profile({"name": "Amgen", "aliases": ["Amgen Inc."], "products": ["Tezspire", "Repatha", "Humira"]},
                             [("https://www.amgen.com/", "Amgen makes Tezspire and Repatha.")], "amgen.com")
     assert {"Amgen", "Amgen Inc.", "Tezspire", "Repatha"} <= set(profile.names())
+    assert "Humira" not in profile.names()  # not on its pages: a product named from memory credits nobody
     text = "| **Severe asthma** | **Tezepelumab** (Tezspire) | Add-on maintenance treatment. Humira is AbbVie's."
     probe = Probe(id="cat-b1", topic_id="cat-1", kind="blind", phase="baseline", purpose="p",
                   text="What biologic medicines are available for treating serious illnesses?")
