@@ -120,7 +120,7 @@ HTTP via fastapi's TestClient, the live adapter under an injected
 transport — including how it classifies a refused key or a region block — no API key, no network).
 
 CI runs those tests plus the web typecheck (`npx tsc -b`), lint (`npx oxlint`) and unit tests
-(`npm test`: the positioning map's label placement, under `node --test`) on every pull request.
+(`npm test`: the positioning map's label placement and the report tab badges, under `node --test`) on every pull request.
 `.github/workflows/ci.yml` states what a green tick does and does not cover.
 
 ### If you get `command not found: conda`
