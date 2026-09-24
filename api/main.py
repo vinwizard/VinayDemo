@@ -670,6 +670,8 @@ def companies(request: Request = None):
 def _company(company_id: str) -> Company:
     if offline_seed(company_id):
         return replay_company()
+    if company_id in access.RETIRED:
+        raise HTTPException(404, f"No onboarded company {company_id!r}")
     try:
         return load_company(company_id)
     except (FileNotFoundError, ValueError):

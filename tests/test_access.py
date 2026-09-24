@@ -326,7 +326,13 @@ def test_the_retired_profound_showcase_left_on_a_disk_is_never_listed_or_served(
     assert old_company not in {x["id"] for x in c.get("/api/companies").json()}
     assert c.get(f"/api/companies/{old_company}").status_code == 404
     assert main.SHOWCASE_RUN in {r["id"] for r in c.get("/api/runs").json()}
-    assert (tmp_path / "runs" / f"{old_run}.json").exists() and (tmp_path / "companies" / f"{old_company}.json").exists()
+    kept = {p: p.read_bytes() for p in (tmp_path / "runs" / f"{old_run}.json", tmp_path / "companies" / f"{old_company}.json")}
+    for method, url, body in (("POST", f"/api/companies/{old_company}/audit", None),
+                              ("PATCH", f"/api/companies/{old_company}", {"weights": {}}),
+                              ("DELETE", f"/api/companies/{old_company}/attributes/anything", None),
+                              ("POST", f"/api/runs/{old_run}/rescore", {"weights": {}})):
+        assert c.request(method, url, json=body).status_code in (403, 404), url
+    assert all(p.read_bytes() == b for p, b in kept.items())            # left on disk, untouched
 
 
 def test_a_fresh_data_dir_gets_every_committed_company_and_run(env, tmp_path):
