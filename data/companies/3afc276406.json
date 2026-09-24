@@ -1,0 +1,577 @@
+{
+  "id": "3afc276406",
+  "schema_version": 1,
+  "created_at": "2026-09-22T20:01:23",
+  "profile": {
+    "name": "Amgen",
+    "domain": "amgen.com",
+    "owned_domains": [],
+    "aliases": [
+      "Amgen",
+      "AMGen",
+      "AMGen Inc.",
+      "Aranesp",
+      "Neulasta",
+      "Sensipar"
+    ],
+    "branded_terms": [],
+    "customer_types": [
+      "patients with serious illnesses",
+      "healthcare professionals",
+      "research institutions",
+      "biotechnology partners"
+    ],
+    "capabilities": [],
+    "use_cases": [],
+    "positioning_points": [
+      {
+        "id": "pp1",
+        "text": "Amgen discovers, develops, manufactures and delivers innovative medicines to fight some of the world’s toughest diseases.",
+        "evidence_ids": [
+          "pg1"
+        ],
+        "support": "sourced"
+      }
+    ],
+    "evidence": [
+      {
+        "id": "pg1",
+        "url": "https://www.amgen.com",
+        "excerpt": "Main Menu About Overview Amgen History Mission and Values Leadership Brand Partners Amgen Foundation Awards and Accolades Therapy Areas Cardiovascular Metabolic Bone Health Inflammation Oncology How We Operate Overview Corporate Governance Business Ethics and Compliance Policies, Practices and Disclosures Science Overview Research & Development Strategy Overview Human & Disease Biology Novel Targets & Modalities Clinical Trial Optimization AI & Data Science Pipeline Scientific Advisory Boards Biosimilars Clinical Trials Overview About Clinical Trials Amgen Clinical Trials Clinical Trial Representation Information for Healthcare Professionals Clinical Trial Transparency, Data Sharing and Disclosure Practices Clinical Out-of-Hours Support program Investigator Sponsored Studies Scientific Community Initiatives Overview Educational Outreach Program Postdoctoral Fellows Program Scientific Conferences Program Start-Up Network Program Manufacturing Overview Innovation Quality Reliability PRODUCTS Overview Medical Information Counterfeit Drug Statement Safety Data Sheets Global Patient Safety Overview Who We Are Our Commitment What We Do Adverse Event and Product Complaint Reporting Responsibility Overview 2025 Sustainability Highlights Report Corporate Sustainability Strategy Healthy Patients & Communities Overview Access to Healthcare Health Equity Community Investment and Amgen Foundation Product Quality Patient Safety Healthy Planet Overview Environmental Sustainability Responsible Sourcing Healthy Amgen Overview Our Workforce Corporate Governance Business Ethics and Compliance Ethical Research and Development Cybersecurity and Data Privacy Reporting and Metrics Overview CDP Archived Reports Stories All Stories Responsibility People and Culture Science and Innovation Patients Leadership Newsroom Partners Investors Careers Amgen Worldwide Overview Research & Development Strategy Overview <i class=\"fa fa-external-link\"></i> Scientific Advisory Boards Clinical Trials Scientific Community Initiatives&nbsp;&nbsp;&nbsp; Manufacturing About Overview Amgen History Mission and Values Leadership Brand Partners Amgen Foundation Therapy Areas General Medicine Rare Disease Inflammation Oncology Awards and Accolades How We Operate Corporate Governance Business Ethics and Compliance Policies, Practices and Disclosures Science Overview Research & Development Strategy Human & Disease Biology Novel Targets & Modalities Clinical Trial Optimization AI in Research & Development Pipeline Scientific Advisory Boards Biosimilars Clinical Trials About Clinical Trials Amgen Clinical Trials Clinical Trial Representation Information for Healthcare Professionals Clinical Trial Transparency, Data Sharing and Disclosure Practices Clinical Out-of-Hours Support Program Investigator Sponsored Studies Scientific Community Initiatives Educational Outreach Program Postdoctoral Fellows Program Scientific Conferences Program Start-Up Network Program Manufacturing Innovation Quality Reliability PRODUCTS Overview Medical Information Counterfeit Drug Statement Safety Data Sheets Global Patient Safety Who We Are Our Commitment What We Do Adverse Event and Product Complaint Reporting Responsibility Overview 2025 Sustainability Highlights Report Corporate Sustainability Strategy Healthy Patients & Communities Access to Healthcare Health Equity Amgen Foundation and Community Investment Product Quality Patient Safety Healthy Planet Environmental Sustainability Responsible Sourcing Healthy Amgen Our Workforce Corporate Governance Business Ethics and Compliance Ethical Research and Development Cybersecurity and Data Privacy Reporting and Metrics CDP Archived Reports Stories All Stories Responsibility People and Culture Science and Innovation Patients Leadership Newsroom Partners Investors Careers X Science & Innovation 09.22.2026 Amgen Ranks #4 on Forbes' Most Innovative Large Companies List Read Story ❮ 1 / 6 ❯ People & Culture 09.14.2026 Shane Lowry Secures Record Home Victory at the 2026 Amgen Irish Open Read Story ❮ 2 / 6 ❯ People & Culture 08.20.2026 Amgen Named to The Wall Street Journal's Inaugural 2026 Best Companies for the Future List Read Story ❮ 3 / 6 ❯ Leadership 08.12.2026 CEO Bob Bradway's Advice to the Next Generation of Innovators Read Story ❮ 4 / 6 ❯ Press Release 08.04.2026 Amgen Announces 2026 Second Quarter Financial Results Read More View Webcast ❮ 5 / 6 ❯ Responsibility 07.25.2026 Why MrBeast, Stand Up To Cancer, and Amgen Joined Forces to Support Pediatric Cancer Research Read Story ❮ 6 / 6 ❯ PEOPLE & CULTURE 07.30.2026 Amgen Included in U.S. Veterans Magazine’s 2026 Top Veteran Employers List PATIENTS 07.27.2026 For Himself and His Daughters: One Father’s Journey with Thyroid Eye Disease (TED) PATIENTS 07.21.2026 More Than Dry Eyes: The Many Faces of Sjögren’s Disease SCIENCE & INNOVATION 07.09.2026 How AI Is Changing Drug Discovery and What It Will Take to Unlock Its Full Potential RESPONSIBILITY 07.08.2026 Amgen Ecovation ® : How Amgen Builds Sustainability Into Biotech PATIENTS 06.24.2026 IgG4-RD: From Diagnostic Delays to Collective Action in Rare Disease Care PATIENTS 06.22.2026 What a Landmark Real-World Study Reveals About Thyroid Eye Disease PEOPLE & CULTURE 06.18.2026 Amgen Gives Greater Los Angeles Community an Experience to Remember at FIFA Fan Festival™ PEOPLE & CULTURE 06.11.2026 Amgen Named Among World’s Most Impactful Companies 2026 by TIME MORE STORIES Our Latest Press Releases PRESS RELEASE PRESS RELEASE PRESS RELEASE PRESS RELEASE PRESS RELEASE More News Our Story Watch Video Learn more Our Science Amgen is a pioneer in the science of using living cells to make biologic medicines. READ MORE Our Products Amgen’s medicines treat serious illnesses and typically address diseases with a limited number of treatment options. READ MORE Our Responsibility Making a positive difference in the world is at the heart of what we do at Amgen—and it goes beyond making vital medicines. READ MORE Amgen Investors Amgen is a pioneer in the science of using living cells to make biologic medicines, leading and guiding the biotech industry. Read More Careers With Amgen Encounter opportunities both new and undiscovered, as we embrace leading-edge technologies, invest in our talents, and maximize our potential. Read More Follow Us On Social Media Contact Us Sitemap Privacy Statement Terms of Use Consumer Health Data Privacy Policy Your Cookie Preferences © 1996-2026 Amgen Inc. All rights reserved.",
+        "retrieved_at": null,
+        "source_type": "page_fetch"
+      },
+      {
+        "id": "pg2",
+        "url": "https://www.amgen.com/about",
+        "excerpt": "Main Menu About Overview Amgen History Mission and Values Leadership Brand Partners Amgen Foundation Awards and Accolades Therapy Areas Cardiovascular Metabolic Bone Health Inflammation Oncology How We Operate Overview Corporate Governance Business Ethics and Compliance Policies, Practices and Disclosures Science Overview Research & Development Strategy Overview Human & Disease Biology Novel Targets & Modalities Clinical Trial Optimization AI & Data Science Pipeline Scientific Advisory Boards Biosimilars Clinical Trials Overview About Clinical Trials Amgen Clinical Trials Clinical Trial Representation Information for Healthcare Professionals Clinical Trial Transparency, Data Sharing and Disclosure Practices Clinical Out-of-Hours Support program Investigator Sponsored Studies Scientific Community Initiatives Overview Educational Outreach Program Postdoctoral Fellows Program Scientific Conferences Program Start-Up Network Program Manufacturing Overview Innovation Quality Reliability PRODUCTS Overview Medical Information Counterfeit Drug Statement Safety Data Sheets Global Patient Safety Overview Who We Are Our Commitment What We Do Adverse Event and Product Complaint Reporting Responsibility Overview 2025 Sustainability Highlights Report Corporate Sustainability Strategy Healthy Patients & Communities Overview Access to Healthcare Health Equity Community Investment and Amgen Foundation Product Quality Patient Safety Healthy Planet Overview Environmental Sustainability Responsible Sourcing Healthy Amgen Overview Our Workforce Corporate Governance Business Ethics and Compliance Ethical Research and Development Cybersecurity and Data Privacy Reporting and Metrics Overview CDP Archived Reports Stories All Stories Responsibility People and Culture Science and Innovation Patients Leadership Newsroom Partners Investors Careers Amgen Worldwide Overview Amgen History Mission and Values Leadership Brand Partners Amgen Foundation <i class=\"fa fa-external-link\"></i> Awards and Accolades Therapy Areas How We Operate Overview Research & Development Strategy Overview <i class=\"fa fa-external-link\"></i> Scientific Advisory Boards Clinical Trials Scientific Community Initiatives&nbsp;&nbsp;&nbsp; Manufacturing About Overview Amgen History Mission and Values Leadership Brand Partners Amgen Foundation Therapy Areas General Medicine Rare Disease Inflammation Oncology Awards and Accolades How We Operate Corporate Governance Business Ethics and Compliance Policies, Practices and Disclosures Science Overview Research & Development Strategy Human & Disease Biology Novel Targets & Modalities Clinical Trial Optimization AI in Research & Development Pipeline Scientific Advisory Boards Biosimilars Clinical Trials About Clinical Trials Amgen Clinical Trials Clinical Trial Representation Information for Healthcare Professionals Clinical Trial Transparency, Data Sharing and Disclosure Practices Clinical Out-of-Hours Support Program Investigator Sponsored Studies Scientific Community Initiatives Educational Outreach Program Postdoctoral Fellows Program Scientific Conferences Program Start-Up Network Program Manufacturing Innovation Quality Reliability PRODUCTS Overview Medical Information Counterfeit Drug Statement Safety Data Sheets Global Patient Safety Who We Are Our Commitment What We Do Adverse Event and Product Complaint Reporting Responsibility Overview 2025 Sustainability Highlights Report Corporate Sustainability Strategy Healthy Patients & Communities Access to Healthcare Health Equity Amgen Foundation and Community Investment Product Quality Patient Safety Healthy Planet Environmental Sustainability Responsible Sourcing Healthy Amgen Our Workforce Corporate Governance Business Ethics and Compliance Ethical Research and Development Cybersecurity and Data Privacy Reporting and Metrics CDP Archived Reports Stories All Stories Responsibility People and Culture Science and Innovation Patients Leadership Newsroom Partners Investors Careers X Home > About > About Amgen Amgen discovers, develops, manufactures and delivers innovative medicines to fight some of the world’s toughest diseases. Harnessing the best of biology and technology, Amgen reaches millions of patients with its medicines, helping make people’s lives easier, fuller and longer. More than 45 years ago, Amgen helped establish the biotechnology industry at its U.S. headquarters in Thousand Oaks, California, and it remains at the cutting edge of innovation, using technology and human genetic data to push beyond what is known today. Amgen is advancing a broad and deep pipeline and portfolio of medicines to treat heart disease, obesity and obesity-related conditions, rare diseases, inflammatory conditions and cancer. Amgen has been consistently recognized for innovation and workplace culture, including honors from Fast Company and Forbes . Amgen is one of the 30 companies that comprise the Dow Jones Industrial Average ® , and it is also part of the Nasdaq-100 Index ® , which includes the largest and most innovative non-financial companies listed on the Nasdaq Stock Market based on market capitalization. The Rhythm of Life Watch Video Reaching Seriously Ill Patients Worldwide We have a presence in approximately 100 countries worldwide and our innovative medicines have reached millions of people in the fight against serious illnesses. We focus on four therapeutic areas, general medicine, rare disease, inflammation, and oncology, delivering innovative medicines to help make people's lives easier, fuller and longer. Investing in Science and Innovation We pursue new ways to do science using tools like AI, generative biology and human data to discover what is not yet known and develop new precision medicines to fight the world’s toughest diseases. Making Medicines Safely and Reliably Many of Amgen's medicines are made through a highly complex process involving living cells. We aim to deliver for \"every patient, every time\", and we have a long-running reputation for the reliability of our supply chain. Operating Responsibly Making a positive difference in the world is at the heart of what we do at Amgen — and it goes beyond making vital medicines. We also help build a better world by focusing on environmental, social and governance issues that matter most to our business and our stakeholders. DOWNLOADS Amgen Fact Sheet In This Section Letter to Our Shareholders The capabilities we are building across science, technology, and manufacturing are enabling us to move faster, operate more efficiently, and reach more patients than ever before. With a diversified portfolio, strong commercial performance, and a deep and advancing pipeline, we are executing on our strategy to deliver meaningful innovation for patients and attractive long-term growth for shareholders. Read 2025 Letter to Shareholders Mission and Values Amgen strives to serve patients by transforming the promise of science and biotechnology into therapies that have the power to restore health or save lives. Leadership As one of the early pioneers of the biotech industry, Amgen's innovative and inspirational leadership is a core part of our social architecture. Senior Management Board of Directors Scientific Advisory Boards Brand Partners By partnering with organizations that share our commitment to improving people's lives, we're helping bring science to new audiences, strengthen communities, and extend the impact of research beyond the lab. Therapy Areas At Amgen, we are committed to delivering innovative medicines in four key therapeutic areas: general medicine, rare diseases, inflammation, and oncology. How We Operate At Amgen, we are relentless in applying the highest ethical standards to everything we do. Corporate Governance Business Ethics and Compliance Policies Practices and Disclosures Awards and Accolades Amgen has been the recipient of numerous awards and accolades over the years, ranging from recognition of our pioneering science and innovation, philanthropy and corporate social responsibility to our commitment to being a great place to work. Amgen History A biotechnology innovator since 1980, Amgen has grown to be one of the world's leading independent biotechnology companies and has reached millions of patients around the world. RELATED LINKS Stock Information Press Releases Amgen Science Amgen Business Development Follow Us On Social Media Contact Us Sitemap Privacy Statement Terms of Use Consumer Health Data Privacy Policy Your Cookie Preferences © 1996-2026 Amgen Inc. All rights reserved.",
+        "retrieved_at": null,
+        "source_type": "page_fetch"
+      },
+      {
+        "id": "pg3",
+        "url": "https://www.amgen.com/science/research-and-development-strategy/ai-in-research-and-development",
+        "excerpt": "Main Menu About Overview Amgen History Mission and Values Leadership Brand Partners Amgen Foundation Awards and Accolades Therapy Areas Cardiovascular Metabolic Bone Health Inflammation Oncology How We Operate Overview Corporate Governance Business Ethics and Compliance Policies, Practices and Disclosures Science Overview Research & Development Strategy Overview Human & Disease Biology Novel Targets & Modalities Clinical Trial Optimization AI & Data Science Pipeline Scientific Advisory Boards Biosimilars Clinical Trials Overview About Clinical Trials Amgen Clinical Trials Clinical Trial Representation Information for Healthcare Professionals Clinical Trial Transparency, Data Sharing and Disclosure Practices Clinical Out-of-Hours Support program Investigator Sponsored Studies Scientific Community Initiatives Overview Educational Outreach Program Postdoctoral Fellows Program Scientific Conferences Program Start-Up Network Program Manufacturing Overview Innovation Quality Reliability PRODUCTS Overview Medical Information Counterfeit Drug Statement Safety Data Sheets Global Patient Safety Overview Who We Are Our Commitment What We Do Adverse Event and Product Complaint Reporting Responsibility Overview 2025 Sustainability Highlights Report Corporate Sustainability Strategy Healthy Patients & Communities Overview Access to Healthcare Health Equity Community Investment and Amgen Foundation Product Quality Patient Safety Healthy Planet Overview Environmental Sustainability Responsible Sourcing Healthy Amgen Overview Our Workforce Corporate Governance Business Ethics and Compliance Ethical Research and Development Cybersecurity and Data Privacy Reporting and Metrics Overview CDP Archived Reports Stories All Stories Responsibility People and Culture Science and Innovation Patients Leadership Newsroom Partners Investors Careers Amgen Worldwide Overview Research & Development Strategy Overview <i class=\"fa fa-external-link\"></i> Scientific Advisory Boards Clinical Trials Scientific Community Initiatives&nbsp;&nbsp;&nbsp; Manufacturing About Overview Amgen History Mission and Values Leadership Brand Partners Amgen Foundation Therapy Areas General Medicine Rare Disease Inflammation Oncology Awards and Accolades How We Operate Corporate Governance Business Ethics and Compliance Policies, Practices and Disclosures Science Overview Research & Development Strategy Human & Disease Biology Novel Targets & Modalities Clinical Trial Optimization AI in Research & Development Pipeline Scientific Advisory Boards Biosimilars Clinical Trials About Clinical Trials Amgen Clinical Trials Clinical Trial Representation Information for Healthcare Professionals Clinical Trial Transparency, Data Sharing and Disclosure Practices Clinical Out-of-Hours Support Program Investigator Sponsored Studies Scientific Community Initiatives Educational Outreach Program Postdoctoral Fellows Program Scientific Conferences Program Start-Up Network Program Manufacturing Innovation Quality Reliability PRODUCTS Overview Medical Information Counterfeit Drug Statement Safety Data Sheets Global Patient Safety Who We Are Our Commitment What We Do Adverse Event and Product Complaint Reporting Responsibility Overview 2025 Sustainability Highlights Report Corporate Sustainability Strategy Healthy Patients & Communities Access to Healthcare Health Equity Amgen Foundation and Community Investment Product Quality Patient Safety Healthy Planet Environmental Sustainability Responsible Sourcing Healthy Amgen Our Workforce Corporate Governance Business Ethics and Compliance Ethical Research and Development Cybersecurity and Data Privacy Reporting and Metrics CDP Archived Reports Stories All Stories Responsibility People and Culture Science and Innovation Patients Leadership Newsroom Partners Investors Careers X Home > Science > Research & Development Strategy > AI in Research & Development > AI in Research & Development Accelerating Therapeutic Advancements We use AI and other advanced technologies across R&D to accelerate drug discovery and clinical development, helping us move from molecule to medicine with speed and efficiency. AI supports our study of vast amounts of omics data to better understand human and disease biology, generate deep insights into why therapies work and find ways we can improve and maximize their potential across various therapeutic areas. As we advance potential treatments through clinical trials, we use AI to increase trial efficiency and improve success rates. By analyzing both omics and real-world data we can optimize trial protocols, identify successful trial sites and eligible patients. AI and data science are helping us deliver more effective advancements, faster than ever before. Learn more about our data security and AI FEATURED STORY Science & Innovation 12.02.2025 Bio Meets Tech: How Amgen is Designing the Medicines of Tomorrow Read More MORE STORIES Harnessing the potential of AI Amgen is a leader in using advanced molecular and computational technologies to fight disease. To make this happen, we cultivate a team of experts that bridge biology and technology, powering the discovery of next-generation therapies. We’ve been consistently recognized by industry leaders as a great place to work, having been named one of America's Best Large Employers by Forbes magazine, as well as one of the World's 25 Best Workplaces™ by Fortune and Great Place to Work ® . LEARN MORE ABOUT CAREERS IN R&D SOCIAL MEDIA OUR SCIENCE Human & Disease Biology Novel Targets & Modalities Clinical Trial Optimization Clinical Trial Optimization Follow Us On Social Media Contact Us Sitemap Privacy Statement Terms of Use Consumer Health Data Privacy Policy Your Cookie Preferences © 1996-2026 Amgen Inc. All rights reserved.",
+        "retrieved_at": null,
+        "source_type": "page_fetch"
+      },
+      {
+        "id": "pg4",
+        "url": "https://www.amgen.com/products",
+        "excerpt": "Main Menu About Overview Amgen History Mission and Values Leadership Brand Partners Amgen Foundation Awards and Accolades Therapy Areas Cardiovascular Metabolic Bone Health Inflammation Oncology How We Operate Overview Corporate Governance Business Ethics and Compliance Policies, Practices and Disclosures Science Overview Research & Development Strategy Overview Human & Disease Biology Novel Targets & Modalities Clinical Trial Optimization AI & Data Science Pipeline Scientific Advisory Boards Biosimilars Clinical Trials Overview About Clinical Trials Amgen Clinical Trials Clinical Trial Representation Information for Healthcare Professionals Clinical Trial Transparency, Data Sharing and Disclosure Practices Clinical Out-of-Hours Support program Investigator Sponsored Studies Scientific Community Initiatives Overview Educational Outreach Program Postdoctoral Fellows Program Scientific Conferences Program Start-Up Network Program Manufacturing Overview Innovation Quality Reliability PRODUCTS Overview Medical Information Counterfeit Drug Statement Safety Data Sheets Global Patient Safety Overview Who We Are Our Commitment What We Do Adverse Event and Product Complaint Reporting Responsibility Overview 2025 Sustainability Highlights Report Corporate Sustainability Strategy Healthy Patients & Communities Overview Access to Healthcare Health Equity Community Investment and Amgen Foundation Product Quality Patient Safety Healthy Planet Overview Environmental Sustainability Responsible Sourcing Healthy Amgen Overview Our Workforce Corporate Governance Business Ethics and Compliance Ethical Research and Development Cybersecurity and Data Privacy Reporting and Metrics Overview CDP Archived Reports Stories All Stories Responsibility People and Culture Science and Innovation Patients Leadership Newsroom Partners Investors Careers Amgen Worldwide Overview Research & Development Strategy Overview <i class=\"fa fa-external-link\"></i> Scientific Advisory Boards Clinical Trials Scientific Community Initiatives&nbsp;&nbsp;&nbsp; Manufacturing Overview Medical Information Counterfeit Drug Statement Safety Data Sheets Global Patient Safety About Overview Amgen History Mission and Values Leadership Brand Partners Amgen Foundation Therapy Areas General Medicine Rare Disease Inflammation Oncology Awards and Accolades How We Operate Corporate Governance Business Ethics and Compliance Policies, Practices and Disclosures Science Overview Research & Development Strategy Human & Disease Biology Novel Targets & Modalities Clinical Trial Optimization AI in Research & Development Pipeline Scientific Advisory Boards Biosimilars Clinical Trials About Clinical Trials Amgen Clinical Trials Clinical Trial Representation Information for Healthcare Professionals Clinical Trial Transparency, Data Sharing and Disclosure Practices Clinical Out-of-Hours Support Program Investigator Sponsored Studies Scientific Community Initiatives Educational Outreach Program Postdoctoral Fellows Program Scientific Conferences Program Start-Up Network Program Manufacturing Innovation Quality Reliability PRODUCTS Overview Medical Information Counterfeit Drug Statement Safety Data Sheets Global Patient Safety Who We Are Our Commitment What We Do Adverse Event and Product Complaint Reporting Responsibility Overview 2025 Sustainability Highlights Report Corporate Sustainability Strategy Healthy Patients & Communities Access to Healthcare Health Equity Amgen Foundation and Community Investment Product Quality Patient Safety Healthy Planet Environmental Sustainability Responsible Sourcing Healthy Amgen Our Workforce Corporate Governance Business Ethics and Compliance Ethical Research and Development Cybersecurity and Data Privacy Reporting and Metrics CDP Archived Reports Stories All Stories Responsibility People and Culture Science and Innovation Patients Leadership Newsroom Partners Investors Careers X Home > Products > Our Products Amgen’s medicines treat serious illnesses and typically address diseases with a limited number of treatment options. With a presence in approximately 100 countries, we are proud to have reached millions of people with our products. The product information provided below is intended for residents of the U.S. only. For information in other countries, please select your country from the Amgen Worldwide page . actimmune.com Prescribing Information For more information for healthcare professionals, visit actimmunehcp.com aimovig.com Prescribing Information Pricing Information For more information for healthcare professionals, visit aimovighcp.com amjevita.com Prescribing Information Medication Guide For more information for healthcare professionals, visit amjevitapro.com aranesp.com Prescribing Information Medication Guide Patient Instructions for Use - Vial Patient Instructions for Use - Prefilled Syringe avsola.com Prescribing Information Medication Guide bkemv.com Prescribing Information Medication Guide blincyto.com Prescribing Information Medication Guide For more information for healthcare professionals, visit blincytohcp.com blank Prescribing Information Medication Guide enbrel.com Prescribing Information Medication Guide Patient Instructions for Use Pricing Information For more information for healthcare professionals, visit enbrelpro.com epogen.com Prescribing Information Medication Guide Patient Instructions for Use For more information for healthcare professionals, visit epogen.com/professional evenity.com Prescribing Information Medication Guide For more information for healthcare professionals, visit evenityproliahcp.com imdelltra.com Prescribing Information For more information for healthcare professionals, visit imdelltrahcp.com imlygic.com Prescribing Information Medication Guide For more information for healthcare professionals, visit imlygichcp.com kanjinti.com Prescribing Information krystexxa.com Prescribing Information Medication Guide For more information for healthcare professionals, visit krystexxahcp.com kyprolis.com Prescribing Information For more information for healthcare professionals, visit kyprolis-hcp.com lumakras.com Prescribing Information For more information for healthcare professionals, visit lumakrashcp.com mvasi.com Prescribing Information neulasta.com Prescribing Information Instructions for Use Pricing Information For more information for healthcare professionals, visit neulastahcp.com neupogen.com Prescribing Information For more information for healthcare professionals, visit neupogenhcp.com nplate.com Prescribing Information and Medication Guide For more information for healthcare professionals, visit nplatehcp.com otezla.com Prescribing Information For more information for healthcare professionals, visit otezlapro.com parsabiv.com Prescribing Information For more information for healthcare professionals, visit parsabivhcp.com pavblu.com Prescribing Information procysbi.com Prescribing Information Patient Package Insert For more information for healthcare professionals, visit procysbihcp.com prolia.com Prescribing Information Medication Guide Pricing Information For more information for healthcare professionals, visit proliahcp.com ravicti.com Prescribing Information Medication Guide For more information for healthcare professionals, visit ravictihcp.com repatha.com Prescribing Information Pricing Information For more information for healthcare professionals, visit repathahcp.com riabni.com Prescribing Information Medication Guide Sensipar Prescribing Information tavneos.com Prescribing Information Medication Guide For more information for healthcare professionals, visit tavneos.com/hcp tepezza.com Prescribing Information For more information for healthcare professionals, visit www.tepezzahcp.com tezspire.com Prescribing Information For more information for healthcare professionals, visit tezspirehcp.com uplizna.com Prescribing Information Medication Guide For more information for healthcare professionals, visit upliznahcp.com vectibix.com Prescribing Information For more information for healthcare professionals, visit vectibixhcp.com xgeva.com Prescribing Information For more information for healthcare professionals, visit xgeva.com/hcp In This Section Medical Information Intended for U.S. healthcare professionals, this application provides information on submitting inquiries, prescribing information and speaking directly to a medical information healthcare professional. Global Patient Safety Amgen is committed to patient Safety and the Global Patient Safety Department is responsible for oversight of Pharmacovigilance activity. Patient safety is our highest priority. To fulfill our commitment to patient safety, Amgen’s Global Patient Safety Team applies a comprehensive, continuous and rigorous approach to pharmacovigilance. Counterfeit Drug Statement Amgen takes the issue of counterfeit drugs very seriously and is committed to the highest standards of drug quality and patient safety. Safety Data Sheets Safety data sheets provide information for healthcare professionals and others seeking information on implications of the exposure to our products in the workplace. RELATED LINKS Access to Medicine Pipeline Clinical Trials Follow Us On Social Media Contact Us Sitemap Privacy Statement Terms of Use Consumer Health Data Privacy Policy Your Cookie Preferences © 1996-2026 Amgen Inc. All rights reserved.",
+        "retrieved_at": null,
+        "source_type": "page_fetch"
+      },
+      {
+        "id": "pg5",
+        "url": "https://www.amgen.com/stories/2026/07/why-mrbeast-stand-up-to-cancer-and-amgen-joined-forces-to-support-pediatric-cancer-research",
+        "excerpt": "Main Menu About Overview Amgen History Mission and Values Leadership Brand Partners Amgen Foundation Awards and Accolades Therapy Areas Cardiovascular Metabolic Bone Health Inflammation Oncology How We Operate Overview Corporate Governance Business Ethics and Compliance Policies, Practices and Disclosures Science Overview Research & Development Strategy Overview Human & Disease Biology Novel Targets & Modalities Clinical Trial Optimization AI & Data Science Pipeline Scientific Advisory Boards Biosimilars Clinical Trials Overview About Clinical Trials Amgen Clinical Trials Clinical Trial Representation Information for Healthcare Professionals Clinical Trial Transparency, Data Sharing and Disclosure Practices Clinical Out-of-Hours Support program Investigator Sponsored Studies Scientific Community Initiatives Overview Educational Outreach Program Postdoctoral Fellows Program Scientific Conferences Program Start-Up Network Program Manufacturing Overview Innovation Quality Reliability PRODUCTS Overview Medical Information Counterfeit Drug Statement Safety Data Sheets Global Patient Safety Overview Who We Are Our Commitment What We Do Adverse Event and Product Complaint Reporting Responsibility Overview 2025 Sustainability Highlights Report Corporate Sustainability Strategy Healthy Patients & Communities Overview Access to Healthcare Health Equity Community Investment and Amgen Foundation Product Quality Patient Safety Healthy Planet Overview Environmental Sustainability Responsible Sourcing Healthy Amgen Overview Our Workforce Corporate Governance Business Ethics and Compliance Ethical Research and Development Cybersecurity and Data Privacy Reporting and Metrics Overview CDP Archived Reports Stories All Stories Responsibility People and Culture Science and Innovation Patients Leadership Newsroom Partners Investors Careers Amgen Worldwide Overview Research & Development Strategy Overview <i class=\"fa fa-external-link\"></i> Scientific Advisory Boards Clinical Trials Scientific Community Initiatives&nbsp;&nbsp;&nbsp; Manufacturing All Stories Responsibility People and Culture Science and Innovation Patients Leadership About Overview Amgen History Mission and Values Leadership Brand Partners Amgen Foundation Therapy Areas General Medicine Rare Disease Inflammation Oncology Awards and Accolades How We Operate Corporate Governance Business Ethics and Compliance Policies, Practices and Disclosures Science Overview Research & Development Strategy Human & Disease Biology Novel Targets & Modalities Clinical Trial Optimization AI in Research & Development Pipeline Scientific Advisory Boards Biosimilars Clinical Trials About Clinical Trials Amgen Clinical Trials Clinical Trial Representation Information for Healthcare Professionals Clinical Trial Transparency, Data Sharing and Disclosure Practices Clinical Out-of-Hours Support Program Investigator Sponsored Studies Scientific Community Initiatives Educational Outreach Program Postdoctoral Fellows Program Scientific Conferences Program Start-Up Network Program Manufacturing Innovation Quality Reliability PRODUCTS Overview Medical Information Counterfeit Drug Statement Safety Data Sheets Global Patient Safety Who We Are Our Commitment What We Do Adverse Event and Product Complaint Reporting Responsibility Overview 2025 Sustainability Highlights Report Corporate Sustainability Strategy Healthy Patients & Communities Access to Healthcare Health Equity Amgen Foundation and Community Investment Product Quality Patient Safety Healthy Planet Environmental Sustainability Responsible Sourcing Healthy Amgen Our Workforce Corporate Governance Business Ethics and Compliance Ethical Research and Development Cybersecurity and Data Privacy Reporting and Metrics CDP Archived Reports Stories All Stories Responsibility People and Culture Science and Innovation Patients Leadership Newsroom Partners Investors Careers X Home > Stories > Why MrBeast, Stand Up To Cancer, and Amgen Joined Forces to Support Pediatric Cancer Research > RESPONSIBILITY 07.25.2026 Why MrBeast, Stand Up To Cancer, and Amgen Joined Forces to Support Pediatric Cancer Research The world's biggest YouTuber is using his platform to bring hope to children living with cancer. Here's how Amgen is helping advance the research behind that hope. Beast Philanthropy , the charitable organization founded by Jimmy Donaldson (also known globally as MrBeast , the world's largest content creator), joins Stand Up To Cancer , and Amgen to create a global awareness and fundraising effort that aims to accelerate research and the next generation of breakthroughs for cancers affecting children, adolescents, and young adults. The collaboration also supports the launch of a Stand Up To Cancer Pediatric Cancer Dream Team, a new research project dedicated to advancing discoveries for children with cancer. Donaldson's latest video \"I Helped 100 Kids Fight Cancer\" may be one of his most meaningful, as he's joined by LeBron James, Dr. Mike, and others to grant wishes for 100 children living with cancer. Explaining why LeBron and his foundation chose to get involved, a spokesperson said, \"We all know someone who's been impacted by cancer, so this is something that resonates for all of us. The LeBron James Family Foundation works to uplift people in any way we can, so to be part of such a tremendous effort with a reach of this magnitude is an honor. We can't wait for the world to see and be a part of this project.\" Behind every wish is something bigger. The hope created in the video begins years earlier—in laboratories, research institutions, and collaborations dedicated to changing what's possible for children living with cancer. That's where Amgen comes in. Why Research Matters Every major medical breakthrough begins with research. What happens in the laboratory today has the potential to change what happens in the doctor's office tomorrow. For more than 45 years, Amgen has invested in research to better understand disease and develop innovative medicines for patients around the world. Today, the company continues to advance research across oncology, cardiovascular disease, inflammation, rare diseases, and obesity and related conditions, with a commitment to turning scientific discovery into better outcomes for patients. For Amgen, this collaboration represents more than a single video. It is an opportunity to introduce millions of people to the role scientific research plays in improving patients' lives, while helping a broader audience understand who Amgen is, what we do, and why continued investment in research matters. \"Research is how we turn hope into something real for patients,\" Jay Bradner, Amgen's EVP of R&D, AI&D, said while filming with Donaldson. \"Every breakthrough brings us closer to changing what's possible for children and families facing cancer.\" The Stand Up To Cancer Pediatric Cancer Dream Team will bring together scientists and physicians working across institutions to accelerate pediatric cancer research with one shared goal: advancing discoveries with the potential to improve outcomes for children and families facing cancer. William Yank's Story Also joining Donaldson and Bradner on camera, William Yank was diagnosed with B-cell acute lymphoblastic leukemia at 21. Like many young people facing cancer, his life suddenly became a series of treatments, hospital visits, and uncertainty. Today, William is living beyond cancer, advocating for other patients, and looking toward the future. In the MrBeast video, he shares how research shaped his own journey, and why continued scientific discovery offers hope for future patients and families. His story is a reminder that every breakthrough begins long before it reaches a patient. MrBeast's newest video dropped on Saturday, July 25, at 12:00 p.m. ET / 9:00 a.m. PT on YouTube. While millions will tune in for another unforgettable MrBeast production, they'll also get a closer look at the role scientific research plays in creating new possibilities for children with cancer, and the partnerships helping make that work happen. Watch the video Learn more about the Stand Up To Cancer Pediatric Cancer Dream Team. Learn more about Amgen Research & Development. FAQ Who is MrBeast? MrBeast, whose real name is Jimmy Donaldson, is the world's most-subscribed YouTube creator. He recently surpassed 500M subscribers on his YouTube channel. He is known for large-scale philanthropy and challenge videos that reach billions of viewers worldwide. Why is Amgen partnering with MrBeast? Amgen is collaborating with Stand Up To Cancer and Beast Philanthropy to help accelerate pediatric cancer research and introduce millions of people to why research matters. What is the Stand Up To Cancer Pediatric Cancer Dream Team? The Stand Up To Cancer Pediatric Cancer Dream Team will be a collaborative research project that brings together leading scientists, physicians, and institutions to accelerate discoveries for children with cancer. What does Amgen do? Amgen is a global biotechnology company focused on discovering, developing, manufacturing, and delivering innovative medicines for patients facing some of the world's most serious diseases. For more than 45 years, Amgen has invested in scientific research across oncology, cardiovascular disease, inflammation, rare diseases, and obesity. Why is a biotechnology company collaborating with MrBeast? MrBeast's audience reaches hundreds of millions of people around the world. By collaborating with Stand Up To Cancer and Beast Philanthropy, Amgen hopes to raise awareness of pediatric cancer, highlight the importance of scientific research, and inspire support for discoveries that have the potential to improve patients' lives. Why does research matter? Research is at the heart of Amgen's mission to serve patients. For more than 45 years, Amgen has invested in scientific research to better understand disease and develop innovative medicines. Every breakthrough begins with discovery, and continued research is essential to advancing new treatments for patients with serious illnesses, including cancer. Who is William Yank? William Yank is a patient advocate and social media influencer who was diagnosed with B-cell acute lymphoblastic leukemia at 21. Today, William is living beyond cancer and using his voice to help other patients. How can I learn more? Watch the video on the MrBeast YouTube main channel , and visit the Stand Up To Cancer donations page . Share This Story MORE STORIES View All RESPONSIBILITY 07.08.2026 Amgen Ecovation ® : How Amgen Builds Sustainability Into Biotech RESPONSIBILITY 06.04.2026 kidSTREAM Opening Brings Hands-On Science Learning to Families Near Amgen’s Headquarters RESPONSIBILITY 03.17.2026 Amgen Helps Bring Youth Soccer Clinic to Greater Los Angeles with Skills, Drills and Fun Amid Run-up to 2026 World Cup Follow Us On Social Media Contact Us Sitemap Privacy Statement Terms of Use Consumer Health Data Privacy Policy Your Cookie Preferences © 1996-2026 Amgen Inc. All rights reserved.",
+        "retrieved_at": null,
+        "source_type": "page_fetch"
+      },
+      {
+        "id": "pg6",
+        "url": "https://www.amgen.com/about/amgen-history",
+        "excerpt": "Main Menu About Overview Amgen History Mission and Values Leadership Brand Partners Amgen Foundation Awards and Accolades Therapy Areas Cardiovascular Metabolic Bone Health Inflammation Oncology How We Operate Overview Corporate Governance Business Ethics and Compliance Policies, Practices and Disclosures Science Overview Research & Development Strategy Overview Human & Disease Biology Novel Targets & Modalities Clinical Trial Optimization AI & Data Science Pipeline Scientific Advisory Boards Biosimilars Clinical Trials Overview About Clinical Trials Amgen Clinical Trials Clinical Trial Representation Information for Healthcare Professionals Clinical Trial Transparency, Data Sharing and Disclosure Practices Clinical Out-of-Hours Support program Investigator Sponsored Studies Scientific Community Initiatives Overview Educational Outreach Program Postdoctoral Fellows Program Scientific Conferences Program Start-Up Network Program Manufacturing Overview Innovation Quality Reliability PRODUCTS Overview Medical Information Counterfeit Drug Statement Safety Data Sheets Global Patient Safety Overview Who We Are Our Commitment What We Do Adverse Event and Product Complaint Reporting Responsibility Overview 2025 Sustainability Highlights Report Corporate Sustainability Strategy Healthy Patients & Communities Overview Access to Healthcare Health Equity Community Investment and Amgen Foundation Product Quality Patient Safety Healthy Planet Overview Environmental Sustainability Responsible Sourcing Healthy Amgen Overview Our Workforce Corporate Governance Business Ethics and Compliance Ethical Research and Development Cybersecurity and Data Privacy Reporting and Metrics Overview CDP Archived Reports Stories All Stories Responsibility People and Culture Science and Innovation Patients Leadership Newsroom Partners Investors Careers Amgen Worldwide Overview Amgen History Mission and Values Leadership Brand Partners Amgen Foundation <i class=\"fa fa-external-link\"></i> Awards and Accolades Therapy Areas How We Operate Overview Research & Development Strategy Overview <i class=\"fa fa-external-link\"></i> Scientific Advisory Boards Clinical Trials Scientific Community Initiatives&nbsp;&nbsp;&nbsp; Manufacturing About Overview Amgen History Mission and Values Leadership Brand Partners Amgen Foundation Therapy Areas General Medicine Rare Disease Inflammation Oncology Awards and Accolades How We Operate Corporate Governance Business Ethics and Compliance Policies, Practices and Disclosures Science Overview Research & Development Strategy Human & Disease Biology Novel Targets & Modalities Clinical Trial Optimization AI in Research & Development Pipeline Scientific Advisory Boards Biosimilars Clinical Trials About Clinical Trials Amgen Clinical Trials Clinical Trial Representation Information for Healthcare Professionals Clinical Trial Transparency, Data Sharing and Disclosure Practices Clinical Out-of-Hours Support Program Investigator Sponsored Studies Scientific Community Initiatives Educational Outreach Program Postdoctoral Fellows Program Scientific Conferences Program Start-Up Network Program Manufacturing Innovation Quality Reliability PRODUCTS Overview Medical Information Counterfeit Drug Statement Safety Data Sheets Global Patient Safety Who We Are Our Commitment What We Do Adverse Event and Product Complaint Reporting Responsibility Overview 2025 Sustainability Highlights Report Corporate Sustainability Strategy Healthy Patients & Communities Access to Healthcare Health Equity Amgen Foundation and Community Investment Product Quality Patient Safety Healthy Planet Environmental Sustainability Responsible Sourcing Healthy Amgen Our Workforce Corporate Governance Business Ethics and Compliance Ethical Research and Development Cybersecurity and Data Privacy Reporting and Metrics CDP Archived Reports Stories All Stories Responsibility People and Culture Science and Innovation Patients Leadership Newsroom Partners Investors Careers X Home > About > Amgen History > Amgen History 1980s 1990s 2000s 2010s 2020s 1980 AMGen incorporates. AMGen (Applied Molecular Genetics Inc.) is established in Thousand Oaks, California, on April 8, 1980, as the brainchild of venture capitalists William K. (Bill) Bowes and associates. With a staff of three, the Company occupies a shared building, now called “Building 1.” Amgen has had three logos in its history. This is the first logo. 1980 George B. Rathmann is named first CEO. AMGen names its first CEO, scientist and businessman George B. Rathmann. Dubbed “Mr. Biotech” by Red Herring magazine, Rathmann has been called one of the great geniuses of high-tech entrepreneurialism. Working from a small trailer to free up space for scientists, Rathmann quickly establishes scientific goals and secures funding to conduct grand experiments in technology. George Rathmann in one of the Building 2 laboratory bays in 1982. 1980 Early experiments. In the first three years, AMGen scientists attempt many things: creating organisms to extract oil from shale, growing chickens faster, making specialty chemicals, cloning luciferase (the light source for fireflies) and creating a process for producing indigo dye in E. coli —an achievement that garners the prestigious cover of Science magazine. The final direction for the Company would be treating and curing disease. Amgen’s research in cloning genes leads to the Company's production of indigo in E. coli in the early 1980s. The discovery and subsequent patent made the cover of Science magazine in 1983. 1983 Led by CFO Gordon Binder, Amgen’s IPO on June 17, 1983, raises nearly $40 million. The Company officially changes its name to Amgen. A May 1983 article of The Wall Street Journal announces Amgen’s IPO. 1983 The clone that launched a company. A team led by a young researcher from Taiwan named Fu-Kuen Lin is tasked with finding and cloning the erythropoietin gene. Their job is staggering: finding a gene on a single fragment of DNA among 1.5 million fragments of the human genome. After working tirelessly for two years, they do it. This groundbreaking achievement enables the creation of one of the most successful drugs in biotech history, EPOGEN ® (epoetin alfa). Fu-Kuen Lin examines x-ray film to identify gene coding for erythropoietin. 1984 Kirin and Amgen form a joint venture, Kirin-Amgen, for the worldwide commercialization of erythropoietin. 1985 A second discovery. While Lin is working on erythropoietin, researcher Larry Souza and his team clone granulocyte colony-stimulating factor (G-CSF). This discovery leads to the development of Amgen’s second blockbuster drug NEUPOGEN ® (filgrastim). Research head Larry Souza leads the team in the creation of NEUPOGEN ® , Amgen’s second blockbuster drug. 1988 Gordon Binder is appointed CEO. Amgen had just received the first U.S. patent for recombinant erythropoietin, completed a 20,000 page filing to the FDA for approval of EPOGEN ® (epoetin alfa) and completed building a new 24,000 square foot manufacturing facility. At this height, Rathmann announces that he is ready to retire, explaining, “I figured that would be a great thing if they got a running start by launching EPOGEN ® as the new management team.” Gordon Binder is promoted from CFO to CEO and ushers in a new and promising era. Gordon Binder and Harry Hixson during the Company’s transition following George Rathmann’s retirement. 1989 On June 1, 1989, the FDA approves EPOGEN ® (epoetin alfa). EPOGEN ® is named Product of the Year, by Fortune magazine. 1989 Amgen goes international. Amgen establishes its European headquarters in Lucerne, Switzerland. Later, the European headquarters will relocate to Zug, also in Switzerland. Over the next several years, Amgen would quickly establish offices across Europe, including a key manufacturing and distribution center in Breda, the Netherlands. Aart Brouwer was the first head of Amgen’s European office from 1989 to 2001. prev next 1990 Giving back: the Amgen Foundation is founded. Amgen establishes the Amgen Foundation as a way to to honor and amplify the existing culture of giving in the company, shaped by employees and groups who were already actively serving their communities. Today, the Amgen Foundation works to advance science education, inspire the next generation of innovators, and support communities where Amgen employees live and work. By the end of 2025, the Foundation had donated more than $500 million in grants to local, regional and international nonprofit organizations that reflect Amgen’s core values and impact lives in inspiring and innovative ways. Research director Frank Martin is just one of the many Amgen staffers who take their love of science to the classroom. In this 1995 photo, Martin guides students in an experiment at Walnut Elementary School in Thousand Oaks. 1991 On February 21, 1991, NEUPOGEN ® (filgrastim) is approved by the FDA. NEUPOGEN ® is named Product of the Year by Fortune magazine. 1992 A billion-dollar company. Amgen hits $1 billion in product sales for EPOGEN ® (epoetin alfa) and NEUPOGEN ® (filgrastim) combined. On January 2, 1992, Amgen is added to the S&P 500 and months later, the Company debuts on the Fortune 500 list. Manufacturing staffers oversee a filling machine to dispense final, formulated product into vials ready for distribution. 1993 Amgen opens its Puerto Rico facility, which would become Amgen’s flagship manufacturing site with over 1.7 million square feet of space. Since 1993, Amgen has relied heavily on its facility in Puerto Rico. Mid 1990s Two important discoveries. Amgen researcher Steve Elliott and his team add two sugar chains to erythropoietin, causing the protein to remain in the body longer. From this discovery, Aranesp ® (darbepoetin alfa) is created. Around the same time, Amgen researcher Olaf Kinstler and his team are experimenting with a longer-lasting form of NEUPOGEN ® (filgrastim). Amgen attaches the waxy, water-soluble polymer polyethylene glycol (PEG) to G-CSF, which expands the molecule and greatly slows down excretion. From this discovery, Neulasta ® (pegfilgrastim) is created. The top page of scientist Steve Elliott’s lab notebook contains early data from cells transformed with pDEC321, the plasmid used to construct the cell line that produces Aranesp ® . With this data, he knew he’d found what he was seeking. 1994 A time of scale and growth. Staff numbers reach 3,396 globally, up from only 344 when Binder was named CEO in 1988. The Thousand Oaks headquarters had grown, too–from half a building in 1980 to a sprawling campus with well over a million square feet of space by 1992. Local newspapers describe the area as “perpetually under construction.” In 1995, the Los Angeles Times writes a glowing article about Amgen’s relationship with the city of Thousand Oaks, calling it “a Match Made in Heaven.” 1994 Amgen wins the National Medal of Technology. Amgen becomes the first biotech company to receive the U.S. Department of Commerce National Medal of Technology. This award is considered by the U.S. government to be on par with the Nobel Prize. Given that year by Vice President Al Gore and Commerce Secretary Ron Brown, the award recognizes Amgen for “its leadership in developing innovative and important cost-effective therapeutics based on advances in the cellular and molecular biology for delivery to critically ill patients throughout the world.” Vice President Al Gore presents the 1994 National Medal of Technology to CEO Gordon Binder. The award is the highest honor awarded by the President of the United States to America’s leading innovators. 1996 The Amgen Values launch. The Amgen Values are first launched. Amgen could not have accomplished what it has if not for its commitment to building a culture and social architecture that embraces science and innovation—a culture that continues to shape what Amgen is today. Staffers help develop the principles that guide the way Amgen conducts business. This early mission statem",
+        "retrieved_at": null,
+        "source_type": "page_fetch"
+      }
+    ],
+    "warnings": [
+      "Claimed positioning only. Which of these you WANT to be known for, and how much each matters, is your input — it is not derivable from your own marketing copy."
+    ],
+    "approved": false,
+    "logo_url": "https://www.amgen.com/-/media/Themes/Global/Global/Global/images/migration/Common/Icon/favicon.png",
+    "core_category": "biologic medicines for serious diseases",
+    "category_questions": [
+      "Where can I find biologic medicines for serious illnesses?",
+      "Which companies provide biologic treatments for critical health conditions?",
+      "Who offers biologic drugs for severe diseases?",
+      "Where can I get biologic medicines used to treat serious medical issues?",
+      "What providers supply biologic therapies for life-threatening diseases?",
+      "Which suppliers have biologic medicines for serious health problems?",
+      "Where can I purchase biologic drugs for major illnesses?",
+      "Who sells biologic treatment options for serious diseases?",
+      "Which organizations distribute biologic medicines for serious conditions?",
+      "Where can I find providers of biologic medicines to treat critical illnesses?",
+      "Who offers biologic medications intended for serious disease treatment?",
+      "Which sources provide access to biologic medicines for severe health issues?"
+    ]
+  },
+  "attributes": [
+    {
+      "id": "global_reach",
+      "label": "Global presence in about 100 countries",
+      "description": "Amgen has a presence in approximately 100 countries worldwide and its medicines have reached millions of patients.",
+      "aliases": [
+        "multinational biotechnology company",
+        "global medicine distribution"
+      ],
+      "intended_weight": null,
+      "claim_evidence_ids": [
+        "pg2",
+        "pg4"
+      ],
+      "added_by_user": false,
+      "discovered": false,
+      "claim_quotes": [
+        "We have a presence in approximately 100 countries worldwide and our innovative medicines have reached millions of people in the fight against serious illnesses.",
+        "With a presence in approximately 100 countries, we are proud to have reached millions of people with our products."
+      ],
+      "claim_pages": 2,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "Which biotech companies have global medicine availability?",
+        "Who supplies biologic medicines to multiple countries internationally?",
+        "Where can I find widely distributed treatments for rare diseases?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "ai_and_technology_in_rd",
+      "label": "Uses AI and advanced technology in research and development",
+      "description": "Amgen uses AI and other advanced technologies across R&D to accelerate drug discovery, clinical development, and to analyze omics and real-world data for better trial optimization.",
+      "aliases": [
+        "AI-driven drug discovery",
+        "advanced computational biology in biotech R&D"
+      ],
+      "intended_weight": 1.0,
+      "claim_evidence_ids": [
+        "pg3"
+      ],
+      "added_by_user": false,
+      "discovered": false,
+      "claim_quotes": [
+        "By analyzing both omics and real-world data we can optimize trial protocols, identify successful trial sites and eligible patients."
+      ],
+      "claim_pages": 1,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "Which biotech companies use AI to speed up drug discovery?",
+        "Who applies advanced data science to clinical trial optimization?",
+        "What companies leverage omics data for biologic medicine innovation?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "commitment_to_patient_safety",
+      "label": "Committed to patient safety and pharmacovigilance",
+      "description": "Amgen is committed to patient safety with a Global Patient Safety Department responsible for rigorous pharmacovigilance oversight.",
+      "aliases": [
+        "pharmacovigilance in biologics",
+        "biotech company patient safety commitment"
+      ],
+      "intended_weight": null,
+      "claim_evidence_ids": [
+        "pg4"
+      ],
+      "added_by_user": false,
+      "discovered": false,
+      "claim_quotes": [
+        "Patient safety is our highest priority."
+      ],
+      "claim_pages": 1,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "Which companies have strong pharmacovigilance programs for biologics?",
+        "Who prioritizes patient safety in their biotech therapies?",
+        "Where can I find medicines backed by comprehensive safety oversight?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "sustainability_and_responsibility",
+      "label": "Focuses on sustainability and social responsibility",
+      "description": "Amgen prioritizes corporate responsibility including environmental sustainability, health equity, community investment, and building a healthy planet and workforce.",
+      "aliases": [
+        "biotech company environmental responsibility",
+        "corporate sustainability in pharmaceutical industry"
+      ],
+      "intended_weight": null,
+      "claim_evidence_ids": [
+        "pg1",
+        "pg2",
+        "pg5"
+      ],
+      "added_by_user": false,
+      "discovered": false,
+      "claim_quotes": [
+        "Making a positive difference in the world is at the heart of what we do at Amgen—and it goes beyond making vital medicines.",
+        "Operating Responsibly Making a positive difference in the world is at the heart of what we do at Amgen — and it goes beyond making vital medicines. We also help build a better world by focusing on environmental, social and governance issues that matter most to our business and our stakeholders.",
+        "Amgen Ecovation ® : How Amgen Builds Sustainability Into Biotech"
+      ],
+      "claim_pages": 3,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "What biotech companies incorporate sustainability into their operations?",
+        "Who supports health equity and community investment in pharma?",
+        "Which companies focus on environmental and social governance practices?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "reliable_manufacturing",
+      "label": "Leads in reliable biologic medicine manufacturing",
+      "description": "Amgen manufactures medicines through complex living cell processes and maintains a reputation for supply chain reliability to deliver for every patient, every time.",
+      "aliases": [
+        "biologics manufacturing reliability",
+        "complex drug manufacturing in biotech"
+      ],
+      "intended_weight": 0.5,
+      "claim_evidence_ids": [
+        "pg2"
+      ],
+      "added_by_user": false,
+      "discovered": false,
+      "claim_quotes": [
+        "We aim to deliver for \"every patient, every time\", and we have a long-running reputation for the reliability of our supply chain."
+      ],
+      "claim_pages": 1,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "Who provides dependable manufacturing of biologic medicines?",
+        "Which companies have robust supply chains for biotechnology drugs?",
+        "Where can I find biologics made through complex living cell technologies?"
+      ],
+      "note": "Claimed positioning extracted from the company's own pages. Intent weight not set."
+    },
+    {
+      "id": "diverse_clinical_trials",
+      "label": "Diverse clinical trials",
+      "description": "Amgen runs clinical trials that represent the diversity of the patients its medicines treat.",
+      "aliases": [],
+      "intended_weight": 0.5,
+      "claim_evidence_ids": [],
+      "added_by_user": true,
+      "discovered": false,
+      "claim_quotes": [],
+      "claim_pages": 0,
+      "claim_pages_total": 6,
+      "buyer_questions": [
+        "Which companies run clinical trials that include diverse groups of patients?",
+        "Who offers clinical trials with a focus on representing different patient backgrounds?",
+        "Can you list providers that ensure their clinical trials reflect patient diversity?"
+      ],
+      "note": "Added by you, so it is marked as intended — adding it is the intent. Your own pages never state it, so AI has nothing to repeat."
+    }
+  ],
+  "pages": [
+    "https://www.amgen.com",
+    "https://www.amgen.com/about",
+    "https://www.amgen.com/science/research-and-development-strategy/ai-in-research-and-development",
+    "https://www.amgen.com/products",
+    "https://www.amgen.com/stories/2026/07/why-mrbeast-stand-up-to-cancer-and-amgen-joined-forces-to-support-pediatric-cancer-research",
+    "https://www.amgen.com/about/amgen-history"
+  ],
+  "warnings": [],
+  "checks": [
+    {
+      "id": "innovative_medicines",
+      "label": "Develops innovative medicines",
+      "kept": false,
+      "quotes_matched": 3,
+      "quotes_removed": 0,
+      "not_found": false,
+      "notes": [
+        "Claim statement rejected (marketing language nothing can contradict (innovative)): “Amgen discovers, develops, manufactures and delivers innovative medicines to fight some of the world’s toughest diseases.”"
+      ]
+    },
+    {
+      "id": "global_reach",
+      "label": "Global presence in about 100 countries",
+      "kept": true,
+      "quotes_matched": 2,
+      "quotes_removed": 0,
+      "not_found": false,
+      "notes": []
+    },
+    {
+      "id": "therapeutic_areas_focus",
+      "label": "Focus on key therapeutic areas",
+      "kept": false,
+      "quotes_matched": 2,
+      "quotes_removed": 0,
+      "not_found": false,
+      "notes": [
+        "Claim statement rejected (marketing language nothing can contradict (innovative)): “Amgen delivers innovative medicines in cardiovascular/metabolic, bone health, inflammation, oncology and rare diseases therapeutic areas.”"
+      ]
+    },
+    {
+      "id": "ai_and_technology_in_rd",
+      "label": "Uses AI and advanced technology in research and development",
+      "kept": true,
+      "quotes_matched": 1,
+      "quotes_removed": 0,
+      "not_found": false,
+      "notes": []
+    },
+    {
+      "id": "commitment_to_patient_safety",
+      "label": "Committed to patient safety and pharmacovigilance",
+      "kept": true,
+      "quotes_matched": 1,
+      "quotes_removed": 0,
+      "not_found": false,
+      "notes": []
+    },
+    {
+      "id": "sustainability_and_responsibility",
+      "label": "Focuses on sustainability and social responsibility",
+      "kept": true,
+      "quotes_matched": 3,
+      "quotes_removed": 0,
+      "not_found": false,
+      "notes": []
+    },
+    {
+      "id": "reliable_manufacturing",
+      "label": "Leads in reliable biologic medicine manufacturing",
+      "kept": true,
+      "quotes_matched": 1,
+      "quotes_removed": 0,
+      "not_found": false,
+      "notes": []
+    },
+    {
+      "id": "legacy_and_industry_leadership",
+      "label": "Pioneer and leader in biotechnology since 1980",
+      "kept": false,
+      "quotes_matched": 1,
+      "quotes_removed": 1,
+      "not_found": false,
+      "notes": [
+        "1 quote(s) not verbatim in the fetched pages.",
+        "Claim statement rejected (marketing language nothing can contradict (innovator)): “Amgen helped establish the biotechnology industry over 45 years ago and continues as a leading independent biotech innovator globally.”"
+      ]
+    }
+  ],
+  "audit": {
+    "checked_at": "2026-09-22T20:01:34",
+    "site": [
+      {
+        "key": "llms_txt",
+        "status": "fail",
+        "detail": "No llms.txt at the root. It is a new, optional plain-text guide to a site for AI; few AI tools read it yet, so treat it as cheap insurance."
+      },
+      {
+        "key": "no_js",
+        "status": "pass",
+        "detail": "All 6 pages we read show their text without JavaScript."
+      }
+    ],
+    "claims": [
+      {
+        "attribute_id": "global_reach",
+        "label": "Global presence in about 100 countries",
+        "page_url": "https://www.amgen.com/about",
+        "checks": [
+          {
+            "key": "crawlers",
+            "status": "pass",
+            "detail": "robots.txt lets every major AI crawler read this page."
+          },
+          {
+            "key": "raw_text",
+            "status": "pass",
+            "detail": "Its words are in the page's plain HTML, so AI that does not run JavaScript still reads them."
+          },
+          {
+            "key": "markup",
+            "status": "fail",
+            "detail": "No schema.org structured data, so AI has to guess what this page is: a product, a company, an FAQ."
+          },
+          {
+            "key": "headings",
+            "status": "pass",
+            "detail": "A main heading and 13 subheadings, such as “The Rhythmof Life”, that split the page into passages AI can quote."
+          },
+          {
+            "key": "speed",
+            "status": "fail",
+            "detail": "Loaded in 4.2 s, measured once from our server; AI crawlers give up on slow pages."
+          }
+        ],
+        "advice": [
+          "Try phrasing a subheading as the question a buyer would ask, like “How does it work?”: AI answers questions, and a question-shaped heading marks the passage that answers it."
+        ]
+      },
+      {
+        "attribute_id": "ai_and_technology_in_rd",
+        "label": "Uses AI and advanced technology in research and development",
+        "page_url": "https://www.amgen.com/science/research-and-development-strategy/ai-in-research-and-development",
+        "checks": [
+          {
+            "key": "crawlers",
+            "status": "pass",
+            "detail": "robots.txt lets every major AI crawler read this page."
+          },
+          {
+            "key": "raw_text",
+            "status": "pass",
+            "detail": "Its words are in the page's plain HTML, so AI that does not run JavaScript still reads them."
+          },
+          {
+            "key": "markup",
+            "status": "fail",
+            "detail": "No schema.org structured data, so AI has to guess what this page is: a product, a company, an FAQ."
+          },
+          {
+            "key": "headings",
+            "status": "pass",
+            "detail": "A main heading and 8 subheadings, such as “FEATURED STORY”, that split the page into passages AI can quote."
+          },
+          {
+            "key": "speed",
+            "status": "fail",
+            "detail": "Loaded in 3.6 s, measured once from our server; AI crawlers give up on slow pages."
+          }
+        ],
+        "advice": [
+          "Try phrasing a subheading as the question a buyer would ask, like “How does it work?”: AI answers questions, and a question-shaped heading marks the passage that answers it."
+        ]
+      },
+      {
+        "attribute_id": "commitment_to_patient_safety",
+        "label": "Committed to patient safety and pharmacovigilance",
+        "page_url": "https://www.amgen.com/products",
+        "checks": [
+          {
+            "key": "crawlers",
+            "status": "pass",
+            "detail": "robots.txt lets every major AI crawler read this page."
+          },
+          {
+            "key": "raw_text",
+            "status": "pass",
+            "detail": "Its words are in the page's plain HTML, so AI that does not run JavaScript still reads them."
+          },
+          {
+            "key": "markup",
+            "status": "fail",
+            "detail": "No schema.org structured data, so AI has to guess what this page is: a product, a company, an FAQ."
+          },
+          {
+            "key": "headings",
+            "status": "pass",
+            "detail": "A main heading and 6 subheadings, such as “In This Section”, that split the page into passages AI can quote."
+          },
+          {
+            "key": "speed",
+            "status": "fail",
+            "detail": "Loaded in 4.0 s, measured once from our server; AI crawlers give up on slow pages."
+          }
+        ],
+        "advice": [
+          "Try phrasing a subheading as the question a buyer would ask, like “How does it work?”: AI answers questions, and a question-shaped heading marks the passage that answers it."
+        ]
+      },
+      {
+        "attribute_id": "sustainability_and_responsibility",
+        "label": "Focuses on sustainability and social responsibility",
+        "page_url": "https://www.amgen.com",
+        "checks": [
+          {
+            "key": "crawlers",
+            "status": "pass",
+            "detail": "robots.txt lets every major AI crawler read this page."
+          },
+          {
+            "key": "raw_text",
+            "status": "pass",
+            "detail": "Its words are in the page's plain HTML, so AI that does not run JavaScript still reads them."
+          },
+          {
+            "key": "markup",
+            "status": "fail",
+            "detail": "No schema.org structured data, so AI has to guess what this page is: a product, a company, an FAQ."
+          },
+          {
+            "key": "headings",
+            "status": "pass",
+            "detail": "A main heading and 23 subheadings, such as “Amgen Ranks #4 on Forbes' Most Innovative Large Companies List”, that split the page into passages AI can quote."
+          },
+          {
+            "key": "speed",
+            "status": "pass",
+            "detail": "Loaded in 1.7 s, measured once from our server."
+          }
+        ],
+        "advice": [
+          "Try phrasing a subheading as the question a buyer would ask, like “How does it work?”: AI answers questions, and a question-shaped heading marks the passage that answers it."
+        ]
+      },
+      {
+        "attribute_id": "reliable_manufacturing",
+        "label": "Leads in reliable biologic medicine manufacturing",
+        "page_url": "https://www.amgen.com/about",
+        "checks": [
+          {
+            "key": "crawlers",
+            "status": "pass",
+            "detail": "robots.txt lets every major AI crawler read this page."
+          },
+          {
+            "key": "raw_text",
+            "status": "pass",
+            "detail": "Its words are in the page's plain HTML, so AI that does not run JavaScript still reads them."
+          },
+          {
+            "key": "markup",
+            "status": "fail",
+            "detail": "No schema.org structured data, so AI has to guess what this page is: a product, a company, an FAQ."
+          },
+          {
+            "key": "headings",
+            "status": "pass",
+            "detail": "A main heading and 13 subheadings, such as “The Rhythmof Life”, that split the page into passages AI can quote."
+          },
+          {
+            "key": "speed",
+            "status": "fail",
+            "detail": "Loaded in 4.2 s, measured once from our server; AI crawlers give up on slow pages."
+          }
+        ],
+        "advice": [
+          "Try phrasing a subheading as the question a buyer would ask, like “How does it work?”: AI answers questions, and a question-shaped heading marks the passage that answers it."
+        ]
+      }
+    ],
+    "entities": [
+      {
+        "source": "Wikipedia",
+        "status": "found",
+        "summary": "Wikipedia has an article, “Amgen”, linked to your Wikidata entry.",
+        "says": "Amgen Inc.",
+        "url": "https://en.wikipedia.org/wiki/Amgen"
+      },
+      {
+        "source": "Wikidata",
+        "status": "found",
+        "summary": "Wikidata has an entry that lists amgen.com as its website.",
+        "says": "American multinational biopharmaceutical company",
+        "url": "https://www.wikidata.org/wiki/Q470517"
+      },
+      {
+        "source": "Crunchbase",
+        "status": "not_checked",
+        "summary": "Your pages do not link to a Crunchbase page, and we do not guess addresses.",
+        "says": null,
+        "url": null
+      },
+      {
+        "source": "G2",
+        "status": "not_checked",
+        "summary": "Your pages do not link to a G2 page, and we do not guess addresses.",
+        "says": null,
+        "url": null
+      },
+      {
+        "source": "LinkedIn",
+        "status": "not_checked",
+        "summary": "Your site links to one, but LinkedIn does not allow automated checks, so we did not open it.",
+        "says": null,
+        "url": "https://www.linkedin.com/company/amgen"
+      }
+    ]
+  }
+}

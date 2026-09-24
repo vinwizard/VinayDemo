@@ -8,7 +8,7 @@ name: across is how strongly a dot's sentences talk about the claim weighted hig
 they talk about the claim the dots differ on most once the first is taken out.
 
 It used to be PCA, with an axis named only when claims sat at both of its ends. A company's claims
-all describe the company, so they sit together at one end: Amgen, Notion and Profound all got maps
+all describe the company, so they sit together at one end: Amgen and Notion both got maps
 with no axis names.
 
 A similarity picture, never a measurement: it runs after every score exists and moves none of them.

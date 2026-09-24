@@ -117,20 +117,17 @@ export const when = (iso: string) =>
     day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
   });
 
-export interface RunLabel { short: string; full: string }
+export interface RunLabel { short: string }
 
 /**
  * Hex run ids ("d428e213e6") name nothing. Number runs in the order they were made — oldest is
- * Run 1, with the scenario, because every bundled run shares one company name and Compare exists to
- * tell them apart. Callers keep the raw id as a tooltip so a run is still findable on disk.
+ * Run 1, because every bundled run shares one company name and History has to tell them apart. Callers keep the raw id as a tooltip so a run is still findable on disk.
  */
 export function runLabels(runs: RunSummary[]): Record<string, RunLabel> {
   const oldestFirst = [...runs].sort((a, b) => a.created_at.localeCompare(b.created_at));
   const out: Record<string, RunLabel> = {};
   oldestFirst.forEach((r, i) => {
-    const short = `Run ${i + 1}`;
-    const scenario = r.scenario ? ` · Scenario ${r.scenario}` : "";
-    out[r.id] = { short, full: `${short}${scenario} · ${when(r.created_at)} · ${r.company}` };
+    out[r.id] = { short: `Run ${i + 1}` };
   });
   return out;
 }

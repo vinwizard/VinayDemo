@@ -1,4 +1,4 @@
-"""Offline acceptance checks for the positioning-drift layer."""
+"""Offline acceptance checks for the drift layer."""
 import pytest
 
 import drift

@@ -1,7 +1,7 @@
 """Buyer visibility on two fronts, side by side: where AI already places the company (the attribute
 its brand answers most endorse) and where the company's own site aims to be (the core category).
 
-Also the defects from a live Profound run: every try is saved and scored, a set is flagged when
+Also the defects from an earlier live run: every try is saved and scored, a set is flagged when
 its control answer leaves the brand out, and a generic alias ("AI Marketer") is not the brand.
 No key, no network: transports, the judge and the question writer are injected.
 """
@@ -192,19 +192,19 @@ def test_offline_replay_stays_one_unlabelled_set():
 # ---------------------------------------------------------------- generic aliases are not the brand
 def test_generic_phrases_are_not_aliases():
     for generic in ("AI Marketer", "AI Agents", "Agents", "AI"):
-        assert not distinctive_alias(generic, "Profound")
-    for kept in ("Profound", "Profound Agents", "Jira", "Conversation Explorer"):
-        assert distinctive_alias(kept, "Profound")
-    p = CompanyProfile(name="Profound", domain="tryprofound.com",
-                       aliases=["Profound", "AI Marketer", "Profound Agents", "Conversation Explorer"])
-    assert p.names() == ["Profound", "Profound Agents", "Conversation Explorer"]
+        assert not distinctive_alias(generic, "Acme")
+    for kept in ("Acme", "Acme Agents", "Jira", "Conversation Explorer"):
+        assert distinctive_alias(kept, "Acme")
+    p = CompanyProfile(name="Acme", domain="acme.example",
+                       aliases=["Acme", "AI Marketer", "Acme Agents", "Conversation Explorer"])
+    assert p.names() == ["Acme", "Acme Agents", "Conversation Explorer"]
     assert ana.brand_leaks("Is Conversation Explorer any good?", p) == ["Conversation Explorer"]
     assert ana.brand_leaks("Which AI marketer tool suits a startup?", p) == []
 
 
 def test_a_different_product_is_not_a_mention():
     assert not mentions_alias("Try AiMarketer for campaigns.", ["AI Marketer"])
-    p = CompanyProfile(name="Profound", domain="tryprofound.com", aliases=["AI Marketer"])
+    p = CompanyProfile(name="Acme", domain="acme.example", aliases=["AI Marketer"])
     probe = Probe(id="b1", topic_id="t", text="q", phase="baseline", purpose="p")
     a = Answer(probe_id="b1", text="AiMarketer and AI Marketer tools help.", provenance="synthetic",
                fixture_labels=dict(mentioned=False, recommended=False, negative_mention=False,
@@ -215,9 +215,9 @@ def test_a_different_product_is_not_a_mention():
 
 def test_onboarding_keeps_only_distinctive_aliases():
     from agents.onboarding_model import build_profile
-    p = build_profile({"name": "Profound", "aliases": ["AI Marketer", "Profound Agents", "AI Agents"]},
-                      [], "tryprofound.com")
-    assert p.aliases == ["Profound", "Profound Agents"]
+    p = build_profile({"name": "Acme", "aliases": ["AI Marketer", "Acme Agents", "AI Agents"]},
+                      [], "acme.example")
+    assert p.aliases == ["Acme", "Acme Agents"]
 
 
 def test_the_placed_front_is_asked_as_a_buyer_category_not_a_claim_label():

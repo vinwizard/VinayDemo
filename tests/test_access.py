@@ -269,7 +269,7 @@ def test_a_visitor_without_a_pass_is_replay_only_with_zero_model_calls(env):
 
 
 def preload_examples(tmp_path):
-    """The preloaded Notion company, the Profound report and its company, as a deploy's DATA_DIR has them."""
+    """The preloaded Notion company, the committed live example and its company, as a deploy's DATA_DIR has them."""
     for kind, item in (("companies", main.SEED_COMPANY), ("companies", main.SHOWCASE_COMPANY),
                        ("runs", main.SHOWCASE_RUN)):
         (tmp_path / kind / f"{item}.json").write_bytes((reports.BUNDLED / kind / f"{item}.json").read_bytes())
@@ -308,6 +308,31 @@ def test_a_pass_holders_runs_survive_a_restart_and_a_new_session(env, tmp_path):
     other, _, _ = with_pass("person-2")
     for viewer in (other, browser()):
         assert not set(made) & {r["id"] for r in viewer.get("/api/runs").json()}
+
+
+@pytest.mark.parametrize("public", [True, False])
+def test_the_retired_profound_showcase_left_on_a_disk_is_never_listed_or_served(env, tmp_path, monkeypatch, public):
+    if not public:
+        monkeypatch.delenv(access.PUBLIC_ENV)
+    preload_examples(tmp_path)
+    old_run, old_company = sorted(access.RETIRED)
+    for kind, item, like in (("runs", old_run, main.SHOWCASE_RUN), ("companies", old_company, main.SHOWCASE_COMPANY)):
+        body = json.loads((reports.BUNDLED / kind / f"{like}.json").read_text())
+        (tmp_path / kind / f"{item}.json").write_text(json.dumps(body | {"id": item}))
+    main.seed_data_dir()
+    c = browser()
+    assert old_run not in {r["id"] for r in c.get("/api/runs").json()}
+    assert c.get(f"/api/runs/{old_run}").status_code == 404
+    assert old_company not in {x["id"] for x in c.get("/api/companies").json()}
+    assert c.get(f"/api/companies/{old_company}").status_code == 404
+    assert main.SHOWCASE_RUN in {r["id"] for r in c.get("/api/runs").json()}
+    kept = {p: p.read_bytes() for p in (tmp_path / "runs" / f"{old_run}.json", tmp_path / "companies" / f"{old_company}.json")}
+    for method, url, body in (("POST", f"/api/companies/{old_company}/audit", None),
+                              ("PATCH", f"/api/companies/{old_company}", {"weights": {}}),
+                              ("DELETE", f"/api/companies/{old_company}/attributes/anything", None),
+                              ("POST", f"/api/runs/{old_run}/rescore", {"weights": {}})):
+        assert c.request(method, url, json=body).status_code in (403, 404), url
+    assert all(p.read_bytes() == b for p, b in kept.items())            # left on disk, untouched
 
 
 def test_a_fresh_data_dir_gets_every_committed_company_and_run(env, tmp_path):

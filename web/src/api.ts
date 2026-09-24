@@ -427,9 +427,6 @@ export interface Health {
   ok: boolean;
   live_available: boolean;
   live_status: string;
-  seed_company: string;
-  /** The preloaded Profound tab: a committed live run, opened as a finished report. */
-  showcase: { company: string; run: string };
   /** Hosted demo: saved replay only, onboarding and live runs are refused by the server. */
   public_demo: boolean;
   /** Where to ask for a personal live link, or for a pass's cap to be raised. */

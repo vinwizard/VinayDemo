@@ -58,13 +58,5 @@
       "retrieved_at": "2026-09-18T01:50:00-04:00"
     }
   ],
-  "profound_capability_check": {
-    "retrieved_at": "2026-09-18T01:50:00-04:00",
-    "pages": {
-      "https://www.tryprofound.com/features/answer-engine-insights": "Lists Competitive Benchmarking, Sentiment Tracking & Analysis, Citation Tracking & Analysis, FactCheck.",
-      "https://www.tryprofound.com/features/agents": "Describes Agents for content campaigns, Deep Research & Citation Analysis, AEO-Optimized FAQ Generator.",
-      "https://www.tryprofound.com/agent-templates": "Template catalog includes Content Brief Creation, AEO-Optimized FAQ Generator, FactCheck Action templates."
-    }
-  },
   "operations_used": 8
 }

@@ -10,11 +10,10 @@ import graph
 from agents import ana, evaluation, onboarding
 from providers import fixture, imported, live
 from reports import from_json, load_run, save_run, to_json, to_markdown
-from schemas import Answer, CompanyProfile, PositioningPoint, Probe, QueryEvaluation, Topic
+from schemas import Answer, CompanyProfile, GapFinding, PositioningPoint, Probe, QueryEvaluation, Topic
 from scoring import domain_matches, score_topic, visibility_score
 
 ROOT = Path(__file__).resolve().parent.parent
-OFFICIAL = {evaluation.INSIGHTS, evaluation.AGENTS, evaluation.TEMPLATES}
 
 
 @pytest.fixture(autouse=True)
@@ -112,29 +111,33 @@ def test_every_query_and_topic_explained(runs):
         assert [l.endswith("not tested") for l in points] == [False, False, False, False, True]  # pp5 has no topic
 
 
-def test_every_gap_maps_to_capability_or_insufficient(runs):
+def test_every_gap_suggests_a_mapped_action_or_says_insufficient(runs):
     for r in runs.values():
         assert r.findings
         for f in r.findings:
-            if f.profound_capability:
-                assert f.capability_url in OFFICIAL and f.suggested_action and f.evidence_ids
-            else:
-                assert "insufficient" in f.interpretation.lower()
+            if "insufficient" not in f.interpretation.lower():
+                assert f.suggested_action in evaluation.ACTIONS.values() and f.evidence_ids
             assert f.limitations and f.provenance == "synthetic"
-    caps = {f.profound_capability for f in runs["B"].findings}
-    assert "FactCheck and associated correction workflows" in caps
-    content = [f for r in runs.values() for f in r.findings if f.profound_capability.startswith("Content")]
+    assert evaluation.ACTIONS["factcheck"] in {f.suggested_action for f in runs["B"].findings}
+    content = [f for r in runs.values() for f in r.findings if f.suggested_action == evaluation.ACTIONS["content"]]
     assert content and all(any("NOT confirmed" in l for l in f.limitations) for f in content)
 
 
-def test_insufficient_evidence_finding_has_no_capability():
+def test_a_finding_saved_with_the_retired_capability_fields_still_loads():
+    old = {"topic_id": "kb", "observation": "o", "evidence_ids": [], "interpretation": "i", "suggested_action": "a",
+           "profound_capability": "Answer Engine Insights", "capability_url": "https://example.com", "limitations": [],
+           "provenance": "live_api"}
+    assert not {"profound_capability", "capability_url"} & set(GapFinding.model_validate(old).model_dump())
+
+
+def test_insufficient_evidence_finding_suggests_collecting_more():
     t = Topic(id="kb", label="KB", buyer_need="n", positioning_point_ids=["pp1"], fit="strong")
     probes = [PROBE]
     a = Answer(probe_id="x-1", provenance="synthetic", provider="fixture", status="timeout")
     e = evaluation.evaluate(PROBE, a, PROFILE)
     te = score_topic(t, "baseline", [a], [e])
     [f] = evaluation.build_findings([t], [te], [e], probes)
-    assert f.profound_capability is None and f.capability_url is None
+    assert "insufficient" in f.interpretation.lower() and f.suggested_action not in evaluation.ACTIONS.values()
 
 
 # --- honesty rules ---------------------------------------------------------------

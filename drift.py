@@ -1,4 +1,4 @@
-"""Positioning drift: intended vs claimed vs perceived. Deterministic — no model judgment here.
+"""Drift: intended vs claimed vs perceived. Deterministic — no model judgment here.
 
 Three layers, kept separate on purpose:
   intended  — what the customer says they want to be known for (aspirational, never product fit)

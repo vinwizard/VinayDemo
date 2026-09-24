@@ -1,10 +1,10 @@
 # DEMO.md — two-minute presenter script
 
 Setup beforehand: start the API with `VISEXP_OFFLINE_REPLAY=1` and the React app as in
-[`README.md`](README.md), and open http://localhost:5173 on the Notion tab. With that variable the
-Notion run replays the first bundled scenario (Notion, scenario A), and the numbers below are its.
-Everything is synthetic; say so once, up front. Without the variable the same tab measures live, and
-the numbers will differ.
+[`README.md`](README.md), open http://localhost:5173 and, on the Onboard tab, reopen Notion from
+"Or reopen one you already onboarded". With that variable the Notion run replays the first bundled
+scenario (Notion, scenario A), and the numbers below are its. Everything is synthetic; say so once, up
+front. Without the variable the same company measures live, and the numbers will differ.
 
 The page does not offer the second scenario, so run it once from the API before the demo; it lands
 in History:
@@ -54,7 +54,7 @@ asymmetry is the product:
 This is the part a forward-deployed engineer gets paid for:
 
 - **AI-native workspace** — stated on 75% of their pages, echoed in 1 of 8 answers. **Authority gap.**
-  Their message is not reaching the models. That is the Profound-shaped problem.
+  Their message is not reaching the models. That is the problem AI-visibility work exists to fix.
 - **Enterprise ready** — stated on 12% of pages, echoed 0 times. **Messaging gap.** Not an AI problem.
   No amount of crawling fixes a claim they never made. Saying this out loud is what earns trust.
 
@@ -62,7 +62,6 @@ This is the part a forward-deployed engineer gets paid for:
 
 Open the second scenario's run from History. Alignment moves to 27.9% and "connected docs and databases"
 flips from landed to lost. Different fixture data, different diagnosis — the policy reads the evidence.
-If there is time, put the two runs side by side in the comparison view to show the per-attribute moves.
 
 **Close**
 

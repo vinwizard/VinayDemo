@@ -1,6 +1,5 @@
 // One company, start to finish, on one screen: read their site, extract what it claims, choose what
-// matters, ask AI, score. The preloaded Notion tab and "Onboard your own company" are this same
-// component; the only difference is whether the company already exists when it mounts.
+// matters, ask AI, score. A company onboarded earlier can be reopened and measured again.
 //
 // Every stage's state is derived from events the server actually sent — the crawl's page list, the
 // saved company, the graph's node events and one event per answer. Nothing here runs on a timer.
@@ -10,7 +9,7 @@ import type { CompanyDetail, CompanySummary, Run, StreamAnswer, StreamNode } fro
 import { getCompanies, getCompany, streamOnboard, streamRun } from "./api";
 import { ClaimsStep } from "./claims";
 import { Logo, Report } from "./components";
-import { PROVENANCE_LABEL, day, headline, plain, potentialText, streamingProbeLabel } from "./labels";
+import { PROVENANCE_LABEL, headline, plain, potentialText, streamingProbeLabel } from "./labels";
 
 type StageState = "pending" | "active" | "done" | "skipped" | "failed";
 
@@ -96,14 +95,8 @@ const PageList = ({ pages }: { pages: string[] }) => (
 
 type Onboarding = { phase: "idle" | "reading" | "extracting" | "failed"; pages: string[]; error?: string };
 
-export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }: {
-  companyId?: string;           // preloaded: the company already exists and stages 1–2 are done
-  preloaded?: boolean;
-  publicDemo?: boolean;         // replays are not saved, so there is nothing to re-score
-  onRunSaved: () => void;
-}) {
+export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
   const [company, setCompany] = useState<CompanyDetail | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [onb, setOnb] = useState<Onboarding>({ phase: "idle", pages: [] });
@@ -114,10 +107,9 @@ export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }
   const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (companyId) getCompany(companyId).then(setCompany).catch((e: Error) => setLoadError(e.message));
-    else getCompanies().then(setKnown).catch(() => {});
+    getCompanies().then(setKnown).catch(() => {});
     return () => closer.current?.(); // abort an in-flight stream if the tab unmounts
-  }, [companyId]);
+  }, []);
 
   const read = () => {
     setOnb({ phase: "reading", pages: [] }); setCompany(null); setP(NO_PROGRESS);
@@ -154,8 +146,6 @@ export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }
     });
   };
 
-  if (loadError) return <div className="callout error">{loadError}</div>;
-  if (companyId && !company) return <p className="muted">Loading…</p>;
 
   // ---------------------------------------------------------------- stages 1–2: onboarding
   const reading = onb.phase === "reading";
@@ -216,21 +206,12 @@ export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }
             <Logo name={company.profile.name} url={company.profile.logo_url} size={36} />
             <h2>{company.profile.name}</h2>
             <a href={`https://${company.profile.domain}`} target="_blank" rel="noreferrer">{company.profile.domain}</a>
-            {preloaded && <span className="tag preset">Preloaded example</span>}
-            {!preloaded && (
-              <button className="linky" style={{ marginLeft: "auto" }} onClick={startOver} disabled={running}>
-                Onboard a different company
-              </button>
-            )}
+            <button className="linky" style={{ marginLeft: "auto" }} onClick={startOver} disabled={running}>
+              Onboard a different company
+            </button>
           </div>
           {company.profile.one_liner && (
             <p className="one-liner">“{company.profile.one_liner}” <span className="muted">— how their own site puts it</span></p>
-          )}
-          {preloaded && !company.replay && (
-            <p className="muted" style={{ margin: ".3rem 0 0" }}>
-              The claims below come from a real read of {company.profile.domain} on {day(company.created_at)}.
-              The intent weights are an example set for this demo, not {company.profile.name}’s own — move them.
-            </p>
           )}
         </header>
       )}
@@ -256,9 +237,9 @@ export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }
               product pages, and keep a claim only when a verbatim quote on one of those pages states it.
             </p>
             <div className="row" style={{ flexWrap: "wrap" }}>
-              <input aria-label="Company name" placeholder="Company name" value={name}
+              <input aria-label="Company name" placeholder="Profound" value={name}
                      onChange={(e) => setName(e.target.value)} disabled={reading} />
-              <input aria-label="Website" placeholder="https://example.com" value={url} style={{ flex: "1 1 16rem" }}
+              <input aria-label="Website" placeholder="https://tryprofound.com" value={url} style={{ flex: "1 1 16rem" }}
                      onChange={(e) => setUrl(e.target.value)} disabled={reading}
                      onKeyDown={(e) => { if (e.key === "Enter" && url.trim() && !reading) read(); }} />
               <button className="primary" onClick={read} disabled={reading || !url.trim()}>
@@ -382,8 +363,7 @@ export function CompanyWorkflow({ companyId, preloaded, publicDemo, onRunSaved }
 
       {p.run && (
         <div ref={reportRef} className="report-wrap">
-          <Report run={p.run} onRescored={(r) => { setP((x) => ({ ...x, run: r })); onRunSaved(); }}
-                  weightNote={publicDemo ? "Weighting is available on the saved example reports in History." : undefined} />
+          <Report run={p.run} onRescored={(r) => { setP((x) => ({ ...x, run: r })); onRunSaved(); }} />
         </div>
       )}
     </div>

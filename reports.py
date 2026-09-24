@@ -110,7 +110,7 @@ def to_markdown(run: Run) -> str:
     src = source_names(run.profile.evidence)
     pn = probe_names(run.probes, run.topics)
     status = lambda s: TOPIC_STATUS_LABEL.get(s, s)
-    out = [f"# Visibility Explorer report — {run.profile.name}", "",
+    out = [f"# Off Message report — {run.profile.name}", "",
            f"> **{mode_label(run)}**", "",
            f"- Run of {when(run.created_at)} · {run.profile.name} · id `{run.id}`",
            f"- Scenario {run.scenario or '—'} · schema v{run.schema_version}",
@@ -123,12 +123,10 @@ def to_markdown(run: Run) -> str:
         out.append(f"| {topics[te.topic_id].label} | {topics[te.topic_id].fit} | {te.recommendations}/{te.n} "
                    f"(excluded {te.excluded}) | {num(te.visibility_score)} | {te.owned_citations}/{te.n} | {status(te.status)} | "
                    f"{num(te.gap_priority)} |")
-    out += ["", "## Where Profound could help (possible fit, not a guarantee)", ""]
+    out += ["", "## Gaps and suggested next steps", ""]
     for f in run.findings:
         out += [f"### {topics[f.topic_id].label}", f"- Observation: {f.observation}",
                 f"- Interpretation: {f.interpretation}",
-                f"- Capability: {f.profound_capability or 'Insufficient evidence — none mapped'}"
-                + (f" ({f.capability_url})" if f.capability_url else ""),
                 f"- Suggested action: {f.suggested_action}",
                 f"- Evidence: {with_ids(f.evidence_ids, pn)} · fit evidence: "
                 f"{with_ids(f.fit_evidence_ids, src) or 'none'}",
