@@ -302,7 +302,9 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   never a bare 0 (`web/src/badge.ts`: a tick where nothing is left to fix, else no badge;
   `role=tablist`, arrow keys, Home/End; the tab is kept in the URL
   hash, so `#report-questions` opens Questions we asked AI, and the old `#report-buyer` and
-  `#report-brand` links land there too; on a phone the strip scrolls sideways):
+  `#report-brand` links land there too; on a phone the strip scrolls sideways; the tabs are pills,
+  the active one solid accent with white text, and on a report's first view the others hop in a wave
+  twice, stopped by the first tab click, never under reduced motion):
   - **Overview** — where the answers came from (measured live with the model, or the SYNTHETIC
     DEMO banner for a replayed run), what the figures mean, then one **chip per zone** with its
     count (an empty zone is greyed). Hovering, tapping or focusing a chip opens a popover listing

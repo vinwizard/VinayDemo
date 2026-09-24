@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { KeyboardEvent, ReactNode } from "react";
+import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 import type {
   Answer, AttributeScore, Demand, DriftReport, MapPoint, Probe, QueryEvaluation, RetrievalRow, Run, ScoredPassage, SearchTry,
   WinBackAction, RunSummary, VisibilitySet, Zone,
@@ -495,7 +495,9 @@ export function Report({ run, onRescored, weightNote }: {
     const btn = document.getElementById(`${uid}-tab-${tab}`), strip = btn?.parentElement;
     if (btn && strip) strip.scrollLeft = btn.offsetLeft - strip.offsetLeft - 16;
   }, [tab, uid]);
+  const [nudge, setNudge] = useState(true);
   const setTab = (t: ReportTab, focus = false) => {
+    setNudge(false);
     setTabState(t);
     window.history.replaceState(null, "", `#report-${t}`);
     if (focus) document.getElementById(`${uid}-tab-${t}`)?.focus();
@@ -541,9 +543,10 @@ export function Report({ run, onRescored, weightNote }: {
           {d && <PrintSummary run={run} />}
         </div>
         {d && (
-          <div className="report-tabs" role="tablist" aria-label="Report sections" onKeyDown={onKey}>
-            {TABS.map(([t, label]) => (
+          <div className={`report-tabs${nudge ? " nudge" : ""}`} role="tablist" aria-label="Report sections" onKeyDown={onKey}>
+            {TABS.map(([t, label], i) => (
               <button key={t} id={`${uid}-tab-${t}`} role="tab" className="rtab" aria-selected={tab === t}
+                      style={{ "--i": i } as CSSProperties}
                       aria-controls={`${uid}-panel-${t}`} tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)}
                       title={TAB_HINT[t]}>
                 {label}

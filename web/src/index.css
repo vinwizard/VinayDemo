@@ -232,18 +232,33 @@ input[type="range"] { accent-color: var(--accent); width: 9rem; }
 .fig-sub { font-size: .8rem; color: var(--text); }
 .fig-sub::before { content: "· "; color: var(--muted); }
 .gap-line { order: 4; flex-basis: 100%; margin: 0; font-size: .85rem; }
-.report-tabs { display: flex; gap: .15rem; overflow-x: auto; scrollbar-width: none; }
+/* Pills, not underlines: the active tab is a solid accent block so the reader sees these are tabs
+   and which one they are on. The strip scrolls sideways on a phone; its padding keeps rings unclipped. */
+.report-tabs { display: flex; gap: .4rem; overflow-x: auto; scrollbar-width: none; padding: .45rem .2rem .6rem; }
 .report-tabs::-webkit-scrollbar { display: none; }
 .rtab {
-  flex: none; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer;
-  padding: .5rem .75rem; font: inherit; font-size: .9rem; color: var(--muted); white-space: nowrap;
+  flex: none; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; cursor: pointer;
+  padding: .35rem .85rem; font: inherit; font-size: .9rem; color: var(--text); white-space: nowrap;
+  transition: background .15s, border-color .15s, color .15s;
 }
-.rtab:hover { color: var(--text); }
-.rtab:focus-visible { outline-offset: -2px; }
-.rtab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 550; }
+.rtab:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.rtab:focus-visible { outline-offset: 2px; }
+.rtab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600;
+                              box-shadow: 0 2px 8px rgb(59 91 219 / 35%); }
 .rtab-count { margin-left: .4rem; font-size: .72rem; padding: 0 .4rem; border-radius: 999px;
               background: var(--border); color: var(--muted); font-weight: 550; }
-.rtab[aria-selected="true"] .rtab-count { background: var(--accent-soft); color: var(--accent); }
+.rtab[aria-selected="true"] .rtab-count { background: #fff; color: var(--accent); }
+/* On a report's first view the other tabs hop once in a wave, twice over, so a first-time reader notices them.
+   Finite by design; the first tab click removes it; reduced motion never sees it. */
+@media (prefers-reduced-motion: no-preference) {
+  .report-tabs.nudge .rtab:not([aria-selected="true"]) {
+    animation: rtab-nudge .7s ease-in-out calc(.6s + var(--i) * .12s) 2;
+  }
+}
+@keyframes rtab-nudge {
+  50% { transform: translateY(-3px); border-color: var(--accent); color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft), 0 3px 8px rgb(59 91 219 / 25%); }
+}
 .report-panel { display: flex; flex-direction: column; gap: 1rem; min-height: 60vh; }
 .report-panel:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .panel-sec { display: flex; flex-direction: column; gap: .7rem; }
