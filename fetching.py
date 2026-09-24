@@ -29,7 +29,7 @@ TIMEOUT = 10
 MAX_BYTES = 1024 * 1024
 MAX_CHARS = 12_000
 MAX_REDIRECTS = 2
-USER_AGENT = "PositioningDrift/0.1 (+research; contact via repository)"
+USER_AGENT = "OffMessage/0.1 (+research; contact via repository)"
 ALLOWED_SCHEMES = ("http", "https")
 HTML = "text/html,application/xhtml+xml"
 

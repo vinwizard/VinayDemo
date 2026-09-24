@@ -1,4 +1,4 @@
-# VinayDemo — Positioning Drift
+# VinayDemo — Off Message
 
 You take a company, and an agentic workflow runs a research methodology that shows how different
 AIs perceive that company, from what they can see on the internet, against what the company wants
@@ -50,15 +50,15 @@ verbatim in the answer they cite, and nothing is invented to fill a gap.
 - Run, test, layout: `README.md`. API, live mode, offline fallback, views, wording: `WEB.md`.
   Presenter script: `DEMO.md`. Tests: `python -m pytest -q`.
 - Detailed rules load on demand from `.claude/skills/`: `product-workflow` (agents, graph, state),
-  `evidence-modes` (providers, provenance, budgets), `evaluation-and-scoring` (scoring, Profound
-  mapping, acceptance checks), `build-history` (the original overnight brief and milestone log).
+  `evidence-modes` (providers, provenance, budgets), `evaluation-and-scoring` (scoring, suggested
+  actions, acceptance checks), `build-history` (the original overnight brief and milestone log).
 - Tests never touch the network: `audit.py` (the no-model site check) fetches only through
   `audit.get`, which `tests/conftest.py` refuses unless a test records responses.
 - Every OpenAI call goes through `access.openai_response` (embeddings: `access.openai_embedding`,
   via `demand.py` and `embeddings.py`): it refuses at an access pass's cap, charges the pass from
   reported usage, and fails closed on the public demo when no pass is set. A new model call site
   must use it. Passes, admin and hosting: README "Deploy to Render".
-- Independent portfolio demo — not a Profound product or integration.
+- Independent portfolio demo.
 
 ## Maintaining this file
 

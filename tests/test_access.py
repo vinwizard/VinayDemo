@@ -269,7 +269,7 @@ def test_a_visitor_without_a_pass_is_replay_only_with_zero_model_calls(env):
 
 
 def preload_examples(tmp_path):
-    """The preloaded Notion company, the Profound report and its company, as a deploy's DATA_DIR has them."""
+    """The preloaded Notion company, the committed live example and its company, as a deploy's DATA_DIR has them."""
     for kind, item in (("companies", main.SEED_COMPANY), ("companies", main.SHOWCASE_COMPANY),
                        ("runs", main.SHOWCASE_RUN)):
         (tmp_path / kind / f"{item}.json").write_bytes((reports.BUNDLED / kind / f"{item}.json").read_bytes())

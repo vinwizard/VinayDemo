@@ -40,13 +40,13 @@ def repeat_sampled(buyer: list, n: int) -> list:
 
 STAGES = {  # node -> (UI stage, logical agent). Both strings are shown to the reader verbatim.
     "plan_brand": ("Topic planning", "Agent 2 · Question planner"),
-    "perceive": ("Perception drift", "Agent 3 · Answer evaluation"),
+    "perceive": ("Perception gap", "Agent 3 · Answer evaluation"),
     "plan_buyer": ("Topic planning", "Agent 2 · Question planner"),
     "validate_and_freeze": ("Topic planning", "Orchestrator"),
     "execute_or_replay": ("Baseline / Follow-up", "Orchestrator"),
     "evaluate": ("Gap evaluation", "Agent 3 · Answer evaluation"),
     "choose_followup": ("Follow-up", "Agent 2 · Question planner"),
-    "measure_drift": ("Perception drift", "Agent 3 · Answer evaluation"),
+    "measure_drift": ("Perception gap", "Agent 3 · Answer evaluation"),
     "build_gap_report": ("Report", "Agent 3 · Answer evaluation"),
 }
 

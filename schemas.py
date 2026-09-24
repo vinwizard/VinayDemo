@@ -82,7 +82,7 @@ class CompanyProfile(BaseModel):
 
 
 class Attribute(BaseModel):
-    """One thing a brand can be known for. The unit of positioning drift.
+    """One thing a brand can be known for. The unit of drift.
 
     `intended` — the customer says they want to own it (aspirational; never counts as product fit).
     `claimed`  — their own public copy states it (evidence-backed).
@@ -256,8 +256,6 @@ class GapFinding(BaseModel):
     fit_evidence_ids: list[str] = []
     interpretation: str
     suggested_action: str
-    profound_capability: Optional[str]  # None = insufficient evidence
-    capability_url: Optional[str]
     limitations: list[str]
     provenance: Provenance
     gap_priority: Optional[float] = None

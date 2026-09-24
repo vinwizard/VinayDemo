@@ -160,7 +160,7 @@ def test_a_zero_is_low_confidence_when_even_the_control_leaves_the_brand_out(mon
 
 
 def test_a_brand_named_in_some_buyer_answers_is_still_flagged_when_the_control_leaves_it_out(monkeypatch):
-    # the live Profound run: named once by chance, absent from 38 category leaders, and never flagged
+    # an earlier live run: named once by chance, absent from 38 category leaders, and never flagged
     run, _ = live_run(lambda n: "Notion fits." if n == 3 else "Coda fits.", "Linear, Asana and Coda.",
                       monkeypatch=monkeypatch)
     assert run.drift.visibility > 0 and "but not Notion" in run.drift.low_confidence

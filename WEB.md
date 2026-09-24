@@ -227,13 +227,13 @@ things make the buyer number trustworthy anyway:
 
 ### Offline fallback — no network, no key
 
-For a demo on bad wifi, start the API with `VISEXP_OFFLINE_REPLAY=1`. Measuring the preloaded
-Notion company then replays the bundled Notion sample (fixture scenario A) instead of asking a model.
+For a demo on bad wifi, start the API with `VISEXP_OFFLINE_REPLAY=1`, then reopen Notion from the
+Onboard tab ("Or reopen one you already onboarded"). Measuring the preloaded Notion company then replays the bundled Notion sample (fixture scenario A) instead of asking a model.
 Nothing in the page can turn this on; it lives only in the server's environment, and only the
 preloaded company is affected — any other company still refuses without a key. The run says what it
 is everywhere it appears: an "Offline replay — sample answers, not a measurement" notice above the
 stages, a SAMPLE tag on every streamed answer, and the SYNTHETIC DEMO banner on its report and in
-History. While it is on, the preloaded tab shows the sample's own claims in place of the real read of
+History. While it is on, the reopened Notion company shows the sample's own claims in place of the real read of
 notion.com, so what is on screen is exactly what is scored; its sliders are locked and the API
 refuses to edit it, so the committed seed file is never touched.
 
@@ -250,12 +250,12 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/health` | liveness, whether live mode is usable, and `seed_company` — the id of the preloaded company, `showcase` — the company and run ids of the preloaded Profound report, and `contact_email` — where to ask for a pass or a higher cap (`CONTACT_EMAIL`), and `storage` — whether the pass database survives a redeploy (README "Deploy to Render") |
+| `GET /api/health` | liveness, whether live mode is usable, and `seed_company` — the id of the preloaded company, `showcase` — the company and run ids of the committed live example in History, and `contact_email` — where to ask for a pass or a higher cap (`CONTACT_EMAIL`), and `storage` — whether the pass database survives a redeploy (README "Deploy to Render") |
 | `GET /api/stream?company=<id>` or `?scenario=A&mode=demo` | SSE while the graph runs: `node` (with `planned` question counts per stage, discovered `competitors` and the run `mode`), `answer` (the question, the first 320 characters of its answer, provenance and whether a web search ran), `done` (the full run), `error`. A company is always `mode=live`, apart from the offline fallback above. The page only ever measures companies; `?scenario=` remains for the fixture path |
 | `GET /api/runs` | run history, newest first |
 | `GET /api/runs/{id}` | one full run, including the drift report and its `insights` (share of voice, cited sources and the brands each was cited beside, searches); the stream's `done` event and `rescore` return the same shape |
 | `POST /api/runs/{id}/reask` | test a fix: `{probe_id}` asks that buyer question once more, with the rewritten passage and the cited page's passage as the only sources, and saves whether the brand was named on its retrieval row. One metered model call; live runs only, refused on the public demo without a pass. A simulation that moves no score |
-| `POST /api/runs/{id}/rescore` | lens 2 after the fact: `{weights: {id: 0..1}}` sets intent on a finished run and re-scores its saved answers — no provider is built and no model is asked. Unnamed weights keep their value; 0 unweights; with nothing weighted the run reads through the claim lens again. Saved in place, except in the public demo (`VISEXP_PUBLIC_DEMO`) and for the committed Profound run |
+| `POST /api/runs/{id}/rescore` | lens 2 after the fact: `{weights: {id: 0..1}}` sets intent on a finished run and re-scores its saved answers — no provider is built and no model is asked. Unnamed weights keep their value; 0 unweights; with nothing weighted the run reads through the claim lens again. Saved in place, except in the public demo (`VISEXP_PUBLIC_DEMO`) and for the committed live example (`SHOWCASE_RUN`) |
 | `GET /api/onboard/stream?url=&name=` | the same onboarding as SSE: `pages` (the URLs the crawl fetched) as soon as the crawl lands, then `company` once extraction is saved, or `error`. The page uses this one |
 | `GET /api/onboard?url=&name=` | Agent 1: crawl up to 6 of a company's own pages, extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. Needs the same key as live mode. A company is always saved, never refused: a site where fewer than three claims survive quote validation carries a prominent warning that it states too little for a reliable claim percentage, and the existing insufficient-evidence rules withhold the scores rather than the company |
 | `GET /api/companies` · `GET /api/companies/{id}` | onboarded companies, newest first, and one in full |
@@ -264,21 +264,17 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 | `POST /api/companies/{id}/audit` | checks again whether AI can read the site (`audit.py`) and saves it on the company; the same check runs once during onboarding. Plain fetches, no model and no key: robots.txt for the AI crawlers, the claim's words in the no-JavaScript HTML, schema.org JSON-LD, headings, load time and llms.txt, on every page that states each claim, plus Wikidata/Wikipedia (tied to the company only by Wikidata's official website on its domain) and the Crunchbase, G2 and LinkedIn pages the site itself links to. Anything that cannot be reached, or whose robots.txt turns automated tools away, is "could not check", never a guess. A run copies the company's audit when it starts |
 | `DELETE /api/companies/{id}/attributes/{attr}` | removes a claim the customer added. Refuses for a claim extracted from their own pages: that one is evidence, and excluding it from scoring is what its zero slider is for |
 
-Comparison is done client-side from two `GET /api/runs/{id}` responses — no extra endpoint.
-
 ## Views
 
-- **Notion** — the preloaded company. `data/companies/5eed0001.json` is a real onboarding of
-  notion.com, committed so a fresh clone has it, with an example set of intent weights the page
-  labels as an example rather than Notion's own. It is the same workflow as the next tab, starting at
-  step 3
-- **Profound** — the preloaded finished report. `data/runs/8d1d78c3e6.json` is a real live run of
-  tryprofound.com (`data/companies/998420ffae.json` its onboarding), committed so every clone and the
-  public demo open it straight away, labelled as measured live with its date. Opening it asks no
-  model; re-weighting it re-scores in the page but never rewrites the committed file
-  (`SHOWCASE_RUN` in `api/main.py`). It also appears in History and Compare. Neither preloaded
-  tab, nor their reports in History and Compare, is shown to a pass holder on the hosted demo: they
-  see only their own work, starting on the next tab
+The page has two tabs, Onboard and History. Two committed examples ship with every clone:
+`data/companies/5eed0001.json`, a real onboarding of notion.com with an example set of intent weights,
+reopened from step 1 of Onboard; and `data/runs/0c55be2792.json`, a real live run of amgen.com
+(`data/companies/3afc276406.json` its onboarding), listed in History and labelled as measured live
+with its date. Opening that run asks no model; re-weighting it re-scores in the page but never
+rewrites the committed file (`SHOWCASE_RUN` in `api/main.py`). On the hosted demo a visitor without a
+pass cannot onboard, so the page opens on History; a pass holder sees neither example, only their own
+work, starting on Onboard.
+
 - **Onboard your own company** — one workflow on one screen, seven stages that complete in order:
   read their site (the pages fetched), extract what they claim (claims kept, each with its verbatim
   quote and page count, and a "How we checked these claims" panel listing each extracted claim once:
@@ -426,12 +422,10 @@ Comparison is done client-side from two `GET /api/runs/{id}` responses — no ex
   "Save as PDF" makes the file. It is print CSS over a view that never renders on screen — no PDF
   library, no server call (`screenshots/exec-summary-pdf.png`)
 - **History** — every saved run from `data/runs/` (under `DATA_DIR` when set; a pass holder's own
-  runs only) with its untapped potential; click one to open
+  runs only) with its company and untapped potential; click one to open
   its report in place
-- **Compare** — two runs side by side as untapped potential with the real score beneath, the change
-  in untapped potential, and per-attribute zone changes (`claim to win back → landed`)
 
-Saving weights on the Notion tab — or measuring, which saves them first — writes to the committed
+Saving weights on the reopened Notion company — or measuring, which saves them first — writes to the committed
 seed file, so the working tree shows it modified afterwards; `git checkout data/companies/5eed0001.json`
 restores the example weights.
 

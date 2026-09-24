@@ -44,7 +44,7 @@ def test_projection_is_deterministic_and_the_arrow_points_at_the_site():
 
 
 def test_both_axes_are_named_even_when_every_claim_sits_at_one_end():
-    # Amgen, Notion and Profound, live: every claim describes the company, so all of them sat at one
+    # Amgen and Notion, live: every claim describes the company, so all of them sat at one
     # end of each PCA axis, and an axis was named only with a claim at BOTH ends. No live map ever
     # named an axis ("No claim lines up with either axis, so they have no name").
     r = run()

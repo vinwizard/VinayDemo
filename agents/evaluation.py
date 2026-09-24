@@ -12,22 +12,13 @@ from schemas import (Answer, Attribute, AttributeObservation, CompanyProfile, Ga
                      QueryEvaluation, Topic, TopicEvaluation)
 from scoring import PRIORITY_LABEL, domain_matches, mentions_alias
 
-INSIGHTS = "https://www.tryprofound.com/features/answer-engine-insights"
-AGENTS = "https://www.tryprofound.com/features/agents"
-TEMPLATES = "https://www.tryprofound.com/agent-templates"
-
-# Reviewed configuration table (.claude/skills/evaluation-and-scoring). Explanation of possible fit, not an API call.
-CAPABILITIES = {
-    "absent_vs_competitors": ("Answer Engine Insights / competitive benchmarking", INSIGHTS,
-                              "Track a wider fixed prompt set over time to assess whether the gap persists."),
-    "competitor_citations": ("Citation analysis / competitive research", INSIGHTS,
-                             "Inspect frequently cited sources and identify coverage the customer lacks."),
-    "content": ("Content briefs, FAQ generation and content optimization Agents", AGENTS,
-                "Review owned pages and propose an evidence-backed brief for the uncovered questions."),
-    "factcheck": ("FactCheck and associated correction workflows", TEMPLATES,
-                  "Compare the claim with current authoritative facts and investigate cited sources."),
-    "poor_match": ("Sentiment/theme analysis plus topic research", INSIGHTS,
-                   "Examine how the brand is described and whether product-fit evidence is clear."),
+# Reviewed configuration table (.claude/skills/evaluation-and-scoring): the next step each kind of gap suggests.
+ACTIONS = {
+    "absent_vs_competitors": "Track a wider fixed prompt set over time to assess whether the gap persists.",
+    "competitor_citations": "Inspect frequently cited sources and identify coverage the customer lacks.",
+    "content": "Review owned pages and propose an evidence-backed brief for the uncovered questions.",
+    "factcheck": "Compare the claim with current authoritative facts and investigate cited sources.",
+    "poor_match": "Examine how the brand is described and whether product-fit evidence is clear.",
 }
 
 # The `([host](url))` inline citations, the source-card lines that are nothing but a link, and every
@@ -327,10 +318,9 @@ def build_findings(topics: list[Topic], topic_evals: list[TopicEvaluation], eval
             "Absence alone is not proof of opportunity or market demand."]
 
         def add(key, observation, interpretation, evidence_ids, extra_limits=()):
-            cap, url, action = CAPABILITIES[key]
             findings.append(GapFinding(
                 topic_id=t.id, observation=observation, evidence_ids=evidence_ids, fit_evidence_ids=t.fit_evidence_ids,
-                interpretation=interpretation, suggested_action=action, profound_capability=cap, capability_url=url,
+                interpretation=interpretation, suggested_action=ACTIONS[key],
                 limitations=limits + list(extra_limits), provenance=te.provenance, gap_priority=te.gap_priority,
                 exploratory_note=note))
 
@@ -338,9 +328,9 @@ def build_findings(topics: list[Topic], topic_evals: list[TopicEvaluation], eval
             findings.append(GapFinding(
                 topic_id=t.id, observation=f"Status: {te.status} ({te.n} eligible, {te.excluded} excluded).",
                 evidence_ids=base_ids, fit_evidence_ids=t.fit_evidence_ids,
-                interpretation="Insufficient evidence to connect this topic to a gap or a capability.",
+                interpretation="Insufficient evidence to connect this topic to a gap.",
                 suggested_action="Collect more eligible observations before drawing conclusions.",
-                profound_capability=None, capability_url=None, limitations=limits, provenance=te.provenance,
+                limitations=limits, provenance=te.provenance,
                 exploratory_note=note))
             continue
         if te.status == "observed presence":

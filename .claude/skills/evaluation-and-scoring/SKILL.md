@@ -1,33 +1,27 @@
 ---
 name: evaluation-and-scoring
-description: Load when changing agents/evaluation.py, scoring.py, gap findings, the Profound capability mapping, or the offline acceptance tests. Per-query evaluation rules, scoring formulas, gap-to-Profound mapping and the acceptance checklist.
+description: Load when changing agents/evaluation.py, scoring.py, gap findings, the suggested-action table, or the offline acceptance tests. Per-query evaluation rules, scoring formulas, gap-to-action mapping and the acceptance checklist.
 ---
 
-# Evaluation, scoring, Profound mapping and acceptance checks
+# Evaluation, scoring, suggested actions and acceptance checks
 
-Moved verbatim from agents.md sections 4, 6 and 10. Where this disagrees with the code, README.md or WEB.md, the code wins: it was written for the first overnight build, before the React app, positioning drift and live mode existed.
+Moved verbatim from agents.md sections 4, 6 and 10. Where this disagrees with the code, README.md or WEB.md, the code wins: it was written for the first overnight build, before the React app, the drift layer and live mode existed.
 
-## 4. Where Profound could help
+## 4. Suggested next steps
 
-Keep this mapping as a small reviewed configuration table with official supporting links. It is an explanation of possible fit, not an actual Profound API call.
+Keep this mapping as a small reviewed configuration table (`ACTIONS` in `agents/evaluation.py`). It names no vendor or product.
 
-| Observed issue | Relevant capability | Suggested next step |
-| --- | --- | --- |
-| Company absent in a relevant topic while competitors appear | Answer Engine Insights / competitive benchmarking | Track a wider fixed prompt set over time to assess whether the gap persists |
-| Competitors repeatedly appear in cited pages | Citation analysis / competitive research | Inspect frequently cited sources and identify coverage the customer lacks |
-| Relevant questions lack useful company-owned content | Content briefs, FAQ generation and content optimization Agents | Review owned pages and propose an evidence-backed brief for the uncovered questions |
-| Answers repeat outdated or inaccurate product facts | FactCheck and associated correction workflows | Compare the claim with current authoritative facts and investigate cited sources |
-| Brand is mentioned but poorly matched to a specific use case | Sentiment/theme analysis plus topic research | Examine how the brand is described and whether product-fit evidence is clear |
+| Observed issue | Suggested next step |
+| --- | --- |
+| Company absent in a relevant topic while competitors appear | Track a wider fixed prompt set over time to assess whether the gap persists |
+| Competitors repeatedly appear in cited pages | Inspect frequently cited sources and identify coverage the customer lacks |
+| Relevant questions lack useful company-owned content | Review owned pages and propose an evidence-backed brief for the uncovered questions |
+| Answers repeat outdated or inaccurate product facts | Compare the claim with current authoritative facts and investigate cited sources |
+| Brand is mentioned but poorly matched to a specific use case | Examine how the brand is described and whether product-fit evidence is clear |
 
 Do not label a content gap “confirmed” unless the relevant company pages were examined. Citations alone do not prove why a model chose a brand. Where evidence is insufficient, say what additional research is needed.
 
-Every finding includes: topic, observation, probe/evidence IDs, fit evidence, interpretation, suggested action, Profound capability, official capability URL, limitations, and provenance.
-
-Official product context:
-
-- https://www.tryprofound.com/features/answer-engine-insights
-- https://www.tryprofound.com/features/agents
-- https://www.tryprofound.com/agent-templates
+Every finding includes: topic, observation, probe/evidence IDs, fit evidence, interpretation, suggested action, limitations, and provenance.
 
 ## 6. Evaluations and scoring
 
@@ -61,7 +55,7 @@ Every question gets a score/explanation or failure card. Every topic gets counts
 - Adaptive selection changes when the fixture results change.
 - Baseline remains unchanged after follow-up execution.
 - Every query/topic has an explanation and traceable evidence/provenance.
-- Every gap connects to an appropriate Profound capability, or states insufficient evidence.
+- Every gap suggests a mapped next step, or states insufficient evidence.
 - Synthetic data never appears under a real provider name or live timestamp.
 - Search snapshots never masquerade as chatbot visibility measurements.
 - Scores [2,1,0] give visibility 50; no eligible answers gives null.

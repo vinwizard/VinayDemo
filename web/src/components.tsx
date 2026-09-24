@@ -472,12 +472,11 @@ const sortClaims = (scores: AttributeScore[]) => [...scores].sort(
  * One run as a product: a summary pinned at the top, then one tab per question a reader asks —
  * each fitting about one screen — with every claim and question readable in place. Same numbers
  * and data as ever; only the layout. `onRescored` enables the optional weights step; without it the
- * report is read-only. `weightNote` replaces the weights step with one plain line.
+ * report is read-only.
  */
-export function Report({ run, onRescored, weightNote }: {
+export function Report({ run, onRescored }: {
   run: Run;
   onRescored?: (r: Run) => void;
-  weightNote?: string;
 }) {
   const d = run.drift;
   const uid = useId();
@@ -566,8 +565,7 @@ export function Report({ run, onRescored, weightNote }: {
               <FixLine run={run} onOpen={() => setTab("why")} />
               <ZoneChips run={run} />
               <Excluded run={run} />
-              {weightNote ? <p className="muted">{weightNote}</p>
-                : onRescored && <Weights key={run.id} run={run} onRescored={onRescored} />}
+              {onRescored && <Weights key={run.id} run={run} onRescored={onRescored} />}
               <HowWeChecked run={run} />
             </>
           )}
@@ -594,7 +592,7 @@ export function Report({ run, onRescored, weightNote }: {
       ) : (
         <>
           <RunSource run={run} />
-          <div className="callout">This run finished without a drift report.</div>
+          <div className="callout">This run finished without a report.</div>
         </>
       )}
     </article>
@@ -706,7 +704,7 @@ function ExecSummary({ run }: { run: Run }) {
         {live && modelsOf(run).answered && ` · answered by ${modelsOf(run).answered}`}
         {" "}· run {when(run.created_at)} · {d.n_named} brand and {d.n_blind} buyer answers
         · printed {new Date().toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
-        <br />Independent portfolio demo — not a Profound product or integration.
+        <br />Independent portfolio demo.
       </p>
     </section>
   );
@@ -839,14 +837,6 @@ function ClaimDetail({ s, run }: { s: AttributeScore; run: Run }) {
           <FixCard a={fix} run={run} />
         </>
       )}
-      {s.owner === "authority_gap" && (
-        <p className="muted">
-          Relevant capability:{" "}
-          <a href="https://www.tryprofound.com/features/answer-engine-insights" target="_blank" rel="noreferrer">
-            Answer Engine Insights / citation analysis
-          </a>
-        </p>
-      )}
     </div>
   );
 }
@@ -867,14 +857,6 @@ function GapCard({ s, run }: { s: AttributeScore; run: Run }) {
         Your site: {siteShare(s)} · AI: {aiShare(s)}
       </p>
       {s.quotes[0] && <p className="quote">{plain(s.quotes[0])}</p>}
-      {s.owner === "authority_gap" && (
-        <p className="muted" style={{ marginBottom: 0 }}>
-          Relevant capability:{" "}
-          <a href="https://www.tryprofound.com/features/answer-engine-insights" target="_blank" rel="noreferrer">
-            Answer Engine Insights / citation analysis
-          </a>
-        </p>
-      )}
       {s.owner === "messaging_gap" && (
         <p className="muted" style={{ marginBottom: 0 }}>
           Not an AI problem: your own copy does not state this clearly enough to be repeated.
@@ -2234,90 +2216,20 @@ function HowWeChecked({ run }: { run: Run }) {
   );
 }
 
-export function Compare({ a, b, runs = [] }: { a: Run; b: Run; runs?: RunSummary[] }) {
-  const names = runLabels(runs);
-  const name = (r: Run) => names[r.id]?.full ?? r.id;
-  const labels = [...new Set([...a.attribute_scores, ...b.attribute_scores].map((s) => s.label))];
-  const find = (r: Run, label: string) => r.attribute_scores.find((s) => s.label === label);
-  // Intended rows compare the endorsement rate that drives alignment; an imposed row has no
-  // positioning to land, so it compares how often AI raises it at all.
-  const rate = (s: AttributeScore) => (s.intended_weight ? s.echo_rate : s.mention_rate);
-  const shown = (s: AttributeScore) =>
-    rate(s) == null ? "n/a" : `${pct(rate(s))}% ${s.intended_weight ? "endorsed" : "mentioned"}`;
-  const cell = (s?: AttributeScore) => !s ? <span className="muted">—</span> : (
-    <>
-      <span className={`pill ${s.zone}`}>{shown(s)}</span>
-      {rate(s) == null && <div className="muted">{na(s.na_reasons, "echo_rate")}</div>}
-    </>
-  );
-  const ha = a.drift ? headline(a.drift) : null, hb = b.drift ? headline(b.drift) : null;
-  // Change in untapped potential: going down is the good direction.
-  const change = ha && hb && ha.label === hb.label && ha.potential != null && hb.potential != null
-    ? Math.round((hb.potential - ha.potential) * 10) / 10 : null;
-  const side = (r: Run, h: typeof ha, align: "left" | "right") => (
-    <div style={{ textAlign: align }}>
-      <div className="muted" title={r.id}>{name(r)}</div>
-      <div className="value" style={{ fontSize: "1.6rem", fontWeight: 600 }}>
-        {h?.potential == null ? "n/a" : `${h.potential}%`} <small className="muted">untapped potential</small>
-      </div>
-      <div className="muted">{h ? h.today ?? r.drift?.na_reasons?.[h.field] : "This run finished without a drift report."}</div>
-    </div>
-  );
-  return (
-    <div className="stack">
-      <div className="card">
-        <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-          {side(a, ha, "left")}
-          <div style={{ textAlign: "center" }}>
-            <div className="muted">change in untapped potential</div>
-            <div className={`value ${change == null ? "" : change <= 0 ? "delta up" : "delta down"}`}
-                 style={{ fontSize: "1.6rem", fontWeight: 600 }}>
-              {change == null ? "—" : `${change > 0 ? "+" : ""}${change} pts`}
-            </div>
-            {ha && hb && ha.label !== hb.label && (
-              <div className="muted">{ha.label} vs {hb.label}: different headlines, not comparable</div>
-            )}
-          </div>
-          {side(b, hb, "right")}
-        </div>
-      </div>
-      <div className="card">
-        <div className="cmp muted" style={{ borderTop: "none" }}>
-          <div>Attribute</div><div>{names[a.id]?.short ?? "A"}</div>
-          <div>{names[b.id]?.short ?? "B"}</div><div>Zone change</div>
-        </div>
-        {labels.map((label) => {
-          const sa = find(a, label), sb = find(b, label);
-          const moved = sa && sb && sa.zone !== sb.zone;
-          return (
-            <div className="cmp" key={label}>
-              <div>{label}</div>
-              <div>{cell(sa)}</div>
-              <div>{cell(sb)}</div>
-              <div className="muted">
-                {!sa || !sb ? "only in one run" : moved ? `${ZONE_LABEL[sa.zone]} → ${ZONE_LABEL[sb.zone]}` : "unchanged"}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export function History({ runs, onOpen }: { runs: RunSummary[]; onOpen: (id: string) => void }) {
   const names = runLabels(runs);
-  if (!runs.length) return <div className="card muted">No saved runs yet. Measure drift to create one.</div>;
+  if (!runs.length) return <div className="card muted">No saved runs yet. Onboard a company and measure it to create one.</div>;
   return (
     <div className="card">
       <table>
         <thead>
-          <tr><th>Run</th><th>When</th><th>Scenario</th><th>Untapped potential</th><th>Landed</th><th>To win back</th><th>To shape</th></tr>
+          <tr><th>Run</th><th>Company</th><th>When</th><th>Scenario</th><th>Untapped potential</th><th>Landed</th><th>To win back</th><th>To shape</th></tr>
         </thead>
         <tbody>
           {runs.map((r) => (
             <tr key={r.id} className="pick" onClick={() => onOpen(r.id)}>
               <td title={r.id}>{names[r.id]?.short ?? r.id}</td>
+              <td>{r.company}</td>
               <td className="muted">{r.created_at.replace("T", " ")}</td>
               <td>{r.scenario ?? "—"}</td>
               <td>

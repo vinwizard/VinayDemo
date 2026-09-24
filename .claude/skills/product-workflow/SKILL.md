@@ -5,7 +5,7 @@ description: Load when changing the engine's agents (onboarding, AnA, evaluation
 
 # Product workflow, agent scopes and state
 
-Moved verbatim from agents.md sections 1, 3 and 5. Where this disagrees with the code, README.md or WEB.md, the code wins: it was written for the first overnight build, before the React app, positioning drift and live mode existed.
+Moved verbatim from agents.md sections 1, 3 and 5. Where this disagrees with the code, README.md or WEB.md, the code wins: it was written for the first overnight build, before the React app, the drift layer and live mode existed.
 
 ## 1. Exactly what the product does
 
@@ -16,11 +16,11 @@ Moved verbatim from agents.md sections 1, 3 and 5. Where this disagrees with the
 5. Collect or replay answers and identify company mentions, recommendations, competitors, and citations.
 6. Evaluate each query and topic.
 7. Use those evaluations to select up to two topics for one additional round of two questions each.
-8. Show the strongest candidate gaps, underlying evidence, and the specific Profound capability that could support the next step.
+8. Show the strongest candidate gaps, underlying evidence, and a concrete suggested next step.
 
 Scope: at most 12 baseline questions and 4 follow-ups. No continuous search loop. Freeze baseline questions before collecting answers; never merge exploratory observations into baseline scores.
 
-The company being investigated is the user's customer/prospect, not necessarily Profound itself. Default demo subject: Notion, with conspicuous synthetic-result labels. Website facts may be researched; dummy AI answer results remain synthetic even when they reference a real company.
+The company being investigated is the user's customer/prospect. Default demo subject: Notion, with conspicuous synthetic-result labels. Website facts may be researched; dummy AI answer results remain synthetic even when they reference a real company.
 
 ## 3. Agent scopes
 
@@ -74,7 +74,7 @@ Demo implementation: baseline plans and answer variants are authored fixtures. F
 
 ### Agent 3 — Evaluation and Gap Analysis
 
-**Goal:** evaluate every observation and explain where further research or Profound capabilities could help.
+**Goal:** evaluate every observation and explain where further research could help.
 
 Inputs: question, raw answer, native citations, approved company identity and topic-fit evidence.
 
@@ -85,11 +85,11 @@ Tasks:
 - Identify citations to the company's domain independently of answer-body mentions.
 - Flag failed, ungrounded, ambiguous or off-topic observations.
 - Produce per-query explanations and per-topic gap reports.
-- Map each credible gap to a relevant Profound capability and a concrete suggested next step.
+- Map each credible gap to a concrete suggested next step.
 
 Outputs: `QueryEvaluation[]`, `TopicEvaluation[]`, `GapFinding[]`.
 
-Boundaries: arithmetic belongs in code. Never invent quotes, citations, market demand or ranking causes. Absence alone is not proof of opportunity. Do not say Profound will guarantee placement or fix an issue automatically.
+Boundaries: arithmetic belongs in code. Never invent quotes, citations, market demand or ranking causes. Absence alone is not proof of opportunity. Do not promise that any step will guarantee placement or fix an issue automatically.
 
 Demo implementation: fixture labels/quotes drive extraction; deterministic code validates evidence and computes scores. Do not claim the LLM evaluator was tested live without credentials. Prepare a model-backed evaluation prompt/interface for later.
 
@@ -128,7 +128,7 @@ QueryEvaluation: probe_id, valid, mentioned, recommended, negative_mention,
         strength, explanation, warnings[]
 AdaptiveDecision: selected_topics[], new_probes[], rationale, evidence_probe_ids[]
 GapFinding: topic_id, observation, evidence_ids[], interpretation,
-        suggested_action, profound_capability, capability_url, limitations[]
+        suggested_action, limitations[]
 Run: id, schema_version, mode, profile, topics[], baseline_hash,
         probes[], answers[], evaluations[], decisions[], findings[], status
 ```

@@ -1,6 +1,6 @@
-# VinayDemo — Positioning Drift
+# VinayDemo — Off Message
 
-*How different is your brand in AI answers from the brand you are trying to be?*
+*Is AI on message about your brand?*
 
 Most AI-visibility tooling asks "are you mentioned?". This asks the harder question: **when AI does
 describe you, is it describing the company you are trying to be?** A brand can be highly visible and
@@ -47,7 +47,7 @@ rejects it. This is as load-bearing as the brand-leak rule on blind probes. A bl
 the vendor ("your platform", "this product") is rejected the same way by `ana.vendor_address`: a buyer
 who has never heard of the brand asks about a need and a kind of product, not about the vendor.
 
-Independent portfolio demo — not a Profound product or integration. Agent instructions:
+Independent portfolio demo. Agent instructions:
 [`CLAUDE.md`](CLAUDE.md), with the detailed spec split into skills under [`.claude/skills/`](.claude/skills)
 (the original overnight brief and milestone log are in `build-history`).
 Presenter script: [`DEMO.md`](DEMO.md).
@@ -110,11 +110,11 @@ cd web && export PATH="$HOME/miniconda3/envs/visexp/bin:$PATH" && npm install &&
 ```
 
 Open http://localhost:5173. The page measures live only, so it needs an OpenAI key in `.env`; for a
-demo with no key or internet, start the API with `VISEXP_OFFLINE_REPLAY=1` and the preloaded Notion
-company replays the bundled Notion sample, labelled as such. Stop either process with `Ctrl+C`.
+demo with no key or internet, start the API with `VISEXP_OFFLINE_REPLAY=1`, then reopen Notion from
+the Onboard tab: measuring it replays the bundled Notion sample, labelled as such. Stop either process with `Ctrl+C`.
 [`WEB.md`](WEB.md) has the details, live mode and the API reference.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 460 passing,
+Tests: `conda activate visexp && python -m pytest -q` (offline; 461 passing,
 incl. one journey per bundled scenario end to end through the `/api/stream` event stream, the API over
 HTTP via fastapi's TestClient, the live adapter under an injected
 transport — including how it classifies a refused key or a region block — no API key, no network).
@@ -152,7 +152,6 @@ Then repeat the create step above.
 | AnA follow-up choice | Deterministic **simulated** policy over the current evaluations |
 | Scores, quote/citation/domain validation | Deterministic code (`scoring.py`, `agents/evaluation.py`) |
 | Notion profile evidence | **Genuine** Claude Code research snapshot, `data/research/notion_2026-09-18.json` (verbatim excerpts, 2026-09-18) |
-| Profound capability links | Official pages, checked the same night |
 | Live model calls | **Implemented** in `providers/live.py` (OpenAI Responses API + web search) — needs `OPENAI_API_KEY`; setup in [`WEB.md`](WEB.md) |
 | URL fetching for arbitrary companies | **Real** — `fetching.py` crawls up to 6 public pages (SSRF-safe) for the API's `/api/onboard`, which needs an OpenAI key |
 | Can AI read your site? | **Real, no model** — `audit.py` re-fetches the claim pages as a no-JavaScript crawler, reads robots.txt, JSON-LD, headings and llms.txt, and looks the brand up on Wikidata/Wikipedia; tests replay recorded responses (`tests/audit_fixtures/`) |
@@ -167,7 +166,7 @@ api/admin.py      /admin: access passes for the hosted demo (see "Deploy to Rend
 access.py         access passes, sessions, and the metered gateway every OpenAI call goes through
 graph.py          LangGraph orchestrator: plan_brand → execute_or_replay → evaluate → perceive → plan_buyer → validate_and_freeze → execute_or_replay → evaluate → choose_followup ⟲ → measure_drift → build_gap_report
 schemas.py        Pydantic contracts
-agents/           onboarding.py (Agent 1), ana.py (Agent 2), evaluation.py (Agent 3 + Profound mapping table)
+agents/           onboarding.py (Agent 1), ana.py (Agent 2), evaluation.py (Agent 3 + suggested-action table)
 providers/        fixture.py (replay), company.py (an onboarded company), imported.py (research snapshots), live.py
 scoring.py        arithmetic only
 audit.py          can AI read the site: robots.txt, no-JS text, markup, speed, Wikidata/Wikipedia; no model
@@ -182,19 +181,18 @@ both are local JSON files, so neither survives a Cloud Run redeploy (see below).
 
 [`render.yaml`](render.yaml) deploys the app as one paid web service with a persistent disk: the
 `Dockerfile` builds the web app and FastAPI serves it with the API on the same origin. It sets
-`VISEXP_PUBLIC_DEMO=1`, so a visitor **without a pass** gets the saved Notion replay and the committed
-Profound live run only — no model calls, no cost. Live runs, onboarding and company edits are refused
-with a message saying so. A visitor's replay is shown to them but never saved, so its report offers no
-re-scoring; the saved example reports in History can be re-scored, and that is not saved either, so
-one visitor cannot change what the next one sees. The two bundled scenarios are replayed once at
-startup so History and Compare are not empty.
+`VISEXP_PUBLIC_DEMO=1`, so a visitor **without a pass** gets History only: the two bundled Notion
+sample runs and the committed Amgen live run — no model calls, no cost. Live runs, onboarding and
+company edits are refused with a message saying so. The saved reports in History can be re-scored,
+and that is not saved, so one visitor cannot change what the next one sees. The two bundled scenarios
+are replayed once at startup so History is not empty.
 
 **Access passes** let chosen people run it live on your OpenAI key. Each pass has a name, a dollar
 cap and a personal link, `<site>/?pass=<code>`. Opening the link signs the browser in (an HttpOnly
 session cookie; the code leaves the address bar), after which the holder can onboard and measure
 companies live, sees a meter such as "$1.40 of $5.00 used", and sees only their own runs and companies
-— nobody else's, and none of the preloaded examples: the Notion and Profound tabs, their reports and
-the sample runs are hidden, so the page opens on "Onboard your own company". Every run a pass makes,
+— nobody else's, and none of the preloaded examples: the Notion company, the Amgen report and the
+sample runs are hidden, so the page opens on "Onboard your own company". Every run a pass makes,
 replay or live, is saved under `DATA_DIR` and owned by that pass, so it is back in History after a
 restart, a redeploy onto the same disk, or a new browser opened with the same link. Every OpenAI call is checked against the cap before it is
 made and charged afterwards from the usage OpenAI reports, at the dated per-model prices in

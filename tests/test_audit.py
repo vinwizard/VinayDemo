@@ -126,7 +126,7 @@ def test_a_slow_page_fails_speed():
 
 
 def test_our_own_fetches_honour_robots_txt(monkeypatch):
-    get = recorded({**SITE, "https://www.acme.example/robots.txt": (200, "text/plain", "User-agent: PositioningDrift\nDisallow: /")})
+    get = recorded({**SITE, "https://www.acme.example/robots.txt": (200, "text/plain", "User-agent: OffMessage\nDisallow: /")})
     monkeypatch.setattr(audit, "get", get)
     result = audit.run(company())
     assert not any(u.startswith("https://www.acme.example/") and not u.endswith("robots.txt") for u in get.calls)

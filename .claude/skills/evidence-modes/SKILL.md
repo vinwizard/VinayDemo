@@ -5,7 +5,7 @@ description: Load when touching providers/ (fixture replay, imported research sn
 
 # Evidence modes, provenance and budgets
 
-Moved verbatim from agents.md section 2 and the execution limits in section 8. Where this disagrees with the code, README.md or WEB.md, the code wins: it was written for the first overnight build, before the React app, positioning drift and live mode existed.
+Moved verbatim from agents.md section 2 and the execution limits in section 8. Where this disagrees with the code, README.md or WEB.md, the code wins: it was written for the first overnight build, before the React app, the drift layer and live mode existed.
 
 ## 2. No-key execution: three explicitly different modes
 

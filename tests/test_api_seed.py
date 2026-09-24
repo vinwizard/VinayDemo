@@ -32,11 +32,13 @@ def test_the_seed_company_ships_with_the_repo_and_is_weighted():
     assert main.health()["seed_company"] == main.SEED_COMPANY
 
 
-def test_the_profound_showcase_ships_as_a_real_live_run():
+def test_the_committed_live_example_ships_as_a_real_live_run():
     run = reports.load_run(main.SHOWCASE_RUN)
     company = reports.load_company(main.SHOWCASE_COMPANY)
     for p in (run.profile, company.profile):
-        assert (p.name, p.domain) == ("Profound", "tryprofound.com") and p.logo_url
+        assert (p.name, p.domain) == ("Amgen", "amgen.com") and p.logo_url
+    for path in (reports.RUNS / f"{run.id}.json", reports.COMPANIES / f"{company.id}.json"):
+        assert "profound" not in path.read_text().lower()   # the product names no vendor in its data
     assert run.mode == "live_api" and run.status == "complete" and run.drift
     assert all(a.provenance == "live_api" for a in run.answers)   # never relabelled as sample
     assert main.health()["showcase"] == {"company": main.SHOWCASE_COMPANY, "run": main.SHOWCASE_RUN}

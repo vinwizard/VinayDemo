@@ -44,7 +44,7 @@ from schemas import Attribute, Company
 _LOADED = load_env()
 print(f"[config] {redacted_status(_LOADED)}")  # names only; a key value is never printed
 
-app = FastAPI(title="Positioning Drift API")
+app = FastAPI(title="Off Message API")
 
 
 def run_payload(run) -> dict:
@@ -74,10 +74,10 @@ SEED_COMPANY = "5eed0001"
 # Notion sample instead. Deliberately not reachable from the UI — only from the server's environment
 # — and the run it produces is saved as a sample run and says so on every surface that shows it.
 OFFLINE_ENV = "VISEXP_OFFLINE_REPLAY"
-# The preloaded Profound tab: a real live run of tryprofound.com (and its onboarding), committed so
-# every clone and the public demo open it as a finished report. Never rewritten in place.
-SHOWCASE_COMPANY = "998420ffae"
-SHOWCASE_RUN = "8d1d78c3e6"
+# The committed live example: a real live run of amgen.com (and its onboarding), committed so every
+# clone and the public demo have one measured report in History. Never rewritten in place.
+SHOWCASE_COMPANY = "3afc276406"
+SHOWCASE_RUN = "0c55be2792"
 OFFLINE_FIXED = "offline replay: the bundled sample's claims and weights are fixed"
 
 
@@ -129,7 +129,7 @@ def offline_seed(company_id: str) -> bool:
 
 def seed_public_runs() -> None:
     """A fresh public deploy has no saved runs (they are gitignored), so replay both bundled
-    scenarios once — fixtures only, no model — and History and Compare have something to open."""
+    scenarios once — fixtures only, no model — and History has something to open."""
     if not public_demo() or any(p.stem != SHOWCASE_RUN for p in RUNS.glob("*.json")):
         return
     for scenario in sorted(fixture.SCENARIOS):
@@ -313,7 +313,7 @@ def list_all(request: Request = None):
                         imposed=len(d.imposed) if d else 0,
                         unprioritised=len(d.unprioritised) if d else 0,
                         na_reasons=d.na_reasons if d else
-                        {"headline": "This run finished without a drift report."}))
+                        {"headline": "This run finished without a report."}))
     return sorted(out, key=lambda r: r["created_at"], reverse=True)
 
 
@@ -601,7 +601,7 @@ def rescore_run(run_id: str, req: RescoreRequest, request: Request = None):
     except graph.ValidationError as e:
         raise HTTPException(409, str(e))
     # public: arithmetic only, so allowed — but one visitor never rewrites a shared run, only a pass its own;
-    # and the committed Profound run is never rewritten, so re-weighting it leaves the working tree clean
+    # and the committed live example is never rewritten, so re-weighting it leaves the working tree clean
     if run.id != SHOWCASE_RUN and (not public_demo() or (pid and access.owner("run", run_id) == pid)):
         save_run(run)
     return run_payload(run)
