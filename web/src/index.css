@@ -250,14 +250,15 @@ input[type="range"] { accent-color: var(--accent); width: 9rem; }
 .rtab[aria-selected="true"] .rtab-count { background: #fff; color: var(--accent); }
 /* On a report's first view the other tabs hop once in a wave, twice over, so a first-time reader notices them.
    Finite by design; the first tab click removes it; reduced motion never sees it. */
-.report-tabs.nudge .rtab:not([aria-selected="true"]) {
-  animation: rtab-nudge .7s ease-in-out calc(.6s + var(--i) * .12s) 2;
+@media (prefers-reduced-motion: no-preference) {
+  .report-tabs.nudge .rtab:not([aria-selected="true"]) {
+    animation: rtab-nudge .7s ease-in-out calc(.6s + var(--i) * .12s) 2;
+  }
 }
 @keyframes rtab-nudge {
   50% { transform: translateY(-3px); border-color: var(--accent); color: var(--accent);
         box-shadow: 0 0 0 3px var(--accent-soft), 0 3px 8px rgb(59 91 219 / 25%); }
 }
-@media (prefers-reduced-motion: reduce) { .report-tabs.nudge .rtab { animation: none; } }
 .report-panel { display: flex; flex-direction: column; gap: 1rem; min-height: 60vh; }
 .report-panel:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .panel-sec { display: flex; flex-direction: column; gap: .7rem; }
