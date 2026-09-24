@@ -325,10 +325,17 @@ def owner(kind: str, item_id: str) -> Optional[str]:
     return row["pass_id"] if row else None
 
 
+# The retired Profound showcase (its run, then its company). Earlier releases copied them into
+# DATA_DIR, and a persistent disk still holds them; they stay on disk and are never listed or served.
+RETIRED = {"8d1d78c3e6", "998420ffae"}
+
+
 def visible(kind: str, item_id: str, pass_id: Optional[str]) -> bool:
     """Off the public demo everything is visible. On it: a visitor without a pass sees the shared
     demo items (owned by nobody), and a pass holder sees only their own — the preloaded examples are
-    for browsing, not for someone who came to measure their own company."""
+    for browsing, not for someone who came to measure their own company. Retired items: nobody."""
+    if item_id in RETIRED:
+        return False
     if not public_demo():
         return True
     return owner(kind, item_id) == pass_id

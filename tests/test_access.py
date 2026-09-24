@@ -310,6 +310,25 @@ def test_a_pass_holders_runs_survive_a_restart_and_a_new_session(env, tmp_path):
         assert not set(made) & {r["id"] for r in viewer.get("/api/runs").json()}
 
 
+@pytest.mark.parametrize("public", [True, False])
+def test_the_retired_profound_showcase_left_on_a_disk_is_never_listed_or_served(env, tmp_path, monkeypatch, public):
+    if not public:
+        monkeypatch.delenv(access.PUBLIC_ENV)
+    preload_examples(tmp_path)
+    old_run, old_company = sorted(access.RETIRED)
+    for kind, item, like in (("runs", old_run, main.SHOWCASE_RUN), ("companies", old_company, main.SHOWCASE_COMPANY)):
+        body = json.loads((reports.BUNDLED / kind / f"{like}.json").read_text())
+        (tmp_path / kind / f"{item}.json").write_text(json.dumps(body | {"id": item}))
+    main.seed_data_dir()
+    c = browser()
+    assert old_run not in {r["id"] for r in c.get("/api/runs").json()}
+    assert c.get(f"/api/runs/{old_run}").status_code == 404
+    assert old_company not in {x["id"] for x in c.get("/api/companies").json()}
+    assert c.get(f"/api/companies/{old_company}").status_code == 404
+    assert main.SHOWCASE_RUN in {r["id"] for r in c.get("/api/runs").json()}
+    assert (tmp_path / "runs" / f"{old_run}.json").exists() and (tmp_path / "companies" / f"{old_company}.json").exists()
+
+
 def test_a_fresh_data_dir_gets_every_committed_company_and_run(env, tmp_path):
     stale = tmp_path / "runs" / f"{main.SHOWCASE_RUN}.json"
     stale.write_text("{}")

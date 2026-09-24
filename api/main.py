@@ -130,7 +130,7 @@ def offline_seed(company_id: str) -> bool:
 def seed_public_runs() -> None:
     """A fresh public deploy has no saved runs (they are gitignored), so replay both bundled
     scenarios once — fixtures only, no model — and History has something to open."""
-    if not public_demo() or any(p.stem != SHOWCASE_RUN for p in RUNS.glob("*.json")):
+    if not public_demo() or any(p.stem not in {SHOWCASE_RUN, *access.RETIRED} for p in RUNS.glob("*.json")):
         return
     for scenario in sorted(fixture.SCENARIOS):
         prov = fixture.FixtureProvider(scenario)
