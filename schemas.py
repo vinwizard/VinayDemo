@@ -207,6 +207,9 @@ class Answer(BaseModel):
     # What the answering model read, step by step (providers/live.reading_of). None: not recorded (a
     # run saved before this field, a replay, or a response that carried no results).
     trace: Optional[list[ReadStep]] = None
+    # Reused: another run in the same category asked this buyer question of the same model today
+    # (sharing.py). The text is that answer; the labels were made again for this brand.
+    shared: bool = False
 
     @property
     def labels(self) -> Optional[dict]:
@@ -332,6 +335,34 @@ class VisibilitySet(BaseModel):
     low_confidence: Optional[str] = None  # why this set's number is not to be trusted, or None
     interval: Optional[list[float]] = None  # bootstrap 95% interval of `visibility` (scoring.visibility_draws)
     interval_note: Optional[str] = None     # why there is no interval
+
+
+class FrontSample(BaseModel):
+    """One front as sampler-lite asked it (sampler.py): how many questions, and how sure the rate is."""
+    front: Optional[Literal["placed", "aiming", "both"]] = None
+    pool: int = 0                   # questions frozen for this front
+    asked: int = 0                  # questions asked, each once (the wobble re-ask not counted)
+    look: Literal[1, 2] = 1         # the look it stopped at
+    stopped_early: bool = False     # look 1 already met the margin
+    named: int = 0                  # answers that named the company, first ask of each question
+    judged: int = 0                 # answers that counted
+    rate: Optional[float] = None    # 0-100
+    interval: Optional[list[float]] = None  # 0-100, 95% whichever look it stopped at
+    margin_met: bool = False
+    note: Optional[str] = None
+
+
+class SamplerReport(BaseModel):
+    """How a live run spent its buyer questions: a stated margin at 95%, two looks, fresh questions."""
+    margin: int                                  # ± points of "named you", at 95%
+    looks: list[int]                             # [look 1, look 2] questions per front
+    budget_usd: Optional[float] = None
+    fronts: list[FrontSample] = []
+    held: list[str] = []                         # probe ids waiting for look 2; empty once decided
+    wobble: list[str] = []                       # probe ids re-asked once to show the wobble
+    decided: bool = False
+    unasked: list[Probe] = []                    # frozen questions a front never needed
+    shared: int = 0                              # answers reused from another run in the same category
 
 
 class DriftReport(BaseModel):
@@ -569,6 +600,8 @@ class Run(BaseModel):
     # The company's retrievability audit as it stood when the run started; None for replays and
     # companies onboarded before the audit existed.
     audit: Optional[SiteAudit] = None
+    # sampler-lite's record (sampler.py); None for replays and runs saved before it
+    sampler: Optional[SamplerReport] = None
     log: list[str] = []
     status: str = "planned"
 

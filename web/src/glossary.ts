@@ -262,6 +262,19 @@ export const GLOSSARY = {
     def: "More than one page AI read says it, and removing any one of them leaves the others to say it. Only "
       + "removing them all changes the answer.",
   },
+  margin: {
+    term: "Margin",
+    def: "How far the share of buyer questions that named the company could be from the true share, at 95% "
+      + "confidence. Each front asks fresh questions until it is within this margin: a front where AI almost "
+      + "never (or almost always) names you is clear after the first look, anything else asks the rest of "
+      + "its questions. The most a front can ask is fixed in advance, so the cost is known.",
+  },
+  shared_answer: {
+    term: "Shared answer",
+    def: "A buyer question never names a company, so its answer is the same whichever company it is scored "
+      + "for. When another run in the same category asked the same question of the same model today, its "
+      + "answer is reused and judged again for this company, instead of paying for it twice.",
+  },
 } satisfies Record<string, { term: string; def: string }>;
 
 export type TermKey = keyof typeof GLOSSARY;

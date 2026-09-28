@@ -17,12 +17,13 @@ import audit
 import demand
 import embeddings
 import retrieval
+import sharing
 
 # Every setting the app reads from the environment (providers/live.py, agents/*_model.py,
 # agents/ana.py). A test that wants one sets it itself with monkeypatch.
 APP_SETTINGS = ("MEASURED_MODEL", "EVALUATOR_MODEL", "ONBOARDING_MODEL", "LIVE_MODEL",
-                "BUYER_QUESTIONS", "REPEAT_SAMPLE", "BUYER_TRIES", "OPENAI_API_KEY", "DATA_DIR",
-                "VISEXP_PUBLIC_DEMO", "VISEXP_OFFLINE_REPLAY")
+                "TARGET_MARGIN", "RUN_BUDGET_USD", "WOBBLE_AUDIT", "WHY_BUDGET_USD", "OPENAI_API_KEY",
+                "DATA_DIR", "VISEXP_PUBLIC_DEMO", "VISEXP_OFFLINE_REPLAY")
 
 
 @pytest.fixture(autouse=True)
@@ -62,3 +63,10 @@ def offline_retrieval(monkeypatch, tmp_path):
     monkeypatch.setattr(retrieval, "read_page", offline_page)
     monkeypatch.setattr(access, "_embed", fake_embed)
     monkeypatch.setattr(embeddings, "_path", lambda: tmp_path / "embeddings.db")
+
+
+@pytest.fixture(autouse=True)
+def isolated_sharing(monkeypatch, tmp_path):
+    """Shared buyer questions and answers (sharing.py) live in the test's own tmp_path: a pool one
+    test saved must never be another test's plan, nor land in the repo's data directory."""
+    monkeypatch.setattr(sharing, "default_path", lambda: tmp_path / "shared.db")

@@ -99,13 +99,15 @@ def test_live_plan_asks_real_searches_first_and_marks_them(monkeypatch):
     profile = F.profile.model_copy(update=dict(core_category=CAT, category_questions=aim_qs))
     monkeypatch.setattr(demand, "_fetch_json", recorded)
     ground = lambda c, p, n: demand.ground(c, p, 2, embed=embed)
-    prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="m", demand=ground)
+    # sharing off: this is about grounding, and the second plan below must not reuse the first's pool
+    prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="m", demand=ground,
+                             share=False)
     _, probes = prov.plan(profile, None)
     aim = [p for p in probes if p.topic_id.startswith("cat-")]
     assert [p.demand is not None for p in aim] == [True, True, *[False] * len(aim_qs)]
     assert [p.text for p in aim[2:]] == aim_qs               # the written ones fill the rest of the budget
     assert prov.demand_notes and CAT in prov.demand_notes[0]
-    plain = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="m")
+    plain = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="m", share=False)
     _, probes = plain.plan(profile, None)
     assert not any(p.demand for p in probes) and not plain.demand_notes
 

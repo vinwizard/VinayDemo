@@ -55,13 +55,17 @@ def test_offline_replay_keeps_its_numbers_and_says_no_repeat_ask_means_no_interv
         assert "No question was asked twice" in d.na_reasons["visibility_interval"] == d.sets[0].interval_note
 
 
-def test_fronts_whose_answers_never_vary_withhold_the_verdict_through_a_rescore(monkeypatch):
+def test_fronts_that_stopped_early_withhold_the_verdict_through_a_rescore(monkeypatch):
+    """Answers that never vary stop each front at look 1: four questions, too few for a bootstrap
+    interval, so the gap is not called — but the sampler's own interval still says how sure it is."""
     run, _ = run_fronts(monkeypatch)
     for rescored in (False, True):
         if rescored:
             graph.rescore(run, {a.id: 1.0 for a in run.attributes[:1]})
         d = run.drift
         placed, aiming = d.sets
-        assert (placed.interval, aiming.interval) == ([50.0, 50.0], [0.0, 0.0])
+        assert (placed.interval, aiming.interval) == (None, None) and "4 scored" in placed.interval_note
         assert (d.gap_interval, d.gap_real) == (None, None)
         assert d.na_reasons["visibility_gap_interval"].startswith("Too few questions to call the gap")
+        assert [(f.rate, f.interval, f.margin_met) for f in run.sampler.fronts] == [
+            (100.0, [37.6, 100.0], True), (0.0, [0.0, 62.4], True)]

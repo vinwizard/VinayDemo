@@ -9,16 +9,12 @@ import json
 import re
 from collections import Counter
 
-from config import setting
 from schemas import (AdaptiveDecision, Attribute, AttributeScore, CompanyProfile, Probe,
                      QueryEvaluation, Topic, TopicEvaluation)
 
-# Buyer questions per front, asked ONCE each. The old budget spent three tries on six questions a
-# side; re-asking one question moved visibility a few points while different questions disagreed by
-# tens, so the same money buys a far tighter confidence interval spent on more questions instead.
-# A small sample of them is still re-asked for the wobble estimate (providers/live.REPEAT_SAMPLE).
-QUESTIONS_ENV = "BUYER_QUESTIONS"
-DEFAULT_QUESTIONS = 12
+# Buyer questions per front, asked ONCE each: re-asking one question moved visibility a few points
+# while different questions disagreed by tens, so the budget buys questions, not tries. How many a
+# front freezes is sampler-lite's look 2 for the stated margin (sampler.py); it may stop at look 1.
 PER_TOPIC = 3
 CONTROL_TOPIC = "control"
 MAX_FOLLOWUP_TOPICS = 2
@@ -28,8 +24,10 @@ COMPARISON_PROBE_ID = "np-cmp"
 
 
 def set_questions() -> int:
-    """BUYER_QUESTIONS: unbranded questions per front, at least one topic's worth."""
-    return setting(QUESTIONS_ENV, DEFAULT_QUESTIONS, floor=PER_TOPIC)
+    """Unbranded questions frozen per front: sampler-lite's look 2 for TARGET_MARGIN, at least one
+    topic's worth."""
+    import sampler
+    return max(PER_TOPIC, sampler.looks()[1])
 
 
 def max_topics() -> int:

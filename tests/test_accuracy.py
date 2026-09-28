@@ -14,6 +14,7 @@ import access
 import api.main as main
 import graph
 import reports
+import sampler
 from agents import ana, onboarding_model
 from providers import fixture, live
 from schemas import Company, QueryEvaluation, Answer
@@ -81,7 +82,7 @@ class Judge:
         return []
 
 
-def live_run(buyer_text, control_text, tries=3, sample=2, questions=6, monkeypatch=None):
+def live_run(buyer_text, control_text, wobble=1, monkeypatch=None):
     """buyer_text(ask number of that question) -> answer text. Named questions get a plain answer."""
     asked = Counter()
     profile = with_category()
@@ -95,34 +96,33 @@ def live_run(buyer_text, control_text, tries=3, sample=2, questions=6, monkeypat
         return {"output": [{"type": "web_search_call"},
                            {"type": "message", "content": [{"type": "output_text", "text": text}]}]}
 
-    monkeypatch.setenv(live.TRIES_ENV, str(tries))
-    monkeypatch.setenv(live.SAMPLE_ENV, str(sample))
-    monkeypatch.setenv(ana.QUESTIONS_ENV, str(questions))
+    # ±33 points: six questions frozen a front, four asked first (test_sampler.py owns the sizing)
+    monkeypatch.setenv(sampler.MARGIN_ENV, "33")
+    monkeypatch.setenv(sampler.WOBBLE_ENV, str(wobble))
     prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="test-model",
                              transport=transport, evaluator=Judge())
     prov.concurrency = 1
     return graph.execute(graph.new_run(profile, prov, mode="live_api"), prov), asked
 
 
-def test_the_budget_buys_questions_once_each_with_a_small_repeat_sample(monkeypatch):
-    """The captain's change: one try on many questions, three tries on a couple, so the same money
-    narrows the confidence interval instead of re-asking what barely moves."""
+def test_the_budget_buys_fresh_questions_and_one_re_ask_a_front(monkeypatch):
+    """Sampler-lite: every question is asked once and one question a front once more, the wobble
+    audit, so the money goes on questions not asked yet, which is what the number does not know."""
     run, asked = live_run(lambda n: "Notion fits." if n == 2 else "Coda fits.", "Linear, Asana and Coda.",
                           monkeypatch=monkeypatch)
     buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
-    sampled = graph.repeat_sampled(buyer, 2)
-    assert len(sampled) == 2 and all(asked[p.text] == 3 for p in sampled)
-    assert all(asked[p.text] == 1 for p in buyer if p not in sampled)
+    audited = [p for p in buyer if p.id in run.sampler.wobble]
+    assert len(audited) == 1 and asked[audited[0].text] == 2      # one front, one re-ask
+    assert all(asked[p.text] == 1 for p in buyer if p not in audited)
     assert all(asked[p.text] == 1 for p in run.probes if p.kind == "named" or p.phase == "control")
-    assert len(run.answers) == len(run.probes) and len(run.repeat_answers) == 2 * len(sampled)
-    assert Counter(a.try_no for a in run.repeat_evaluations) == {2: 2, 3: 2}
+    assert len(run.answers) == len(run.probes) and len(run.repeat_answers) == 1
     d = run.drift
-    # every question is named on its second ask only: the once-asked ones score 0, the sampled two
-    # score 1 of 3 tries each, and the wobble is read off those two alone
-    assert (d.tries, d.repeat_sample, d.visibility_range) == (3, 2, [0.0, 50.0])
-    assert d.visibility == 2.8 and d.n_blind == len(buyer) + 2 * len(sampled)
-    named = Counter(e.probe_id for e in run.evaluations + run.repeat_evaluations if e.mentioned)
-    assert set(named.values()) == {1}   # "named in 1 of 3 tries" on the sampled ones
+    # never named on a first ask: the front stopped at look 1 (four of six), the claims' six all
+    # asked; the audited question is named on its re-ask only, which is the wobble
+    assert (d.tries, d.repeat_sample, d.visibility_range) == (2, 1, [0.0, 50.0])
+    assert d.visibility == 2.5 and d.n_blind == len(buyer) + 1 == 11
+    [front] = run.sampler.fronts
+    assert (front.asked, front.pool, front.stopped_early, front.named, front.judged) == (4, 6, True, 0, 4)
 
 
 def test_repeat_asks_are_spread_across_the_fronts_not_taken_off_the_front_of_the_list():
@@ -139,13 +139,14 @@ def test_the_control_question_never_moves_visibility(monkeypatch):
     control = next(p for p in run.probes if p.phase == "control")
     assert next(e for e in run.evaluations if e.probe_id == control.id).mentioned
     aiming = run.drift.sets[0]
-    assert (aiming.front, aiming.visibility, aiming.n_blind) == ("aiming", 0.0, 6 + 2)
-    assert run.drift.visibility == 0.0 and run.drift.n_blind == 12 + 4   # the claims fill the other half
+    # look 1's four questions and the one re-ask; the claims' six fill the other half
+    assert (aiming.front, aiming.visibility, aiming.n_blind) == ("aiming", 0.0, 4 + 1)
+    assert run.drift.visibility == 0.0 and run.drift.n_blind == 4 + 6 + 1
     # the model knows the brand as a category leader and still never offers it to buyers: a real 0
     assert run.drift.low_confidence is None
     assert control.id not in {e.probe_id for e in run.repeat_evaluations}
     assert all(t.topic_id != "control" for t in run.topic_evaluations)
-    assert main.run_payload(run)["insights"]["voice"]["questions"] == 12   # buyer questions, first try
+    assert main.run_payload(run)["insights"]["voice"]["questions"] == 10   # buyer questions, first try
 
 
 def test_a_zero_is_low_confidence_when_the_control_names_too_few_tools(monkeypatch):
@@ -161,10 +162,10 @@ def test_a_zero_is_low_confidence_when_even_the_control_leaves_the_brand_out(mon
 
 def test_a_brand_named_in_some_buyer_answers_is_still_flagged_when_the_control_leaves_it_out(monkeypatch):
     # an earlier live run: named once by chance, absent from 38 category leaders, and never flagged
-    run, _ = live_run(lambda n: "Notion fits." if n == 3 else "Coda fits.", "Linear, Asana and Coda.",
+    run, _ = live_run(lambda n: "Notion fits." if n == 2 else "Coda fits.", "Linear, Asana and Coda.",
                       monkeypatch=monkeypatch)
     assert run.drift.visibility > 0 and "but not Notion" in run.drift.low_confidence
-    run, _ = live_run(lambda n: "Notion fits." if n == 3 else "Coda fits.", "Coda.", monkeypatch=monkeypatch)
+    run, _ = live_run(lambda n: "Notion fits." if n == 2 else "Coda fits.", "Coda.", monkeypatch=monkeypatch)
     assert "does not seem to know this category" in run.drift.low_confidence
 
 
@@ -217,54 +218,58 @@ def test_every_model_the_app_can_be_pointed_at_is_priced(monkeypatch):
     assert offered <= set(access.PRICES)
 
 
-@pytest.mark.parametrize("raw,tries", [(None, 3), ("5", 5), ("0", 1), ("lots", 3)])
-def test_buyer_tries_setting(monkeypatch, raw, tries):
-    monkeypatch.delenv(live.TRIES_ENV, raising=False)
+@pytest.mark.parametrize("raw,points", [(None, 20), ("15", 15), ("1", 5), ("90", 50), ("tight", 20)])
+def test_the_margin_sets_how_many_questions_a_front_freezes(monkeypatch, raw, points):
     if raw is not None:
-        monkeypatch.setenv(live.TRIES_ENV, raw)
-    assert live.buyer_tries() == tries
+        monkeypatch.setenv(sampler.MARGIN_ENV, raw)
+    assert sampler.margin() == points and sampler.MARGIN_ENV == "TARGET_MARGIN"
+    assert ana.set_questions() == max(ana.PER_TOPIC, sampler.looks(points)[1])
+    assert graph.max_baseline() == 2 * ana.PER_TOPIC * -(-ana.set_questions() // ana.PER_TOPIC)
 
 
-@pytest.mark.parametrize("raw,sample", [(None, 2), ("4", 4), ("0", 0), ("some", 2)])
-def test_repeat_sample_setting(monkeypatch, raw, sample):
-    monkeypatch.delenv(live.SAMPLE_ENV, raising=False)
+@pytest.mark.parametrize("raw,wobble", [(None, 1), ("0", 0), ("2", 2), ("some", 1)])
+def test_wobble_audit_setting(monkeypatch, raw, wobble):
     if raw is not None:
-        monkeypatch.setenv(live.SAMPLE_ENV, raw)
-    assert live.repeat_sample() == sample and live.SAMPLE_ENV == "REPEAT_SAMPLE"
+        monkeypatch.setenv(sampler.WOBBLE_ENV, raw)
+    assert sampler.wobble_audit() == wobble
+    f = fixture.FixtureProvider("A")
+    assert live.LiveProvider(f.attributes(), f.named_probes(), model="m").tries == 1 + wobble
 
 
-@pytest.mark.parametrize("raw,per_front", [(None, 12), ("20", 20), ("1", 3), ("many", 12)])
-def test_buyer_questions_setting(monkeypatch, raw, per_front):
-    monkeypatch.delenv(ana.QUESTIONS_ENV, raising=False)
+@pytest.mark.parametrize("raw,usd", [(None, None), ("2.5", 2.5), ("0", None), ("cheap", None)])
+def test_run_budget_setting(monkeypatch, raw, usd):
     if raw is not None:
-        monkeypatch.setenv(ana.QUESTIONS_ENV, raw)
-    assert ana.set_questions() == per_front and ana.QUESTIONS_ENV == "BUYER_QUESTIONS"
-    assert graph.max_baseline() == 2 * ana.PER_TOPIC * -(-per_front // ana.PER_TOPIC)
+        monkeypatch.setenv(sampler.BUDGET_ENV, raw)
+    assert sampler.run_budget() == usd
 
 
 def test_health_names_both_models_the_budget_and_that_search_is_forced(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    for env in (live.MODEL_ENV, live.TRIES_ENV, live.SAMPLE_ENV, ana.QUESTIONS_ENV):
-        monkeypatch.delenv(env, raising=False)
+    monkeypatch.delenv(live.MODEL_ENV, raising=False)
     h = main.health()
-    assert (h["measured_model"], h["buyer_tries"]) == ("gpt-6-luna", 3)
-    assert (h["buyer_questions"], h["repeat_sample"], h["forced_search"]) == (12, 2, True)
+    assert (h["measured_model"], h["forced_search"]) == ("gpt-6-luna", True)
+    # sampler-lite's defaults: ±20 at 95%, 10 then 23 questions a front, one re-ask a front, no run cap
+    assert (h["target_margin"], h["looks"], h["buyer_questions"]) == (20, [10, 23], 23)
+    assert (h["wobble_audit"], h["run_budget_usd"], h["why_budget_usd"]) == (1, None, 1.0)
     assert h["search_mode"] == "web_search with external_web_access" and h["model_fallback"] is None
     assert h["configured_measured_model"] == h["measured_model"] == h["evaluator_model"]
     # the captain's default points both halves at one cheap model; the bias is surfaced, not hidden
     assert h["same_model_warning"] is True
 
 
-def test_progress_counts_every_ask(monkeypatch):
-    monkeypatch.setenv(ana.QUESTIONS_ENV, "6")
+def test_progress_counts_every_ask_but_not_what_waits_for_look_2(monkeypatch):
+    monkeypatch.setenv(sampler.MARGIN_ENV, "33")
     run = graph.new_run(with_category(), F)
     prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=with_category(), model="m")
     run.topics, blind = prov.plan(run.profile)
     run.probes = blind + F.named_probes()
-    planned = main.progress(run, 3, 2)["planned"]
-    # no brand answer yet: the category's own front and the claims, 12 questions once each, two of
-    # them twice more, plus one control
-    assert planned["buyer"] == 12 + 2 * 2 + 1 and planned["brand"] == len(F.named_probes())
+    # planned, not frozen: the category's own front and the claims, 12 questions, plus one control
+    planned = main.progress(run, prov.tries)["planned"]
+    assert planned["buyer"] == 12 + 1 and planned["brand"] == len(F.named_probes())
+    # frozen: the front asks four of its six first, and its first question once more
+    run.sampler = sampler.start(run)
+    planned = main.progress(run, prov.tries)["planned"]
+    assert len(run.sampler.held) == 2 and planned["buyer"] == 4 + 6 + 1 + 1
 
 
 # ---------------------------------------------------------------- onboarding and the claims screen

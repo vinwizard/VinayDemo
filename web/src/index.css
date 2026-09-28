@@ -629,3 +629,7 @@ details.skipped ul { margin: .2rem 0 0; padding-left: 1.1rem; font-size: .85rem;
 .effect-dot { fill: var(--surface); stroke: var(--accent); stroke-width: 1.4; }
 .effect-dot.decided { fill: var(--accent); }
 .why-foot { margin: 0; font-size: .78rem; }
+
+/* ---------------------------------------------------------------- sampler-lite (margin.tsx) */
+.front-margin { overflow-wrap: anywhere; }
+.front-margin .warn { color: var(--lost); }

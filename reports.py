@@ -44,7 +44,8 @@ def from_json(text: str) -> Run:
     run = Run.model_validate_json(text)
     if run.schema_version != SCHEMA_VERSION:
         raise ValueError(f"unsupported schema_version {run.schema_version}")
-    if run.baseline_hash and baseline_hash(run.probes) != run.baseline_hash:
+    frozen = sorted([*run.probes, *run.sampler.unasked], key=lambda p: p.id) if run.sampler else run.probes
+    if run.baseline_hash and baseline_hash(frozen) != run.baseline_hash:
         raise ValueError("baseline questions do not match the recorded baseline hash")
     return run
 

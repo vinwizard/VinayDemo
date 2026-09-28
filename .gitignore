@@ -19,3 +19,4 @@ data/companies/*.json
 !data/companies/3afc276406.json
 data/access.db*
 data/investigations/
+data/shared.db

@@ -218,6 +218,8 @@ export interface Run {
   positioning?: PositioningMap | null;
   /** The company's site audit when the run started; absent on replays and older runs. */
   audit?: SiteAudit | null;
+  /** How sampler-lite spent the buyer questions; absent on replays and older runs. */
+  sampler?: SamplerReport | null;
   log: string[];
   insights?: Insights;  // derived by the API from the saved answers; absent on a run read raw
 }
@@ -604,3 +606,14 @@ export const streamWhy = (runId: string, q: { attribute: string; probe?: string;
                     { start: h.onStart, log: h.onLog, arm: h.onArm, verdict: h.onVerdict, done: h.onDone },
                     "done", h.onError);
 };
+
+/** One front as sampler-lite asked it: fresh questions up to a stated margin at 95%. */
+export interface FrontSample {
+  front: Front; pool: number; asked: number; look: 1 | 2; stopped_early: boolean;
+  named: number; judged: number; rate: number | null; interval: [number, number] | null;
+  margin_met: boolean; note: string | null;
+}
+export interface SamplerReport {
+  margin: number; looks: [number, number]; budget_usd: number | null; fronts: FrontSample[];
+  wobble: string[]; decided: boolean; shared: number;
+}
