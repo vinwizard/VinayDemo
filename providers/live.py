@@ -12,6 +12,7 @@ Transport is injectable so the whole adapter is testable with no API key and no 
 """
 import os
 import re
+import threading
 from datetime import datetime, timezone
 from typing import Callable, NamedTuple, Optional
 
@@ -356,6 +357,7 @@ class LiveProvider:
         self.tries = 1 + sampler.wobble_audit()
         self.repeat_sample = 0
         self.spent = 0.0      # what the measured calls cost, for RUN_BUDGET_USD
+        self._spent_lock = threading.Lock()
         # buyer questions and answers shared with every run in the same category today (sharing.py);
         # an injected transport (a test) gets none unless it injects one too
         self._share = share if share is not None else (sharing.Store() if transport is None else None)
@@ -487,7 +489,9 @@ class LiveProvider:
         except Exception as e:                      # surfaced as a failed answer, never swallowed
             return None, e
         import access
-        self.spent += access.cost(self.model, raw)[0]
+        cost = access.cost(self.model, raw)[0]
+        with self._spent_lock:
+            self.spent += cost
         return raw, None
 
     def answer(self, probe: Probe, try_no: int = 1) -> Answer:

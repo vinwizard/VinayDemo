@@ -10,7 +10,9 @@ per UTC day (the day is part of the key, so nothing older is ever reused):
   answers  each fresh buyer answer, by (question, model, UTC day); a reuse is labelled `shared`
            and judged again for the brand it now scores — only the answer text is shared
 
-Brand questions are never shared: they name the brand. Nothing here is a model call.
+Brand questions are never shared: they name the brand. On the public demo nothing is shared across
+access passes (access.SPENDER is part of every key); with no pass set, sharing is global. Nothing
+here is a model call.
 """
 import contextlib
 import hashlib
@@ -20,6 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+import access
 import reports
 from schemas import Answer
 
@@ -30,6 +33,10 @@ def _day() -> str:
 
 def _norm(text: str) -> str:
     return " ".join(text.lower().split())
+
+
+def _scope(text: str) -> str:
+    return f"{access.SPENDER.get() or ''}\0{_norm(text)}"
 
 
 def default_path() -> Path:
@@ -59,18 +66,18 @@ class Store:
     def pool(self, category: str) -> list[str]:
         with self._db() as c:
             row = c.execute("SELECT questions FROM pools WHERE category = ? AND day = ?",
-                            (_norm(category), _day())).fetchone()
+                            (_scope(category), _day())).fetchone()
         return json.loads(row[0]) if row else []
 
     def save_pool(self, category: str, questions: list[str]) -> None:
         if questions:
             with self._db() as c:
                 c.execute("INSERT OR IGNORE INTO pools VALUES (?, ?, ?)",
-                          (_norm(category), _day(), json.dumps(questions)))
+                          (_scope(category), _day(), json.dumps(questions)))
 
     @staticmethod
     def _key(question: str, model: str) -> str:
-        return hashlib.sha256(f"{_norm(question)}\0{model}\0{_day()}".encode()).hexdigest()
+        return hashlib.sha256(f"{_scope(question)}\0{model}\0{_day()}".encode()).hexdigest()
 
     def answer(self, question: str, model: str) -> Optional[Answer]:
         with self._db() as c:

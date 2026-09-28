@@ -26,6 +26,7 @@ access.openai_response, and the whole investigation stops at its budget (WHY_BUD
 import json
 import os
 import re
+import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import copy_context
@@ -205,10 +206,13 @@ class Lab:
         self.model, self.tool = model, tool
         self._transport = transport or (lambda **kw: access.openai_response(live.LIMITS["per_call_timeout_s"], **kw))
         self.spent = 0.0
+        self._lock = threading.Lock()
 
     def call(self, **kw):
         response = self._transport(**{"model": self.model, **kw})
-        self.spent += access.cost(kw.get("model", self.model), response)[0]
+        cost = access.cost(kw.get("model", self.model), response)[0]
+        with self._lock:
+            self.spent += cost
         return response
 
     def live(self, question: str):
@@ -421,18 +425,23 @@ class Agent:
         if group is None:
             return
         self.test(group)
-        if group.decided != "effect" or group.effect >= 0:
-            self.verdict("prior_belief" if group.decided == "no_effect" else "undecided",
-                         (f"Removing every page that says it does not stop the model saying it"
-                          + (" — and with search off it says it too: it comes from what the model already "
-                             "believes, and no page edit can move it." if inv.off.k else ".")) if group.decided == "no_effect"
-                         else "Removing the pages that say it may change the answer, but not decidedly within the asks allowed.",
-                         group)
+        if group.decided == "undecided":
+            self.verdict("undecided", "Removing the pages that say it may change the answer, but not decidedly "
+                                      "within the asks allowed.", group)
+            return
+        if group.decided == "no_effect" or group.effect >= 0:
+            self.verdict("prior_belief" if inv.off.k else "not_in_reading",
+                         ("Removing every page that says it does not stop the model saying it"
+                          if group.decided == "no_effect" else
+                          "Removing every page that says it makes the model say it more often, not less")
+                         + (" — and with search off it says it too: it comes from what the model already "
+                            "believes, and no page edit can move it." if inv.off.k else
+                            ". It is the model's own wording, not a source's."), group)
             return
         pages = sources
         while len(pages) > 1:
             half = pages[:len(pages) // 2], pages[len(pages) // 2:]
-            found = None
+            found, cleared = None, 0
             for part in half:
                 arm = self.add(WhyArm(id=f"a{len(inv.arms)}", kind="drop_source", urls=list(part),
                                       label="Removed " + ", ".join(page_name(u) for u in part)),
@@ -445,6 +454,12 @@ class Agent:
                 if self.test(arm).decided == "effect" and arm.effect < 0:
                     found = list(part)
                     break
+                cleared += arm.decided == "no_effect"
+            if not found and cleared < len(half):
+                self.verdict("undecided", f"The {len(pages)} pages that say it together are the reason ("
+                             + ", ".join(page_name(u) for u in pages) + "); removing part of them was not decided "
+                             "within the asks allowed.", group)
+                return
             if not found:
                 self.verdict("over_determined",
                              f"No single page is the reason: {len(pages)} pages say it and removing any part of them "
@@ -487,12 +502,15 @@ class Agent:
                            lead_with(inv.reading, target, copy))
             if arm:
                 results.append(self.test(arm))
-        page = self.rewrite[0] if self.rewrite and self.rewrite[0] not in read else next(
-            (u for u in (e.url for e in self.profile.evidence) if u and u not in read), None)
+        page, text, hypothetical = next(
+            ((e.url, " ".join(qs[:2]), False) for e in self.profile.evidence
+             if e.id in self.attribute.claim_evidence_ids and e.url and e.url not in read
+             and (qs := [q for q in self.attribute.claim_quotes if q in e.excerpt])),
+            (self.rewrite[0], self.rewrite[1], True) if self.rewrite and self.rewrite[0] not in read
+            else (None, None, True))
         if page:
-            text = " ".join(self.attribute.claim_quotes[:2]) or copy
             arm = self.add(WhyArm(id=f"a{len(inv.arms)}", kind="inject", urls=[page], text=[text],
-                                  hypothetical=not self.attribute.claim_quotes,
+                                  hypothetical=hypothetical,
                                   label=f"Added {page_name(page)}, your page search never returned"),
                            inject(inv.reading, page, self.profile.name, text))
             if arm:

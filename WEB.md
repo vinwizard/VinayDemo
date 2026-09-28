@@ -207,7 +207,8 @@ things make the buyer number trustworthy anyway:
   category and day, so the next brand in that category asks the same questions (vetted again for
   it), and each grounded buyer answer is reused, flagged `shared`, and judged again for the brand it
   now scores: tracking a brand and five rivals pays for the buyer calls once. Brand questions and
-  re-asks are never shared. Kept in `DATA_DIR/shared.db`.
+  re-asks are never shared. On the public demo nothing is shared across access passes. Kept in
+  `DATA_DIR/shared.db`.
 - **Every number says how sure it is.** `scoring` bootstraps a 95% confidence interval (2,000
   resamples, fixed seed, so a saved run always shows the same interval) and the report shows it as a
   small low–high range beside the number (the headline's in untapped-potential terms, 100 minus the

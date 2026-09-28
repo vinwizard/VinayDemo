@@ -3,6 +3,7 @@ judge that labels what the answer says."""
 import random
 from collections import Counter
 
+import access
 import graph
 import reports
 import sampler
@@ -140,6 +141,24 @@ def test_a_second_brand_in_the_category_asks_the_same_questions_and_pays_once(mo
     # the same answer, judged again for the brand it now scores: "Coda fits." names Coda, not Notion
     assert [f.named for f in first.sampler.fronts] == [0] and second.sampler.fronts[0].named == 4
     assert second.sampler.shared == prov.shared
+
+
+def test_nothing_is_shared_across_access_passes(monkeypatch, tmp_path):
+    monkeypatch.setattr(reports, "DATA", tmp_path)            # the access database
+    pass_a, pass_b = access.create_pass("a", 5), access.create_pass("b", 5)
+    store = sharing.Store(tmp_path / "shared.db")
+    with access.spending(pass_a):
+        first, _, _ = measure(monkeypatch, lambda q, n: "Coda fits.", share=store)
+    with access.spending(pass_b):
+        second, _, prov = measure(monkeypatch, lambda q, n: "Coda fits.", share=store,
+                                  profile=rival().model_copy(update=dict(category_questions=CAT_QS[3:])))
+    buyer = lambda run: {p.text for p in run.probes if p.id.startswith("cat-b")}
+    a_only = buyer(first) - set(CAT_QS[3:])
+    assert a_only and not a_only & buyer(second)
+    assert prov.shared == 0 and not any(a.shared for a in [*second.answers, *second.repeat_answers])
+    with access.spending(pass_a):
+        _, _, again = measure(monkeypatch, lambda q, n: "Coda fits.", share=store, profile=rival())
+    assert again.shared > 0
 
 
 def test_only_a_grounded_live_answer_is_shared(tmp_path):

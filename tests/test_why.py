@@ -21,10 +21,11 @@ PILOT = json.loads((CASSETTES / "why_pilot_answers.json").read_text())
 RELEASE = "https://www.sec.gov/Archives/edgar/data/318154/000031815426000124/amgn-20260630earningsrelea.htm"
 AI_PAGE = "https://www.amgen.com/science/research-and-development-strategy/ai-in-research-and-development"
 PROFILE = CompanyProfile(name="Amgen", domain="amgen.com",
-                         evidence=[Evidence(id="pg3", url=AI_PAGE, excerpt="…", source_type="page_fetch")])
+                         evidence=[Evidence(id="pg3", url=AI_PAGE, excerpt="We bring R&D, AI and data closer together.",
+                                            source_type="page_fetch")])
 DEBT = Attribute(id="emergent_debt", label="Debt limits flexibility", discovered=True)
 AI = Attribute(id="ai_rd", label="Uses AI and advanced technology in research and development",
-               intended_weight=1.0, claim_quotes=["bring R&D, AI and data closer together"])
+               intended_weight=1.0, claim_quotes=["bring R&D, AI and data closer together"], claim_evidence_ids=["pg3"])
 REWRITE = ("We use AI and other advanced technologies across R&D to accelerate drug discovery and "
            "clinical development.")
 
@@ -146,6 +147,28 @@ def test_what_survives_every_source_removed_is_prior_belief():
     assert inv.off.k == inv.off.n == 3
     assert inv.verdicts[-1].kind == "prior_belief" and "no page edit" in inv.verdicts[-1].text
     assert inv.arms[1].decided == "no_effect"
+
+
+def test_what_survives_every_source_removed_but_not_search_off_is_not_prior_belief():
+    fake = Fake(STRENGTHS, lambda text: "Amgen has debt.", live_text="Amgen has debt.")
+    inv = investigate(fake, DEBT, STRENGTHS["question"], "debt")
+    assert inv.off.k == 0 and inv.arms[1].decided == "no_effect"
+    assert inv.verdicts[-1].kind == "not_in_reading" and "no page edit" not in inv.verdicts[-1].text
+
+
+def test_halves_that_are_only_undecided_are_not_over_determined():
+    ticks = {}
+
+    def says(text):   # both pages: every other answer; one: every fourth; neither: never
+        held = ("free cash flow" in text) + ("debt outstanding" in text)
+        n = next(ticks.setdefault(held, count()))
+        return "Strong cash flow." if held and n % (2 if held == 2 else 4) == 0 else "Amgen."
+    fake = Fake(STRENGTHS, says, live_text="Strong cash flow.")
+    inv = investigate(fake, Attribute(id="cash", label="Strong cash flow", discovered=True),
+                      STRENGTHS["question"], "cash flow")
+    assert inv.arms[1].decided == "effect"
+    assert any(a.decided == "undecided" for a in inv.arms[2:])
+    assert inv.verdicts[-1].kind == "undecided"
 
 
 def test_a_replay_that_does_not_match_live_stops_before_any_experiment():
@@ -297,3 +320,17 @@ def test_each_experiment_keeps_the_base_it_was_decided_against():
         assert a.base_n and a.effect == round(a.k / a.n - a.base_k / a.base_n, 2)
     passage = next(a for a in inv.arms if a.id == inv.verdicts[-1].arm_id)
     assert f"from {passage.base_k}/{passage.base_n} to {passage.k}/{passage.n}" in inv.verdicts[-1].text
+
+
+def test_a_page_that_does_not_state_the_claim_is_never_injected_as_its_copy():
+    unstated = AI.model_copy(update=dict(claim_evidence_ids=[]))
+    fake = Fake(DIFFERENT, lambda text: "It uses AI." if "ai-in-research-and-development" in text else "It is a pioneer.")
+    inv = investigate(fake, unstated, DIFFERENT["question"], "AI")
+    assert not any(a.kind == "inject" for a in inv.arms)
+    assert not any(v.kind == "authority_fix" for v in inv.verdicts)
+    action = WinBackAction(attribute_id=AI.id, label=AI.label, zone="unstated_intent", page_url=AI_PAGE,
+                           rewrite=REWRITE, provenance="live_api")
+    inv = investigate(Fake(DIFFERENT, lambda text: "It is a pioneer."), unstated, DIFFERENT["question"], "AI",
+                      win_back=[action])
+    inject = next(a for a in inv.arms if a.kind == "inject")
+    assert inject.urls == [AI_PAGE] and inject.hypothetical and inject.text == [REWRITE]
