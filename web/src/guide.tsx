@@ -10,7 +10,7 @@ import type { Vars } from "./guideBus";
 import { reportVars } from "./guideBus";
 import { PHONE, Term } from "./popover";
 import type { Part, Step, Story } from "./tour";
-import { autoStarts, fill, markSeen, ONBOARD_STEPS, readySteps, REPORT_STEPS, STORY_HEADLINES, termParts } from "./tour";
+import { autoStarts, fill, markSeen, ONBOARD_STEPS, readySteps, replayPart, REPORT_STEPS, STORY_HEADLINES, termParts } from "./tour";
 
 const store = (() => { try { return window.localStorage; } catch { return null; } })();
 const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -258,7 +258,7 @@ function whenAnchored(steps: Step[], then: (present: Step[]) => void) {
 /**
  * The guide, mounted once by the app. `story` is null when the showcase run cannot be read (a pass
  * holder does not see it), and then "How it works" goes straight to the tour. `replay` increments
- * when the top bar's button is pressed; `autoStory` asks for the story on a first visit.
+ * when the top bar's button is pressed, after the app has switched to the tab that tour needs; `autoStory` asks for the story on a first visit.
  */
 export function Guide({ story, vars, autoStory, replay, onOpenShowcase }: {
   story: Story | null; vars: Vars; autoStory: boolean; replay: number;
@@ -307,8 +307,9 @@ export function Guide({ story, vars, autoStory, replay, onOpenShowcase }: {
   useEffect(() => {
     if (!replay || busy.current) return;
     back.current = document.activeElement as HTMLElement | null;
-    if (story) { busy.current = true; requestAnimationFrame(() => setActive({ kind: "story" })); return; }
-    startTour(document.querySelector('[data-tour="headline"]') ? "report" : "onboard", false);
+    const part = replayPart(!!story, !!document.querySelector('[data-tour="headline"]'));
+    if (part === "story") { busy.current = true; requestAnimationFrame(() => setActive({ kind: "story" })); return; }
+    startTour(part, false);
     // A replay is one press of the button: only its count starts it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replay]);

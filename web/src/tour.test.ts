@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { beforeEach, test } from "node:test";
-import { autoStarts, fill, loadSeen, markSeen, pickStory, resetMemory, STORAGE_KEY, termParts, type Store, type StoryRun } from "./tour.ts";
+import { autoStarts, fill, loadSeen, markSeen, pickStory, replayPart, resetMemory, STORAGE_KEY, termParts, type Store, type StoryRun } from "./tour.ts";
 
 const memory = (): Store & { data: Record<string, string> } => {
   const data: Record<string, string> = {};
@@ -85,4 +85,10 @@ test("captions fill their slots and keep glossary terms apart", () => {
   assert.deepEqual(termParts("The other 9% is [[untapped_potential|untapped potential]]."), [
     { text: "The other 9% is " }, { term: "untapped_potential", text: "untapped potential" }, { text: "." },
   ]);
+});
+
+test("\"How it works\" always replays something, even for a pass holder on History with no report open", () => {
+  assert.equal(replayPart(true, false), "story");
+  assert.equal(replayPart(false, true), "report");
+  assert.equal(replayPart(false, false), "onboard");   // the app switches to the Onboard tab first
 });

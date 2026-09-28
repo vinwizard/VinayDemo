@@ -6,7 +6,7 @@ import { CompanyWorkflow } from "./workflow";
 import { Guide } from "./guide";
 import { requestTour } from "./guideBus";
 import { headline } from "./labels";
-import { pickStory } from "./tour";
+import { pickStory, replayPart } from "./tour";
 
 type Tab = "onboard" | "history";
 
@@ -100,7 +100,10 @@ export default function App() {
               </button>
             ))}
           </nav>
-          {health && <button type="button" className="ghost how" onClick={() => setReplay((n) => n + 1)}>How it works</button>}
+          {health && <button type="button" className="ghost how" onClick={() => {
+            if (replayPart(!!story, tab === "history" && !!opened) === "onboard" && tabs.some(([t]) => t === "onboard")) setTab("onboard");
+            setReplay((n) => n + 1);
+          }}>How it works</button>}
         </div>
       </header>
 

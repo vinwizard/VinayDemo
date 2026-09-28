@@ -179,6 +179,10 @@ export const ONBOARD_STEPS: Step[] = [
     text: "Then we ask AI and score the answers. A run costs about $0.85 of your pass at the default settings." },
 ];
 
+/** What "How it works" replays: the story when it can be told, else the tour of the screen it opens on. */
+export const replayPart = (hasStory: boolean, reportOpen: boolean): Part =>
+  hasStory ? "story" : reportOpen ? "report" : "onboard";
+
 export const STORY_HEADLINES = [
   "{brand}'s website says who {brand} is.",
   "Then we ask AI what it thinks of {brand}.",
