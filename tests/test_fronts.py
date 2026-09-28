@@ -9,6 +9,7 @@ from collections import Counter
 
 import graph
 import reports
+import sampler
 from agents import ana, evaluation
 from providers import fixture, live
 from schemas import Answer, CompanyProfile, Probe, distinctive_alias
@@ -38,7 +39,7 @@ class Judge:
         return []
 
 
-def run_fronts(monkeypatch, aiming=AIMING, placed_says=lambda n: "Notion fits.", tries=3, sample=2,
+def run_fronts(monkeypatch, aiming=AIMING, placed_says=lambda n: "Notion fits.", wobble=1,
                weighted=False):
     asked = Counter()
     profile = F.profile.model_copy(update=dict(core_category=aiming, category_questions=AIM_QS))
@@ -54,10 +55,10 @@ def run_fronts(monkeypatch, aiming=AIMING, placed_says=lambda n: "Notion fits.",
         return {"output": [{"type": "web_search_call"},
                            {"type": "message", "content": [{"type": "output_text", "text": text}]}]}
 
-    monkeypatch.setenv(live.TRIES_ENV, str(tries))
-    monkeypatch.setenv(live.SAMPLE_ENV, str(sample))
-    # six a front, as the injected writer can supply: these tests are about the fronts, not the budget
-    monkeypatch.setenv(ana.QUESTIONS_ENV, "6")
+    # ±33 points: six questions frozen a front, four asked first — as many as the injected writer can
+    # supply. These tests are about the fronts; test_sampler.py owns how many questions are asked.
+    monkeypatch.setenv(sampler.MARGIN_ENV, "33")
+    monkeypatch.setenv(sampler.WOBBLE_ENV, str(wobble))
     # unweighted unless asked: a weighted claim holds back a topic of its own (test_every_weighted_claim…)
     attributes = [a if weighted else a.model_copy(update=dict(intended_weight=None)) for a in F.attributes()]
     prov = live.LiveProvider(attributes, F.named_probes(), profile=profile, model="test-model",
@@ -77,13 +78,17 @@ def test_brand_answers_are_answered_before_buyer_questions_are_planned(monkeypat
 def test_two_fronts_are_measured_side_by_side_with_the_gap(monkeypatch):
     run, _ = run_fronts(monkeypatch)
     d = run.drift
+    # every answer on a front agreed, so each stopped at look 1: four of its six frozen questions
     assert [(s.front, s.category, s.questions) for s in d.sets] == [
-        ("placed", "AI-native workspace", 6), ("aiming", AIMING, 6)]
+        ("placed", "AI-native workspace", 4), ("aiming", AIMING, 4)]
     placed, aiming = d.sets
     assert (placed.visibility, aiming.visibility, d.visibility_gap) == (50.0, 0.0, 50.0)
     assert (d.placed_category, d.aiming_category) == ("AI-native workspace", AIMING)
-    # same total buyer budget as one set: 12 questions, split evenly
-    assert len([p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]) == graph.max_baseline()
+    # the same budget on each front: six frozen, split evenly; what neither needed is kept as unasked
+    asked = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
+    assert len(asked) + len(run.sampler.unasked) == 2 * ana.set_questions() == 12
+    assert [(f.front, f.pool, f.asked, f.stopped_early) for f in run.sampler.fronts] == [
+        ("placed", 6, 4, True), ("aiming", 6, 4, True)]
     # each front has its own control, and only the one that leaves the brand out is flagged
     assert (placed.control_probe_id, aiming.control_probe_id) == ("ctl-2", "ctl-1")
     assert placed.low_confidence is None and "but not Notion" in aiming.low_confidence
@@ -99,11 +104,29 @@ def test_every_weighted_claim_gets_its_own_buyer_questions_before_the_fronts_sha
     buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
     topics = {t.id: t for t in run.topics}
     own = {p.topic_id[len("pos-"):] for p in buyer if topics[p.topic_id].front is None}
-    held = min(len(weighted), ana.max_topics() // 2)
+    held = min(len(weighted), ana.front_topics())
     assert len(own & set(weighted)) == held                      # the heaviest claims, one topic each
     assert [s.front for s in run.drift.sets][:2] == ["placed", "aiming"]
-    assert all(s.questions == ana.PER_TOPIC * ((ana.max_topics() - held) // 2) for s in run.drift.sets[:2])
+    assert [f.pool for f in run.sampler.fronts] == [ana.set_questions()] * 2   # held on top, not taken
     assert len(buyer) <= graph.max_baseline()
+
+
+def test_three_weighted_claims_leave_each_front_its_look_2_pool_at_the_default_margin(monkeypatch):
+    # Amgen, three weighted claims at ±20: each front was cut to 18 questions, short of the 23 that
+    # look 2 needs, so a 50% front could never reach ±20 however many of them were asked.
+    monkeypatch.delenv(sampler.MARGIN_ENV, raising=False)
+    n2 = sampler.looks()[1]
+    profile = F.profile.model_copy(update=dict(core_category=AIMING, category_questions=[
+        f"Which workspace tool suits a team of {n}?" for n in range(1, n2 + 1)]))
+    placed_qs = [f"Which AI workspace can draft documents for a team of {n}?" for n in range(1, n2 + 1)]
+    weighted = [a for a in F.attributes() if a.intended and a.buyer_questions and a.id != PLACED.id]
+    assert len(weighted) == 3
+    topics, probes, _, _ = ana.blind_probes_for_fronts(profile, PLACED, placed_qs, F.attributes())
+    front = {t.id: t.front for t in topics}
+    buyer = [p for p in probes if p.phase == "baseline"]
+    assert Counter(front[p.topic_id] for p in buyer if front[p.topic_id]) == {"placed": n2, "aiming": n2}
+    assert {t.id for t in topics if t.kind == "buyer" and not t.front} == {f"pos-{a.id}" for a in weighted}
+    assert len(buyer) <= graph.max_baseline() and not ana.validate_probes(probes, topics, profile)
 
 
 def test_the_same_category_on_both_fronts_is_asked_once_and_said_so(monkeypatch):
@@ -113,7 +136,8 @@ def test_the_same_category_on_both_fronts_is_asked_once_and_said_so(monkeypatch)
     assert len([p for p in run.probes if p.phase == "control"]) == 1
     # the budget never shrinks: the claims' own questions fill the other half, counted in neither front
     both, claims = run.drift.sets
-    assert (both.questions, claims.questions, claims.category) == (6, 6, None)
+    # the front stopped at look 1; the claims' own questions are not a front, so all of them are asked
+    assert (both.questions, claims.questions, claims.category) == (4, 6, None)
     topic = {t.id: t for t in run.topics}
     claim_ids = [p.topic_id for p in run.probes if p.phase == "baseline" and p.kind == "blind"
                  and topic[p.topic_id].front is None]
@@ -166,38 +190,38 @@ def test_missing_front_reasons_reach_the_report_when_no_front_survives(monkeypat
     assert run.drift.missing_fronts["aiming"] in run.drift.limitations
 
 
-def test_only_the_sampled_questions_are_re_asked_and_the_wobble_comes_from_them(monkeypatch, tmp_path):
-    """The budget moved from tries to questions: every question is asked once, REPEAT_SAMPLE of them
-    three times, and the range beside the number is those questions' wobble — nothing else's.
-    Regression it keeps: every try is saved and scored, not just the first."""
+def test_one_question_a_front_is_re_asked_and_the_wobble_comes_from_it(monkeypatch, tmp_path):
+    """The wobble audit: each front's first question is asked once more, every other question once,
+    and the range beside the number is those re-asks' wobble — nothing else's. Regression it keeps:
+    every try is saved and scored, not just the first."""
     monkeypatch.setattr(reports, "RUNS", tmp_path)
-    # the sampled placed question names the brand on tries 1 and 2 only: per-try 50, 50, 0
-    run, asked = run_fronts(monkeypatch, placed_says=lambda n: "Notion fits." if n < 3 else "Coda fits.")
+    # the audited placed question names the brand on its first ask only: per-try 50, 0
+    run, asked = run_fronts(monkeypatch, placed_says=lambda n: "Notion fits." if n < 2 else "Coda fits.")
     reports.save_run(run)
     run = reports.load_run(run.id)
     buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
     tries = {p.id: sorted(a.try_no for a in run.answers + run.repeat_answers if a.probe_id == p.id)
              for p in buyer}
-    sampled = [p for p in buyer if tries[p.id] == [1, 2, 3]]
-    assert len(sampled) == 2 and {p.topic_id[:6] for p in sampled} == {"placed", "cat-1"}
-    assert all(tries[p.id] == [1] for p in buyer if p not in sampled)
-    assert all(asked[p.text] == (3 if p in sampled else 1) for p in buyer)
+    audited = [p for p in buyer if tries[p.id] == [1, 2]]
+    assert [p.id for p in audited] == run.sampler.wobble and {p.topic_id[:6] for p in audited} == {"placed", "cat-1"}
+    assert all(tries[p.id] == [1] for p in buyer if p not in audited)
+    assert all(asked[p.text] == (2 if p in audited else 1) for p in buyer)
     evals = Counter(e.probe_id for e in run.evaluations + run.repeat_evaluations)
     assert all(evals[p.id] == len(tries[p.id]) for p in buyer)
     placed = run.drift.sets[0]
-    # five questions named the brand once each, the sampled one on two of its three tries
-    assert (placed.tries, placed.repeat_sample) == (3, 1)
-    assert (placed.visibility, placed.visibility_range) == (47.2, [0.0, 50.0])
-    named = Counter(e.probe_id for e in run.evaluations + run.repeat_evaluations if e.mentioned)
-    assert {named[p.id] for p in sampled if p.topic_id.startswith("placed")} == {2}   # "named in 2 of 3"
+    # four questions named the brand, the audited one on one of its two tries
+    assert (placed.tries, placed.repeat_sample) == (2, 1)
+    assert (placed.visibility, placed.visibility_range) == (43.8, [0.0, 50.0])
+    # the sampler's rate counts each question's first ask only: fresh questions, one vote each
+    assert (run.sampler.fronts[0].named, run.sampler.fronts[0].judged) == (4, 4)
 
 
-def test_no_repeat_sample_measures_every_question_once_and_has_no_wobble(monkeypatch):
-    run, asked = run_fronts(monkeypatch, sample=0)
+def test_no_wobble_audit_measures_every_question_once_and_has_no_wobble(monkeypatch):
+    run, asked = run_fronts(monkeypatch, wobble=0)
     buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
     assert run.repeat_answers == [] and all(asked[p.text] == 1 for p in buyer)
     assert run.drift.repeat_sample == 0 and run.drift.visibility_range is None
-    assert run.drift.visibility == 25.0          # six questions named, six not
+    assert run.drift.visibility == 25.0          # four questions named, four not
 
 
 def test_offline_replay_stays_one_unlabelled_set():
@@ -238,11 +262,12 @@ def test_onboarding_keeps_only_distinctive_aliases():
     assert p.aliases == ["Acme", "Acme Agents"]
 
 
-def test_the_placed_front_is_asked_as_a_buyer_category_not_a_claim_label():
+def test_the_placed_front_is_asked_as_a_buyer_category_not_a_claim_label(monkeypatch):
     # Amgen, 22 Sep 2026: AI placed it at the claim "Focus on key therapy areas". Searched, written
     # about and controlled as if it were a category, it asked "Which software supports oncology
     # treatment planning?" and "What are the leading tools for Focus on key therapy areas?".
     profile = F.profile.model_copy(update=dict(core_category=AIMING, category_questions=AIM_QS))
+    monkeypatch.setenv(sampler.MARGIN_ENV, "33")   # six a front: the category's own six fill it, unwritten
     written_for = []
 
     def provider(category):

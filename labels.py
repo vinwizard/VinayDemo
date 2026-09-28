@@ -11,6 +11,7 @@ from schemas import Evidence, Probe, Topic
 
 PROVENANCE_LABEL = {"synthetic": "Sample data", "demo_replay": "Sample run",
                     "live_api": "Measured live", "page_fetch": "From their website",
+                    "counterfactual_replay": "Experiment: a replayed reading list, not a measurement",
                     "user_provided": "You told us", "web_research_snapshot": "Research snapshot"}
 
 

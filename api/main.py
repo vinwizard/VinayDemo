@@ -23,6 +23,8 @@ from pydantic import BaseModel, Field
 
 import access
 import audit
+import sampler
+from why import budget as why_budget
 import demand
 import fetching
 import graph
@@ -38,6 +40,7 @@ from config import load_env, redacted_status
 from providers import fixture, live
 from providers.company import CompanyProvider
 from api import admin
+from api import why as why_api
 from reports import RUNS, list_companies, load_company, load_run, save_company, save_run
 from schemas import Attribute, Company
 
@@ -189,20 +192,24 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
                              evaluator=ModelEvaluator(model=resolved.judge), demand=demand.ground,
                              resolved=resolved)
     # The buyer questions are planned from the brand answers, so their number is not known yet: count
-    # the full buyer budget once each, plus the repeat-sampled questions' extra tries, plus one
-    # control per front. A run that asks fewer is caught up by its node events' `planned` counts.
-    asks = graph.max_baseline() + prov.repeat_sample * (prov.tries - 1) + 2
+    # the full buyer budget once each (look 2 on both fronts), plus one wobble re-ask and one control
+    # per front. A run that stops early is caught up by its node events' `planned` counts.
+    asks = graph.max_baseline() + 2 * (prov.tries - 1) + 2
     return prov, profile, asks + len(base.named_probes()), "live_api"
 
 
 def progress(run, tries: int = 1, repeat_sample: int = 0) -> dict:
     """What a run has planned so far, in the counts the staged progress names: every ask, so a
-    repeat-sampled buyer question asked three times counts three."""
+    re-asked buyer question counts each ask. Questions waiting for the sampler's look 2 are not
+    planned until it asks for them."""
     planned = {"buyer": 0, "brand": 0, "followup": 0}
+    held = set(run.sampler.held) if run.sampler else set()
     for p in run.probes:
-        planned["followup" if p.phase == "followup" else "brand" if p.kind == "named" else "buyer"] += 1
-    buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
-    planned["buyer"] += len(graph.repeat_sampled(buyer, repeat_sample)) * (tries - 1)
+        if p.id not in held:
+            planned["followup" if p.phase == "followup" else "brand" if p.kind == "named" else "buyer"] += 1
+    buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline" and p.id not in held]
+    again = len(run.sampler.wobble) if run.sampler else len(graph.repeat_sampled(buyer, repeat_sample))
+    planned["buyer"] += again * (tries - 1)
     return dict(mode=run.mode, planned=planned,
                 competitors=discovered_competitors(run.topic_evaluations))
 
@@ -805,8 +812,12 @@ def health(request: Request = None):
             "model_fallback": live.fallback_reason(),
             # every measured call is made with tool_choice forcing the web_search tool
             "forced_search": live.TOOL_CHOICE != "auto",
-            "buyer_questions": set_questions(), "repeat_sample": live.repeat_sample(),
-            "buyer_tries": live.buyer_tries(),
+            # sampler-lite (sampler.py): each front's margin at 95%, its two looks, the wobble re-asks
+            "buyer_questions": set_questions(), "max_buyer_questions": graph.max_baseline(),
+            "target_margin": sampler.margin(),
+            "looks": list(sampler.looks()), "wobble_audit": sampler.wobble_audit(),
+            "run_budget_usd": sampler.run_budget(),
+            "why_budget_usd": why_budget(),
             # a model grading its own output has a self-preference bias worth surfacing
             "same_model_warning": bool(measured and evaluator and measured == evaluator)}
 
@@ -858,6 +869,7 @@ if access.configured():
     if not (store := access.storage())["persistent"]:
         print(f"WARNING: passes and runs will not survive a redeploy. {store['reason']} {access.STORAGE_FIX}", flush=True)
 app.include_router(admin.router)
+app.include_router(why_api.router)
 
 # Production: serve the built web app from the same origin (render.yaml builds it with VITE_API="").
 # Mounted last so every /api route above wins.

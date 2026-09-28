@@ -9,16 +9,12 @@ import json
 import re
 from collections import Counter
 
-from config import setting
 from schemas import (AdaptiveDecision, Attribute, AttributeScore, CompanyProfile, Probe,
                      QueryEvaluation, Topic, TopicEvaluation)
 
-# Buyer questions per front, asked ONCE each. The old budget spent three tries on six questions a
-# side; re-asking one question moved visibility a few points while different questions disagreed by
-# tens, so the same money buys a far tighter confidence interval spent on more questions instead.
-# A small sample of them is still re-asked for the wobble estimate (providers/live.REPEAT_SAMPLE).
-QUESTIONS_ENV = "BUYER_QUESTIONS"
-DEFAULT_QUESTIONS = 12
+# Buyer questions per front, asked ONCE each: re-asking one question moved visibility a few points
+# while different questions disagreed by tens, so the budget buys questions, not tries. How many a
+# front freezes is sampler-lite's look 2 for the stated margin (sampler.py); it may stop at look 1.
 PER_TOPIC = 3
 CONTROL_TOPIC = "control"
 MAX_FOLLOWUP_TOPICS = 2
@@ -28,13 +24,21 @@ COMPARISON_PROBE_ID = "np-cmp"
 
 
 def set_questions() -> int:
-    """BUYER_QUESTIONS: unbranded questions per front, at least one topic's worth."""
-    return setting(QUESTIONS_ENV, DEFAULT_QUESTIONS, floor=PER_TOPIC)
+    """Unbranded questions frozen per front: sampler-lite's look 2 for TARGET_MARGIN, at least one
+    topic's worth."""
+    import sampler
+    return max(PER_TOPIC, sampler.looks()[1])
+
+
+def front_topics() -> int:
+    """One front's pool, `set_questions()`, in topics of PER_TOPIC."""
+    return -(-set_questions() // PER_TOPIC)
 
 
 def max_topics() -> int:
-    """The whole buyer topic budget: `set_questions()` a front, both fronts, in topics of PER_TOPIC."""
-    return 2 * -(-set_questions() // PER_TOPIC)
+    """The most buyer topics a run may plan: both fronts' full pools, plus up to one front's worth
+    held back for weighted claims, so holding one back never shrinks a front below look 2."""
+    return 3 * front_topics()
 
 
 def leak_terms(profile: CompanyProfile) -> list[str]:
@@ -72,12 +76,21 @@ def attribute_leaks(text: str, attributes: list[Attribute]) -> list[str]:
 
     Asking "is Notion an AI-native workspace?" invites the model to agree, and the resulting echo
     measures the question, not the model's own view. This is the perception-axis analogue of
-    `brand_leaks` and is just as load-bearing.
+    `brand_leaks` and is just as load-bearing. Matched on stemmed content words in any order, so
+    "Does Amgen use AI…" leaks "Uses AI…" as surely as the exact phrase does, and stems are folded
+    further here only (ies/y, ie/y, es/s) so "technologies" leaks "technology".
+    Best-effort against rewordings: synonyms and other variants get through, and that is accepted
+    rather than answered with more rules.
     """
+    from agents.evaluation import content_words   # evaluation imports this module
+
+    def roots(s: str) -> set[str]:
+        return {re.sub(r"(?:ie|i|y|e|s)$", "", w) if len(w) > 4 else w for w in content_words(s)}
+    said = roots(text)
     hits = []
     for a in attributes:
         for phrase in [a.label, *a.aliases]:
-            if len(phrase) > 3 and re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text, re.I):
+            if len(phrase) > 3 and (words := roots(phrase)) and words <= said:
                 hits.append(a.id)
                 break
     return hits
@@ -208,9 +221,9 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
     written) and where its homepage says it aims to be (the core category). -> (topics, probes with
     one control per set, skipped question notes, front -> why it was not measured).
 
-    Each front gets half the buyer budget left after one topic is held back for every weighted
-    claim; when both are the same category the set is asked once. Whatever budget the fronts leave
-    goes to the claims' own buyer questions
+    Each front gets a full pool of `set_questions()`, and every weighted claim a topic on top (at
+    most one front's worth); when both are the same category the set is asked once. Whatever budget
+    the fronts leave goes to the claims' own buyer questions
     (blind_probes_from_attributes), an unlabelled group counted as neither front, so the sample
     never shrinks. Blind questions are vetted like any other: one that names the brand or addresses
     the vendor is skipped, never rewritten. `placed_category` is where AI places the company as a
@@ -220,9 +233,10 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
     placed_as = placed_category or (placed.label if placed else None)
     # Every claim the customer weighted gets its own topic before the fronts share the rest: on the
     # Amgen run the fronts took the whole budget, none of its three weighted claims was asked about,
-    # and every Quick-wins fix cited no question. At most half the topics are held back this way.
+    # and every Quick-wins fix cited no question. They come on top of the fronts' pools, at most one
+    # front's worth, so every front can still freeze look 2.
     reserved = min(len([a for a in attributes if a.intended and a.buyer_questions
-                        and not (placed and a.id == placed.id)]), max_topics() // 2)
+                        and not (placed and a.id == placed.id)]), front_topics())
     fronts, missing = [], {}
     if placed and aiming and same_category(placed_as, aiming):
         fronts.append(("both", aiming, [*profile.category_questions, *placed_questions]))
@@ -239,7 +253,7 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
                                  f"was not asked about. Set the category on the claims screen to measure it.")
     topics, probes, skipped = [], [], []
     seen = set()
-    per_front = min(set_questions(), PER_TOPIC * ((max_topics() - reserved) // max(len(fronts), 1)))
+    per_front = set_questions()
     for front, category, questions in fronts:
         prefix = "placed" if front == "placed" else "cat"
         control = control_probe(profile, category, pid="ctl-2" if front == "placed" else "ctl-1",
@@ -278,7 +292,7 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
             missing[f] = (f"{where} was not measured: {why}."
                           + (" Set the category again on the claims screen to write them."
                              if f == "aiming" and not questions else ""))
-    if left := max_topics() - sum(t.kind == "buyer" for t in topics):
+    if left := max(reserved, 2 * front_topics() - sum(t.kind == "buyer" for t in topics)):
         claims, claim_probes, claim_skipped = blind_probes_from_attributes(
             [a for a in attributes if not placed or a.id != placed.id], profile, left)
         skipped += claim_skipped

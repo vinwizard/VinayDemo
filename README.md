@@ -7,12 +7,15 @@ what the company wants to be known for.
 
 ```
 web/          React app: the product UI
-api/          FastAPI server the UI talks to, plus the /admin page for the hosted demo
+api/          FastAPI server the UI talks to, the why agent's endpoints, and the /admin page
 agents/       the steps of a run: onboarding a company, planning questions, reading answers
 providers/    where answers come from: live model calls, or bundled sample replays
 graph.py      wires the agents into one run
+why.py        the why agent: investigates why AI does or does not repeat a claim
+sampler.py    decides how many buyer questions a run asks
+sharing.py    reuses buyer questions and answers across brands in one category
 schemas.py    shared data types
-*.py (root)   supporting modules: site crawling and checks, scoring, reports, access passes, config
+other *.py    supporting modules: site crawling and checks, scoring, reports, access passes, config
 fixtures/     bundled sample scenarios for offline demos and tests
 data/         saved companies, runs and research snapshots
 tests/        Python test suite (offline, no network)
@@ -47,7 +50,8 @@ Only the key is needed locally; everything else has a default.
 | --- | --- |
 | `OPENAI_API_KEY` | live runs and onboarding |
 | `MEASURED_MODEL`, `EVALUATOR_MODEL`, `ONBOARDING_MODEL` | choosing which models are used |
-| `BUYER_QUESTIONS`, `REPEAT_SAMPLE`, `BUYER_TRIES` | how many questions a run asks |
+| `TARGET_MARGIN`, `WOBBLE_AUDIT` | how many questions a run asks |
+| `RUN_BUDGET_USD`, `WHY_BUDGET_USD` | optional spending caps per run and per investigation |
 | `DATA_DIR` | where companies, runs and passes are stored |
 | `VISEXP_OFFLINE_REPLAY` | replay the bundled sample instead of calling a model |
 | `VISEXP_PUBLIC_DEMO` | hosted-demo mode |

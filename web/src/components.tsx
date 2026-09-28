@@ -16,6 +16,8 @@ import { GLOSSARY } from "./glossary";
 import { LINE, layoutMap } from "./maplabels";
 import { PHONE, Popover, Term } from "./popover";
 import { WhyAIMisses } from "./audit";
+import { WhatItRead, WhyPanel } from "./why";
+import { FrontMargin, SamplerNote } from "./margin";
 
 const ZONE_FILL: Record<Zone, string> = {
   landed: "var(--landed)",
@@ -216,7 +218,7 @@ const untapped = (iv?: [number, number] | null): [number, number] | null =>
   iv ? [Math.round((100 - iv[1]) * 10) / 10, Math.round((100 - iv[0]) * 10) / 10] : null;
 
 /** The headline, buyer visibility and the quick wins: pinned above every tab. */
-function Figures({ d, brand }: { d: DriftReport; brand: string }) {
+function Figures({ d, brand, run }: { d: DriftReport; brand: string; run?: Run }) {
   const h = headline(d);
   const wins = d.lost_claims.length + d.unstated_intent.length;  // the Quick wins tab's claims
   const fronts = frontsOf(d);
@@ -238,6 +240,7 @@ function Figures({ d, brand }: { d: DriftReport; brand: string }) {
           <span className="fig-value"><Visibility d={v} explain /></span>
           <span className="fig-label"><FrontLabel v={v} /></span>
           <span className="fig-sub">{v.category} · <Range d={v} iv={v.interval} note={v.interval_note} /></span>
+          {run?.sampler && <span className="fig-sub"><FrontMargin run={run} front={v.front} /></span>}
         </div>
       )) : (
         <div className="fig">
@@ -538,7 +541,7 @@ export function Report({ run, onRescored }: {
               </div>
             </div>
           </div>
-          {d && <Figures d={d} brand={run.profile.name} />}
+          {d && <Figures d={d} brand={run.profile.name} run={run} />}
           {d && <PrintSummary run={run} />}
         </div>
         {d && (
@@ -578,7 +581,7 @@ export function Report({ run, onRescored }: {
             </>
           )}
           {tab === "questions" && <div className="qboard"><BuyerQuestions run={run} /><BrandQuestions run={run} /></div>}
-          {tab === "why" && <><WhatItSearched run={run} /><WhyAIMisses run={run} /><TestAFix run={run} reasks={reasks} onReasked={reasked} /></>}
+          {tab === "why" && <><WhyPanel run={run} /><WhatItSearched run={run} /><WhyAIMisses run={run} /><TestAFix run={run} reasks={reasks} onReasked={reasked} /></>}
           {tab === "sources" && (
             <>
               <CitationNetwork run={run} />
@@ -1725,6 +1728,7 @@ function QuestionRow({ p, name, answer, verdict, tags, note, replay, after, sub 
           {answer && replay && <span className="tag sample">sample</span>}
           {answer ? plain(answer.text) : "no answer"}
         </p>
+        <WhatItRead a={answer} />
         {after}
       </div>
     </details>
@@ -1835,6 +1839,7 @@ function BuyerQuestions({ run }: { run: Run }) {
               + ` questions, which is what narrows the range.`
             : replay ? " A sample run replays one authored answer per question: 1 try." : " Each was asked once."}
         </p>
+        <SamplerNote run={run} />
         {(realAsked > 0 || !!run.demand_notes?.length) && (
           <p style={{ margin: 0 }}>
             {realAsked ? `${realAsked} of ${base.length} are ` : "None of them are "}
@@ -1868,6 +1873,7 @@ function BuyerQuestions({ run }: { run: Run }) {
                 <FrontLabel v={v} /> · {v.category} — <Visibility d={v} explain />{" "}
                 <span className="muted">— <Range d={v} iv={v.interval} note={v.interval_note} /></span>
               </h4>
+              {run.sampler && <p className="muted" style={{ margin: 0 }}><FrontMargin run={run} front={v.front} /></p>}
               <div className="qlist">{ps.map(card)}</div>
               {ctl && <Control run={run} p={ctl} v={v} />}
             </div>

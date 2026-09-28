@@ -35,6 +35,7 @@ export const PROVENANCE_LABEL: Record<string, string> = {
   page_fetch: "From their website",
   user_provided: "You told us",
   web_research_snapshot: "Research snapshot",
+  counterfactual_replay: "Experiment — a replayed reading list, not a measurement",
 };
 
 export const provenanceLabel = (v: string | null | undefined) =>

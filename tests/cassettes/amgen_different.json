@@ -1,0 +1,237 @@
+{
+ "model": "gpt-6-luna",
+ "question": "What makes Amgen different from other biotech companies?",
+ "output": [
+  {
+   "type": "web_search_call",
+   "id": "ws_05f740f1b0f2cf5c006aba0fd49ae487d1874aaf744e9fbebb",
+   "status": "completed",
+   "action": {
+    "query": "Amgen 2025 annual report biotechnology company capabilities manufacturing R&D 2025",
+    "type": "search",
+    "sources": [
+     {
+      "type": "url",
+      "url": "https://www.amgen.com/about"
+     },
+     {
+      "type": "url",
+      "url": "https://www.amgen.com/science/manufacturing"
+     },
+     {
+      "type": "url",
+      "url": "https://www.amgen.com/responsibility/reporting-and-metrics/-/media/Themes/CorporateAffairs/amgen-com/amgen-com/downloads/responsibility-report/amgen-2018-responsibility-highlights-report.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://www.amgen.com/stories/2026/03/-/media/Themes/CorporateAffairs/amgen-com/amgen-com/downloads/investors/2025-annual-report-letter-and-10k.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://www.amgen.com/en/home"
+     },
+     {
+      "type": "url",
+      "url": "https://www.amgen.com/science/biosimilars"
+     },
+     {
+      "type": "url",
+      "url": "https://www.sec.gov/Archives/edgar/data/318154/000031815426000010/amgn-20251231.htm"
+     },
+     {
+      "type": "url",
+      "url": "https://www.amgen.com/~/media/themes/corporateaffairs/amgen-com/amgen-com/downloads/business_development_capabilites.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://investors.amgen.com/static-files/5f5cff8d-b8a6-428b-ab50-d2de436f9bbc"
+     },
+     {
+      "type": "url",
+      "url": "https://careers.amgen.com/en/about"
+     },
+     {
+      "type": "url",
+      "url": "https://investors.amgen.com/news-releases/news-release-details/amgen-outlines-long-term-strategy"
+     },
+     {
+      "type": "url",
+      "url": "https://www.amgen.com/stories/2026/03/2025-letter-to-shareholders"
+     },
+     {
+      "type": "url",
+      "url": "https://www.amgen.com.cn/en/about.html"
+     },
+     {
+      "type": "url",
+      "url": "https://www-ext.amgen.com/science"
+     },
+     {
+      "type": "url",
+      "url": "https://www.sec.gov/Archives/edgar/data/318154/000095017025052315/amgn-20250408.htm"
+     },
+     {
+      "type": "url",
+      "url": "https://www.amgen.com/splash-page"
+     },
+     {
+      "type": "url",
+      "url": "https://www.amgen.com/about?utm_source=openai"
+     },
+     {
+      "type": "url",
+      "url": "https://www.amgen.com/science/manufacturing?utm_source=openai"
+     }
+    ],
+    "queries": [
+     "Amgen 2025 annual report biotechnology company capabilities manufacturing R&D 2025",
+     "Amgen company about biotechnology medicines discovery manufacturing official",
+     "Amgen 2025 pipeline annual report biosimilars oncology inflammation rare disease"
+    ]
+   },
+   "results": [
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search0 [wordlim: 200] Crawled: last week; Amgen has been consistently recognized for innovation and workplace culture, including honors from Fast Company and Forbes. ... The capabilities we are building across science, technology, and manufacturing are enabling us to move faster, operate more efficiently, and reach more patients than ever before. ... Amgen strives to serve patients by transforming the promise of science and biotechnology into therapies that have the power to restore health or save lives. ... At Amgen, we are committed to delivering innovative medicines in four key therapeutic areas: general medicine, rare diseases, inflammation, and oncology. ... A biotechnology innovator since 1980, Amgen has grown to be one of the world's leading independent biotechnology companies and has reached millions of patients around the world.",
+     "title": "About | Amgen",
+     "url": "https://www.amgen.com/about"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search1 [wordlim: 200] Crawled: last week; At Amgen, we continually invest in our manufacturing to strengthen our industry-leading capabilities and extend our global reach.The company's process development and manufacturing expertise is enabling us to deliver biotech therapies of increasing sophistication.This includes a growing use of new drug delivery devices that are designed to enhance the experience of patients who use our medicines. ... Advancing the field of biotechnology and the future of biologic medicines, including biosimilars.\n\nAmgen's mission is to serve patients, which means ensuring that all our medicines meet our high quality standards and are supplied reliably to",
+     "title": "Manufacturing | Amgen",
+     "url": "https://www.amgen.com/science/manufacturing"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search12 [wordlim: 200] Published: 7.4 years ago; Crawled: 7.4 years ago; ABOUT AMGEN ... Amgen combines leading-edge research with world-class biomanufacturing capabilities.Amgen’s approach to drug discovery begins with developing a deep understanding of the biology of a disease first, then selecting the right drug modality, or structural format, best suited for the target.As a worldwide leader in biologics manufacturing, we’re proud of our outstanding track record of reliably delivering high-quality medicines to patients who need them.As you’ll read in this report, we are committed to responsible behavior inside our company and in our communities.\nABOUT AMGEN\n\nAmgen discovers, ",
+     "title": "ABOUT AMGEN",
+     "url": "https://www.amgen.com/responsibility/reporting-and-metrics/-/media/Themes/CorporateAffairs/amgen-com/amgen-com/downloads/responsibility-report/amgen-2018-responsibility-highlights-report.pdf"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search13 [wordlim: 200] Published: 6 months ago; Amgen has a long history of leadership in inflammation, advancing therapies for autoimmune and chronic inflammatory diseases that significantly affect patients’ quality of life. ... Innovative Oncology⁵ sales grew 11% year-over-year to $8.7 billion in 2025, driven by our Bispecific T-cell Engagers (BiTE®), which harness the body’s own T cells to identify and destroy cancer cells. ... In 2025, biosimilars generated $3.0 billion in sales, growing 37% year-over-year.\n\nOtezla® generated $2.3 billion in sales in 2025, continuing to serve patients living with psoriasis and psoriatic arthritis with an established oral treatment option. EN",
+     "title": "Amgen 2025 Annual Report Letter and 10K.pdf",
+     "url": "https://www.amgen.com/stories/2026/03/-/media/Themes/CorporateAffairs/amgen-com/amgen-com/downloads/investors/2025-annual-report-letter-and-10k.pdf"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search2 [wordlim: 200] Crawled: 2 weeks ago; # Amgen | A Worldwide Pioneer in Biotechnology ... How AI Is Changing Drug Discovery and What It Will Take to Unlock Its Full Potential ... What a Landmark Real-World Study Reveals About Thyroid Eye Disease ... Amgen Investors Amgen is a pioneer in the science of using living cells to make biologic medicines, leading and guiding the biotech industry.\n\n### Our Latest Press Releases\n\nPRESS RELEASE 08.04.2026\n\nAMGEN REPORTS SECOND QUARTER 2026 FINANCIAL RESULTS\n\nPRESS RELEASE 07.30.2026\n\nAMGEN ANNOUNCES 2026 THIRD QUARTER DIVIDEND\n\nPRESS RELEASE 07.29.2026\n\nPOSITIVE CHMP OPINION SUPPORTS BROADER USE OF AMGEN'S REPATHA® BEFORE A FIRST HEAR",
+     "title": "Amgen | A Worldwide Pioneer in Biotechnology",
+     "url": "https://www.amgen.com/en/home"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search3 [wordlim: 200] Crawled: last week; Against the backdrop of this rich heritage, we have invested over $2 billion across a portfolio of 11 biosimilar medicines that are approved or in development, focusing primarily on oncology, inflammation and rare diseases. ... Amgen's Pipeline ... Accessed March 31, 2025.",
+     "title": "Biosimilars | Amgen",
+     "url": "https://www.amgen.com/science/biosimilars"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search4 [wordlim: 200] Published: 7 months ago; Crawled: 7 months ago; ☒  | ANNUAL REPORT PURSUANT TO SECTION 13 OR 15(d) OF THE SECURITIES EXCHANGE ACT OF 1934 ... Additionally, in 2025 we announced expansions of our manufacturing network in New Albany, Ohio and the U.S. territory of Puerto Rico, further strengthening our U.S.-based manufacturing capabilities. ... In the United States, the Public Health Service Act; the FDCA; and the regulations promulgated thereunder as well as other federal and state statutes and regulations govern, among other things, the production, research, development, testing, manufacture, quality control, labeling, storage, record keeping, approval, adv",
+     "title": "amgn-20251231",
+     "url": "https://www.sec.gov/Archives/edgar/data/318154/000031815426000010/amgn-20251231.htm"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search14 [wordlim: 200] Published: last year; FULLY INTEGRATED BIOTECHNOLOGY ORGANIZATION ... Amgen can leverage innovation at virtually every stage in the process of getting a medicine to market. ... Amgen’s approach to drug discovery starts with seeking to understand the fundamental mechanisms of a disease and then using our expertise ... potentially improve innovations conceived both inside and outside the company. ... Leading Biologics Manufacturing Capability ... Once Amgen medicines and health technology have been approved, we have the potential to bring them to patients on a global scale.",
+     "title": "Introduction",
+     "url": "https://www.amgen.com/~/media/themes/corporateaffairs/amgen-com/amgen-com/downloads/business_development_capabilites.pdf"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search15 [wordlim: 200] Published: 6.8 years ago; Amgen focuses on areas of high unmet medical need and leverages its biologics manufacturing expertise to strive for solutions that improve health outcomes and dramatically improve people’s lives.A biotechnology pioneer since 1980, Amgen has grown to be the world’s largest independent biotechnology company, has reached millions of patients around the world and is developing a pipeline of medicines with breakthrough potential.\nAbout Amgen\n\nAmgen is committed to unlocking the potential of biology for patients suffering from serious illnesses by discovering, developing, manufacturing and delivering innovative human therapeutics. This ",
+     "title": "About Amgen",
+     "url": "https://investors.amgen.com/static-files/5f5cff8d-b8a6-428b-ab50-d2de436f9bbc"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search5 [wordlim: 200] Crawled: 2 weeks ago; A biotechnology innovator since 1980, Amgen has grown to be one of the world's leading independent biotechnology companies, has reached millions of patients around the world and is developing a pipeline of medicines with breakaway potential.We focus on four therapeutic areas: oncology, inflammation, general medicine, and rare disease. ... As a company, we could not have accomplished all of this were it not for our deep commitment to building a culture that embraces science and innovation—a culture that continues to shape who we are today. ... Understanding the fundamental biological mechanisms of disease is a defining feature of Amgen'",
+     "title": "Learn About Amgen and Search Our Jobs and Careers in Biotechnology",
+     "url": "https://careers.amgen.com/en/about"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search6 [wordlim: 200] Published: 13.6 years ago; Crawled: 3 weeks ago; Bradway, chairman and chief executive officer at Amgen, opened the meeting by affirming the company's core strategy will continue to focus on innovation, discovery and development of breakthrough molecules to address significant unmet medical needs, and manufacturing of high-quality biologics. ... \"Amgen is in a unique position to capitalize on major advances in drug discovery and biologics manufacturing,\" said Bradway. ...   * Demonstrating the value of our medicines; ... \"Amgen is uniquely positioned to shape the future of biotechnology,\" said Harper.\n  * Commercial: Transformation of the commercial model w",
+     "title": "Amgen Outlines Long-Term Strategy | Amgen Inc.",
+     "url": "https://investors.amgen.com/news-releases/news-release-details/amgen-outlines-long-term-strategy"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search7 [wordlim: 200] Published: 6 months ago; Crawled: last week; Download Amgen's 2025 Letter to Shareholders and Annual Report ... Amgen was founded in 1980, during the biotechnology revolution, with a simple but ambitious idea: harness the best of biology and technology to fight the world’s toughest diseases. ... GAAP Research and Development Investment ... In 2025, we broke ground on our previously announced $1.0 billion expansion of our North Carolina drug substance manufacturing facility, and announced investments of $900 million in Ohio and $650 million in Puerto Rico to further enhance the company’s biomanufacturing network.We also announced a $600 million investment to",
+     "title": "Amgen CEO Bob Bradway's 2025 Letter to Shareholders | Amgen",
+     "url": "https://www.amgen.com/stories/2026/03/2025-letter-to-shareholders"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search8 [wordlim: 200] Crawled: 1.1 years ago; # About Amgen ... We discover, develop, manufacture and deliver innovative medicines to help millions of patients.Amgen helped establish the biotechnology industry more than 40 years ago and remains on the cutting-edge of innovation, using technology and human genetic data to push beyond what’s known today. ... Our efforts focus on four key therapeutic areas: general medicine, rare disease, oncology and inflammation. ... For more information, please visit www.amgen.cn and follow us on our official WeChat account and WeChat Video Channel: “安进Amgen”.\n",
+     "title": "Amgen | A Worldwide Pioneer in Biotechnology",
+     "url": "https://www.amgen.com.cn/en/about.html"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search9 [wordlim: 200] Crawled: today; Amgen has created a robust and differentiated pipeline, leveraging state-of-the-art science to create medicines for serious illnesses. ... Among the most important steps in the long and careful process to develop new therapies are clinical trials, where people volunteer to receive an experimental new drug or procedure and be observed for its effects.  * About Clinical Trials ... Amgen is well positioned to leverage its more than 35 years of experience in biotechnology to create high-quality biosimilars and reliably supply them to patients worldwide. ... This goes beyond developing, manufacturing and delivering vital medicines.\n",
+     "title": "Science | Amgen",
+     "url": "https://www-ext.amgen.com/science"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search10 [wordlim: 200] Published: 1.5 years ago; Crawled: 1.5 years ago; Our business is organized across four therapeutic areas: general medicine, oncology, inflammation, and rare disease.Our biosimilars business is integrated into these therapeutic areas. ... Innovative Pipeline ...    |    | –  | LUMAKRAS® in combination with Vectibix® received FDA approval for third-line treatment of patients with KRAS G12C-mutated metastatic colorectal cancer in January 2025.\n",
+     "title": "DEF 14A",
+     "url": "https://www.sec.gov/Archives/edgar/data/318154/000095017025052315/amgn-20250408.htm"
+    },
+    {
+     "type": "text_result",
+     "snippet": "citeturn0search11 [wordlim: 200] Crawled: last week; Amgen helped establish the biotechnology industry more than 45 years ago and we remain on the cutting-edge of innovation, using technology and human genetic data to push beyond what’s known today. ... General Medicine ... Amgen's powerful research and development group uses cutting-edge tools like AI, generative biology and human data to discover and develop new types of medicines to fight the world's toughest diseases.\n",
+     "title": "Fighting the World's Toughest Diseases",
+     "url": "https://www.amgen.com/splash-page"
+    }
+   ]
+  },
+  {
+   "type": "message",
+   "role": "assistant",
+   "content": [
+    {
+     "annotations": [
+      {
+       "end_index": 542,
+       "start_index": 482,
+       "title": "About | Amgen",
+       "type": "url_citation",
+       "url": "https://www.amgen.com/about?utm_source=openai"
+      },
+      {
+       "end_index": 915,
+       "start_index": 839,
+       "title": "Manufacturing | Amgen",
+       "type": "url_citation",
+       "url": "https://www.amgen.com/science/manufacturing?utm_source=openai"
+      },
+      {
+       "end_index": 1252,
+       "start_index": 1192,
+       "title": "About | Amgen",
+       "type": "url_citation",
+       "url": "https://www.amgen.com/about?utm_source=openai"
+      },
+      {
+       "end_index": 1585,
+       "start_index": 1525,
+       "title": "About | Amgen",
+       "type": "url_citation",
+       "url": "https://www.amgen.com/about?utm_source=openai"
+      }
+     ],
+     "text": "Amgen’s main distinction is that it combines **biotech-style drug discovery with the scale and infrastructure of a large pharmaceutical company**. That combination isn’t unique to Amgen, but it’s a defining feature of the company.\n\n- **A long biotech track record:** Founded in 1980, Amgen was among the companies that helped establish modern biotechnology. It still emphasizes understanding disease biology and using human genetic data and newer technologies to find drug targets. ([amgen.com](https://www.amgen.com/about?utm_source=openai))\n- **In-house capabilities across the medicine-making process:** Amgen works across discovery, development, manufacturing, and global delivery. Its biologics manufacturing experience is especially important because medicines made using living cells can be technically complex to produce reliably. ([amgen.com](https://www.amgen.com/science/manufacturing?utm_source=openai))\n- **A broad mix of medicines and business lines:** It works across general medicine, rare diseases, inflammation, and oncology—and sells both innovative medicines and biosimilars. In 2025, biosimilars generated $3.0 billion in sales, according to the company’s annual report. ([amgen.com](https://www.amgen.com/about?utm_source=openai))\n- **Big-company reach:** Amgen has the ability to run large clinical programs and supply medicines internationally, unlike many smaller biotech firms that depend on partners for parts of development or manufacturing. The company reports a presence in about 100 countries. ([amgen.com](https://www.amgen.com/about?utm_source=openai))\n\n**In short:** Amgen is a mature, globally scaled biotech with deep biologics and manufacturing expertise—not a small research-focused startup, and not simply a traditional pharmaceutical company. Those strengths come with the usual large-company trade-off: it has more resources and reach, but its priorities span a wider portfolio than a specialist biotech’s.",
+     "type": "output_text",
+     "logprobs": []
+    }
+   ]
+  }
+ ],
+ "usage": {
+  "input_tokens": 12490,
+  "output_tokens": 583
+ }
+}

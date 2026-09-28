@@ -6,7 +6,9 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, model_validator
 
 SCHEMA_VERSION = 1
-Provenance = Literal["synthetic", "web_research_snapshot", "live_api"]
+# counterfactual_replay: an answer to a recorded reading list the why agent changed (why.py). An
+# experiment, never a measurement: it lives only in an Investigation and is never scored.
+Provenance = Literal["synthetic", "web_research_snapshot", "live_api", "counterfactual_replay"]
 SYNTHETIC_PROVIDERS = {None, "fixture"}
 
 
@@ -169,6 +171,25 @@ class Probe(BaseModel):
     demand: Optional[Demand] = None  # set only when the question is a real search (demand.py)
 
 
+class ReadResult(BaseModel):
+    """One thing the answering model read: a search snippet, an opened page's window of lines, or a
+    find-in-page hit. The text is the model's own copy as the Responses API returned it — untrusted
+    third-party DATA, shown and replayed, never followed."""
+    url: str
+    title: Optional[str] = None
+    text: str = ""
+    crawled: Optional[str] = None  # the crawler's own stamp, e.g. "last week"
+
+
+class ReadStep(BaseModel):
+    """One web_search_call, in order: a search (its queries), an opened page, or a find in a page."""
+    kind: Literal["search", "open_page", "find_in_page"]
+    queries: list[str] = []
+    url: Optional[str] = None
+    pattern: Optional[str] = None
+    results: list[ReadResult] = []
+
+
 class Answer(BaseModel):
     probe_id: str
     text: str = ""
@@ -187,6 +208,12 @@ class Answer(BaseModel):
     # The web searches the answering model ran, in order (web_search_call "search" actions).
     # None: not recorded (a run saved before this field, or a source that cannot see them).
     searches: Optional[list[str]] = None
+    # What the answering model read, step by step (providers/live.reading_of). None: not recorded (a
+    # run saved before this field, a replay, or a response that carried no results).
+    trace: Optional[list[ReadStep]] = None
+    # Reused: another run in the same category asked this buyer question of the same model today
+    # (sharing.py). The text is that answer; the labels were made again for this brand.
+    shared: bool = False
 
     @property
     def labels(self) -> Optional[dict]:
@@ -312,6 +339,34 @@ class VisibilitySet(BaseModel):
     low_confidence: Optional[str] = None  # why this set's number is not to be trusted, or None
     interval: Optional[list[float]] = None  # bootstrap 95% interval of `visibility` (scoring.visibility_draws)
     interval_note: Optional[str] = None     # why there is no interval
+
+
+class FrontSample(BaseModel):
+    """One front as sampler-lite asked it (sampler.py): how many questions, and how sure the rate is."""
+    front: Optional[Literal["placed", "aiming", "both"]] = None
+    pool: int = 0                   # questions frozen for this front
+    asked: int = 0                  # questions asked, each once (the wobble re-ask not counted)
+    look: Literal[1, 2] = 1         # the look it stopped at
+    stopped_early: bool = False     # look 1 already met the margin
+    named: int = 0                  # answers that named the company, first ask of each question
+    judged: int = 0                 # answers that counted
+    rate: Optional[float] = None    # 0-100
+    interval: Optional[list[float]] = None  # 0-100, 95% whichever look it stopped at
+    margin_met: bool = False
+    note: Optional[str] = None
+
+
+class SamplerReport(BaseModel):
+    """How a live run spent its buyer questions: a stated margin at 95%, two looks, fresh questions."""
+    margin: int                                  # ± points of "named you", at 95%
+    looks: list[int]                             # [look 1, look 2] questions per front
+    budget_usd: Optional[float] = None
+    fronts: list[FrontSample] = []
+    held: list[str] = []                         # probe ids waiting for look 2; empty once decided
+    wobble: list[str] = []                       # probe ids re-asked once to show the wobble
+    decided: bool = False
+    unasked: list[Probe] = []                    # frozen questions a front never needed
+    shared: int = 0                              # answers reused from another run in the same category
 
 
 class DriftReport(BaseModel):
@@ -549,5 +604,69 @@ class Run(BaseModel):
     # The company's retrievability audit as it stood when the run started; None for replays and
     # companies onboarded before the audit existed.
     audit: Optional[SiteAudit] = None
+    # sampler-lite's record (sampler.py); None for replays and runs saved before it
+    sampler: Optional[SamplerReport] = None
     log: list[str] = []
     status: str = "planned"
+
+
+class WhyRate(BaseModel):
+    """How many of n answers stated the claim."""
+    k: int = 0
+    n: int = 0
+
+
+class WhyArm(BaseModel):
+    """One experiment on the recorded reading list, re-asked with search off until decided."""
+    id: str
+    kind: Literal["base", "drop_source", "drop_passage", "edit", "inject"]
+    label: str                                  # plain words: what was changed
+    urls: list[str] = []                        # the pages it touched
+    text: list[str] = []                        # lines removed, or the copy put in
+    hypothetical: bool = False                  # edited or injected copy: not what the page says today
+    k: int = 0
+    n: int = 0
+    base_k: int = 0                             # the base it was compared with, when it was decided
+    base_n: int = 0
+    effect: Optional[float] = None              # this arm's rate minus the base rate
+    interval: Optional[list[float]] = None      # 95% interval of the effect, the whole investigation corrected
+    decided: Literal["effect", "no_effect", "undecided", "base"] = "undecided"
+    quotes: list[str] = []                      # a few verbatim sentences that stated the claim
+
+
+class WhyVerdict(BaseModel):
+    kind: Literal["caused_by", "over_determined", "prior_belief", "not_in_reading", "not_said", "copy_fix",
+                  "authority_fix", "not_movable", "copy_lowers", "not_reproducible", "undecided", "budget"]
+    text: str
+    arm_id: Optional[str] = None
+    fix: Optional[Literal["copy", "authority", "none"]] = None
+
+
+class Investigation(BaseModel):
+    """Why AI says (or does not say) one claim to one branded question, and what changes it (why.py).
+
+    `live` and `off` are real asks, search on and off; every arm is a counterfactual replay of
+    `reading`, the reading list one live answer was built from. None of it feeds a run's scores."""
+    id: str
+    schema_version: int = SCHEMA_VERSION
+    run_id: str
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
+    company: str
+    question: str
+    probe_id: Optional[str] = None
+    attribute_id: str
+    claim: str
+    term: Optional[str] = None              # a literal word that counts as stating it; else the evaluator judges
+    model: str
+    judge: str
+    provenance: Literal["counterfactual_replay"] = "counterfactual_replay"
+    budget_usd: float
+    spent_usd: float = 0.0
+    status: Literal["running", "complete", "stopped"] = "running"
+    live: WhyRate = WhyRate()
+    off: WhyRate = WhyRate()
+    live_quotes: list[str] = []
+    reading: list[ReadStep] = []
+    arms: list[WhyArm] = []
+    verdicts: list[WhyVerdict] = []
+    log: list[str] = []

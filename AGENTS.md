@@ -28,9 +28,13 @@ profile. Buyer questions are planned after the brand answers, on two fronts with
 visibility and control question: where AI places the company and its core category (WEB.md).
 Live runs ask real searches first (`demand.py`: autocomplete, grouped by embedding), written ones
 fill the rest; tests never reach that network (`tests/conftest.py`).
-Each is asked once; `REPEAT_SAMPLE` of them are also asked `BUYER_TRIES` times for the wobble, and
-tries 2+ live in `run.repeat_answers`, so `run.answers` stays one answer per probe for every other
-consumer. Every measured call forces live web search (`live.TOOL_CHOICE`, `live.SEARCH_TOOL`) and
+Each is asked once, sized by sampler-lite (`sampler.py`: a stated margin at 95%, two looks); one
+question a front is asked again for the wobble, and tries 2+ live in `run.repeat_answers`, so
+`run.answers` stays one answer per probe for every other consumer. Buyer answers are shared across
+brands in one category per model and day (`sharing.py`); brand questions never are.
+The why agent (`why.py`) replays what a live answer read (`Answer.trace`) with one thing changed;
+its answers are provenance `counterfactual_replay`, kept in their own record, never scored.
+Every measured call forces live web search (`live.TOOL_CHOICE`, `live.SEARCH_TOOL`) and
 retries once when none ran, because an ungrounded answer is paid for and then excluded; `preflight`
 steps down to `live.FALLBACK_MODEL`, then to no search at all, never to a third model, and says
 which in `/api/health` and the report. Budget and model settings are

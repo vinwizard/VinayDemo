@@ -18,3 +18,5 @@ data/companies/*.json
 # the committed live example's company: a real onboarding of amgen.com
 !data/companies/b5aced577f.json
 data/access.db*
+data/investigations/
+data/shared.db

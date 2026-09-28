@@ -2,6 +2,8 @@
 import random
 import re
 from collections import Counter
+from math import sqrt
+from statistics import NormalDist
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -109,6 +111,30 @@ def echo_draws(kept: list[str], weights: dict[str, float],
     return out
 
 
+def z_for(alpha: float) -> float:
+    """Two-sided normal quantile: 1.96 for alpha 0.05."""
+    return NormalDist().inv_cdf(1 - alpha / 2)
+
+
+def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """Wilson score interval for k successes in n, as rates in [0, 1]. Well-behaved at 0 and n,
+    where the textbook interval collapses to a point. n = 0 knows nothing: (0, 1)."""
+    if n <= 0:
+        return 0.0, 1.0
+    p, d = k / n, 1 + z * z / n
+    c, h = (p + z * z / (2 * n)) / d, z * sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
+    return max(0.0, c - h), min(1.0, c + h)
+
+
+def newcombe(k1: int, n1: int, k0: int, n0: int, z: float = 1.96) -> tuple[float, float]:
+    """Interval for the difference of two rates, k1/n1 minus k0/n0 (Newcombe's hybrid score method,
+    built from each side's Wilson interval)."""
+    (l1, u1), (l0, u0) = wilson(k1, n1, z), wilson(k0, n0, z)
+    p1, p0 = k1 / n1 if n1 else 0.0, k0 / n0 if n0 else 0.0
+    d = p1 - p0
+    return d - sqrt((p1 - l1) ** 2 + (u0 - p0) ** 2), d + sqrt((u1 - p1) ** 2 + (p0 - l0) ** 2)
+
+
 MIN_CONTROL_VENDORS = 2  # a control answer naming fewer companies than this does not know the category
 
 
@@ -147,6 +173,8 @@ def low_confidence(brand: str, category: str, control: Optional[QueryEvaluation]
 def eligible(answer: Answer, ev: QueryEvaluation) -> tuple[bool, Optional[str]]:
     if answer.provenance == "web_research_snapshot":
         return False, "search snapshot (not a chatbot observation)"
+    if answer.provenance == "counterfactual_replay":
+        return False, "why-agent experiment (a replayed reading list, not a measurement)"
     if answer.status != "ok":
         return False, answer.status
     if answer.provenance == "live_api" and not answer.search_executed:
@@ -211,4 +239,9 @@ if __name__ == "__main__":
     assert not domain_matches("https://notion.com.evil.net", ["notion.com"])
     assert not domain_matches("https://mynotion.com", ["notion.com"])
     assert not mentions_alias("the notion of a second brain", ["Notion"])
+    assert abs(z_for(0.05) - 1.96) < 0.001 and wilson(0, 0) == (0.0, 1.0)
+    lo, hi = wilson(0, 10, z_for(0.01))
+    assert lo == 0 and round(hi, 2) == 0.40            # ten misses: at most 40%, 99% sure
+    lo, hi = newcombe(0, 6, 6, 6)
+    assert round(lo, 2) == -1.0 and round(hi, 2) == -0.45   # 6/6 -> 0/6 is decided even at n=6
     print("ok")
