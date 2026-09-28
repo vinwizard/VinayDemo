@@ -307,7 +307,7 @@ def list_all(request: Request = None):
         except Exception:
             continue
         d = r.drift
-        out.append(dict(id=r.id, created_at=r.created_at, scenario=r.scenario, status=r.status,
+        out.append(dict(id=r.id, created_at=r.created_at, scenario=r.scenario, status=r.status, mode=r.mode,
                         company=r.profile.name,
                         alignment=d.alignment if d else None,
                         claim_echo=d.claim_echo if d else None,

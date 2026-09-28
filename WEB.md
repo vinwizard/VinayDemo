@@ -270,7 +270,7 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 | --- | --- |
 | `GET /api/health` | liveness, whether live mode is usable for this browser (`live_available`) and whether a key is set on the server at all (`key_configured` — on the public demo a visitor without a pass sees the second true and the first false, and the page asks them to open their pass link rather than reporting a missing key), and `seed_company` — the id of the preloaded company, `showcase` — the company and run ids of the committed live example in History, and `contact_email` — where to ask for a pass or a higher cap (`CONTACT_EMAIL`), and `storage` — whether the pass database survives a redeploy ("Deploy to Render" below) |
 | `GET /api/stream?company=<id>` or `?scenario=A&mode=demo` | SSE while the graph runs: `node` (with `planned` question counts per stage, discovered `competitors` and the run `mode`), `answer` (the question, the first 320 characters of its answer, provenance and whether a web search ran), `done` (the full run), `error`. A company is always `mode=live`, apart from the offline fallback above. The page only ever measures companies; `?scenario=` remains for the fixture path |
-| `GET /api/runs` | run history, newest first |
+| `GET /api/runs` | run history, newest first; each row's `mode` (`live_api` for a measured run) lets History mark it measured live or a sample |
 | `GET /api/runs/{id}` | one full run, including the drift report and its `insights` (share of voice, cited sources and the brands each was cited beside, searches); the stream's `done` event and `rescore` return the same shape |
 | `POST /api/runs/{id}/reask` | test a fix: `{probe_id}` asks that buyer question once more, with the rewritten passage and the cited page's passage as the only sources, and saves whether the brand was named on its retrieval row. One metered model call; live runs only, refused on the public demo without a pass. A simulation that moves no score |
 | `POST /api/runs/{id}/rescore` | lens 2 after the fact: `{weights: {id: 0..1}}` sets intent on a finished run and re-scores its saved answers — no provider is built and no model is asked. Unnamed weights keep their value; 0 unweights; with nothing weighted the run reads through the claim lens again. Saved in place, except in the public demo (`VISEXP_PUBLIC_DEMO`) and for the committed live example (`SHOWCASE_RUN`) |
@@ -294,6 +294,25 @@ with its date. Opening that run asks no model; re-weighting it re-scores in the 
 rewrites the committed file (`SHOWCASE_RUN` in `api/main.py`). On the hosted demo a visitor without a
 pass cannot onboard, so the page opens on History; a pass holder sees neither example, only their own
 work, starting on Onboard.
+
+**First-visit guide** (`web/src/guide.tsx`; copy, memory and the story's picker in `web/src/tour.ts`).
+A visitor without a pass on the hosted demo first sees a short "how it works" story: four scenes of
+about 3.6 s each, told with the showcase run's own words, never written into the code. The scenes
+are a claim quoted from the company's site, a branded question with pieces of its answer, the
+headline gap with one identity AI gave the company unasked, and the first Quick wins rewrite
+(`tour.pickStory`). The story plays only from a run measured live that has all four, and shows where
+each quote came from. Its last button opens that report, and a five-step spotlight tour takes over:
+the headline, buyer visibility, the claim groups, the Questions tab, and Quick wins, which the last
+step opens. A pass holder instead gets three steps on Onboard (the site form, the optional weights,
+the measuring stages) and the report tour on their first finished report. Each part starts on its
+own once per browser (`localStorage["offmessage.tour.v1"]`; blocked storage means once per page
+load). Skip, Esc or finishing ends a part, and skipping the story skips the report tour too.
+**How it works** in the top bar replays it: the story when the showcase run can be read, else the
+report tour on an open report, else the Onboard tour, switching to that tab first. Captions fill in the open report's own numbers, and a step whose element or
+number is missing is left out. Invented terms open their `glossary.ts` definition. The caption is a
+bottom sheet on a phone; ← → move, Esc skips, and Tab stays inside the caption. Under reduced
+motion the story is a still strip of all four scenes and the spotlight jumps instead of sliding.
+Tests: `web/src/tour.test.ts`.
 
 - **Onboard your own company** — one workflow on one screen, seven stages that complete in order:
   read their site (the homepage and up to seven same-site pages chosen by what they are — about,
@@ -481,8 +500,10 @@ work, starting on Onboard.
   "Save as PDF" makes the file. It is print CSS over a view that never renders on screen — no PDF
   library, no server call (`screenshots/exec-summary-pdf.png`)
 - **History** — every saved run from `data/runs/` (under `DATA_DIR` when set; a pass holder's own
-  runs only) with its company and untapped potential; click one to open
-  its report in place
+  runs only), under one line saying what a run is. Each row shows its company, whether it was
+  measured live or is a sample, and its untapped potential. The column headings open their glossary
+  definitions, and "Open report →" (or a click on the row) opens the report in place. On a phone
+  each run is a card
 
 Saving weights on the reopened Notion company — or measuring, which saves them first — writes to the committed
 seed file, so the working tree shows it modified afterwards; `git checkout data/companies/5eed0001.json`

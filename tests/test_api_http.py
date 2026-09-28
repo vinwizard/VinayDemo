@@ -96,6 +96,8 @@ def test_a_run_streamed_over_http_is_listed_and_reopens(client):
     assert listed.status_code == 200
     assert [x["id"] for x in listed.json()] == [run["id"]]
     assert listed.json()[0]["alignment"] == 21.4
+    # History marks a replay as a sample and a measured run as live, so the list says which is which.
+    assert listed.json()[0]["mode"] == "demo_replay"
 
     got = client.get(f"/api/runs/{run['id']}")
     assert got.status_code == 200

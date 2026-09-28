@@ -285,6 +285,8 @@ export interface RunSummary {
   id: string;
   created_at: string;
   scenario: string | null;
+  /** "live_api" for a measured run; anything else is a replayed sample. */
+  mode?: string;
   status: string;
   company: string;
   alignment: number | null;
@@ -471,6 +473,8 @@ export interface Health {
   buyer_tries: number;
   /** The most one why investigation may spend. */
   why_budget_usd?: number;
+  /** The committed live example in History; the first-visit story is told with its run. */
+  showcase?: { company: string; run: string } | null;
 }
 
 export const getHealth = () => json<Health>("/api/health");

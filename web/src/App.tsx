@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Health, PassStatus, Run, RunSummary } from "./api";
 import { API, exchangePass, getHealth, getPass, getRun, getRuns } from "./api";
 import { History, Report } from "./components";
 import { CompanyWorkflow } from "./workflow";
+import { Guide } from "./guide";
+import { requestTour } from "./guideBus";
+import { headline } from "./labels";
+import { pickStory, replayPart } from "./tour";
 
 type Tab = "onboard" | "history";
 
@@ -33,6 +37,14 @@ export default function App() {
   const [pass, setPass] = useState<PassStatus | null>(null);
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [opened, setOpened] = useState<Run | null>(null);
+  // The committed live run the "how it works" story is told with; a pass holder cannot read it.
+  const [showcase, setShowcase] = useState<Run | null>(null);
+  const [replay, setReplay] = useState(0);
+  const story = useMemo(() => (showcase ? pickStory(showcase) : null), [showcase]);
+  const storyVars = useMemo(() => {
+    const h = showcase?.drift ? headline(showcase.drift) : null;
+    return { today: h?.value, potential: h?.potential };
+  }, [showcase]);
 
   const refreshRuns = useCallback(() => {
     getRuns().then(setRuns).catch(() => {});
@@ -52,6 +64,9 @@ export default function App() {
       setHealth(h);
       // The public demo cannot onboard without a pass, so its visitors land on the saved runs.
       if (h.public_demo && !p) setTab("history");
+      // A pass holder's first visit: a short tour of onboarding (once per browser).
+      else if (p) requestTour("onboard", true);
+      if (h.showcase?.run) getRun(h.showcase.run).then(setShowcase).catch(() => {});
     })
       .catch(() => setError(`Could not reach the API at ${API}. Start it first — see WEB.md.`));
   }, [refreshRuns]);
@@ -76,14 +91,20 @@ export default function App() {
           <h1>Off Message</h1>
           <p className="sub">Is AI on message about your brand?</p>
         </div>
-        <nav className="tabs" role="tablist">
-          {tabs.map(([t, label]) => (
-            <button key={t} role="tab" className="tab" aria-selected={tab === t}
-                    onClick={() => { setTab(t); if (t === "history") setOpened(null); }}>
-              {label}
-            </button>
-          ))}
-        </nav>
+        <div className="topbar-end">
+          <nav className="tabs" role="tablist">
+            {tabs.map(([t, label]) => (
+              <button key={t} role="tab" className="tab" aria-selected={tab === t}
+                      onClick={() => { setTab(t); if (t === "history") setOpened(null); }}>
+                {label}
+              </button>
+            ))}
+          </nav>
+          {health && <button type="button" className="ghost how" onClick={() => {
+            if (replayPart(!!story, tab === "history" && !!opened) === "onboard" && tabs.some(([t]) => t === "onboard")) setTab("onboard");
+            setReplay((n) => n + 1);
+          }}>How it works</button>}
+        </div>
       </header>
 
       {pass && (
@@ -104,8 +125,8 @@ export default function App() {
         </div>
       )}
       {health?.public_demo && !pass && (
-        <div className="callout warn-box">
-          <strong>Public demo — saved runs only.</strong> Apart from the one real live run saved earlier, every
+        <div className="callout">
+          <strong>Public demo — saved runs only.</strong> Apart from the run marked Measured live, every
           answer here is a bundled sample, and no AI model is called.
           Want to try it live on your own company? Email <Contact email={health.contact_email} /> from your work email
           and you will get a personal link.
@@ -137,6 +158,13 @@ export default function App() {
       ) : <History runs={runs} onOpen={openRun} />)}
 
       <footer className="foot">Independent portfolio demo.</footer>
+      <Guide story={story} vars={storyVars} replay={replay}
+             autoStory={!!health?.public_demo && !pass && tab === "history" && !opened}
+             onOpenShowcase={() => {
+               if (!showcase) return;
+               window.history.replaceState(null, "", window.location.pathname + window.location.search);
+               setTab("history"); setOpened(showcase);
+             }} />
     </div>
   );
 }
