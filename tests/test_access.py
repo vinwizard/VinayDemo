@@ -83,7 +83,9 @@ def test_a_code_becomes_an_httponly_secure_session_and_the_meter_reads_it(env):
     assert r.json()["pass"] == {"label": "person 1", "spent_usd": 0, "cap_usd": 5.0, "capped": False}
     assert c.get("/api/access").json()["pass"]["label"] == "person 1"
     assert c.get("/api/health").json()["live_available"] is True
-    assert browser().get("/api/health").json()["live_available"] is False
+    assert c.get("/api/health").json()["key_configured"] is True
+    signed_out = browser().get("/api/health").json()     # key set, public demo, no pass
+    assert signed_out["live_available"] is False and signed_out["key_configured"] is True
     assert access.all_passes()[0]["first_visit"] is not None
 
 

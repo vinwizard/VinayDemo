@@ -434,6 +434,8 @@ export const patchCompany = (
 export interface Health {
   ok: boolean;
   live_available: boolean;
+  /** A key is set on the server; live_available can still be false on the public demo without a pass. */
+  key_configured: boolean;
   live_status: string;
   /** Hosted demo: saved replay only, onboarding and live runs are refused by the server. */
   public_demo: boolean;
