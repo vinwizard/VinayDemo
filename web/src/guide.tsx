@@ -10,11 +10,10 @@ import type { Vars } from "./guideBus";
 import { reportVars } from "./guideBus";
 import { PHONE, Term } from "./popover";
 import type { Part, Step, Story } from "./tour";
-import { autoStarts, fill, markSeen, ONBOARD_STEPS, readySteps, replayPart, REPORT_STEPS, STORY_HEADLINES, STORY_WELCOME, termParts } from "./tour";
+import { autoStarts, fill, markSeen, ONBOARD_STEPS, readySteps, replayPart, REPORT_STEPS, sceneMs, STORY_HEADLINES, STORY_WELCOME, termParts } from "./tour";
 
 const store = (() => { try { return window.localStorage; } catch { return null; } })();
 const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const SCENE_MS = 3600;
 const LAST = 4;   // the fix scene; the welcome is scene 0
 
 
@@ -53,7 +52,7 @@ function StoryDialog({ story, vars, onSkip, onSee }: { story: Story; vars: Vars;
     let raf = 0;
     const tick = (now: number) => {
       const e = now - t0;
-      if (e >= SCENE_MS) { setScene((s) => s + 1); setElapsed(0); return; }
+      if (e >= sceneMs(scene)) { setScene((s) => s + 1); setElapsed(0); return; }
       setElapsed(e); raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -135,7 +134,7 @@ function StoryDialog({ story, vars, onSkip, onSee }: { story: Story; vars: Vars;
             {scenes.map((_, i) => (
               <button key={i} type="button" aria-label={`Scene ${i + 1} of ${scenes.length}`} aria-current={i === scene ? "step" : undefined}
                       onClick={() => go(i)}>
-                <i style={{ width: i < scene ? "100%" : i === scene ? `${Math.min(100, (elapsed / SCENE_MS) * 100)}%` : 0 }} />
+                <i style={{ width: i < scene ? "100%" : i === scene ? `${Math.min(100, (elapsed / sceneMs(i)) * 100)}%` : 0 }} />
               </button>
             ))}
           </div>

@@ -298,7 +298,7 @@ work, starting on Onboard.
 
 **First-visit guide** (`web/src/guide.tsx`; copy, memory and the story's picker in `web/src/tour.ts`).
 A visitor without a pass on the hosted demo first sees a short "how it works" story: a welcome saying what the
-app is, then four scenes of about 3.6 s each, told with the showcase run's own words, never written into the code. The scenes
+app is (about 7 s, time to read it), then four scenes of about 3.6 s each, told with the showcase run's own words, never written into the code. The scenes
 are a claim quoted from the company's site, a branded question with pieces of its answer, the
 headline gap with one identity AI gave the company unasked, and the first Quick wins rewrite
 (`tour.pickStory`). The story plays only from a run measured live that has all four, and shows where

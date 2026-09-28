@@ -191,6 +191,9 @@ export const STORY_WELCOME = {
   creditUrl: "https://tryprofound.com",
 };
 
+/** How long each story scene shows: the welcome has more to read than a scene's one line. */
+export const sceneMs = (scene: number) => scene === 0 ? 7000 : 3600;
+
 export const STORY_HEADLINES = [
   "{brand}'s website says who {brand} is.",
   "Then we ask AI what it thinks of {brand}.",
