@@ -216,22 +216,46 @@ MIN_QUOTE_WORDS = 5  # shorter is a heading or nav label: "Available today" is o
 def statement_problems(names: list[str], label: str, description: str) -> list[str]:
     """Why a claim statement cannot be checked, or [] if it can. The prompt asks; this enforces.
 
-    A paraphrase of the quote passes the label check, so two more. The sentence must name the
-    company — a standalone assertion, not "The platform…" or a fragment — and carry no marketing
-    words, which is what a reworded slogan is made of.
+    A paraphrase of the quote passes the label check, so one more: the sentence must name the
+    company — a standalone assertion, not "The platform…" or a fragment. Marketing words are left
+    out of both checks: "Amgen delivers innovative medicines in oncology and rare diseases" is
+    checkable once "innovative" is ignored, and a claim is never dropped for its adjectives
+    (`marketing_words` flags it for review instead).
     ponytail: lexical, so a plain-worded vague sentence still passes; a second model pass judging
     falsifiability is the upgrade if that shows up in real output.
     """
-    if not _useful_description(label, description):
+    if not _useful_description(label, " ".join(MARKETING.sub(" ", description or "").split())):
         return ["restates the label or is too thin"]
-    problems = []
     named = [rf"(?<!\w){re.escape(n)}(?!\w)" for n in names if n]
     if not any(re.search(n, description, re.I) for n in named):
-        problems.append("does not name the company, so it is not a standalone assertion")
+        return ["does not name the company, so it is not a standalone assertion"]
+    return []
+
+
+def marketing_words(names: list[str], description: str) -> list[str]:
+    """The marketing words in a claim statement, outside the company's own names ("Modern Treasury"
+    is a name, not a slogan). Nothing an answer says can contradict "innovative", so a claim that
+    leans on one is flagged for the customer to review — never dropped: Amgen's own one-liner,
+    "innovative medicines to fight some of the world's toughest diseases", was once deleted this way."""
+    named = [rf"(?<!\w){re.escape(n)}(?!\w)" for n in names if n]
     unnamed = re.sub("|".join(named), " ", description, flags=re.I) if named else description
-    if vague := sorted({m.group(0).lower() for m in MARKETING.finditer(unnamed)}):
-        problems.append(f"marketing language nothing can contradict ({', '.join(vague)})")
-    return problems
+    return sorted({m.group(0).lower() for m in MARKETING.finditer(unnamed)})
+
+
+# Characters a copied quote may carry in another form than the page: typographic apostrophes and
+# quotation marks, dashes, and non-breaking or repeated whitespace.
+_FOLD = {**dict.fromkeys("'‘’`´", "['‘’`´]"), **dict.fromkeys('"“”„', '["“”„]'),
+         **dict.fromkeys("-‐‑–—", "[-‐‑–—]")}
+
+
+def page_span(quote: str, text: str) -> Optional[str]:
+    """The page's own words that `quote` copies, or None. Case, apostrophes, quotation marks,
+    dashes and whitespace may differ — the same leniency answer quotes get (evaluation.quoted_in) —
+    and nothing else: a changed, added or missing word still fails. Returns the page's spelling,
+    so a stored quote is always verbatim on the page it came from."""
+    parts = [r"\s+" if ch.isspace() else _FOLD.get(ch) or re.escape(ch) for ch in " ".join(quote.split())]
+    m = re.search("".join(parts), text, re.I) if parts else None
+    return m.group(0) if m else None
 
 
 def build_attributes(data: dict, pages: list[tuple[str, str]], name: str = ""
@@ -256,8 +280,10 @@ def build_attributes(data: dict, pages: list[tuple[str, str]], name: str = ""
             check.notes.append(f"{len(short)} quote(s) under {MIN_QUOTE_WORDS} words, too short to "
                                "state a claim.")
         quotes = [q for q in quotes if q not in short]
-        verified = [q for q in quotes if any(q in t for t in texts)]
-        if bad := [q for q in quotes if q not in verified]:
+        # each quote as the page spells it, so it stays verbatim wherever it is shown or checked again
+        found = {q: next((s for t in texts if (s := page_span(q, t))), None) for q in quotes}
+        verified = list(dict.fromkeys(s for s in found.values() if s))
+        if bad := [q for q, s in found.items() if not s]:
             check.notes.append(f"{len(bad)} quote(s) not verbatim in the fetched pages.")
         check.quotes_matched, check.quotes_removed = len(verified), len(short) + len(bad)
         if not verified:
@@ -265,22 +291,28 @@ def build_attributes(data: dict, pages: list[tuple[str, str]], name: str = ""
             check.not_found = True
             continue
         description = (raw.get("description") or "").strip()
-        # A claim nobody could contradict cannot be measured as agreed or disagreed with: dropped,
-        # not flagged, and the rejected sentence is shown so the loss is visible.
+        # A statement that is not a standalone sentence about the company cannot be measured as
+        # agreed or disagreed with: dropped, and the rejected sentence is shown so the loss is visible.
         if problems := statement_problems(names, label, description):
             check.notes.append(f"Claim statement rejected ({'; '.join(problems)}): “{description}”")
             continue
         check.kept = True
+        review = None
+        if vague := marketing_words(names, description):
+            review = (f"Its statement leans on marketing language ({', '.join(vague)}) that no answer "
+                      "can confirm or contradict. It is kept because its quote is on your site; keep "
+                      "it, or set it aside so it is not measured.")
+            check.notes.append(f"Kept for your review: marketing language ({', '.join(vague)}).")
         # the number that drives "stated on N% of your pages" — counted from validated quotes only
-        pages_with = sum(1 for t in texts if any(q in t for q in verified))
+        on = [j for j, t in enumerate(texts, start=1) if any(page_span(q, t) for q in verified)]
         out.append(Attribute(
             id=aid, label=label, description=description,
             aliases=[a for a in (raw.get("aliases") or []) if isinstance(a, str)][:6],
-            claim_evidence_ids=[f"pg{j}" for j, t in enumerate(texts, start=1)
-                                if any(q in t for q in verified)],
-            claim_quotes=verified[:3], claim_pages=pages_with, claim_pages_total=len(texts),
+            claim_evidence_ids=[f"pg{j}" for j in on],
+            claim_quotes=verified[:3], claim_pages=len(on), claim_pages_total=len(texts),
             buyer_questions=[q for q in (raw.get("buyer_questions") or [])
                              if isinstance(q, str) and q.strip()][:3],
+            review=review,
             note="Claimed positioning extracted from the company's own pages. Intent weight not set."))
     return out, checks
 

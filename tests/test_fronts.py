@@ -39,7 +39,8 @@ class Judge:
         return []
 
 
-def run_fronts(monkeypatch, aiming=AIMING, placed_says=lambda n: "Notion fits.", wobble=1):
+def run_fronts(monkeypatch, aiming=AIMING, placed_says=lambda n: "Notion fits.", wobble=1,
+               weighted=False):
     asked = Counter()
     profile = F.profile.model_copy(update=dict(core_category=aiming, category_questions=AIM_QS))
     placed_qs = set(PLACED.buyer_questions) | set(WRITTEN)
@@ -58,7 +59,9 @@ def run_fronts(monkeypatch, aiming=AIMING, placed_says=lambda n: "Notion fits.",
     # supply. These tests are about the fronts; test_sampler.py owns how many questions are asked.
     monkeypatch.setenv(sampler.MARGIN_ENV, "33")
     monkeypatch.setenv(sampler.WOBBLE_ENV, str(wobble))
-    prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="test-model",
+    # unweighted unless asked: a weighted claim holds back a topic of its own (test_every_weighted_claim…)
+    attributes = [a if weighted else a.model_copy(update=dict(intended_weight=None)) for a in F.attributes()]
+    prov = live.LiveProvider(attributes, F.named_probes(), profile=profile, model="test-model",
                              transport=transport, evaluator=Judge(), writer=lambda l, d, n: WRITTEN[:n])
     prov.concurrency = 1
     return graph.execute(graph.new_run(profile, prov, mode="live_api"), prov), asked
@@ -91,6 +94,21 @@ def test_two_fronts_are_measured_side_by_side_with_the_gap(monkeypatch):
     assert placed.low_confidence is None and "but not Notion" in aiming.low_confidence
     blind = [p for p in run.probes if p.kind == "blind"]
     assert not any(ana.brand_leaks(p.text, run.profile) for p in blind)
+
+
+def test_every_weighted_claim_gets_its_own_buyer_questions_before_the_fronts_share_the_rest(monkeypatch):
+    # Amgen on gpt-6-luna, 22 Sep 2026: the two fronts took all 24 questions, none of its three weighted
+    # claims was asked about, and every Quick-wins fix it got cited no buyer question.
+    run, _ = run_fronts(monkeypatch, weighted=True)
+    weighted = [a.id for a in run.attributes if a.intended and a.buyer_questions and a.id != PLACED.id]
+    buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
+    topics = {t.id: t for t in run.topics}
+    own = {p.topic_id[len("pos-"):] for p in buyer if topics[p.topic_id].front is None}
+    held = min(len(weighted), ana.max_topics() // 2)
+    assert len(own & set(weighted)) == held                      # the heaviest claims, one topic each
+    assert [s.front for s in run.drift.sets][:2] == ["placed", "aiming"]
+    assert all(s.questions == ana.PER_TOPIC * ((ana.max_topics() - held) // 2) for s in run.drift.sets[:2])
+    assert len(buyer) <= graph.max_baseline()
 
 
 def test_the_same_category_on_both_fronts_is_asked_once_and_said_so(monkeypatch):

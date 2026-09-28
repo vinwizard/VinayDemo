@@ -114,7 +114,7 @@ demo with no key or internet, start the API with `VISEXP_OFFLINE_REPLAY=1`, then
 the Onboard tab: measuring it replays the bundled Notion sample, labelled as such. Stop either process with `Ctrl+C`.
 [`WEB.md`](WEB.md) has the details, live mode and the API reference.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 517 passing,
+Tests: `conda activate visexp && python -m pytest -q` (offline; 543 passing,
 incl. one journey per bundled scenario end to end through the `/api/stream` event stream, the API over
 HTTP via fastapi's TestClient, the live adapter under an injected
 transport — including how it classifies a refused key or a region block — no API key, no network).
@@ -153,7 +153,7 @@ Then repeat the create step above.
 | Scores, quote/citation/domain validation | Deterministic code (`scoring.py`, `agents/evaluation.py`) |
 | Notion profile evidence | **Genuine** Claude Code research snapshot, `data/research/notion_2026-09-18.json` (verbatim excerpts, 2026-09-18) |
 | Live model calls | **Implemented** in `providers/live.py` (OpenAI Responses API + web search) — needs `OPENAI_API_KEY`; setup in [`WEB.md`](WEB.md) |
-| URL fetching for arbitrary companies | **Real** — `fetching.py` crawls up to 6 public pages (SSRF-safe) for the API's `/api/onboard`, which needs an OpenAI key |
+| URL fetching for arbitrary companies | **Real** — `fetching.py` crawls up to 8 public pages (SSRF-safe; `CRAWL_PAGES`) for the API's `/api/onboard`, which needs an OpenAI key |
 | Can AI read your site? | **Real, no model** — `audit.py` re-fetches the claim pages as a no-JavaScript crawler, reads robots.txt, JSON-LD, headings and llms.txt, and looks the brand up on Wikidata/Wikipedia; tests replay recorded responses (`tests/audit_fixtures/`) |
 | Measuring an onboarded company | **Live only.** A company crawled from a URL has no authored answers, so there is nothing to replay: it needs `OPENAI_API_KEY`. The two bundled scenarios still run offline with no key |
 

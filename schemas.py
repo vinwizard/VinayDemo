@@ -103,6 +103,10 @@ class Attribute(BaseModel):
     # found by the discovery pass over the answers — neither the company nor the crawler supplied it
     discovered: bool = False
     claim_quotes: list[str] = []             # verbatim site copy stating it, per page
+    # Why the customer should look at this claim before trusting it (its statement leans on marketing
+    # words, onboarding_model.marketing_words), or None. Flagged claims are kept and measured.
+    review: Optional[str] = None
+    set_aside: bool = False                  # the customer set it aside: kept on file, never measured
     claim_pages: int = 0                     # DERIVED: pages whose text contains a validated quote
     claim_pages_total: int = 0               # DERIVED: pages actually fetched
     # The buyer questions this claim implies, with no brand name anywhere. If the positioning were

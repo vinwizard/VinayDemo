@@ -149,22 +149,38 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
 
 
 DIVISION_WORDS = {"innovative medicine", "pharmaceuticals", "pharma", "oncology", "consumer health",
-                  "inc", "inc.", "ltd", "ltd.", "plc"}
+                  "specialty", "specialty pharmacy", "inc", "inc.", "ltd", "ltd.", "plc",
+                  "& co", "& co.", "& company", "and company", "co", "co.", "corp", "corp.", "corporation", "company", "llc", "group"}
+QUALIFIER = re.compile(r"\s*\([^()]*\)$")   # "Merck (MSD in some countries)": a note on the name, not the name
 
 
 def merge_divisions(evals: list[QueryEvaluation]) -> None:
-    """A rival named as a division of another rival the run names ("Johnson & Johnson Innovative
-    Medicine" beside "Johnson & Johnson") is counted as that company, in place. Only when what
-    follows the company's name is a known division or legal suffix (`DIVISION_WORDS`), never on a
-    bare prefix: "Merck KGaA" is a different company from "Merck". The kept name is still verbatim
-    in the answer. Without this the map, share of voice and "Who AI named instead" showed the one
-    company twice. Idempotent: run after every evaluation round and on re-score."""
-    names = {c for e in evals for c in e.competitor_recommendations}
+    """One company, one name, in place, by three rules applied in turn:
+
+      * a trailing qualifier is not part of the name: "Merck (Merck & Co.)" is Merck;
+      * "X and Y" is two companies when X or Y is a rival the run names on its own: the judge wrote
+        "Sanofi and Regeneron" for a co-marketed medicine, and Sanofi is also named alone. "Procter
+        and Gamble", whose parts are never named alone, stays one company;
+      * a rival named as a division of, or with a legal suffix on, another rival the run names
+        ("Johnson & Johnson Innovative Medicine", "Merck & Co." beside "Johnson & Johnson",
+        "Merck") is counted as that company. Only on a known suffix (`DIVISION_WORDS`), never a
+        bare prefix: "Merck KGaA" is a different company from "Merck".
+
+    Every kept name is still verbatim in the answer. Without this the map, share of voice and "Who
+    AI named instead" showed one company twice. Idempotent: run after every evaluation round and
+    on re-score."""
+    bare = {c: QUALIFIER.sub("", c).strip() or c for e in evals for c in e.competitor_recommendations}
+    alone = set(bare.values())
+    parts = {n: (ps if len(ps) == 2 and all(ps) and ps[0] != ps[1] and alone & set(ps)
+                       and not {x.lower() for x in ps} & DIVISION_WORDS else [n])
+             for n in alone for ps in [[x.strip() for x in re.split(r"\s+and\s+", n, maxsplit=1)]]}
+    names = {x for ps in parts.values() for x in ps}
     parent = {n: min(ps, key=len) for n in names
               if (ps := [p for p in names if p != n and n.startswith(p + " ")
                          and n[len(p):].strip(" ,").lower() in DIVISION_WORDS])}
     for e in evals:
-        e.competitor_recommendations = list(dict.fromkeys(parent.get(c, c) for c in e.competitor_recommendations))
+        e.competitor_recommendations = list(dict.fromkeys(
+            parent.get(x, x) for c in e.competitor_recommendations for x in parts[bare[c]]))
 
 
 def extract_attributes(answer: Answer, attributes: list[Attribute]) -> tuple[list[AttributeObservation], list[str]]:
@@ -232,8 +248,9 @@ def discover_attributes(proposals, answers: dict[str, Answer], attributes: list[
     is not an attribute already in the list. Sameness is decided conservatively, because a duplicate
     double-counts in the report while a wrongly dropped proposal is only a finding not made: it is
     the same as an attribute when at least half of its label's content words (filler and the brand's
-    own name ignored, suffixes trimmed) appear in that attribute's label or aliases, or when any of
-    its quotes contains, or is contained in, a quote already counted for that attribute in the same
+    own name ignored, suffixes trimmed) appear in one of that attribute's phrasings — its label or
+    one alias — and they are also half of that phrasing, or all of the proposal; or when any of its
+    quotes contains, or is contained in, a quote already counted for that attribute in the same
     answer. Proposals are taken most-supported first and checked against each other the same way.
     """
     brand = frozenset(w for n in profile.names() for w in re.findall(r"[a-z0-9]+", n.lower()))
@@ -260,14 +277,19 @@ def discover_attributes(proposals, answers: dict[str, Answer], attributes: list[
         candidates.append((label, raw.get("description"), found, bad))
 
     # Everything already counted: each attribute's phrasings, and its quotes per answer.
-    known = [(content_words(" ".join([a.label, *a.aliases]), brand), a.label,
+    known = [([w for w in (content_words(x, brand) for x in [a.label, *a.aliases]) if w], a.label,
               {pid: [o.quote for o in obs if o.attribute_id == a.id] for pid, obs in observations.items()})
              for a in attributes]
 
     def same_as(words: set[str], found: dict[str, AttributeObservation]):
-        for phrasing, name, quotes in known:
-            if 2 * len(words & phrasing) >= len(words):
-                return f"shares '{' '.join(sorted(words & phrasing))}' with '{name}'"
+        for phrasings, name, quotes in known:
+            for phrasing in phrasings:
+                shared = words & phrasing
+                # half the proposal's words, AND half the phrasing's (or all of the proposal): one
+                # shared stem is not sameness — "Biologic medicines" is not "global medicine
+                # distribution", an alias of "Global presence in about 100 countries".
+                if shared and 2 * len(shared) >= len(words) and (words <= phrasing or 2 * len(shared) >= len(phrasing)):
+                    return f"shares '{' '.join(sorted(shared))}' with '{name}'"
             for pid, o in found.items():
                 if any(quoted_in(o.quote, q) or quoted_in(q, o.quote) for q in quotes.get(pid, [])):
                     return f"{pid} quotes the same words for '{name}'"
@@ -293,7 +315,7 @@ def discover_attributes(proposals, answers: dict[str, Answer], attributes: list[
                 dropped.append(f"'{label}': kept on its verbatim answers.{why}")
             for pid, o in found.items():
                 new_obs.setdefault(pid, []).append(o.model_copy(update={"attribute_id": aid}))
-            known.append((words, label, {pid: [o.quote] for pid, o in found.items()}))
+            known.append(([words], label, {pid: [o.quote] for pid, o in found.items()}))
     return new, new_obs, dropped
 
 

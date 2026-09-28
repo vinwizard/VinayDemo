@@ -215,8 +215,9 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
     written) and where its homepage says it aims to be (the core category). -> (topics, probes with
     one control per set, skipped question notes, front -> why it was not measured).
 
-    Each front gets half the buyer budget; when both are the same category the set is asked once.
-    Whatever budget the fronts leave goes to the claims' own buyer questions
+    Each front gets half the buyer budget left after one topic is held back for every weighted
+    claim; when both are the same category the set is asked once. Whatever budget the fronts leave
+    goes to the claims' own buyer questions
     (blind_probes_from_attributes), an unlabelled group counted as neither front, so the sample
     never shrinks. Blind questions are vetted like any other: one that names the brand or addresses
     the vendor is skipped, never rewritten. `placed_category` is where AI places the company as a
@@ -224,6 +225,11 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
     """
     aiming = profile.core_category
     placed_as = placed_category or (placed.label if placed else None)
+    # Every claim the customer weighted gets its own topic before the fronts share the rest: on the
+    # Amgen run the fronts took the whole budget, none of its three weighted claims was asked about,
+    # and every Quick-wins fix cited no question. At most half the topics are held back this way.
+    reserved = min(len([a for a in attributes if a.intended and a.buyer_questions
+                        and not (placed and a.id == placed.id)]), max_topics() // 2)
     fronts, missing = [], {}
     if placed and aiming and same_category(placed_as, aiming):
         fronts.append(("both", aiming, [*profile.category_questions, *placed_questions]))
@@ -240,6 +246,7 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
                                  f"was not asked about. Set the category on the claims screen to measure it.")
     topics, probes, skipped = [], [], []
     seen = set()
+    per_front = min(set_questions(), PER_TOPIC * ((max_topics() - reserved) // max(len(fronts), 1)))
     for front, category, questions in fronts:
         prefix = "placed" if front == "placed" else "cat"
         control = control_probe(profile, category, pid="ctl-2" if front == "placed" else "ctl-1",
@@ -254,7 +261,7 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
                 continue
             seen.add(q.strip().lower())
             kept.append(q)
-        kept = kept[:set_questions()]
+        kept = kept[:per_front]
         fit = "strong" if front != "placed" or placed.claimed else "partial"
         # the placed front is what AI says, not what the site claims: only its own claim evidence
         points = [] if front == "placed" else [pp.id for pp in profile.positioning_points[:1]]

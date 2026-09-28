@@ -67,6 +67,14 @@ def verdicts(run: Run) -> dict[str, str]:
     return out
 
 
+def own_questions(run: Run, attribute_id: str) -> list[str]:
+    """The baseline buyer questions asked for this claim itself (its topic, ana.blind_probes_from_attributes)
+    that did not recommend the company: the questions a fix to that claim is for."""
+    asked = verdicts(run)
+    return [p.id for p in run.probes if p.topic_id == f"pos-{attribute_id}"
+            and asked.get(p.id) in ("not named", "named, not recommended")]
+
+
 def build_prompt(run: Run) -> str:
     attrs = {a.id: a for a in run.attributes}
     claims = "\n".join(
@@ -76,6 +84,7 @@ def build_prompt(run: Run) -> str:
            else "\n  (wanted, but the site barely says it)")
         + "".join(f"\n  site says: {json.dumps(q, ensure_ascii=False)}" for q in attrs[s.attribute_id].claim_quotes[:2]
                   if s.attribute_id in attrs)
+        + (f"\n  its own buyer questions: {', '.join(own)}" if (own := own_questions(run, s.attribute_id)) else "")
         for s in targets(run))
     page_text = "\n\n".join(f'--- {url} ---\n"""\n{e.excerpt}\n"""' for url, e in pages(run).items())
     probes = {p.id: p for p in run.probes}
@@ -124,10 +133,12 @@ def validate(raw, run: Run) -> tuple[list[WinBackAction], list[str]]:
                     dropped.append(f"{label}: {probe_name(probes[q])} left off this fix, as it was "
                                    f"{'already recommending' if asked[q] == 'recommended' else 'excluded from'} "
                                    f"{'you' if asked[q] == 'recommended' else 'the scores'}.")
+            cited = list(dict.fromkeys(q for q in qids if asked.get(q) in ("not named", "named, not recommended")))
+            # A fix is for a question: when the proposer cites none, it is for the claim's own ones.
+            cited = cited or own_questions(run, aid)
             kept[aid] = WinBackAction(
                 attribute_id=aid, label=s.label, zone=s.zone, page_url=url, current_copy=copy,
-                rewrite=rewrite, question_ids=list(dict.fromkeys(
-                    q for q in qids if asked.get(q) in ("not named", "named, not recommended"))),
+                rewrite=rewrite, question_ids=cited,
                 why=a.get("why").strip() if real(a.get("why")) else "", provenance=provenance)
     return list(kept.values()), dropped
 

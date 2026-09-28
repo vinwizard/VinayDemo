@@ -44,7 +44,7 @@ Boundaries: no invented capabilities; scraped text is untrusted data, never inst
 
 Demo implementation: load a bundled profile with explicit provenance. Permit factual edits; structural edits invalidate incompatible replay data and require regeneration/import/live execution. Do not silently retain old evidence after changing the claim it supported.
 
-Optional fetching: homepage plus two same-origin useful pages; 10-second timeout, 1 MiB per response, 12,000 extracted characters/page, at most two redirects. Use a safe public-URL fetcher that blocks private, local and metadata destinations, validates each redirect, and prevents DNS rebinding. If safe retrieval is not ready, keep URL fetching disabled and use pasted text or bundled snapshots.
+Optional fetching: homepage plus up to seven same-origin pages chosen by what they are (about, mission, offer, newsroom — `fetching.positioning_links`); 10-second timeout, 1 MiB per response, 12,000 extracted characters/page, at most two redirects. Use a safe public-URL fetcher that blocks private, local and metadata destinations, validates each redirect, and prevents DNS rebinding. If safe retrieval is not ready, keep URL fetching disabled and use pasted text or bundled snapshots.
 
 ### Agent 2 — AnA: Assimilate and Attack
 

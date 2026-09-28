@@ -6,7 +6,7 @@ __pycache__/
 data/runs/*.json
 !data/runs/.gitkeep
 # the committed live example in History: the owner's live run of amgen.com, committed so it ships
-!data/runs/0c55be2792.json
+!data/runs/cb67186167.json
 node_modules/
 web/dist/
 web/node_modules/
@@ -16,7 +16,7 @@ data/companies/*.json
 # the preloaded Notion company: a real onboarding of notion.com, committed so a fresh clone has it
 !data/companies/5eed0001.json
 # the committed live example's company: a real onboarding of amgen.com
-!data/companies/3afc276406.json
+!data/companies/b5aced577f.json
 data/access.db*
 data/investigations/
 data/shared.db

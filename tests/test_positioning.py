@@ -157,3 +157,26 @@ def test_a_division_is_counted_as_its_parent_company_and_never_shown_twice():
                              competitor_recommendations=["Merck", "Merck KGaA", "Merck Inc."])]
     merge_divisions(other)
     assert other[0].competitor_recommendations == ["Merck", "Merck KGaA"]
+
+
+def test_legal_suffixes_qualifiers_and_pairs_are_named_as_the_companies_they_are():
+    # Amgen on gpt-6-luna, 22 Sep 2026: the committed run showed "Merck" and "Sanofi" where the judge
+    # wrote "Merck & Co.", "Merck (MSD in some countries)" and "Sanofi and Regeneron", and the code on
+    # main could not reproduce it. The same rule now does, with no hand edits: Regeneron is kept.
+    from agents.evaluation import merge_divisions
+    evals = [QueryEvaluation(probe_id="b1", valid=True, explanation="x",
+                             competitor_recommendations=["Merck & Co.", "Pfizer"]),
+             QueryEvaluation(probe_id="b2", valid=True, explanation="x",
+                             competitor_recommendations=["Merck", "Sanofi"]),
+             QueryEvaluation(probe_id="b3", valid=True, explanation="x",
+                             competitor_recommendations=["Sanofi and Regeneron", "Merck (MSD in some countries)",
+                                                         "CVS Specialty", "CVS", "Procter and Gamble"])]
+    merge_divisions(evals)
+    assert [e.competitor_recommendations for e in evals] == [
+        ["Merck", "Pfizer"], ["Merck", "Sanofi"], ["Sanofi", "Regeneron", "Merck", "CVS", "Procter and Gamble"]]
+    merge_divisions(evals)  # idempotent
+    assert evals[2].competitor_recommendations == ["Sanofi", "Regeneron", "Merck", "CVS", "Procter and Gamble"]
+    firms = [QueryEvaluation(probe_id="b5", valid=True, explanation="x",
+                             competitor_recommendations=["McKinsey & Company", "McKinsey", "Bain and Company", "Bain"])]
+    merge_divisions(firms)
+    assert firms[0].competitor_recommendations == ["McKinsey", "Bain"]
