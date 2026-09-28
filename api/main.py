@@ -76,8 +76,8 @@ SEED_COMPANY = "5eed0001"
 OFFLINE_ENV = "VISEXP_OFFLINE_REPLAY"
 # The committed live example: a real live run of amgen.com (and its onboarding), committed so every
 # clone and the public demo have one measured report in History. Never rewritten in place.
-SHOWCASE_COMPANY = "3afc276406"
-SHOWCASE_RUN = "0c55be2792"
+SHOWCASE_COMPANY = "b5aced577f"
+SHOWCASE_RUN = "cb67186167"
 OFFLINE_FIXED = "offline replay: the bundled sample's claims and weights are fixed"
 
 

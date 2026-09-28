@@ -44,6 +44,26 @@ def test_the_committed_live_example_ships_as_a_real_live_run():
     assert main.health()["showcase"] == {"company": main.SHOWCASE_COMPANY, "run": main.SHOWCASE_RUN}
 
 
+def test_the_committed_live_example_is_what_the_code_makes_of_its_saved_answers():
+    # The first committed Amgen run showed "Merck" and "Sanofi" where its answers and the code gave
+    # "Merck & Co." and "Sanofi and Regeneron": its data had been edited by hand. Run data is never
+    # hand-edited, so the example's rival names, mentions and strengths must be re-derivable.
+    from agents.evaluation import evaluate, merge_divisions
+    run = reports.load_run(main.SHOWCASE_RUN)
+    probes = {p.id: p for p in run.probes}
+    first = [evaluate(probes[a.probe_id], a, run.profile) for a in run.answers]
+    again = [evaluate(probes[a.probe_id], a, run.profile).model_copy(update=dict(try_no=a.try_no))
+             for a in run.repeat_answers]
+    merge_divisions([*first, *again])
+    derived = lambda es: [(e.probe_id, e.try_no, e.valid, e.strength, e.competitor_recommendations) for e in es]
+    assert derived(first + again) == derived(run.evaluations + run.repeat_evaluations)
+    # every weighted claim was asked its own buyer questions, and every fix cites some
+    weighted = {a.id for a in run.attributes if a.intended}
+    assert weighted <= {p.topic_id.removeprefix("pos-") for p in run.probes if p.topic_id.startswith("pos-")}
+    assert run.win_back and all(w.question_ids for w in run.win_back)
+    assert run.drift.claim_echo and run.drift.alignment   # AI does repeat some of what Amgen claims
+
+
 def test_without_the_env_var_the_seed_never_falls_back_to_fixtures(monkeypatch):
     monkeypatch.delenv(main.OFFLINE_ENV, raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)

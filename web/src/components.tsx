@@ -1961,7 +1961,8 @@ function FixCard({ a, run }: { a: WinBackAction; run: Run }) {
       {a.question_ids.length ? (
         <ul style={{ margin: 0 }}>
           {a.question_ids.map((q) => (
-            <li key={q}><QRef id={q} run={run} />: {probes.get(q)?.text}</li>
+            // the question first: a long question name is a button, and a wrapped button sits above its bullet
+            <li key={q}>{probes.get(q)?.text} <span className="muted">(<QRef id={q} run={run} />)</span></li>
           ))}
         </ul>
       ) : (

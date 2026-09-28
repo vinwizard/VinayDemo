@@ -270,8 +270,8 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 
 The page has two tabs, Onboard and History. Two committed examples ship with every clone:
 `data/companies/5eed0001.json`, a real onboarding of notion.com with an example set of intent weights,
-reopened from step 1 of Onboard; and `data/runs/0c55be2792.json`, a real live run of amgen.com
-(`data/companies/3afc276406.json` its onboarding), listed in History and labelled as measured live
+reopened from step 1 of Onboard; and `data/runs/cb67186167.json`, a real live run of amgen.com on
+`gpt-6-luna` (28 Sep 2026; `data/companies/b5aced577f.json` its onboarding), listed in History and labelled as measured live
 with its date. Opening that run asks no model; re-weighting it re-scores in the page but never
 rewrites the committed file (`SHOWCASE_RUN` in `api/main.py`). On the hosted demo a visitor without a
 pass cannot onboard, so the page opens on History; a pass holder sees neither example, only their own
