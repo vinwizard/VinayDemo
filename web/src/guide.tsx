@@ -75,7 +75,7 @@ function StoryDialog({ story, vars, onSkip, onSee }: { story: Story; vars: Vars;
       <span className="story-kicker accent">Welcome</span>
       <h3>{STORY_WELCOME.headline}</h3>
       <p>{STORY_WELCOME.body}</p>
-      <p className="story-note">{STORY_WELCOME.credit}</p>
+      <p className="story-note">Inspired by <a href={STORY_WELCOME.creditUrl} target="_blank" rel="noopener noreferrer">Profound</a>.</p>
     </>,
     <>
       <span className="story-kicker landed">1 · What they claim</span>

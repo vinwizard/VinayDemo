@@ -185,9 +185,10 @@ export const replayPart = (hasStory: boolean, reportOpen: boolean): Part =>
 
 /** The scene before the story: what the app is, before it is shown on a real run. */
 export const STORY_WELCOME = {
-  headline: "Thanks for stopping by.",
-  body: "Off Message is an attempt at finding how AI sees your company, and whether that matches what you want to be known for.",
-  credit: "Inspired by Profound.",
+  headline: "Welcome - I'm so glad you're here!",
+  body: "This is my portfolio demo of an AI marketer's first step: researching how different AIs see a company, and how that compares with what the company wants to be known for.",
+  /** Rendered "Inspired by <a>Profound</a>." */
+  creditUrl: "https://tryprofound.com",
 };
 
 export const STORY_HEADLINES = [

@@ -93,8 +93,8 @@ test("\"How it works\" always replays something, even for a pass holder on Histo
   assert.equal(replayPart(false, false), "onboard");   // the app switches to the Onboard tab first
 });
 
-test("the story's welcome thanks the visitor, says what the app is and credits Profound", () => {
-  assert.match(STORY_WELCOME.headline, /thanks/i);
-  assert.match(STORY_WELCOME.body, /how AI sees your company/);
-  assert.equal(STORY_WELCOME.credit, "Inspired by Profound.");
+test("the story's welcome welcomes the visitor, says what the app is and credits Profound", () => {
+  assert.equal(STORY_WELCOME.headline, "Welcome - I'm so glad you're here!");
+  assert.match(STORY_WELCOME.body, /how different AIs see a company/);
+  assert.equal(STORY_WELCOME.creditUrl, "https://tryprofound.com");
 });
