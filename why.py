@@ -450,7 +450,7 @@ class Agent:
                                drop_sources(inv.reading, set(part)), reserve)
                 if arm is None:
                     self.verdict("undecided", f"The {count_pages(pages)} that say it together are the reason ("
-                                 + ", ".join(page_name(u) for u in pages) + "); there were not enough experiments "
+                                 + named(pages) + "); there were not enough experiments "
                                  "left to tell which of them.", group)
                     return
                 if self.test(arm).decided == "effect" and arm.effect < 0:
@@ -459,13 +459,13 @@ class Agent:
                 cleared += arm.decided != "undecided"
             if not found and cleared < len(half):
                 self.verdict("undecided", f"The {count_pages(pages)} that say it together are the reason ("
-                             + ", ".join(page_name(u) for u in pages) + "); removing part of them was not decided "
+                             + named(pages) + "); removing part of them was not decided "
                              "within the asks allowed.", group)
                 return
             if not found:
                 self.verdict("over_determined",
                              f"No single source is the reason: {count_pages(pages)} say it and removing any part of them "
-                             "leaves the others to say it. " + ", ".join(page_name(u) for u in pages) + ".", group)
+                             "leaves the others to say it. " + named(pages) + ".", group)
                 return
             pages = found
         cause = pages[0]
@@ -560,6 +560,12 @@ def page_name(url: str) -> str:
         return f"the {host} document {name if len(name) <= 40 else name[:37] + '…'}"
     path = u.path.rstrip("/")
     return host + (path if len(path) <= 40 else path[:37] + "…")
+
+
+def named(urls: list[str], limit: int = 4) -> str:
+    """The first few sources by name, then how many more: a verdict is read, not scanned."""
+    shown = ", ".join(page_name(u) for u in urls[:limit])
+    return shown + (f" and {len(urls) - limit} more" if len(urls) > limit else "")
 
 
 def count_pages(urls: list[str]) -> str:

@@ -425,3 +425,9 @@ def test_a_media_file_can_still_be_the_cause_and_is_called_a_document():
     inv = investigate(fake, DEBT, cassette["question"], "debt")
     group = inv.arms[1]
     assert MEDIA in group.urls and "document" in group.label and group.decided == "effect"
+
+
+def test_a_verdict_names_a_few_sources_then_counts_the_rest():
+    urls = [f"https://www.amgen.com/page-{i}" for i in range(7)]
+    assert why.named(urls) == "amgen.com/page-0, amgen.com/page-1, amgen.com/page-2, amgen.com/page-3 and 3 more"
+    assert why.named(urls[:2]) == "amgen.com/page-0, amgen.com/page-1"
