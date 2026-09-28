@@ -7,15 +7,15 @@ what the company wants to be known for.
 
 ```
 web/          React app: the product UI
-api/          FastAPI server the UI talks to, the why agent's endpoints, and the /admin page
-agents/       the steps of a run: onboarding a company, planning questions, reading answers
-providers/    where answers come from: live model calls, or bundled sample replays
-graph.py      wires the agents into one run
-why.py        the why agent: investigates why AI does or does not repeat a claim
-sampler.py    decides how many buyer questions a run asks
-sharing.py    reuses buyer questions and answers across brands in one category
+api/          FastAPI server and the /admin page
+agents/       the steps of a run
+providers/    answer sources: live model calls and bundled sample replays
+graph.py      the run workflow
+why.py        the why agent
+sampler.py    question sizing
+sharing.py    shared answer cache
 schemas.py    shared data types
-other *.py    supporting modules: site crawling and checks, scoring, reports, access passes, config
+other *.py    supporting modules: site checks, scoring, reports, access passes, config
 fixtures/     bundled sample scenarios for offline demos and tests
 data/         saved companies, runs and research snapshots
 tests/        Python test suite (offline, no network)
@@ -43,7 +43,8 @@ python -m pip install -r requirements.txt
 
 ### Environment variables
 
-Put them in `.env` at the repo root (gitignored); [`.env.example`](.env.example) lists them.
+Put them in `.env` at the repo root (gitignored); [`.env.example`](.env.example) has the live-run
+ones, and [`WEB.md`](WEB.md) describes every one.
 Only the key is needed locally; everything else has a default.
 
 | Variable | For |
@@ -56,8 +57,6 @@ Only the key is needed locally; everything else has a default.
 | `VISEXP_OFFLINE_REPLAY` | replay the bundled sample instead of calling a model |
 | `VISEXP_PUBLIC_DEMO` | hosted-demo mode |
 | `SESSION_SECRET`, `ADMIN_PASSWORD`, `CONTACT_EMAIL` | access passes and the admin page |
-
-[`WEB.md`](WEB.md#live-mode) describes each one.
 
 ### Run locally
 
