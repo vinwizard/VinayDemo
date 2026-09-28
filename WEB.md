@@ -373,12 +373,13 @@ work, starting on Onboard.
     live did; then runs experiments on that reading list: remove every page that says it, bisect
     them, remove only the lines that say it; for a claim the company makes, lead a page AI already
     read with the run's win-back rewrite (copy), and add the company's page that states it where
-    search never returned it (authority). Each experiment is re-asked 6, 18, then 36 times until its
-    effect's 95% interval — widened for every look and every experiment (`why.Z`) — excludes zero, or
-    sits inside ±20 points. The claim card says what AI says, whether it believes it, what causes it
+    search never returned it (authority; with no such page, the rewrite's page carrying the
+    rewrite). Each experiment is re-asked 6, 18, then 36 times until its effect's 95% interval —
+    widened for every look and every experiment (`why.Z`) — excludes zero, or sits inside ±20 points. The claim card says what AI says, whether it believes it, what causes it
     (down to the lines), the tested fix with its predicted rate, and every experiment's effect.
-    Replays are provenance `counterfactual_replay` and never reach a score; edited or injected copy
-    is labelled hypothetical. Every call is metered; an investigation stops at `WHY_BUDGET_USD`.
+    Replays are provenance `counterfactual_replay` and never reach a score; any copy that is not a
+    page's own verbatim text is labelled hypothetical. Every call is metered; an investigation stops
+    at `WHY_BUDGET_USD`.
     On Amgen (2026-09-28) it traced "debt" to two lines of the company's Q2-2026 earnings release and
     showed the "AI in R&D" rewrite on /about taking the claim from 6/18 to 14/18 answers.
     **What ChatGPT searched** (`insights.searches`): the web searches the measured model
