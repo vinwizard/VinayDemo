@@ -398,7 +398,7 @@ work, starting on Onboard.
     at `WHY_BUDGET_USD`.
     On Amgen (2026-09-28) it traced "debt" to two lines of the company's Q2-2026 earnings release and
     showed the "AI in R&D" rewrite on /about taking the claim from 6/18 to 14/18 answers.
-    **What ChatGPT searched** (`insights.searches`): the web searches the measured model
+    **What the AI searched** (`insights.searches`): the web searches the measured model
     ran for the buyer questions (every try), read from the Responses API's `web_search_call` items
     into `Answer.searches` and grouped when they differ only by case, a year or punctuation; one
     question told as a sentence, then each search with the questions it came from and the pages

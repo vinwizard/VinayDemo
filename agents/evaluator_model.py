@@ -214,6 +214,7 @@ Return ONLY JSON in this shape — every proposal has one evidence entry per ans
 {{"proposals": [
   {{"label": "<2 to 5 words, as a buyer would say it>",
     "description": "<one plain sentence: what the answers say about {name}>",
+    "about": "offering"|"business",
     "evidence": [
       {{"answer": "<an answer id exactly as shown>", "quote": "<copied from that answer>",
         "polarity": "positive"|"neutral"|"negative"}},
@@ -222,6 +223,9 @@ Return ONLY JSON in this shape — every proposal has one evidence entry per ans
     ]}}
 ]}}
 polarity is toward {name}. At most one evidence entry per answer.
+about is "business" when it judges {name} as a company or an investment (its stock, revenue,
+growth, profits, cash, debt, size, deals or management) and "offering" when it is about what
+{name} sells, who buys it, or what it is like to buy or use.
 Each quote is ONLY the words that make the characterisation — never the whole sentence around them.
 {quote_rules}
 If no characterisation is made by two answers, return {{"proposals": []}}."""

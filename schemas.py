@@ -102,6 +102,9 @@ class Attribute(BaseModel):
     added_by_user: bool = False              # typed in by the customer, not extracted from a page
     # found by the discovery pass over the answers — neither the company nor the crawler supplied it
     discovered: bool = False
+    # about the company as a business (stock, revenue, cash, debt, size, deals), not what it sells:
+    # an answer read as a stock pick is never where AI places the company (ana.placed_attribute)
+    business: bool = False
     claim_quotes: list[str] = []             # verbatim site copy stating it, per page
     # Why the customer should look at this claim before trusting it (its statement leans on marketing
     # words, onboarding_model.marketing_words), or None. Flagged claims are kept and measured.
