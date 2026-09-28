@@ -407,7 +407,7 @@ work, starting on Onboard.
     ("Johnson & Johnson Innovative Medicine" beside "Johnson & Johnson", "Merck & Co." beside
     "Merck") counts as that company only when the rest of its name is a known division or legal
     suffix, so "Merck KGaA" stays apart from "Merck"; a trailing "(qualifier)" is dropped, and "X and
-    Y" is two companies when either is also named alone (`evaluation.merge_divisions`). Each axis is one of the company's own claims, so it is always
+    Y" is two companies when either is also named alone and neither is such a suffix (`evaluation.merge_divisions`). Each axis is one of the company's own claims, so it is always
     named, in the chart above and below the plot: across, how strongly a dot's sentences talk
     about the claim weighted highest (with no weights, the one the dots spread along most); up, the
     claim the dots differ on most once the first is taken out. Every dot carries its own full name
