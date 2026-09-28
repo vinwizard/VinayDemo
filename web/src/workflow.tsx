@@ -13,9 +13,11 @@ import { PROVENANCE_LABEL, headline, plain, potentialText, streamingProbeLabel }
 
 type StageState = "pending" | "active" | "done" | "skipped" | "failed";
 
-function Stage({ n, title, state, summary, children, last }: {
+function Stage({ n, title, state, summary, children, last, tour }: {
   n: number; title: string; state: StageState; summary?: ReactNode; children?: ReactNode;
   last?: boolean;
+  /** The first-visit tour's anchor for this stage (guide.tsx). */
+  tour?: string;
 }) {
   // Open while it is the thing happening; a finished stage folds to its one-line summary and the
   // reader can unfold it. The override resets when the stage changes state.
@@ -25,7 +27,7 @@ function Stage({ n, title, state, summary, children, last }: {
   const open = hasBody && (override?.state === state ? override.open : auto);
   const mark = state === "done" ? "✓" : state === "failed" ? "!" : state === "skipped" ? "–" : n;
   return (
-    <section className={`stage ${state}${last ? " last" : ""}`} aria-label={title}>
+    <section className={`stage ${state}${last ? " last" : ""}`} aria-label={title} data-tour={tour}>
       <div className="stage-mark" aria-hidden>{mark}</div>
       <div className="stage-main">
         <button className="stage-head" aria-expanded={hasBody ? open : undefined} disabled={!hasBody}
@@ -224,7 +226,7 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
         </div>
       )}
 
-      <Stage n={1} title="Read their site" state={s1}
+      <Stage n={1} tour="onboard-form" title="Read their site" state={s1}
              summary={company?.replay ? "No site was read — bundled sample data"
                : s1 === "done" ? `${plural(pages.length, "page")} read from ${domain}`
                : reading ? `Reading ${host(url)}…` : undefined}>
@@ -233,8 +235,8 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
         ) : (
           <div className="stack">
             <p className="lede">
-              Give a company name and its website. We read the homepage and up to five of its own
-              product pages, and keep a claim only when a verbatim quote on one of those pages states it.
+              Give a company name and its website. We read the homepage and up to seven of its own
+              pages that say how it positions itself, and keep a claim only when a verbatim quote on one of those pages states it.
             </p>
             <div className="row" style={{ flexWrap: "wrap" }}>
               <input aria-label="Company name" placeholder="Profound" value={name}
@@ -280,7 +282,7 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
         {failedAt === 2 && <div className="callout error">{onb.error}</div>}
       </Stage>
 
-      <Stage n={3} title="Choose what you want to be known for"
+      <Stage n={3} tour="onboard-intent" title="Choose what you want to be known for"
              state={!company ? "pending" : started ? "done" : "active"}
              summary={company && started ? `${plural(weighted.length, "claim")} weighted`
                : company ? "Your input — the one step nobody can derive from your site" : undefined}>
@@ -291,7 +293,7 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
       </Stage>
 
 
-      <Stage n={4} title="Ask branded questions" state={s4}
+      <Stage n={4} tour="onboard-measure" title="Ask branded questions" state={s4}
              summary={s4 === "skipped" ? "Skipped — no branded question survived vetting"
                : answeredSummary(brand, planned?.brand, "question")
                  ?? `Questions that name ${brandName} but never name a claim`}>
@@ -306,7 +308,7 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
           </div>
         )}
       </Stage>
-      <Stage n={5} title="Ask unbranded questions" state={s5}
+      <Stage n={5} tour="onboard-measure" title="Ask unbranded questions" state={s5}
              summary={s5 === "skipped" ? "Skipped — no weighted claim has an unbranded question"
                : answeredSummary(buyer, planned?.buyer, "question")
                  ?? `Questions a buyer would ask without naming ${brandName}`}>
@@ -325,7 +327,7 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
       </Stage>
 
 
-      <Stage n={6} title="Follow up on companies AI named" state={s6}
+      <Stage n={6} tour="onboard-measure" title="Follow up on companies AI named" state={s6}
              summary={s6 === "skipped"
                ? (p.node?.competitors.length ? "Skipped" : "Skipped — no buyer answer named another company")
                : decided ? `${plural(planned?.followup ?? 0, "follow-up question")}${
@@ -346,7 +348,7 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
         {errorAt(s6)}
       </Stage>
 
-      <Stage n={7} title="Score" state={s7} last
+      <Stage n={7} tour="onboard-measure" title="Score" state={s7} last
              summary={p.run?.drift
                ? `${headline(p.run.drift).label} · ${potentialText(headline(p.run.drift))}`
                  + ` · ${PROVENANCE_LABEL[p.run.mode] ?? p.run.mode}`

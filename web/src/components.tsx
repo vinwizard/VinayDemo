@@ -18,6 +18,8 @@ import { PHONE, Popover, Term } from "./popover";
 import { WhyAIMisses } from "./audit";
 import { WhatItRead, WhyPanel } from "./why";
 import { FrontMargin, SamplerNote } from "./margin";
+import { useReportTour } from "./guideBus";
+import { measuredWhat } from "./tour";
 
 const ZONE_FILL: Record<Zone, string> = {
   landed: "var(--landed)",
@@ -226,7 +228,7 @@ function Figures({ d, brand, run }: { d: DriftReport; brand: string; run?: Run }
   return (
     <>
     <div className="figures">
-      <div className="fig potential">
+      <div className="fig potential" data-tour="headline">
         <span className="fig-value">
           {h.potential == null ? "n/a" : <>{h.potential}%<Ci iv={untapped(d[`${h.field}_interval`])} of="Untapped potential" /></>}
         </span>
@@ -236,14 +238,14 @@ function Figures({ d, brand, run }: { d: DriftReport; brand: string; run?: Run }
         <span className="fig-sub">{h.today ?? d.na_reasons?.[h.field]}</span>
       </div>
       {fronts.length ? fronts.map((v) => (
-        <div className="fig" key={v.front}>
+        <div className="fig" key={v.front} data-tour="fronts">
           <span className="fig-value"><Visibility d={v} explain /></span>
           <span className="fig-label"><FrontLabel v={v} /></span>
           <span className="fig-sub">{v.category} · <Range d={v} iv={v.interval} note={v.interval_note} /></span>
           {run?.sampler && <span className="fig-sub"><FrontMargin run={run} front={v.front} /></span>}
         </div>
       )) : (
-        <div className="fig">
+        <div className="fig" data-tour="fronts">
           <span className="fig-value"><Visibility d={d} explain /></span>
           <span className="fig-label"><Term k="buyer_visibility">buyer visibility</Term></span>
           <span className="fig-sub">
@@ -368,7 +370,7 @@ function ZoneChips({ run }: { run: Run }) {
   const sorted = sortClaims(run.attribute_scores);
   return (
     <Section title="Your claims, grouped by what AI does with them" found="hover or tap a group to see its claims">
-      <div className="chips" role="list">
+      <div className="chips" role="list" data-tour="zones">
         {ZONES.map((z) => {
           const rows = sorted.filter((s) => s.zone === z);
           return (
@@ -442,7 +444,7 @@ function RunSource({ run }: { run: Run }) {
   return (
     <p className="source">
       <strong>{PROVENANCE_LABEL.live_api}</strong> — answered by {answered || "the configured model"} via
-      the OpenAI Responses API with web search{judged && `, judged by a separate model (${judged})`}. This
+      the OpenAI Responses API with web search{judged && (judged === answered ? `, judged by the same model` : `, judged by a separate model (${judged})`)}. This
       measures that API at this moment, not the ChatGPT consumer app. Answers with no search behind
       them are excluded from scores.
     </p>
@@ -484,6 +486,8 @@ export function Report({ run, onRescored }: {
   const d = run.drift;
   const uid = useId();
   const top = useRef<HTMLDivElement>(null);
+  const shown = d ? headline(d) : null;
+  useReportTour({ brand: run.profile.name, today: shown?.value, potential: shown?.potential, what: measuredWhat(run.profile.name, d?.lens) });
   const [tab, setTabState] = useState<ReportTab>(tabFromHash);
   const [reasks, setReasks] = useState<Record<string, RetrievalRow["reask"]>>({});
   const reasked = (probe: string, got: RetrievalRow["reask"]) => setReasks((m) => ({ ...m, [`${run.id}:${probe}`]: got }));
@@ -547,7 +551,7 @@ export function Report({ run, onRescored }: {
         {d && (
           <div className={`report-tabs${nudge ? " nudge" : ""}`} role="tablist" aria-label="Report sections" onKeyDown={onKey}>
             {TABS.map(([t, label], i) => (
-              <button key={t} id={`${uid}-tab-${t}`} role="tab" className="rtab" aria-selected={tab === t}
+              <button key={t} id={`${uid}-tab-${t}`} role="tab" className="rtab" aria-selected={tab === t} data-tour={`tab-${t}`}
                       style={{ "--i": i } as CSSProperties}
                       aria-controls={`${uid}-panel-${t}`} tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)}
                       title={TAB_HINT[t]}>
@@ -2227,29 +2231,50 @@ export function History({ runs, onOpen }: { runs: RunSummary[]; onOpen: (id: str
   const names = runLabels(runs);
   if (!runs.length) return <div className="card muted">No saved runs yet. Onboard a company and measure it to create one.</div>;
   return (
-    <div className="card">
-      <table>
-        <thead>
-          <tr><th>Run</th><th>Company</th><th>When</th><th>Scenario</th><th>Untapped potential</th><th>Landed</th><th>To win back</th><th>To shape</th></tr>
-        </thead>
-        <tbody>
-          {runs.map((r) => (
-            <tr key={r.id} className="pick" onClick={() => onOpen(r.id)}>
-              <td title={r.id}>{names[r.id]?.short ?? r.id}</td>
-              <td>{r.company}</td>
-              <td className="muted">{r.created_at.replace("T", " ")}</td>
-              <td>{r.scenario ?? "—"}</td>
-              <td>
-                <strong>{potentialText(headline(r))}</strong>
-                <div className="muted">
-                  {headline(r).today ?? r.na_reasons?.headline ?? r.na_reasons?.[headline(r).field]}
-                </div>
-              </td>
-              <td>{r.landed}</td><td>{r.lost}</td><td>{r.imposed}</td>
+    <div className="stack">
+      <p className="lede" style={{ margin: ".9rem 0 0" }}>
+        Each run asked AI about one company and compared its answers with what the company’s own site
+        says. Open one to see the gap, and what to change.
+      </p>
+      <div className="card">
+        <table className="runs">
+          <thead>
+            <tr>
+              <th>Run</th><th>Company</th><th>When</th><th>Source</th>
+              <th><Term k="untapped_potential">Untapped potential</Term></th><th><Term k="landed">Landed</Term></th>
+              <th><Term k="lost_claim">To win back</Term></th><th><Term k="imposed">To shape</Term></th>
+              <th><span className="sr-only">Open</span></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {runs.map((r) => (
+              <tr key={r.id} className="pick" onClick={() => onOpen(r.id)}>
+                <td data-label="Run" title={r.id}>{names[r.id]?.short ?? r.id}</td>
+                <td data-label="Company"><strong>{r.company}</strong></td>
+                <td data-label="When" className="muted">{r.created_at.replace("T", " ")}</td>
+                <td data-label="Source">
+                  {r.mode === "live_api"
+                    ? <span className="pill live">{PROVENANCE_LABEL.live_api}</span>
+                    : <span className="pill" title={r.scenario ? `Bundled scenario ${r.scenario}` : undefined}>Sample</span>}
+                </td>
+                <td>
+                  <strong>{potentialText(headline(r))}</strong>
+                  <div className="muted">
+                    {headline(r).today ?? r.na_reasons?.headline ?? r.na_reasons?.[headline(r).field]}
+                  </div>
+                </td>
+                <td data-label="Landed">{r.landed}</td><td data-label="To win back">{r.lost}</td>
+                <td data-label="To shape">{r.imposed}</td>
+                <td className="open-cell">
+                  <button className="linky" onClick={(e) => { e.stopPropagation(); onOpen(r.id); }}>
+                    Open report →<span className="sr-only"> for {r.company}, {names[r.id]?.short}</span>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
