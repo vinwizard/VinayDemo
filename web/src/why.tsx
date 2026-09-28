@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Answer, Investigation, ReadStep, Run, WhyArm, WhyVerdict } from "./api";
 import { getHealth, getInvestigations, streamWhy } from "./api";
+import { latestPerClaim } from "./investigations";
 import type { TermKey } from "./glossary";
 import { PROVENANCE_LABEL } from "./labels";
 import { Term } from "./popover";
@@ -227,7 +228,7 @@ export function WhyPanel({ run }: { run: Run }) {
     <section className="panel-sec why-panel">
       <div className="panel-sec-head">
         <h3><Term k="why_investigation">Why AI says it</Term></h3>
-        <span className="block-found">{past.length ? `${plural(past.length, "investigation")} on this run` : "experiments on what AI read"}</span>
+        <span className="block-found">{past.length ? `${plural(latestPerClaim(past).length, "claim")} investigated on this run` : "experiments on what AI read"}</span>
       </div>
       <p className="muted" style={{ margin: 0 }}>
         Pick a claim and a branded question. We ask it live and record <Term k="what_ai_read">what AI read</Term>, ask
@@ -264,7 +265,17 @@ export function WhyPanel({ run }: { run: Run }) {
       {(running || log.length > 0) && !error && (
         <ol className="why-log" aria-live="polite">{log.map((l, i) => <li key={i}>{l}</li>)}</ol>
       )}
-      {past.map((inv) => <InvestigationCard key={inv.id} inv={inv} />)}
+      {latestPerClaim(past).map(({ latest, earlier }) => (
+        <div key={latest.id} className="why-group">
+          <InvestigationCard inv={latest} />
+          {earlier.length > 0 && (
+            <details className="why-earlier">
+              <summary>{plural(earlier.length, "earlier investigation")} of this claim and question</summary>
+              {earlier.map((inv) => <InvestigationCard key={inv.id} inv={inv} />)}
+            </details>
+          )}
+        </div>
+      ))}
     </section>
   );
 }

@@ -418,9 +418,9 @@ class Agent:
         rank = lambda u: (not any(u.startswith(c) or c.startswith(u) for c in self.cited),
                           not domain_matches(u, own))
         sources.sort(key=rank)
-        self.note(f"{len(sources)} page(s) in what it read say it; removing them all first.")
+        self.note(f"{count_pages(sources).capitalize()} in what it read say it; removing them all first.")
         group = self.add(WhyArm(id=f"a{len(inv.arms)}", kind="drop_source", urls=sources,
-                                label=f"Removed the {len(sources)} page(s) that say it"),
+                                label=f"Removed the {count_pages(sources)} that say it"),
                          drop_sources(inv.reading, set(sources)), reserve)
         if group is None:
             return
@@ -449,7 +449,7 @@ class Agent:
                                       label="Removed " + ", ".join(page_name(u) for u in part)),
                                drop_sources(inv.reading, set(part)), reserve)
                 if arm is None:
-                    self.verdict("undecided", f"The {len(pages)} pages that say it together are the reason ("
+                    self.verdict("undecided", f"The {count_pages(pages)} that say it together are the reason ("
                                  + ", ".join(page_name(u) for u in pages) + "); there were not enough experiments "
                                  "left to tell which of them.", group)
                     return
@@ -458,13 +458,13 @@ class Agent:
                     break
                 cleared += arm.decided != "undecided"
             if not found and cleared < len(half):
-                self.verdict("undecided", f"The {len(pages)} pages that say it together are the reason ("
+                self.verdict("undecided", f"The {count_pages(pages)} that say it together are the reason ("
                              + ", ".join(page_name(u) for u in pages) + "); removing part of them was not decided "
                              "within the asks allowed.", group)
                 return
             if not found:
                 self.verdict("over_determined",
-                             f"No single page is the reason: {len(pages)} pages say it and removing any part of them "
+                             f"No single source is the reason: {count_pages(pages)} say it and removing any part of them "
                              "leaves the others to say it. " + ", ".join(page_name(u) for u in pages) + ".", group)
                 return
             pages = found
@@ -477,7 +477,7 @@ class Agent:
             self.verdict("caused_by", f"AI says it because of {len(lines)} line(s) of {page_name(cause)}: removing just "
                                       f"them takes it from {arm.base_k}/{arm.base_n} to {arm.k}/{arm.n}.", arm)
         else:
-            self.verdict("caused_by", f"AI says it because of {page_name(cause)}: removing that page takes it from "
+            self.verdict("caused_by", f"AI says it because of {page_name(cause)}: removing it takes it from "
                                       f"{source_arm.base_k}/{source_arm.base_n} to {source_arm.k}/{source_arm.n}.", source_arm)
 
     def test_fixes(self) -> None:
@@ -486,7 +486,8 @@ class Agent:
         inv = self.inv
         own = self.profile.all_domains()
         read = urls_of(inv.reading)
-        mine = [u for u in read if domain_matches(u, own)]
+        # a file in the site's media library (a PDF, an .ashx download) is not a page: it takes no rewrite
+        mine = [u for u in read if domain_matches(u, own) and not is_asset(u)]
         copy = self.rewrite[1] if self.rewrite else next(iter(self.attribute.claim_quotes), None)
         if not copy:
             self.note("No rewrite or site quote to test for this claim, so copy and authority were not tested.")
@@ -506,10 +507,10 @@ class Agent:
                 results.append(self.test(arm))
         page, text, hypothetical = next(
             ((e.url, " ".join(qs[:2]), False) for e in self.profile.evidence
-             if e.id in self.attribute.claim_evidence_ids and e.url and e.url not in read
+             if e.id in self.attribute.claim_evidence_ids and e.url and e.url not in read and not is_asset(e.url)
              and (qs := [q for q in self.attribute.claim_quotes if q in e.excerpt])),
-            (self.rewrite[0], self.rewrite[1], True) if self.rewrite and self.rewrite[0] not in read
-            else (None, None, True))
+            (self.rewrite[0], self.rewrite[1], True)
+            if self.rewrite and self.rewrite[0] not in read and not is_asset(self.rewrite[0]) else (None, None, True))
         if page:
             arm = self.add(WhyArm(id=f"a{len(inv.arms)}", kind="inject", urls=[page], text=[text],
                                   hypothetical=hypothetical,
@@ -540,10 +541,32 @@ class Agent:
             self.verdict("undecided", "Your copy may move it, but not decidedly within the asks allowed.", results[0])
 
 
+# A file the site serves from its media library or as a download (Sitecore's /-/media/, an investor
+# site's /static-files/, a PDF, an .ashx), not a web page: it can be a source the model read, but it is
+# never a page to rewrite or add, and is never called one.
+ASSET = re.compile(r"/-/media/|/static-files/|\.(?:pdf|ashx|docx?|pptx?|xlsx?|png|jpe?g|gif|svg|webp|mp4|css|js|xml|json|zip)$",
+                   re.I)
+
+
+def is_asset(url: str) -> bool:
+    return bool(ASSET.search(urlparse(url).path))
+
+
 def page_name(url: str) -> str:
     u = urlparse(url)
+    host = (u.hostname or "").removeprefix("www.")
+    if is_asset(url):
+        name = u.path.rstrip("/").rsplit("/", 1)[-1]
+        return f"the {host} document {name if len(name) <= 40 else name[:37] + '…'}"
     path = u.path.rstrip("/")
-    return (u.hostname or "").removeprefix("www.") + (path if len(path) <= 40 else path[:37] + "…")
+    return host + (path if len(path) <= 40 else path[:37] + "…")
+
+
+def count_pages(urls: list[str]) -> str:
+    """"2 pages and 1 document": sources the model read, named for what they are."""
+    docs = sum(map(is_asset, urls))
+    parts = [f"{n} {word}{'' if n == 1 else 's'}" for n, word in ((len(urls) - docs, "page"), (docs, "document")) if n]
+    return " and ".join(parts)
 
 
 def start(run, attribute_id: str, question: str, probe_id: Optional[str] = None, term: Optional[str] = None,

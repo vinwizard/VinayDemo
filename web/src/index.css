@@ -632,6 +632,10 @@ details.skipped ul { margin: .2rem 0 0; padding-left: 1.1rem; font-size: .85rem;
 .effect-dot { fill: var(--surface); stroke: var(--accent); stroke-width: 1.4; }
 .effect-dot.decided { fill: var(--accent); }
 .why-foot { margin: 0; font-size: .78rem; }
+.why-group { display: flex; flex-direction: column; gap: .4rem; }
+.why-earlier > summary { cursor: pointer; font-size: .84rem; color: var(--muted); padding-left: .2rem; }
+.why-earlier[open] { display: flex; flex-direction: column; gap: .45rem; }
+.why-earlier .why-card { opacity: .85; }
 
 /* ---------------------------------------------------------------- sampler-lite (margin.tsx) */
 .front-margin { overflow-wrap: anywhere; }

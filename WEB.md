@@ -386,6 +386,11 @@ work, starting on Onboard.
     rewrite). Each experiment is re-asked 6, 18, then 36 times until its effect's 95% interval —
     widened for every look and every experiment (`why.Z`) — excludes zero, or sits inside ±20 points. The claim card says what AI says, whether it believes it, what causes it
     (down to the lines), the tested fix with its predicted rate, and every experiment's effect.
+    There is one card per claim and question: asking again gives a fresh result, since what AI reads
+    changes, so the newest leads and earlier ones fold under it (`web/src/investigations.ts`). A
+    media-library file or download the model read (`/-/media/`, `/static-files/`, a PDF or `.ashx`;
+    `why.is_asset`) can be a cause and is named as a document, but it is never a page to put a
+    rewrite on or to add.
     Replays are provenance `counterfactual_replay` and never reach a score; any copy that is not a
     page's own verbatim text is labelled hypothetical. Every call is metered; an investigation stops
     at `WHY_BUDGET_USD`.

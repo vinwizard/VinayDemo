@@ -377,3 +377,51 @@ def test_a_rewrite_injected_on_an_unread_page_needs_the_rewrite_and_authority():
     fix = inv.verdicts[-1]
     assert fix.kind == "authority_fix" and next(a for a in inv.arms if a.id == fix.arm_id).hypothetical
     assert "your rewrite" in fix.text and "not rewriting it" not in fix.text
+
+
+# ---------------------------------------------------------------- media-library files are not pages
+MEDIA = ("https://www-ext.amgen.com/-/media/Themes/CorporateAffairs/amgen-com/amgen-com/downloads/"
+         "fact-sheets/fact_sheet_amgen.ashx?la=en")
+
+
+def with_media_first(cassette, text):
+    """The cassette with an Amgen media-library file read first: a live answer on 2026-09-28 had its
+    rewrite put on exactly such a file."""
+    out, done = [], False
+    for item in cassette["output"]:
+        if item["type"] == "web_search_call" and not done:
+            item = {**item, "results": [{"type": "text_result", "url": MEDIA, "title": "Fact sheet",
+                                         "snippet": text}, *item["results"]]}
+            done = True
+        out.append(item)
+    return {**cassette, "output": out}
+
+
+def test_asset_files_are_documents_not_pages():
+    assert why.is_asset(MEDIA) and why.is_asset("https://investors.amgen.com/static-files/06d47b6a")
+    assert why.is_asset("https://www.amgen.com/stories/2026/03/-/media/x/2025-annual-report.pdf")
+    assert not why.is_asset("https://www.amgen.com/about")
+    assert not why.is_asset(AI_PAGE)
+    assert why.page_name(MEDIA) == "the www-ext.amgen.com document fact_sheet_amgen.ashx"
+    assert why.count_pages([MEDIA, AI_PAGE, "https://www.amgen.com/about"]) == "2 pages and 1 document"
+
+
+def test_a_media_file_is_never_the_rewrite_target_or_the_added_page():
+    cassette = with_media_first(DIFFERENT, "Amgen is a biotechnology company.")   # silent, own domain, first
+    fake = Fake(cassette, ai_model())
+    media_action = WinBackAction(attribute_id=AI.id, label=AI.label, zone="unstated_intent", page_url=MEDIA,
+                                 rewrite=REWRITE, provenance="live_api")
+    inv = investigate(fake, AI, cassette["question"], "AI", win_back=[media_action])
+    assert MEDIA in why.urls_of(inv.reading)
+    for arm in inv.arms:
+        if arm.kind in ("edit", "inject"):
+            assert not any(why.is_asset(u) for u in arm.urls), arm.label
+
+
+def test_a_media_file_can_still_be_the_cause_and_is_called_a_document():
+    cassette = with_media_first(STRENGTHS, "Debt outstanding totaled $57.3 billion.")
+    fake = Fake(cassette, lambda text: "Meaningful debt." if "debt outstanding" in text.lower() else "Revenue grew.",
+                live_text="Amgen carries meaningful debt.")
+    inv = investigate(fake, DEBT, cassette["question"], "debt")
+    group = inv.arms[1]
+    assert MEDIA in group.urls and "document" in group.label and group.decided == "effect"
