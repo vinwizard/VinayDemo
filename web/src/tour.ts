@@ -185,14 +185,15 @@ export const replayPart = (hasStory: boolean, reportOpen: boolean): Part =>
 
 /** The scene before the story: what the app is, before it is shown on a real run. */
 export const STORY_WELCOME = {
-  headline: "Welcome - I'm so glad you're here!",
-  body: "This is my portfolio demo of an AI marketer's first step: researching how different AIs see a company, and how that compares with what the company wants to be known for.",
+  headline: "Hey, thank you for being here! 👋",
+  lead: "Welcome to my portfolio demo - I'm really excited to show you around.",
+  body: "It's my take on an AI marketer's first step: finding out how different AIs see a company, and whether that matches what the company wants to be known for.",
   /** Rendered "Inspired by <a>Profound</a>." */
   creditUrl: "https://tryprofound.com",
 };
 
 /** How long each story scene shows: the welcome has more to read than a scene's one line. */
-export const sceneMs = (scene: number) => scene === 0 ? 7000 : 3600;
+export const sceneMs = (scene: number) => scene === 0 ? 8000 : 3600;
 
 export const STORY_HEADLINES = [
   "{brand}'s website says who {brand} is.",

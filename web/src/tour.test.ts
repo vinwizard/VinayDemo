@@ -94,12 +94,13 @@ test("\"How it works\" always replays something, even for a pass holder on Histo
 });
 
 test("the story's welcome welcomes the visitor, says what the app is and credits Profound", () => {
-  assert.equal(STORY_WELCOME.headline, "Welcome - I'm so glad you're here!");
+  assert.equal(STORY_WELCOME.headline, "Hey, thank you for being here! 👋");
+  assert.match(STORY_WELCOME.lead, /really excited to show you around/);
   assert.match(STORY_WELCOME.body, /how different AIs see a company/);
   assert.equal(STORY_WELCOME.creditUrl, "https://tryprofound.com");
 });
 
 test("the welcome stays up about 7 s, long enough to read; the other scenes keep 3.6 s", () => {
-  assert.equal(sceneMs(0), 7000);
+  assert.equal(sceneMs(0), 8000);
   for (const i of [1, 2, 3, 4]) assert.equal(sceneMs(i), 3600);
 });

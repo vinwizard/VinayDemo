@@ -72,7 +72,8 @@ function StoryDialog({ story, vars, onSkip, onSee }: { story: Story; vars: Vars;
   const scenes: ReactNode[] = [
     <>
       <span className="story-kicker accent">Welcome</span>
-      <h3>{STORY_WELCOME.headline}</h3>
+      <h3 className="story-hello">{STORY_WELCOME.headline}</h3>
+      <p className="story-lead">{STORY_WELCOME.lead}</p>
       <p>{STORY_WELCOME.body}</p>
       <p className="story-note">Inspired by <a href={STORY_WELCOME.creditUrl} target="_blank" rel="noopener noreferrer">Profound</a>.</p>
     </>,
