@@ -16,15 +16,16 @@ from schemas import Attribute, CompanyProfile, Probe
 # answer would only echo the question back (see ana.attribute_leaks).
 # Worded for any kind of company: "a 200-person company", "day to day" and "never used it" assume
 # software, and a drugmaker's answers then described it as "not a standalone service".
-# "What it offers", not the company: asked "Would you recommend Amgen?", the answer was a stock pick.
+# Its products or services, not the company: "Would you recommend Amgen?" came back a stock pick,
+# and "what Amgen offers" its employee benefits.
 NAMED_TEMPLATES = [
     "What is {brand}, and who is it for?",
     "How would you describe {brand} to someone who has never heard of it?",
     "What is {brand} best known for?",
-    "What are the main strengths and weaknesses of what {brand} offers?",
-    "Would you recommend what {brand} offers? Why or why not?",
-    "What has changed about what {brand} offers in the past year?",
-    "Who gets the most value out of what {brand} offers?",
+    "What are the main strengths and weaknesses of {brand}'s products or services?",
+    "Would you recommend {brand}'s products or services? Why or why not?",
+    "What has changed about {brand}'s products or services in the past year?",
+    "Who gets the most value out of {brand}'s products or services?",
 ]
 NAMED_PURPOSE = "Measure how AI characterises the brand when asked about it directly."
 
