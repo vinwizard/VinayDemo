@@ -183,6 +183,13 @@ export const ONBOARD_STEPS: Step[] = [
 export const replayPart = (hasStory: boolean, reportOpen: boolean): Part =>
   hasStory ? "story" : reportOpen ? "report" : "onboard";
 
+/** The scene before the story: what the app is, before it is shown on a real run. */
+export const STORY_WELCOME = {
+  headline: "Thanks for stopping by.",
+  body: "Off Message is an attempt at finding how AI sees your company, and whether that matches what you want to be known for.",
+  credit: "Inspired by Profound.",
+};
+
 export const STORY_HEADLINES = [
   "{brand}'s website says who {brand} is.",
   "Then we ask AI what it thinks of {brand}.",

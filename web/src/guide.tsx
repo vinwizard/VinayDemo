@@ -10,11 +10,12 @@ import type { Vars } from "./guideBus";
 import { reportVars } from "./guideBus";
 import { PHONE, Term } from "./popover";
 import type { Part, Step, Story } from "./tour";
-import { autoStarts, fill, markSeen, ONBOARD_STEPS, readySteps, replayPart, REPORT_STEPS, STORY_HEADLINES, termParts } from "./tour";
+import { autoStarts, fill, markSeen, ONBOARD_STEPS, readySteps, replayPart, REPORT_STEPS, STORY_HEADLINES, STORY_WELCOME, termParts } from "./tour";
 
 const store = (() => { try { return window.localStorage; } catch { return null; } })();
 const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const SCENE_MS = 3600;
+const LAST = 4;   // the fix scene; the welcome is scene 0
 
 
 function Caption({ text, vars }: { text: string; vars: Vars }) {
@@ -43,11 +44,11 @@ function StoryDialog({ story, vars, onSkip, onSee }: { story: Story; vars: Vars;
   const see = useRef<HTMLButtonElement>(null);
   const skip = useRef<HTMLButtonElement>(null);
   const brand = story.brand;
-  const go = (i: number) => { setScene(Math.max(0, Math.min(3, i))); setElapsed(0); };
+  const go = (i: number) => { setScene(Math.max(0, Math.min(LAST, i))); setElapsed(0); };
 
   useEffect(() => { skip.current?.focus(); }, []);
   useEffect(() => {
-    if (still || paused || hover || scene === 3) return;
+    if (still || paused || hover || scene === LAST) return;
     const t0 = performance.now() - elapsed;
     let raf = 0;
     const tick = (now: number) => {
@@ -60,7 +61,7 @@ function StoryDialog({ story, vars, onSkip, onSee }: { story: Story; vars: Vars;
     // `elapsed` only seeds a resumed scene; re-running on every frame would restart the timer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene, paused, hover, still]);
-  useEffect(() => { if (scene === 3 && !still) see.current?.focus(); }, [scene, still]);
+  useEffect(() => { if (scene === LAST && !still) see.current?.focus(); }, [scene, still]);
 
   const onKey = (e: ReactKeyboardEvent<HTMLElement>) => {
     if (e.key === "Escape" && !document.querySelector(".popover")) { e.preventDefault(); onSkip(); }
@@ -70,6 +71,12 @@ function StoryDialog({ story, vars, onSkip, onSee }: { story: Story; vars: Vars;
   };
 
   const scenes: ReactNode[] = [
+    <>
+      <span className="story-kicker accent">Welcome</span>
+      <h3>{STORY_WELCOME.headline}</h3>
+      <p>{STORY_WELCOME.body}</p>
+      <p className="story-note">{STORY_WELCOME.credit}</p>
+    </>,
     <>
       <span className="story-kicker landed">1 · What they claim</span>
       <h3>{fill(STORY_HEADLINES[0], { brand })}</h3>
@@ -126,14 +133,14 @@ function StoryDialog({ story, vars, onSkip, onSee }: { story: Story; vars: Vars;
         {!still && (
           <div className="story-progress" role="group" aria-label="Scenes">
             {scenes.map((_, i) => (
-              <button key={i} type="button" aria-label={`Scene ${i + 1} of 4`} aria-current={i === scene ? "step" : undefined}
+              <button key={i} type="button" aria-label={`Scene ${i + 1} of ${scenes.length}`} aria-current={i === scene ? "step" : undefined}
                       onClick={() => go(i)}>
                 <i style={{ width: i < scene ? "100%" : i === scene ? `${Math.min(100, (elapsed / SCENE_MS) * 100)}%` : 0 }} />
               </button>
             ))}
           </div>
         )}
-        {(still || scene === 3) && (
+        {(still || scene === LAST) && (
           <div className="story-cta"><button type="button" className="primary" ref={see} onClick={onSee}>See the full {brand} report →</button></div>
         )}
       </div>

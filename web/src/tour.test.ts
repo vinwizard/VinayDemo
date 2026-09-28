@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { beforeEach, test } from "node:test";
-import { autoStarts, fill, loadSeen, markSeen, pickStory, replayPart, resetMemory, STORAGE_KEY, termParts, type Store, type StoryRun } from "./tour.ts";
+import { autoStarts, fill, loadSeen, markSeen, pickStory, replayPart, resetMemory, STORAGE_KEY, STORY_WELCOME, termParts, type Store, type StoryRun } from "./tour.ts";
 
 const memory = (): Store & { data: Record<string, string> } => {
   const data: Record<string, string> = {};
@@ -91,4 +91,13 @@ test("\"How it works\" always replays something, even for a pass holder on Histo
   assert.equal(replayPart(true, false), "story");
   assert.equal(replayPart(false, true), "report");
   assert.equal(replayPart(false, false), "onboard");   // the app switches to the Onboard tab first
+});
+
+test("the story opens with a welcome saying what the app is, before the four scenes", () => {
+  assert.match(STORY_WELCOME.headline, /thanks/i);
+  assert.match(STORY_WELCOME.body, /how AI sees your company/);
+  assert.equal(STORY_WELCOME.credit, "Inspired by Profound.");
+  const guide = readFileSync(new URL("./guide.tsx", import.meta.url), "utf8");
+  assert.equal(guide.match(/className="story-kicker /g)?.length, 5, "welcome + four scenes");
+  assert.match(guide, /const LAST = 4;/, "the fix scene is the last one the timer and CTA wait for");
 });
