@@ -162,8 +162,9 @@ things make the buyer number trustworthy anyway:
   for every claim the customer weighted (at most one front's worth), so each weighted claim is asked
   its own buyer questions, its Quick-wins fix can cite them, and neither front drops below look 2:
   **where AI places you** — the attribute, claimed or discovered, that the most valid brand answers
-  endorsed (`ana.placed_attribute`; ties go to the claim stated on more pages; its questions are the
-  claim's own, topped up by the onboarding model) — and **where you aim to be**, the site's core
+  endorsed (`ana.placed_attribute`; ties go to the claim stated on more pages; one discovery marked
+  `business`, about the company's stock, revenue, cash or size rather than what it sells, is never
+  placed; its questions are the claim's own, topped up by the onboarding model) — and **where you aim to be**, the site's core
   category (`profile.core_category`, named at onboarding from the one-line description, blind
   questions written for it, correctable on the claims screen). Each front has its own visibility,
   repeat sample, wobble and control question (`drift.sets`), and `drift.visibility_gap` is placed minus
