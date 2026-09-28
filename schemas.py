@@ -639,7 +639,8 @@ class WhyArm(BaseModel):
 
 class WhyVerdict(BaseModel):
     kind: Literal["caused_by", "over_determined", "prior_belief", "not_in_reading", "not_said", "copy_fix",
-                  "authority_fix", "not_movable", "copy_lowers", "not_reproducible", "undecided", "budget"]
+                  "authority_fix", "not_movable", "copy_lowers", "not_reproducible", "undecided", "budget",
+                  "cancelled"]
     text: str
     arm_id: Optional[str] = None
     fix: Optional[Literal["copy", "authority", "none"]] = None
@@ -660,6 +661,10 @@ class Investigation(BaseModel):
     attribute_id: str
     claim: str
     term: Optional[str] = None              # a literal word that counts as stating it; else the evaluator judges
+    # What counts as stating it, as the report counts it: "endorsements" (a claim of the company's: only a
+    # positive observation, drift.py's echo) or "mentions" (a perception AI raised, or a literal term)
+    counts: Literal["mentions", "endorsements"] = "mentions"
+    fleet_id: Optional[str] = None          # the fleet that dispatched it (fleet.py), if any
     model: str
     judge: str
     provenance: Literal["counterfactual_replay"] = "counterfactual_replay"
@@ -673,3 +678,100 @@ class Investigation(BaseModel):
     arms: list[WhyArm] = []
     verdicts: list[WhyVerdict] = []
     log: list[str] = []
+
+
+# ---------------------------------------------------------------- the investigation fleet (fleet.py)
+class FleetTask(BaseModel):
+    """One investigator's job as the coordinator dispatched it: a claim, a branded question, a budget."""
+    id: str                                  # t1, t2, ... in dispatch order
+    attribute_id: str
+    claim: str
+    probe_id: str
+    question: str
+    term: Optional[str] = None
+    reason: str                              # the coordinator's own sentence, shown as it is
+    budget_usd: float
+    try_no: int = 1
+    parent: Optional[str] = None             # the task a re-dispatch follows up
+    by: Literal["model", "code"] = "model"   # the coordinator, or the code fallback when it failed
+
+
+class Challenge(BaseModel):
+    """The critic's objection to one finished investigation. Code rules, no model (fleet.critic)."""
+    task_id: str
+    kind: Literal["thin", "ceiling", "not_reproducible", "off_claim", "contradicts"]
+    ask: Literal["other_question", "more_budget", "accept"]
+    text: str
+    evidence: list[str] = []                 # arm ids, or the other task's id
+
+
+class PlanItem(BaseModel):
+    """One line of the tested plan. Every number is copied from an arm of the investigation it cites."""
+    rank: int
+    attribute_id: str
+    claim: str
+    fix: Literal["copy", "authority", "source", "none", "thin", "untested"]
+    text: str                                # the writer's line once checked, else the template's
+    page_url: Optional[str] = None
+    rewrite: Optional[str] = None
+    hypothetical: bool = False               # the copy is not on the page today
+    sources: list[str] = []                  # fix "source": the pages that make AI say it
+    question: Optional[str] = None
+    task_id: Optional[str] = None
+    investigation_id: Optional[str] = None
+    arm_id: Optional[str] = None
+    k: int = 0
+    n: int = 0
+    base_k: int = 0
+    base_n: int = 0
+    effect: Optional[float] = None
+    interval: Optional[list[float]] = None
+    notes: list[str] = []                    # challenges that stand
+
+
+class ActionPlan(BaseModel):
+    """The ranked plan Quick wins shows once a fleet has run. Its predictions are replays."""
+    items: list[PlanItem] = []
+    written_by: str = "template"
+    provenance: Literal["counterfactual_replay"] = "counterfactual_replay"
+    notes: list[str] = []
+
+
+class Verification(BaseModel):
+    """A fix re-checked once it is live (verify.py). `live` is measured (live_api); the prediction and
+    `control` are replays (counterfactual_replay). They are shown side by side and never pooled."""
+    fleet_id: str
+    rank: int
+    attribute_id: str
+    claim: str
+    page_url: str
+    copy_text: str
+    question: str
+    investigation_id: str
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
+    page_has_copy: Optional[bool] = None     # None: the page could not be read
+    page_note: str = ""
+    read_by_ai: WhyRate = WhyRate()          # live answers whose reading list carried the fix
+    live: WhyRate = WhyRate()
+    live_provenance: Literal["live_api"] = "live_api"
+    live_quotes: list[str] = []
+    control: WhyRate = WhyRate()             # the old reading list replayed today
+    predicted: WhyRate = WhyRate()           # the arm, in replay
+    base: WhyRate = WhyRate()                # the arm's base, in replay
+    verdict: Literal["not_published", "not_crawled", "confirmed", "not_confirmed", "undecided",
+                     "model_moved", "budget"] = "undecided"
+    text: str = ""
+    budget_usd: float
+    spent_usd: float = 0.0
+
+
+class FleetEvent(BaseModel):
+    """One line of a fleet's append-only log, DATA_DIR/fleets/<fleet id>.jsonl (fleet.EventLog)."""
+    seq: int
+    at: str
+    kind: Literal["started", "shortlist", "turn", "dispatched", "rejected", "skipped", "began", "progress",
+                  "arm", "verdict", "finished", "failed", "cancelling", "challenged", "accepted",
+                  "planned", "verify", "verified", "stopped", "done"]
+    task_id: Optional[str] = None
+    data: dict = {}
+    spent_usd: float = 0.0

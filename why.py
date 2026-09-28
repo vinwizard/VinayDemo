@@ -21,7 +21,13 @@ bisected, never one guess at a time.
 A replay is an experiment on a recorded reading list, never a measurement: its answers are
 provenance `counterfactual_replay`, live only in the Investigation, and never reach a score.
 Edited or injected text that is not a page's own verbatim text is hypothetical copy and is labelled so. Every call goes through
-access.openai_response, and the whole investigation stops at its budget (WHY_BUDGET_USD).
+access.openai_response, and the whole investigation stops at its budget (WHY_BUDGET_USD), at its
+fleet's purse (access.PurseEmpty) or when its fleet cancels it (fleet.py).
+
+"States the claim" counts what the report counts: for a claim of the company's, only answers that
+endorse it (drift.py's echo counts positive observations only); for a perception AI raised on its
+own, any mention (drift.py keys those on mentions). A literal term cannot tell the two apart, so it
+counts any mention and says so.
 """
 import json
 import os
@@ -41,7 +47,7 @@ from schemas import (Answer, Attribute, CompanyProfile, Investigation, Probe, Re
 from scoring import domain_matches, newcombe, wilson, z_for
 
 BUDGET_ENV = "WHY_BUDGET_USD"
-DEFAULT_BUDGET = 1.00
+DEFAULT_BUDGET = 0.60      # the pilot's mean investigation cost $0.36 (2026-09-28)
 LIVE_ASKS = OFF_ASKS = 3
 LOOKS = (6, 18, 36)          # asks per arm at each look; the base is topped up to match
 MAX_ARMS = 6                 # the most experiments one investigation may run
@@ -149,13 +155,16 @@ def sentence_with(text: str, m: re.Match) -> str:
 class Judge:
     """Whether one answer states the claim, with the verbatim sentence or quote that does.
 
-    With a `term`, a literal whole-word match decides: deterministic and free. Otherwise the run's
-    evaluator model labels the answer against this one claim and evaluation.extract_attributes keeps
-    only a quote that is verbatim in it — the same validation every scored answer goes through."""
+    With a `term`, a literal whole-word match decides: deterministic and free, and it counts any
+    mention. Otherwise the run's evaluator model labels the answer against this one claim and
+    evaluation.extract_attributes keeps only a quote that is verbatim in it — the same validation
+    every scored answer goes through — and with `endorse` only a positive observation counts, as the
+    report's echo counts it. A neutral mention ("research and development, AI and data") of a claim
+    to amplify is not AI saying it."""
 
     def __init__(self, attribute: Attribute, profile: CompanyProfile, question: str,
-                 term: Optional[str] = None, evaluator=None):
-        self.attribute, self.profile, self.term = attribute, profile, term
+                 term: Optional[str] = None, evaluator=None, endorse: bool = False):
+        self.attribute, self.profile, self.term, self.endorse = attribute, profile, term, endorse
         self.pattern = term_pattern(term) if term else None
         self.evaluator = evaluator
         self.probe = Probe(id="why", topic_id="perception", text=question, kind="named", phase="baseline",
@@ -163,7 +172,9 @@ class Judge:
 
     @property
     def name(self) -> str:
-        return f"literal “{self.term}”" if self.term else f"evaluator ({getattr(self.evaluator, 'model', '?')})"
+        if self.term:
+            return f"literal “{self.term}”, any mention"
+        return f"evaluator ({getattr(self.evaluator, 'model', '?')})" + (", endorsements only" if self.endorse else "")
 
     def __call__(self, text: str) -> tuple[Optional[bool], Optional[str]]:
         """-> (states it?, the quote), or (None, None) when it could not be judged."""
@@ -177,6 +188,7 @@ class Judge:
         if labels is None:
             return None, None
         obs, _ = evaluation.extract_attributes(answer.model_copy(update={"evaluator_labels": labels}), [self.attribute])
+        obs = [o for o in obs if o.polarity == "positive" or not self.endorse]
         return (True, obs[0].quote) if obs else (False, None)
 
 
@@ -237,12 +249,18 @@ class OverBudget(Exception):
     pass
 
 
+class Cancelled(Exception):
+    """The fleet stopped waiting for this investigation (its deadline); it stops at the next batch."""
+
+
 # ---------------------------------------------------------------- the investigation
 class Agent:
     def __init__(self, inv: Investigation, lab: Lab, judge: Judge, attribute: Attribute,
                  profile: CompanyProfile, rewrite: Optional[tuple[str, str]] = None,
-                 emit: Callable[[str, dict], None] = lambda kind, payload: None):
+                 emit: Callable[[str, dict], None] = lambda kind, payload: None,
+                 cancel: Optional[threading.Event] = None):
         self.inv, self.lab, self.judge, self.attribute, self.profile = inv, lab, judge, attribute, profile
+        self.cancel = cancel
         self.rewrite = rewrite          # (page url, copy) from the run's action plan, if any
         self.emit = emit
         self.readings: dict[str, list[ReadStep]] = {}
@@ -253,10 +271,15 @@ class Agent:
         self.emit("log", {"text": text, "spent_usd": round(self.lab.spent, 4)})
 
     def pmap(self, fn, items):
+        """fn over items, CONCURRENCY at a time. Each call runs in a copy of THIS thread's context, taken
+        here: a pool thread starts with an empty one, so a copy taken inside it would drop the paying
+        pass (access.SPENDER) and a fleet's purse, and every call would go unmetered or be refused."""
         with ThreadPoolExecutor(CONCURRENCY) as pool:
-            return list(pool.map(lambda x: copy_context().run(fn, x), items))
+            return [f.result() for f in [pool.submit(copy_context().run, fn, x) for x in items]]
 
     def afford(self, asks: int) -> None:
+        if self.cancel is not None and self.cancel.is_set():
+            raise Cancelled
         estimate = asks * (self.per_ask or 0.01)
         if self.lab.spent + estimate > self.inv.budget_usd:
             raise OverBudget
@@ -382,9 +405,14 @@ class Agent:
             if not self.attribute.discovered:
                 self.test_fixes()
             return self.finish("complete")
-        except OverBudget:
-            self.verdict("budget", f"Stopped at the ${inv.budget_usd:.2f} budget: {max(0, len(inv.arms) - 1)} experiment(s) "
+        except (OverBudget, access.PurseEmpty) as e:
+            limit = f"the fleet's ${e.limit:.2f} budget" if isinstance(e, access.PurseEmpty) else f"the ${inv.budget_usd:.2f} budget"
+            self.verdict("budget", f"Stopped at {limit}: {max(0, len(inv.arms) - 1)} experiment(s) "
                                    "ran; what is below is as far as they got.")
+            return self.finish("stopped")
+        except Cancelled:
+            self.verdict("cancelled", f"Stopped at the fleet's deadline: {max(0, len(inv.arms) - 1)} experiment(s) "
+                                      "ran; what is below is as far as they got.")
             return self.finish("stopped")
 
     def finish(self, status: str) -> Investigation:
@@ -586,18 +614,22 @@ def count_pages(urls: list[str]) -> str:
 
 def start(run, attribute_id: str, question: str, probe_id: Optional[str] = None, term: Optional[str] = None,
           model: Optional[str] = None, lab: Optional[Lab] = None, evaluator=None,
-          emit: Callable[[str, dict], None] = lambda kind, payload: None) -> Investigation:
-    """One investigation on a finished live run's claim. -> the Investigation, complete or stopped."""
+          emit: Callable[[str, dict], None] = lambda kind, payload: None,
+          budget_usd: Optional[float] = None, cancel: Optional[threading.Event] = None) -> Investigation:
+    """One investigation on a finished live run's claim. -> the Investigation, complete or stopped.
+    `budget_usd` overrides WHY_BUDGET_USD (a fleet's re-dispatch with more budget); `cancel` is the
+    fleet's flag to stop at the next batch."""
     attribute = next(a for a in run.attributes if a.id == attribute_id)
     lab = lab or Lab(model or live.model_name(), live.search_tool())
     if evaluator is None and not term:
         from agents.evaluator_model import ModelEvaluator
         evaluator = ModelEvaluator(transport=lab.judge_transport)
-    judge = Judge(attribute, run.profile, question, term, evaluator)
+    judge = Judge(attribute, run.profile, question, term, evaluator, endorse=not attribute.discovered)
     action = next((a for a in run.win_back if a.attribute_id == attribute_id), None)
     inv = Investigation(id=uuid.uuid4().hex[:10], run_id=run.id, company=run.profile.name, question=question,
                         probe_id=probe_id, attribute_id=attribute_id, claim=attribute.label, term=term,
-                        model=lab.model, judge=judge.name, budget_usd=budget())
+                        model=lab.model, judge=judge.name, budget_usd=budget_usd or budget(),
+                        counts="mentions" if term or attribute.discovered else "endorsements")
     agent = Agent(inv, lab, judge, attribute, run.profile,
-                  rewrite=(action.page_url, action.rewrite) if action else None, emit=emit)
+                  rewrite=(action.page_url, action.rewrite) if action else None, emit=emit, cancel=cancel)
     return agent.run()

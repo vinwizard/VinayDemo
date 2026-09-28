@@ -22,6 +22,7 @@ import json
 import os
 import secrets
 import sqlite3
+import threading
 import time
 from contextvars import ContextVar
 from datetime import datetime, timezone
@@ -422,15 +423,93 @@ def openai_response(timeout: int, **kwargs):
 def _metered(call, timeout: int, kwargs: dict):
     """A model call refused before the call when the acting pass may not spend, and charged
     to it after. A call that fails without an HTTP status (a timeout, a dropped connection) may
-    still have been billed, so it is charged the unknown-usage estimate."""
-    pass_id = SPENDER.get()
+    still have been billed, so it is charged the unknown-usage estimate. Inside a fleet the call
+    also draws on its purse: an estimate is held before the call and the real cost settled after."""
+    pass_id, purse = SPENDER.get(), PURSE.get()
     check(pass_id)
+    held = purse.take(estimate(kwargs)) if purse else 0.0
+    usd = 0.0
+    bill = (lambda r: charge(pass_id, kwargs["model"], r)) if pass_id else (lambda r: cost(kwargs["model"], r)[0])
     try:
-        response = call(timeout, **kwargs)
-    except Exception as e:
-        if pass_id and getattr(e, "status_code", None) is None:
-            charge(pass_id, kwargs["model"], None)
-        raise
-    if pass_id:
-        charge(pass_id, kwargs["model"], response)
-    return response
+        with purse.slots if purse else contextlib.nullcontext():
+            try:
+                response = call(timeout, **kwargs)
+            except Exception as e:
+                if getattr(e, "status_code", None) is None:
+                    usd = bill(None)
+                raise
+        usd = bill(response)
+        return response
+    finally:
+        if purse:
+            purse.settle(held, usd)
+
+
+# ---------------------------------------------------------------- a fleet's purse (fleet.py)
+class PurseEmpty(BaseException):
+    """A fleet call its purse cannot afford. BaseException for the reason Refused is: the evaluator
+    turns an Exception into "could not judge" and carries on, which would keep an investigator
+    asking after the fleet's money ran out. why.Agent and the fleet loop catch it by name."""
+
+    def __init__(self, limit: float):
+        super().__init__(f"the fleet's ${limit:.2f} budget is spent")
+        self.limit = limit
+
+
+class Purse:
+    """One fleet's budget (FLEET_BUDGET_USD), shared by every model call any of its agents makes.
+
+    It rides in PURSE, a ContextVar like SPENDER; a context copied into a pool thread carries a
+    reference to this same object, so every investigator draws on one purse. `reserve` is kept back
+    for the plan's writer until `release_reserve`, so running out never leaves a fleet without its
+    plan. `slots` caps the fleet's calls in flight, which is what keeps it under the rate limit.
+    A held estimate can be short of the real cost, so the spend can pass the limit by that error."""
+
+    def __init__(self, limit_usd: float, reserve_usd: float = 0.0, in_flight: int = 18):
+        self.limit, self.reserve = limit_usd, reserve_usd
+        self.spent = self.held = 0.0
+        self.slots = threading.BoundedSemaphore(in_flight)
+        self._lock = threading.Lock()
+
+    def take(self, usd: float) -> float:
+        with self._lock:
+            if self.spent + self.held + usd > self.limit - self.reserve:
+                raise PurseEmpty(self.limit)
+            self.held += usd
+        return usd
+
+    def settle(self, held: float, usd: float) -> None:
+        with self._lock:
+            self.held -= held
+            self.spent += usd
+
+    def left(self) -> float:
+        """What calls may still hold, the writer's reserve excluded."""
+        with self._lock:
+            return self.limit - self.reserve - self.spent - self.held
+
+    def release_reserve(self) -> None:
+        with self._lock:
+            self.reserve = 0.0
+
+
+PURSE: ContextVar[Optional[Purse]] = ContextVar("purse", default=None)
+
+
+@contextlib.contextmanager
+def drawing(purse: Optional[Purse]):
+    token = PURSE.set(purse)
+    try:
+        yield purse
+    finally:
+        PURSE.reset(token)
+
+
+def estimate(kwargs: dict) -> float:
+    """What a call may cost, held before it is made: its input at 3 characters a token, a 2,000-token
+    answer, and three searches when it may search. Settled to the reported cost afterwards."""
+    pin, pout = PRICES.get(kwargs.get("model"), UNKNOWN_PRICE)
+    tokens = len(json.dumps(kwargs.get("input", ""), default=str)) / 3
+    searches = 3 * any(isinstance(t, dict) and str(t.get("type", "")).startswith("web_search")
+                       for t in kwargs.get("tools") or [])
+    return tokens * pin / 1e6 + 2_000 * pout / 1e6 + searches * SEARCH_CALL_USD

@@ -23,7 +23,8 @@ import sharing
 # agents/ana.py). A test that wants one sets it itself with monkeypatch.
 APP_SETTINGS = ("MEASURED_MODEL", "EVALUATOR_MODEL", "ONBOARDING_MODEL", "LIVE_MODEL",
                 "TARGET_MARGIN", "RUN_BUDGET_USD", "WOBBLE_AUDIT", "WHY_BUDGET_USD", "OPENAI_API_KEY",
-                "DATA_DIR", "VISEXP_PUBLIC_DEMO", "VISEXP_OFFLINE_REPLAY")
+                "DATA_DIR", "VISEXP_PUBLIC_DEMO", "VISEXP_OFFLINE_REPLAY", "FLEET_BUDGET_USD",
+                "FLEET_CONCURRENCY", "VERIFY_BUDGET_USD")
 
 
 @pytest.fixture(autouse=True)
