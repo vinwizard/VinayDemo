@@ -60,7 +60,7 @@ def test_health_without_a_key_says_live_is_unavailable(client):
     r = client.get("/api/health")
     assert r.status_code == 200
     body = r.json()
-    assert body["ok"] and body["live_available"] is False
+    assert body["ok"] and body["live_available"] is False and body["key_configured"] is False
     assert body["measured_model"] is None and body["evaluator_model"] is None
     assert body["seed_company"] == main.SEED_COMPANY
 
@@ -68,7 +68,7 @@ def test_health_without_a_key_says_live_is_unavailable(client):
 def test_health_with_a_key_reports_availability_never_the_key(client, monkeypatch):
     monkeypatch.setenv(live.KEY_ENV, SENTINEL)
     r = client.get("/api/health")
-    assert r.status_code == 200 and r.json()["live_available"] is True
+    assert r.status_code == 200 and r.json()["live_available"] is True and r.json()["key_configured"] is True
     assert SENTINEL not in r.text
     assert SENTINEL[3:] not in r.text        # not even with its prefix trimmed
 

@@ -792,6 +792,7 @@ def health(request: Request = None):
     return {"ok": True, "scenarios": sorted(fixture.SCENARIOS), "seed_company": SEED_COMPANY,
             "showcase": {"company": SHOWCASE_COMPANY, "run": SHOWCASE_RUN},
             "live_available": live.available() and (not public_demo() or bool(holder_of(request))),
+            "key_configured": live.available(),
             "live_status": live.status(),
             "public_demo": public_demo(),
             "contact_email": access.contact_email(),

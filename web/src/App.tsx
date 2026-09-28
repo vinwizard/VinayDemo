@@ -114,10 +114,16 @@ export default function App() {
       {error && <div className="callout error">{error}</div>}
 
       <div hidden={tab !== "onboard"}>
-        {health && !health.live_available && (
+        {health && !health.key_configured && (
           <div className="callout warn-box">
             No API key is configured on the server, so reading a site and measuring it will fail.
-            Put <code>OPENAI_API_KEY</code> in <code>.env</code> and restart the API.
+            {!health.public_demo && <> Put <code>OPENAI_API_KEY</code> in <code>.env</code> and restart the API.</>}
+          </div>
+        )}
+        {health && health.key_configured && !health.live_available && (
+          <div className="callout warn-box">
+            Live runs need your personal pass link. Open it in this browser to run live, or email{" "}
+            <Contact email={health.contact_email} /> to get one.
           </div>
         )}
         {health && <CompanyWorkflow onRunSaved={refreshRuns} />}
