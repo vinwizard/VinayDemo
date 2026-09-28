@@ -28,7 +28,7 @@ Moved verbatim from agents.md section 2 and the execution limits in section 8. W
 
 ### Making the demo honest and useful
 
-Every displayed record carries provenance. Show a permanent mode banner, add mode labels to exports and screenshots, and never label fixture results “live.” Simulated baseline and adaptive results may demonstrate the intended product behavior, but the app must state that model judgment is simulated in replay mode.
+Every displayed record carries provenance. Show a permanent mode banner, add mode labels to exports and screenshots, and never label fixture results “live.” A why-agent replay (`counterfactual_replay`) is an experiment on a reading list the model really read, never a measurement; copy it edits or injects is labelled hypothetical wherever it appears. Simulated baseline and adaptive results may demonstrate the intended product behavior, but the app must state that model judgment is simulated in replay mode.
 
 For arbitrary companies with no key: allow pasted facts and manual profile/topic edits, then show a research plan. Do not reuse Notion answers under a different company's name. Only bundled companies have replay results. Explain when generating new answers requires credentials or an imported research file.
 

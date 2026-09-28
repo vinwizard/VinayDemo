@@ -633,3 +633,37 @@ details.skipped ul { margin: .2rem 0 0; padding-left: 1.1rem; font-size: .85rem;
 /* ---------------------------------------------------------------- sampler-lite (margin.tsx) */
 .front-margin { overflow-wrap: anywhere; }
 .front-margin .warn { color: var(--lost); }
+
+/* ---------------------------------------------------------------- dark theme (follows the system) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111418; --surface: #191d23; --border: #2c323b; --text: #e8ebef; --muted: #9aa5b1;
+    --accent: #7c95f2; --accent-soft: #1f2640; --landed: #4cc26c; --lost: #f0625f; --win-back: #b392f0;
+    --unstated: #e0a826; --imposed: #8a9af0; --contested: #e0935a; --unprioritised: #3fb6c6;
+    --sample-bg: #33260d; --sample-border: #6f5217; --sample-text: #f3d08f;
+    color-scheme: dark;
+  }
+  code { background: #232932; }
+  button.primary, .rtab[aria-selected="true"], .stage.done .stage-mark, .stage.failed .stage-mark { color: #0f1320; }
+  button.primary:hover:not(:disabled) { background: #95a8f5; }
+  .rtab[aria-selected="true"] .rtab-count { background: #0f1320; }
+  .callout.error { border-color: #7a2d29; background: #3a1614; color: #f6b8b3; }
+  .callout.warn-box { border-color: #7a2d29; background: #2a1513; }
+  .callout.excluded { border-color: #6f4a22; background: #2a1d10; }
+  .callout.excluded h4 { color: #f1c39b; }
+  .tag.warn { background: #3a1614; color: #f6b8b3; }
+  .company .one-liner, .stage.done .stage-summary, .figure.secondary .value, .figure p { color: var(--text); }
+  .quote { border-left-color: #4a5360; color: #cfd6dd; }
+  .stage.done::before { background: #2c6b40; }
+  .stage.active .stage-body, .claim-card:hover { border-color: #3a4a8a; }
+  .claim.add, tr.pick:hover { background: #1e232a; }
+  .bar-track { background: #232932; }
+  .sov-bar, .cmap .edge { background: #56606c; stroke: #56606c; }
+  .pill.landed, .check.pass { background: #12301d; border-color: #2c6b40; color: #a8e6ba; }
+  .pill.lost_claim { background: #2a1f45; border-color: #5b3fa0; color: #d2bcf7; }
+  .pill.unstated_intent { background: #33260d; border-color: #6f5217; color: #f3d08f; }
+  .pill.imposed { background: #1f2640; border-color: #3a4a8a; color: #c3cff8; }
+  .pill.contested { background: #33200f; border-color: #7a4a22; color: #f1c39b; }
+  .pill.unprioritised { background: #0f2c31; border-color: #1f6570; color: #9fdde6; }
+  .check.fail { background: #3a1614; border-color: #7a2d29; color: #f6b8b3; }
+}
