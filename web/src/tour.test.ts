@@ -100,7 +100,7 @@ test("the story's welcome welcomes the visitor, says what the app is and credits
   assert.equal(STORY_WELCOME.creditUrl, "https://tryprofound.com");
 });
 
-test("the welcome stays up about 7 s, long enough to read; the other scenes keep 3.6 s", () => {
+test("the welcome stays up about 8 s, long enough to read; the other scenes keep 3.6 s", () => {
   assert.equal(sceneMs(0), 8000);
   for (const i of [1, 2, 3, 4]) assert.equal(sceneMs(i), 3600);
 });
