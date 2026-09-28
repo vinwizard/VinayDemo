@@ -61,7 +61,7 @@ verbatim in the answer they cite, and nothing is invented to fill a gap.
 - Every OpenAI call goes through `access.openai_response` (embeddings: `access.openai_embedding`,
   via `demand.py` and `embeddings.py`): it refuses at an access pass's cap, charges the pass from
   reported usage, and fails closed on the public demo when no pass is set. A new model call site
-  must use it. Passes, admin and hosting: README "Deploy to Render".
+  must use it. Passes, admin and hosting: WEB.md "Deploy to Render".
 - Independent portfolio demo.
 
 ## Maintaining this file
