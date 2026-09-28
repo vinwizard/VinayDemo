@@ -26,12 +26,13 @@ export function loadSeen(store: Store | null): Seen {
 }
 
 /**
- * Records how a part ended. Skipping the story skips the report tour it leads into as well: a visitor
- * who said "no guide" is not guided again on the next screen.
+ * Records how a part ended. Skipping the story skips the tour it leads into as well (`then`: the
+ * report tour, or for a welcome shown alone the tour it hands over to): a visitor who said "no
+ * guide" is not guided again on the next screen.
  */
-export function markSeen(store: Store | null, part: Part, how: "done" | "skipped"): Seen {
+export function markSeen(store: Store | null, part: Part, how: "done" | "skipped", then: "report" | "onboard" = "report"): Seen {
   const seen: Seen = { ...loadSeen(store), [part]: how };
-  if (part === "story" && how === "skipped") seen.report ??= "skipped";
+  if (part === "story" && how === "skipped") seen[then] ??= "skipped";
   fallback = seen;
   try { store?.setItem(STORAGE_KEY, JSON.stringify(seen)); } catch { /* kept in memory for this load */ }
   return seen;

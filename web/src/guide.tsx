@@ -289,8 +289,8 @@ export function Guide({ story, vars, autoStory, replay, onOpenShowcase }: {
       else busy.current = false;
     });
   }, []);
-  const end = useCallback((part: Part, how: "done" | "skipped", focus?: HTMLElement) => {
-    markSeen(store, part, how);
+  const end = useCallback((part: Part, how: "done" | "skipped", focus?: HTMLElement, then?: "report" | "onboard") => {
+    markSeen(store, part, how, then);
     busy.current = false;
     setActive(null);
     // Focus goes back where it was, or to "How it works" when the guide started on its own.
@@ -327,7 +327,7 @@ export function Guide({ story, vars, autoStory, replay, onOpenShowcase }: {
 
   if (active?.kind === "story" && (story || active.then)) {
     const then = active.then;
-    return <StoryDialog story={then ? null : story} vars={vars} onSkip={() => end("story", "skipped")}
+    return <StoryDialog story={then ? null : story} vars={vars} onSkip={() => end("story", "skipped", undefined, then)}
                         onSee={() => {
                           end("story", "done");
                           if (then) { startTour(then, false, true); return; }

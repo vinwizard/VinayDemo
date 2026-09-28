@@ -31,6 +31,16 @@ test("skipping the story skips the report tour it leads into, but not onboarding
   assert.equal(autoStarts(store, "onboard"), true);
 });
 
+test("skipping the welcome shown alone skips the onboard tour it hands over to, not the report tour", () => {
+  const store = memory();
+  markSeen(store, "story", "skipped", "onboard");
+  resetMemory();   // the next load reads only what was stored
+  assert.equal(autoStarts(store, "story"), false);
+  assert.equal(autoStarts(store, "onboard"), false);   // not shown on the next load
+  assert.equal(autoStarts(store, "report"), true);     // still shown on the first finished report
+  assert.equal(welcomeFirst(store, false, true), false);
+});
+
 test("a report tour already finished is not downgraded to skipped", () => {
   const store = memory();
   markSeen(store, "report", "done");
