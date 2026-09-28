@@ -297,8 +297,8 @@ pass cannot onboard, so the page opens on History; a pass holder sees neither ex
 work, starting on Onboard.
 
 **First-visit guide** (`web/src/guide.tsx`; copy, memory and the story's picker in `web/src/tour.ts`).
-A visitor without a pass on the hosted demo first sees a short "how it works" story: four scenes of
-about 3.6 s each, told with the showcase run's own words, never written into the code. The scenes
+A visitor without a pass on the hosted demo first sees a short "how it works" story: a welcome saying what the
+app is (about 7 s, time to read it), then four scenes of about 3.6 s each, told with the showcase run's own words, never written into the code. The scenes
 are a claim quoted from the company's site, a branded question with pieces of its answer, the
 headline gap with one identity AI gave the company unasked, and the first Quick wins rewrite
 (`tour.pickStory`). The story plays only from a run measured live that has all four, and shows where
@@ -312,7 +312,7 @@ load). Skip, Esc or finishing ends a part, and skipping the story skips the repo
 report tour on an open report, else the Onboard tour, switching to that tab first. Captions fill in the open report's own numbers, and a step whose element or
 number is missing is left out. Invented terms open their `glossary.ts` definition. The caption is a
 bottom sheet on a phone; ← → move, Esc skips, and Tab stays inside the caption. Under reduced
-motion the story is a still strip of all four scenes and the spotlight jumps instead of sliding.
+motion the story is a still strip of all five scenes and the spotlight jumps instead of sliding.
 Tests: `web/src/tour.test.ts`.
 
 - **Onboard your own company** — one workflow on one screen, seven stages that complete in order:
