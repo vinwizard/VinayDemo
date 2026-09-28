@@ -72,6 +72,17 @@ def test_a_rephrasing_of_a_measured_attribute_is_not_a_new_one():
     assert [a.label for a in new] == ["Expensive for large teams"]
 
 
+def test_one_shared_word_stem_does_not_make_two_labels_the_same():
+    # Amgen on gpt-6-luna, 22 Sep 2026: "Biologic medicines" was dropped as the same attribute as
+    # "Global presence in about 100 countries", through its alias "global medicine distribution":
+    # the two share only the stem "medicin".
+    reach = Attribute(id="global_reach", label="Global presence in about 100 countries",
+                      aliases=["multinational biotechnology company", "global medicine distribution"])
+    new, _, dropped = discover(proposal("Biologic medicines", ("np-1", "slow to load"), ("np-2", "slow to load")),
+                               attributes=[reach])
+    assert [a.label for a in new] == ["Biologic medicines"] and not dropped
+
+
 def test_the_same_quote_already_counted_for_an_attribute_is_not_counted_again():
     speed = Attribute(id="speed", label="Performance")
     already = {"np-1": [AttributeObservation(attribute_id="speed", quote="slow to load big pages")]}

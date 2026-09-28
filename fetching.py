@@ -21,7 +21,7 @@ import re
 import socket
 import ssl
 from html.parser import HTMLParser
-from typing import Optional
+from typing import Iterable, Optional
 from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 
@@ -217,33 +217,130 @@ def fetch(url: str) -> tuple[str, str]:
     return final, text
 
 
-# Links a reader clicks, not every href: <link rel="stylesheet" href=...> is not a page.
-LINK = re.compile(r'<a\s[^>]*?(?<![\w-])href\s*=\s*["\']([^"\']+)["\']', re.I)
-USEFUL = ("product", "features", "platform", "solutions", "why", "about", "enterprise",
-          "pricing", "customers", "use-case", "usecase", "ai")
-# A keyword counts only as a whole word of the path ("/ai-agents", "/products"), never inside one:
-# "ai" inside "/CorporateAffairs/" sent the crawler to five stylesheets on amgen.com.
-USEFUL_WORD = re.compile(r"(?<![a-z0-9])(?:%s)s?(?![a-z0-9])" % "|".join(map(re.escape, USEFUL)))
+class _Links(HTMLParser):
+    """Links a reader clicks, with the words on them: <a href> only. A <link rel="stylesheet"> is
+    not a page, and a data-href is not a link."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.links: list[tuple[str, str]] = []
+        self._open: Optional[list] = None
+
+    def handle_starttag(self, tag, attrs):
+        href = dict(attrs).get("href") if tag == "a" else None
+        if href:
+            self._open = [href, []]
+            self.links.append(("", ""))           # filled at </a>, in document order
+
+    def handle_data(self, data):
+        if self._open:
+            self._open[1].append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self._open:
+            self.links[-1] = (self._open[0], " ".join(" ".join(self._open[1]).split()))
+            self._open = None
 
 
-def same_origin_links(base_url: str, html_text: str, limit: int = 2) -> list[str]:
-    """Pick a couple of same-origin pages likely to carry positioning copy: one per section of the
-    site (/about, /products…) before a second from the same one, so five /about/ pages cannot
-    crowd out the page that lists what the company sells."""
+def _links(html_text: str) -> list[tuple[str, str]]:
+    p = _Links()
+    try:
+        p.feed(html_text)
+    except Exception:
+        pass                                # malformed markup: keep whatever parsed
+    return [(h, t) for h, t in p.links if h]
+
+
+# What a page is, read from its path and the words on the link to it, most important first: where a
+# company says who it is and what it offers. Matching is on whole words, and a word must name the
+# page, not appear somewhere in a story's slug: "why" in /stories/…/why-mrbeast-…-joined-forces sent
+# the amgen.com crawl to a press story, and "ai" inside "CorporateAffairs" once sent it to stylesheets.
+PAGE_KINDS = (
+    ("about", {"about", "company", "who", "overview", "story"}),
+    ("mission", {"mission", "values", "purpose", "vision"}),
+    ("offer", {"products", "product", "solutions", "solution", "platform", "services", "what",
+               "features", "medicines", "therapies", "capabilities"}),
+    ("why", {"why"}),
+    ("newsroom", {"newsroom", "press", "media", "news"}),
+    ("customers", {"customers", "customer", "case"}),
+    ("pricing", {"pricing", "plans"}),
+    ("enterprise", {"enterprise"}),
+    ("ai", {"ai"}),
+)
+RANK = {kind: i for i, (kind, _) in enumerate(PAGE_KINDS)}
+# Pages about something other than the company itself: articles, campaigns, jobs, legal, accounts.
+SKIP = {"stories", "blog", "blogs", "article", "articles", "post", "posts", "events", "event",
+        "webinar", "webinars", "campaign", "campaigns", "careers", "career", "jobs", "legal", "privacy",
+        "terms", "cookies", "cookie", "login", "signin", "signup", "register", "contact", "support",
+        "help", "docs", "search", "cart", "account", "tag", "tags", "category", "author", "investors",
+        "podcast", "podcasts", "videos", "video", "releases", "release", "downloads", "download"}
+MAX_DEPTH = 2
+YEAR = re.compile(r"(?:19|20)\d\d")
+
+
+def _words(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9]+", text.lower())
+
+
+def page_kind(path: str, link_text: str = "") -> Optional[str]:
+    """The kind of page a same-site path is, from PAGE_KINDS, or None when it is not one worth
+    reading. The deepest segment decides first ("/about/mission-and-values" is the mission page);
+    the link's own words decide when the path says nothing ("/company/leadership" labelled
+    "Our purpose"). A newsroom counts only as the section's own page, never one of its stories."""
+    segments = [x for x in path.lower().strip("/").split("/") if x]
+    if not segments or len(segments) > MAX_DEPTH or any(YEAR.search(x) for x in segments) \
+            or segments[-1].endswith((".xml", ".pdf", ".css", ".js")) \
+            or any(set(_words(x)) & SKIP for x in segments):
+        return None
+    if len(_words(segments[-1])) > 5:          # a sentence for a slug is an article, whatever it sits under
+        return None
+    for words in [_words(x) for x in reversed(segments)] + [_words(link_text)]:
+        for kind, keys in PAGE_KINDS:
+            if kind == "newsroom" and len(segments) > 1:
+                continue
+            if kind in ("why", "ai") and (len(segments) > 1 or words[:1] != [next(iter(keys))]):
+                continue                        # "/why-linear" and "/ai" are pages; "…-why-…" is not
+            if set(words) & keys:
+                return kind
+    return None
+
+
+def positioning_links(base_url: str, html_text: str, limit: int = 2,
+                      extra: Iterable[str] = ()) -> list[str]:
+    """Same-site pages most likely to say how the company positions itself, most important first:
+    about, mission and values, what it offers, "why us", the newsroom's own page, then customers,
+    pricing, enterprise. One of each kind before a second of any. `extra` are more candidate URLs
+    (a sitemap's), considered after the homepage's own links."""
     base = urlparse(base_url if "://" in base_url else "https://" + base_url)
-    first, more, seen, sections = [], [], {base.path.rstrip("/") or "/"}, set()
-    for href in LINK.findall(html_text):
+    seen, found = {base.path.rstrip("/") or "/"}, []
+    for n, (href, text) in enumerate([*_links(html_text), *((u, "") for u in extra)]):
         target = urlparse(urljoin(f"{base.scheme}://{base.netloc}", href))
         if target.netloc != base.netloc or target.scheme not in ALLOWED_SCHEMES:
             continue
         path = target.path.rstrip("/") or "/"
-        if path in seen or not USEFUL_WORD.search(path.lower()):
+        if path in seen or not (kind := page_kind(path, text)):
             continue
         seen.add(path)
-        section = path.strip("/").split("/")[0]
-        (more if section in sections else first).append(f"{target.scheme}://{target.netloc}{path}")
-        sections.add(section)
-    return (first + more)[:limit]
+        found.append((kind, path.count("/"), n, f"{target.scheme}://{target.netloc}{path}"))
+    per_kind: dict[str, int] = {}
+    ordered = []
+    for kind, depth, n, url in sorted(found, key=lambda f: (RANK[f[0]], f[1], f[2])):
+        per_kind[kind] = per_kind.get(kind, 0) + 1
+        ordered.append((per_kind[kind], RANK[kind], depth, n, url))
+    return [f[-1] for f in sorted(ordered)][:limit]
+
+
+SITEMAP_LOC = re.compile(r"<loc>\s*([^<\s]+)\s*</loc>", re.I)
+
+
+def sitemap_urls(origin: str) -> list[str]:
+    """The page URLs a site's /sitemap.xml lists, or [] when it has none or it cannot be read. A
+    sitemap index lists more sitemaps, not pages; page_kind skips those."""
+    try:
+        _, body = fetch_raw(f"{origin}/sitemap.xml", types=("xml", "text"))
+    except (UnsafeURL, FetchError):
+        return []
+    return SITEMAP_LOC.findall(body)[:5000]
 
 
 class _Icons(HTMLParser):
@@ -275,14 +372,20 @@ def icon_url(base_url: str, html_text: str) -> Optional[str]:
 
 
 def fetch_site(url: str, max_pages: int = 3) -> tuple[list[tuple[str, str]], Optional[str]]:
-    """-> (pages, icon URL). Homepage plus up to two same-origin pages; individual page failures are
-    skipped, not fatal. The icon comes from the homepage HTML already fetched — no extra request."""
+    """-> (pages, icon URL). The homepage plus up to max_pages - 1 same-site pages that say how the
+    company positions itself (positioning_links); individual page failures are skipped, not fatal.
+    The icon comes from the homepage HTML already fetched — no extra request."""
     final, html = fetch_raw(url, types=("html",))  # one request; HTML reused for text, links AND the icon
     text = extract_text(html)
     if not text:
         raise FetchError(f"no extractable text at {final}")
     pages = [(final, text)]
-    for link in same_origin_links(final, html, limit=max_pages - 1):
+    links = positioning_links(final, html, limit=max_pages - 1)
+    if len(links) < max_pages - 1:            # the homepage links too few: read what the sitemap lists
+        u = urlparse(final)
+        links = positioning_links(final, html, limit=max_pages - 1,
+                                  extra=sitemap_urls(f"{u.scheme}://{u.netloc}"))
+    for link in links:
         try:
             pages.append(fetch(link))
         except (UnsafeURL, FetchError):

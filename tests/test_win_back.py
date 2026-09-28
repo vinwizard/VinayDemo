@@ -26,7 +26,8 @@ def test_fixture_plans_cover_every_target_and_move_no_number():
         run = run_for(scenario)
         assert (run.drift.claim_echo, run.drift.alignment) == (echo, align)
         assert {w.attribute_id for w in run.win_back} == {s.attribute_id for s in win_back.targets(run)}
-        assert run.win_back_notes == []
+        # an authored fix that targets no question is kept and says so; nothing is dropped
+        assert all("cites none" in n for n in run.win_back_notes)
         assert all(w.provenance == "synthetic" for w in run.win_back)
 
 
@@ -54,6 +55,20 @@ def test_unverifiable_actions_are_dropped_with_a_reason():
                    "cited zz-9, which is not an unbranded question", "already recommending you",
                    "a second suggestion"):
         assert reason in text
+
+
+def test_a_fix_citing_no_question_cites_the_claims_own_unrecommended_questions():
+    # Amgen on gpt-6-luna, 22 Sep 2026: all three kept fixes had question_ids [], because none of the
+    # claims had been asked about. Each claim now has questions of its own (ana.blind_probes_for_fronts)
+    # and a fix is for them.
+    from schemas import Probe, QueryEvaluation
+    run = run_for("A")
+    run.probes.append(Probe(id="ai_native-b1", topic_id="pos-ai_native", kind="blind", phase="baseline",
+                            purpose="p", text="Which workspace drafts documents with AI?"))
+    run.evaluations.append(QueryEvaluation(probe_id="ai_native-b1", valid=True, strength=0, explanation="x"))
+    kept, dropped = win_back.validate([good(question_ids=[])], run)
+    assert kept[0].question_ids == ["ai_native-b1"] and not dropped
+    assert "its own buyer questions: ai_native-b1" in win_back.build_prompt(run)
 
 
 def test_verbatim_current_copy_is_kept():

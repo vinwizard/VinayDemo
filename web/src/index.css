@@ -195,6 +195,9 @@ input:focus-visible, button:focus-visible, select:focus-visible { outline: 2px s
 .claims + * { margin-top: .4rem; }
 .claim.category { grid-template-columns: 1fr; border: 1px solid var(--border); border-radius: var(--radius); padding: .8rem 1rem; }
 .claim.category input { box-sizing: border-box; }
+.claim .review { margin: .4rem 0 0; padding: .4rem .6rem; border-radius: 6px; font-size: .86rem;
+  background: var(--sample-bg); border: 1px solid var(--sample-border); color: var(--sample-text); }
+.claim.aside .claim-label, .claim.aside .desc { opacity: .55; }
 .fig-value .tag { font-size: .7rem; margin-left: .4rem; vertical-align: middle; }
 .desc { margin: .1rem 0 .2rem; line-height: 1.45; max-width: 60ch; font-size: .9rem; }
 .slider { display: flex; align-items: center; gap: .5rem; }

@@ -2,7 +2,7 @@
 import re
 
 import graph
-from insights import cited_sources, searches, share_of_voice, source_kind
+from insights import cited_sources, domain_keys, searches, share_of_voice, source_kind
 from providers import fixture
 
 
@@ -124,3 +124,27 @@ def test_searches_keep_every_spelling_run_within_one_answer():
     a.searches = ["zz wiki 2025", "zz wiki 2026"]
     g = next(g for g in searches(run)["searches"] if g["query"] == "zz wiki 2025")
     assert g["variants"] == ["zz wiki 2026"] and g["answers"] == 1
+
+
+def test_a_rivals_own_domains_are_read_off_its_name():
+    # Amgen on gpt-6-luna, 22 Sep 2026: jnj.com was filed as "other" and innovativemedicine.jnj.com as a
+    # site to get onto, because "Johnson & Johnson" only ever keyed to "johnsonjohnson".
+    rivals = set().union(*(domain_keys(n) for n in ("Johnson & Johnson", "Eli Lilly", "Bristol Myers Squibb",
+                                                     "Walmart Pharmacy")))
+    for host in ("jnj.com", "innovativemedicine.jnj.com", "lilly.com", "bms.com", "walmart.com"):
+        assert source_kind(host, False, rivals) == "rival", host
+    for host in ("fda.gov", "caremark.com", "pharmacy.com"):
+        assert source_kind(host, False, rivals) != "rival", host
+
+
+def test_a_rival_site_says_whose_it_is_and_is_never_a_page_to_get_onto():
+    run = run_scenario("A")
+    buyer = next(e for e in run.evaluations if any(p.id == e.probe_id and p.kind == "blind" for p in run.probes)
+                 and not e.mentioned and e.valid)
+    buyer.competitor_recommendations = ["Johnson & Johnson"]
+    next(x for x in run.answers if x.probe_id == buyer.probe_id).citations.append(
+        "https://innovativemedicine.jnj.com/our-innovation/focus-areas")
+    src = cited_sources(run)
+    row = next(r for r in src["sources"] if r["domain"] == "innovativemedicine.jnj.com")
+    assert (row["kind"], row["rival"]) == ("rival", "Johnson & Johnson")
+    assert row["domain"] not in src["rival_only"]

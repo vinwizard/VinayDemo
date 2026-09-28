@@ -100,22 +100,85 @@ def test_description_that_restates_the_label_is_rejected():
     assert not checks[0].not_found
 
 
-@pytest.mark.parametrize("statement,why", [
+@pytest.mark.parametrize("statement", [
     # the two statements the first live linear.app onboard actually produced
-    ("The platform reduces noise and restores momentum, allowing teams to ship products rapidly "
-     "and with focus.", "does not name the company"),
-    ("Designed specifically for contemporary product development practices, accommodating scaling "
-     "needs as teams grow.", "does not name the company"),
-    ("Acme minimizes noise and friction, allowing teams to focus and maintain high velocity.",
-     "marketing language"),
-    ("Acme lets IT roll out SSO seamlessly across the whole company.", "marketing language"),
+    "The platform reduces noise and restores momentum, allowing teams to ship products rapidly "
+    "and with focus.",
+    "Designed specifically for contemporary product development practices, accommodating scaling "
+    "needs as teams grow.",
 ])
-def test_marketing_paraphrase_is_rejected_not_kept(statement, why):
+def test_a_statement_that_does_not_name_the_company_is_rejected(statement):
     raw = json.loads(payload())
     raw["attributes"][0]["description"] = statement
     _, attrs, _, checks = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
     assert attrs == []
-    assert any(why in n and statement in n for n in notes(checks))   # the loss is shown, not silent
+    assert any("does not name the company" in n and statement in n for n in notes(checks))
+
+
+@pytest.mark.parametrize("statement,words", [
+    ("Acme minimizes noise and friction, allowing teams to focus and maintain high velocity.", "friction"),
+    ("Acme lets IT roll out SSO seamlessly across the whole company.", "seamlessly"),
+])
+def test_marketing_language_flags_a_claim_for_review_and_never_drops_it(statement, words):
+    raw = json.loads(payload())
+    raw["attributes"][0]["description"] = statement
+    _, attrs, _, checks = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
+    [a] = attrs
+    assert a.description == statement and not a.set_aside     # kept as written, and measured
+    assert words in a.review
+    assert checks[0].kept and any("Kept for your review" in n for n in notes(checks))
+
+
+# Amgen on gpt-6-luna, 22 Sep 2026: all three statements were deleted for "innovative" or "innovator"
+# although their quotes were on amgen.com. The first is its own one-liner; with it gone, discovery
+# reported "Broad treatment portfolio" as an identity AI imposed, and claim echo read 0.0.
+AMGEN_PAGE = ("Amgen discovers, develops, manufactures and delivers innovative medicines to fight some "
+              "of the world’s toughest diseases. We focus on cardiovascular/metabolic, bone health, "
+              "inflammation, oncology and rare diseases.")
+
+
+@pytest.mark.parametrize("label,statement", [
+    ("Develops innovative medicines", "Amgen discovers, develops, manufactures and delivers innovative "
+                                      "medicines to fight some of the world’s toughest diseases."),
+    ("Focus on key therapeutic areas", "Amgen delivers innovative medicines in cardiovascular/metabolic, "
+                                       "bone health, inflammation, oncology and rare diseases therapeutic areas."),
+    ("Pioneer and leader in biotechnology since 1980", "Amgen helped establish the biotechnology industry "
+                                                       "over 45 years ago and continues as a leading "
+                                                       "independent biotech innovator globally."),
+])
+def test_amgens_core_claims_survive_onboarding_flagged_for_review(label, statement):
+    raw = {"name": "Amgen", "aliases": [], "attributes": [{
+        "id": "core", "label": label, "description": statement,
+        "claim_quotes": ["Amgen discovers, develops, manufactures and delivers innovative medicines"]}]}
+    _, attrs, _, _ = agent(json.dumps(raw)).run("Amgen", "amgen.com", [("https://www.amgen.com", AMGEN_PAGE)])
+    [a] = attrs
+    assert a.review and "innovat" in a.review and a.claim_pages == 1
+
+
+@pytest.mark.parametrize("statement,flagged", [
+    ("Modern Treasury offers SAML single sign-on, audit logs and SCIM provisioning for IT.", False),
+    ("Modern Treasury lets IT roll out SSO seamlessly across the whole company.", True),
+])
+def test_a_marketing_word_in_the_company_name_is_not_marketing(statement, flagged):
+    raw = json.loads(payload(name="Modern Treasury", aliases=[]))
+    raw["attributes"][0]["description"] = statement
+    _, attrs, _, _ = agent(json.dumps(raw)).run("Modern Treasury", "example.com", PAGES)
+    [a] = attrs
+    assert bool(a.review) is flagged and ("seamlessly" in (a.review or "")) is flagged
+
+
+def test_a_quote_differing_only_in_apostrophes_case_or_spacing_matches_the_page_spelling():
+    page = "Amgen discovers medicines to fight some of the world’s  toughest\u00a0diseases."
+    raw = {"name": "Amgen", "attributes": [{
+        "id": "core", "label": "Tough diseases",
+        "description": "Amgen develops medicines for cancer, bone loss and rare genetic diseases.",
+        "claim_quotes": ["medicines to fight some of the World's toughest diseases",
+                         "medicines to fight some of the world's hardest diseases"]}]}
+    _, attrs, _, checks = agent(json.dumps(raw)).run("Amgen", "amgen.com", [("https://www.amgen.com", page)])
+    [a] = attrs
+    assert a.claim_quotes == ["medicines to fight some of the world’s  toughest\u00a0diseases"]  # as the page writes it
+    assert a.claim_quotes[0] in page
+    assert (checks[0].quotes_matched, checks[0].quotes_removed) == (1, 1)   # a changed word still fails
 
 
 def test_a_checkable_assertion_passes():
@@ -125,18 +188,6 @@ def test_a_checkable_assertion_passes():
     _, attrs, warnings, checks = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
     assert [a.id for a in attrs] == ["enterprise_ready"] and not warnings and not notes(checks)
     assert [(c.kept, c.quotes_matched, c.quotes_removed) for c in checks] == [(True, 1, 0)]
-
-
-@pytest.mark.parametrize("statement,rejected", [
-    ("Modern Treasury offers SAML single sign-on, audit logs and SCIM provisioning for IT.", False),
-    ("Modern Treasury lets IT roll out SSO seamlessly across the whole company.", True),
-])
-def test_a_marketing_word_in_the_company_name_is_not_marketing(statement, rejected):
-    raw = json.loads(payload(name="Modern Treasury", aliases=[]))
-    raw["attributes"][0]["description"] = statement
-    _, attrs, _, checks = agent(json.dumps(raw)).run("Modern Treasury", "example.com", PAGES)
-    assert (attrs == []) is rejected
-    assert any("seamlessly" in n for n in notes(checks)) is rejected
 
 
 def test_a_real_description_is_kept_without_complaint():

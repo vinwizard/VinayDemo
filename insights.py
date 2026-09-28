@@ -52,8 +52,38 @@ def _key(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", name.lower().split(".")[0])
 
 
+# First words that name a kind of business, not one company: "Specialty Pharmacy X" is not specialty.com.
+GENERIC_FIRST = {"the", "global", "national", "american", "united", "general", "international", "specialty",
+                 "biologics", "first", "new"}
+# Last words that name a line of business, not the company: "Johnson & Johnson Innovative Medicine".
+GENERIC_LAST = {"medicine", "medicines", "pharmacy", "pharmaceuticals", "pharmaceutical", "pharma",
+                "distribution", "specialty", "health", "group", "company", "inc", "co", "corp",
+                "corporation", "labs", "solutions", "services", "systems", "technologies", "software"}
+
+
+def domain_keys(name: str) -> set[str]:
+    """The labels a company's own domain may carry, read off its name: the whole name
+    ("merck" for Merck, "cardinalhealth" from "Cardinal Health Specialty…"), its first and last
+    words ("walmart" for Walmart Pharmacy, "lilly" for Eli Lilly) and its initials, "&" read as "n" ("jnj" and "jj" for Johnson &
+    Johnson, "bms" for Bristol Myers Squibb). Johnson & Johnson's own sites, jnj.com and
+    innovativemedicine.jnj.com, used to be filed as somebody else's page to get onto.
+    ponytail: spelling heuristics only; a rival whose domain shares nothing with its name (Caremark
+    for CVS) stays "other" — a per-rival domain list is the upgrade if that matters."""
+    words = re.findall(r"[a-z0-9]+|&", re.sub(r"\([^()]*\)", " ", name.lower()))
+    letters = [w for w in words if w != "&"]
+    keys = {_key(name), "".join(letters[:2])}
+    if letters and len(letters[0]) >= 4 and letters[0] not in GENERIC_FIRST:
+        keys.add(letters[0])
+    if len(letters) >= 2 and len(letters[-1]) >= 5 and letters[-1] not in GENERIC_LAST:
+        keys.add(letters[-1])                   # "lilly" for Eli Lilly, "roche" for Genentech/Roche
+    if len(words) >= 2:
+        keys |= {k for k in ("".join("n" if w == "&" else w[0] for w in words),
+                             "".join(w[0] for w in letters)) if len(k) >= 3}
+    return {k for k in keys if k}
+
+
 def source_kind(host: str, owned: bool, rivals: set[str]) -> str:
-    """owned, rival, review, community, media or other. `rivals` holds the _key of each named rival."""
+    """owned, rival, review, community, media or other. `rivals` holds the domain_keys of each named rival."""
     if owned:
         return "owned"
     bare = host.split("/")[0]
@@ -94,9 +124,12 @@ def cited_sources(run: Run) -> dict:
                     row["rivals"].update({c.lower(): c for c in e.competitor_recommendations}.values())
                     row["probes"].append(a.probe_id)
     rows = sorted(tally.values(), key=lambda r: -r["answers"])  # stable: ties keep first-seen order
-    rival_keys = {_key(name) for r in rows for name in r["rivals"]} - {_key(run.profile.name), ""}
+    brand = set().union(*(domain_keys(n) for n in run.profile.names()))
+    owner = {k: name for r in rows for name in r["rivals"] for k in domain_keys(name) - brand}
     for r in rows:
-        r["kind"] = source_kind(r["domain"], r["owned"], rival_keys)
+        r["kind"] = source_kind(r["domain"], r["owned"], set(owner))
+        labels = r["domain"].split("/")[0].split(".")
+        r["rival"] = owner.get(labels[-2]) if r["kind"] == "rival" else None   # whose site it is
         r["rivals"] = [dict(name=k, count=c) for k, c in r["rivals"].most_common()]
     rival_only = sorted((r for r in rows if r["rivals"] and not r["with_brand"] and r["kind"] not in ("owned", "rival")),
                         key=lambda r: (-r["buyer"], -len(r["rivals"])))

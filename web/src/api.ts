@@ -246,6 +246,8 @@ export interface Insights {
     sources: {
       domain: string; url: string; answers: number; buyer: number; brand: number; owned: boolean;
       kind: "owned" | "rival" | "review" | "community" | "media" | "other";
+      /** For a rival's own site, whose it is (insights.domain_keys); absent on runs served before it existed. */
+      rival?: string | null;
       /** On buyer answers: how many citing it mention the brand, the rivals named beside it, and which answers. */
       with_brand: number; rivals: { name: string; count: number }[]; probes: string[];
     }[];
@@ -350,6 +352,10 @@ export interface ClaimedAttribute {
   intended_weight: number | null;
   added_by_user: boolean;
   note: string | null;
+  /** Why the customer should look at this claim (marketing language), or null. Flagged claims are measured. */
+  review?: string | null;
+  /** Set aside on review: kept on file, not measured. */
+  set_aside?: boolean;
 }
 
 /** How one extracted claim fared against the company's own pages. Mirrors schemas.ClaimCheck. */
@@ -416,7 +422,9 @@ export const patchCompany = (
   body: { weights: Record<string, number>;
           added: { label: string; description: string | null; intended_weight: number }[];
           /** Omitted leaves it alone; "" clears it. */
-          core_category?: string },
+          core_category?: string;
+          /** A flagged claim reviewed: keep it (and restore one set aside), or set it aside. */
+          review?: Record<string, "keep" | "set_aside"> },
 ) => json<CompanyDetail>(`/api/companies/${id}`, {
   method: "PATCH",
   headers: { "Content-Type": "application/json" },

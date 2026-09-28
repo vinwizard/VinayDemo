@@ -1389,7 +1389,7 @@ function CitationNetwork({ run }: { run: Run }) {
           <tbody>
             {s.sources.map((r) => (
               <tr key={r.domain}>
-                <td><strong>{r.domain}</strong><br /><span className="muted">{KIND_LABEL[r.kind] ?? "other site"}</span></td>
+                <td><strong>{r.domain}</strong><br /><span className="muted">{r.rival ? `${r.rival}'s site` : KIND_LABEL[r.kind] ?? "other site"}</span></td>
                 <td>{r.answers}<br /><span className="muted">{r.buyer} buyer · {r.brand} brand</span></td>
                 <td className="muted">
                   {[...(r.with_brand ? [`${brand} (${r.with_brand})`] : []),

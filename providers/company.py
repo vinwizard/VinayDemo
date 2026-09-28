@@ -21,7 +21,8 @@ class CompanyProvider:
         return self.company.profile
 
     def attributes(self) -> list[Attribute]:
-        return list(self.company.attributes)
+        """The claims to measure: every one but those the customer set aside on review."""
+        return [a for a in self.company.attributes if not a.set_aside]
 
     def named_probes(self) -> list[Probe]:
-        return named_probes_for(self.company.profile, self.company.attributes)
+        return named_probes_for(self.company.profile, self.attributes())
