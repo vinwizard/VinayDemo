@@ -150,7 +150,7 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
 
 DIVISION_WORDS = {"innovative medicine", "pharmaceuticals", "pharma", "oncology", "consumer health",
                   "specialty", "specialty pharmacy", "inc", "inc.", "ltd", "ltd.", "plc",
-                  "& co", "& co.", "co", "co.", "corp", "corp.", "corporation", "company", "llc", "group"}
+                  "& co", "& co.", "& company", "and company", "co", "co.", "corp", "corp.", "corporation", "company", "llc", "group"}
 QUALIFIER = re.compile(r"\s*\([^()]*\)$")   # "Merck (MSD in some countries)": a note on the name, not the name
 
 
@@ -171,7 +171,8 @@ def merge_divisions(evals: list[QueryEvaluation]) -> None:
     on re-score."""
     bare = {c: QUALIFIER.sub("", c).strip() or c for e in evals for c in e.competitor_recommendations}
     alone = set(bare.values())
-    parts = {n: (ps if len(ps) == 2 and all(ps) and ps[0] != ps[1] and alone & set(ps) else [n])
+    parts = {n: (ps if len(ps) == 2 and all(ps) and ps[0] != ps[1] and alone & set(ps)
+                       and not {x.lower() for x in ps} & DIVISION_WORDS else [n])
              for n in alone for ps in [[x.strip() for x in re.split(r"\s+and\s+", n, maxsplit=1)]]}
     names = {x for ps in parts.values() for x in ps}
     parent = {n: min(ps, key=len) for n in names

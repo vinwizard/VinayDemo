@@ -148,3 +148,8 @@ def test_a_rival_site_says_whose_it_is_and_is_never_a_page_to_get_onto():
     row = next(r for r in src["sources"] if r["domain"] == "innovativemedicine.jnj.com")
     assert (row["kind"], row["rival"]) == ("rival", "Johnson & Johnson")
     assert row["domain"] not in src["rival_only"]
+    # two rivals sharing a key: the site is the one whose name it is, not whichever came last
+    buyer.competitor_recommendations = ["Merck", "Merck KGaA"]
+    next(x for x in run.answers if x.probe_id == buyer.probe_id).citations.append("https://www.merck.com/")
+    row = next(r for r in cited_sources(run)["sources"] if r["domain"].endswith("merck.com"))
+    assert row["rival"] == "Merck"

@@ -26,8 +26,8 @@ def test_fixture_plans_cover_every_target_and_move_no_number():
         run = run_for(scenario)
         assert (run.drift.claim_echo, run.drift.alignment) == (echo, align)
         assert {w.attribute_id for w in run.win_back} == {s.attribute_id for s in win_back.targets(run)}
-        # an authored fix that targets no question is kept and says so; nothing is dropped
-        assert all("cites none" in n for n in run.win_back_notes)
+        # an authored fix that targets no question is kept, never also listed as unconfirmed
+        assert run.win_back_notes == []
         assert all(w.provenance == "synthetic" for w in run.win_back)
 
 

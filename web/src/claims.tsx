@@ -152,7 +152,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
   const review = (attributeId: string, decision: "keep" | "set_aside") => {
     setSaving(true); setError(null);
     patchCompany(company.id, { weights: {}, added: [], review: { [attributeId]: decision } })
-      .then(load)
+      .then(onCompany)
       .catch((e: Error) => setError(e.message))
       .finally(() => setSaving(false));
   };

@@ -125,7 +125,11 @@ def cited_sources(run: Run) -> dict:
                     row["probes"].append(a.probe_id)
     rows = sorted(tally.values(), key=lambda r: -r["answers"])  # stable: ties keep first-seen order
     brand = set().union(*(domain_keys(n) for n in run.profile.names()))
-    owner = {k: name for r in rows for name in r["rivals"] for k in domain_keys(name) - brand}
+    named = {}
+    for name in (name for r in rows for name in r["rivals"]):
+        for k in domain_keys(name) - brand:
+            named.setdefault(k, set()).add(name)
+    owner = {k: min(ns, key=lambda n: (_key(n) != k, len(n), n)) for k, ns in named.items()}
     for r in rows:
         r["kind"] = source_kind(r["domain"], r["owned"], set(owner))
         labels = r["domain"].split("/")[0].split(".")

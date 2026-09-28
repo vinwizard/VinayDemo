@@ -136,9 +136,6 @@ def validate(raw, run: Run) -> tuple[list[WinBackAction], list[str]]:
             cited = list(dict.fromkeys(q for q in qids if asked.get(q) in ("not named", "named, not recommended")))
             # A fix is for a question: when the proposer cites none, it is for the claim's own ones.
             cited = cited or own_questions(run, aid)
-            if not cited:
-                dropped.append(f"{label}: kept, but no buyer question asked for it went without you, so it "
-                               "cites none.")
             kept[aid] = WinBackAction(
                 attribute_id=aid, label=s.label, zone=s.zone, page_url=url, current_copy=copy,
                 rewrite=rewrite, question_ids=cited,

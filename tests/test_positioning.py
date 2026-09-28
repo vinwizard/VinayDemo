@@ -176,3 +176,7 @@ def test_legal_suffixes_qualifiers_and_pairs_are_named_as_the_companies_they_are
         ["Merck", "Pfizer"], ["Merck", "Sanofi"], ["Sanofi", "Regeneron", "Merck", "CVS", "Procter and Gamble"]]
     merge_divisions(evals)  # idempotent
     assert evals[2].competitor_recommendations == ["Sanofi", "Regeneron", "Merck", "CVS", "Procter and Gamble"]
+    firms = [QueryEvaluation(probe_id="b5", valid=True, explanation="x",
+                             competitor_recommendations=["McKinsey & Company", "McKinsey", "Bain and Company", "Bain"])]
+    merge_divisions(firms)
+    assert firms[0].competitor_recommendations == ["McKinsey", "Bain"]

@@ -2143,7 +2143,7 @@
       "recommended": false,
       "negative_mention": false,
       "competitor_recommendations": [
-        "McKinsey & Company",
+        "McKinsey",
         "Boston Consulting Group",
         "Bain & Company",
         "Deloitte’s Monitor Deloitte"
@@ -2200,7 +2200,7 @@
       "recommended": false,
       "negative_mention": false,
       "competitor_recommendations": [
-        "McKinsey & Company",
+        "McKinsey",
         "Boston Consulting Group",
         "Bain & Company",
         "EY-Parthenon",
@@ -3941,7 +3941,7 @@
         "questions": 6,
         "repeat_sample": 1,
         "control_probe_id": "ctl-2",
-        "low_confidence": "Asked which companies lead in business growth strategies, the answering model named McKinsey & Company, Boston Consulting Group, Bain & Company, EY-Parthenon, Strategy& but not Amgen. It does not count Amgen among this category's leaders, so unbranded questions were unlikely to surface it: low confidence, not a finding about how buyers see Amgen.",
+        "low_confidence": "Asked which companies lead in business growth strategies, the answering model named McKinsey, Boston Consulting Group, Bain & Company, EY-Parthenon, Strategy& but not Amgen. It does not count Amgen among this category's leaders, so unbranded questions were unlikely to surface it: low confidence, not a finding about how buyers see Amgen.",
         "interval": [
           0.0,
           0.0
