@@ -1,4 +1,4 @@
-# Render Blueprint: one paid web service with a persistent disk. See "Deploy to Render" in README.md.
+# Render Blueprint: one paid web service with a persistent disk. See "Deploy to Render" in README.md and WEB.md.
 services:
   - type: web
     name: positioning-drift-demo

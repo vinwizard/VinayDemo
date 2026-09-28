@@ -69,7 +69,7 @@ Everything else has a working default. The full list, and what each one changes:
 | `BUYER_TRIES` | `3` | How many times each **repeat-sampled** question is asked. Every other question is asked once. |
 | `DATA_DIR` | bundled `data/` | Where runs, companies and the access database are kept. On Render, the mount path of a disk, or a redeploy wipes them. |
 | `VISEXP_PUBLIC_DEMO` | unset | Hosted demo: saved replays for everyone, live runs only for a pass holder. |
-| `SESSION_SECRET`, `ADMIN_PASSWORD`, `CONTACT_EMAIL` | — | Access passes and the admin page: README "Deploy to Render". |
+| `SESSION_SECRET`, `ADMIN_PASSWORD`, `CONTACT_EMAIL` | — | Access passes and the admin page: "Deploy to Render" below. |
 | `VISEXP_OFFLINE_REPLAY` | unset | Measuring the preloaded company replays the bundled sample instead of calling a model. |
 
 `MEASURED_MODEL` replaced `LIVE_MODEL`, which is no longer read: an old `.env` that still pins
@@ -252,7 +252,7 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /api/health` | liveness, whether live mode is usable for this browser (`live_available`) and whether a key is set on the server at all (`key_configured` — on the public demo a visitor without a pass sees the second true and the first false, and the page asks them to open their pass link rather than reporting a missing key), and `seed_company` — the id of the preloaded company, `showcase` — the company and run ids of the committed live example in History, and `contact_email` — where to ask for a pass or a higher cap (`CONTACT_EMAIL`), and `storage` — whether the pass database survives a redeploy (README "Deploy to Render") |
+| `GET /api/health` | liveness, whether live mode is usable for this browser (`live_available`) and whether a key is set on the server at all (`key_configured` — on the public demo a visitor without a pass sees the second true and the first false, and the page asks them to open their pass link rather than reporting a missing key), and `seed_company` — the id of the preloaded company, `showcase` — the company and run ids of the committed live example in History, and `contact_email` — where to ask for a pass or a higher cap (`CONTACT_EMAIL`), and `storage` — whether the pass database survives a redeploy ("Deploy to Render" below) |
 | `GET /api/stream?company=<id>` or `?scenario=A&mode=demo` | SSE while the graph runs: `node` (with `planned` question counts per stage, discovered `competitors` and the run `mode`), `answer` (the question, the first 320 characters of its answer, provenance and whether a web search ran), `done` (the full run), `error`. A company is always `mode=live`, apart from the offline fallback above. The page only ever measures companies; `?scenario=` remains for the fixture path |
 | `GET /api/runs` | run history, newest first |
 | `GET /api/runs/{id}` | one full run, including the drift report and its `insights` (share of voice, cited sources and the brands each was cited beside, searches); the stream's `done` event and `rescore` return the same shape |
@@ -452,6 +452,80 @@ statuses where the Markdown export prints them.
 Change a word in one of those label modules, not in a component. The ids themselves are untouched — the
 JSON export, `data/runs/` and the baseline hash are exactly what they were.
 
+## Deploy to Render
+
+[`render.yaml`](render.yaml) deploys the app as one paid web service with a persistent disk: the
+`Dockerfile` builds the web app and FastAPI serves it with the API on the same origin. It sets
+`VISEXP_PUBLIC_DEMO=1`, so a visitor **without a pass** gets History only: the two bundled Notion
+sample runs and the committed Amgen live run — no model calls, no cost. Live runs, onboarding and
+company edits are refused with a message saying so. The saved reports in History can be re-scored,
+and that is not saved, so one visitor cannot change what the next one sees. The two bundled scenarios
+are replayed once at startup so History is not empty.
+
+**Access passes** let chosen people run it live on your OpenAI key. Each pass has a name, a dollar
+cap and a personal link, `<site>/?pass=<code>`. Opening the link signs the browser in (an HttpOnly
+session cookie; the code leaves the address bar), after which the holder can onboard and measure
+companies live, sees a meter such as "$1.40 of $5.00 used", and sees only their own runs and companies
+— nobody else's, and none of the preloaded examples: the Notion company, the Amgen report and the
+sample runs are hidden, so the page opens on "Onboard your own company". Every run a pass makes,
+replay or live, is saved under `DATA_DIR` and owned by that pass, so it is back in History after a
+restart, a redeploy onto the same disk, or a new browser opened with the same link. Every OpenAI call is checked against the cap before it is
+made and charged afterwards from the usage OpenAI reports, at the dated per-model prices in
+[`access.py`](access.py); a call whose usage or model price is unknown is charged a deliberately high
+estimate, never zero. A run or onboarding that reaches the cap stops with a message and saves nothing.
+
+- **Admin**: `<site>/admin`, behind `ADMIN_PASSWORD`. It lists every pass — spent against cap, runs and
+  companies, first and last visit — and a log of recent visits (pass name, event, time; no IP
+  address). Create a pass with a name and cap, **Generate link** (the link stays in its row with a
+  **Copy link** button), **Regenerate link** (the old link and every session opened with it stop
+  working), **Set cap** to top up, **Revoke** to switch a pass off. A pass made before links were kept
+  shows "link hidden - regenerate to see it".
+- **Names**: [`passes.json`](passes.json) seeds `person 1` … `person 5` at $5 each. Edit a `label` there
+  and redeploy to rename someone; keep the `id`. A file's cap applies only when its pass is first
+  created — after that the admin page owns the cap. Seeding never deletes or resets a pass, so one
+  made in the admin page survives restarts like a seeded one. Codes are never in the repo, only in
+  the pass database on the disk.
+- **Contact**: visitors without a pass, pass holders and a capped pass are all told to email
+  `CONTACT_EMAIL` (default in [`access.py`](access.py)) for a link or a higher cap.
+
+1. Sign in at [render.com](https://render.com) with GitHub.
+2. **New → Blueprint**, pick this repository (grant Render access to it if it is not listed).
+3. Render asks for the secrets `render.yaml` leaves blank: `OPENAI_API_KEY` and `ADMIN_PASSWORD` (a
+   long one). `SESSION_SECRET` is generated for you; changing it signs every pass holder and the admin
+   out. **Apply**; the first build takes a few minutes.
+4. The Blueprint attaches a 1 GB persistent disk at `/var/data` and sets `DATA_DIR=/var/data`, so
+   passes, spend, the visit log, runs and companies — every pass holder's History — survive a redeploy. A disk needs a paid instance
+   (`plan: starter`), and a service with a disk cannot scale past one instance, which is what the pass
+   database expects.
+5. **Check your storage**: `<site>/api/health` must show `"storage": {"persistent": true, ...}`. If it
+   is `false`, the admin page shows a red banner (and the startup log a warning) saying why: passes
+   and every pass holder's runs then vanish on the next deploy. Fix it by giving the service a disk (Settings → Disks) and setting
+   `DATA_DIR` to exactly that disk's mount path, e.g. `/var/data`.
+6. Open `<site>/admin`, sign in, and **Generate link** for each person.
+
+**Tuning a live run**: set the variables in [Live mode](#live-mode) under Render → the service →
+Environment. Every one has a working default.
+
+`<site>/api/health` shows what is actually in force: `measured_model`, `evaluator_model`,
+`search_mode`, `forced_search`, `buyer_questions`, `repeat_sample` and `buyer_tries`. If OpenAI
+refuses the configured model or the live-search tool, the one preflight call steps down to
+`gpt-5-nano` — and, if that will not search either, to no search at all, with every answer marked
+ungrounded. It never substitutes a third model. `model_fallback` then says why, in the same words
+the run log and the report's caveats carry.
+
+Use a **separate OpenAI key for this demo**, in its own OpenAI project with a monthly budget set, as
+a backstop: the caps here are enforced by this app, and a budget on the key holds even if something
+here were wrong. Up to three calls of one run are in flight at once, so a pass can end a few cents
+over its cap.
+
+Check the production build locally first:
+
+```bash
+(cd web && npm ci && VITE_API= npm run build)
+VISEXP_PUBLIC_DEMO=1 SESSION_SECRET=dev ADMIN_PASSWORD=dev DATA_DIR=/tmp/vd python -m uvicorn api.main:app --port 8000
+curl localhost:8000/ && curl localhost:8000/api/companies
+```
+
 ## Not done yet
 
 - The onboard screen does not show the brand questions it will ask. Showing them would fit this
@@ -467,4 +541,4 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
   this one open
 - `/api/onboard` and `PATCH /api/companies/{id}` are unauthenticated, like the rest of the API
 - Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)
-- Production: `VITE_API= npm run build` makes a same-origin build in `web/dist`, which FastAPI serves when it exists (the `Dockerfile` and `render.yaml` do this — see README "Deploy to Render")
+- Production: `VITE_API= npm run build` makes a same-origin build in `web/dist`, which FastAPI serves when it exists (the `Dockerfile` and `render.yaml` do this — see "Deploy to Render" above)
