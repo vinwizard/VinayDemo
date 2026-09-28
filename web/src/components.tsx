@@ -16,7 +16,7 @@ import { GLOSSARY } from "./glossary";
 import { LINE, layoutMap } from "./maplabels";
 import { PHONE, Popover, Term } from "./popover";
 import { WhyAIMisses } from "./audit";
-import { WhatItRead } from "./why";
+import { WhatItRead, WhyPanel } from "./why";
 
 const ZONE_FILL: Record<Zone, string> = {
   landed: "var(--landed)",
@@ -579,7 +579,7 @@ export function Report({ run, onRescored }: {
             </>
           )}
           {tab === "questions" && <div className="qboard"><BuyerQuestions run={run} /><BrandQuestions run={run} /></div>}
-          {tab === "why" && <><WhatItSearched run={run} /><WhyAIMisses run={run} /><TestAFix run={run} reasks={reasks} onReasked={reasked} /></>}
+          {tab === "why" && <><WhyPanel run={run} /><WhatItSearched run={run} /><WhyAIMisses run={run} /><TestAFix run={run} reasks={reasks} onReasked={reasked} /></>}
           {tab === "sources" && (
             <>
               <CitationNetwork run={run} />

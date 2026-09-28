@@ -359,6 +359,8 @@ export interface ClaimedAttribute {
   intended_weight: number | null;
   added_by_user: boolean;
   note: string | null;
+  /** Found in the answers by the discovery pass; present on a run's attributes, absent on a company's. */
+  discovered?: boolean;
 }
 
 /** How one extracted claim fared against the company's own pages. Mirrors schemas.ClaimCheck. */
@@ -455,6 +457,8 @@ export interface Health {
   buyer_questions: number;
   repeat_sample: number;
   buyer_tries: number;
+  /** The most one why investigation may spend. */
+  why_budget_usd?: number;
 }
 
 export const getHealth = () => json<Health>("/api/health");
@@ -555,3 +559,48 @@ export const streamOnboard = (url: string, name: string, h: {
   onError?: (e: { message: string }) => void;
 }) => openStream(`/api/onboard/stream?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`,
                  { pages: h.onPages, company: h.onCompany }, "company", h.onError);
+
+/** One experiment on the recorded reading list (why.py). */
+export interface WhyArm {
+  id: string;
+  kind: "base" | "drop_source" | "drop_passage" | "edit" | "inject";
+  label: string; urls: string[]; text: string[]; hypothetical: boolean;
+  k: number; n: number;
+  effect: number | null;
+  /** 95% interval of the effect, corrected for every look and arm of the investigation. */
+  interval: [number, number] | null;
+  decided: "effect" | "no_effect" | "undecided" | "base";
+  quotes: string[];
+}
+export interface WhyVerdict {
+  kind: "caused_by" | "over_determined" | "prior_belief" | "not_in_reading" | "not_said" | "copy_fix"
+    | "authority_fix" | "not_movable" | "not_reproducible" | "undecided" | "budget";
+  text: string; arm_id: string | null; fix: "copy" | "authority" | "none" | null;
+}
+/** Why AI says (or does not say) one claim to one branded question, and what changes it. */
+export interface Investigation {
+  id: string; run_id: string; created_at: string; company: string; question: string; probe_id: string | null;
+  attribute_id: string; claim: string; term: string | null; model: string; judge: string;
+  provenance: "counterfactual_replay"; budget_usd: number; spent_usd: number;
+  status: "running" | "complete" | "stopped";
+  live: { k: number; n: number }; off: { k: number; n: number }; live_quotes: string[];
+  reading: ReadStep[]; arms: WhyArm[]; verdicts: WhyVerdict[]; log: string[];
+}
+
+export const getInvestigations = (runId: string) => json<Investigation[]>(`/api/runs/${runId}/why`);
+
+/** One why investigation as it runs: its budget first, then log lines, experiments and verdicts. */
+export const streamWhy = (runId: string, q: { attribute: string; probe?: string; question?: string; term?: string },
+  h: {
+    onStart?: (e: { budget_usd: number; question: string; model: string }) => void;
+    onLog?: (e: { text: string; spent_usd: number }) => void;
+    onArm?: (e: WhyArm) => void;
+    onVerdict?: (e: WhyVerdict) => void;
+    onDone?: (e: Investigation) => void;
+    onError?: (e: { message: string }) => void;
+  }) => {
+  const params = new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][]);
+  return openStream(`/api/runs/${runId}/why/stream?${params}`,
+                    { start: h.onStart, log: h.onLog, arm: h.onArm, verdict: h.onVerdict, done: h.onDone },
+                    "done", h.onError);
+};
