@@ -71,14 +71,20 @@ def attribute_leaks(text: str, attributes: list[Attribute]) -> list[str]:
     Asking "is Notion an AI-native workspace?" invites the model to agree, and the resulting echo
     measures the question, not the model's own view. This is the perception-axis analogue of
     `brand_leaks` and is just as load-bearing. Matched on stemmed content words in any order, so
-    "Does Amgen use AI…" leaks "Uses AI…" as surely as the exact phrase does.
+    "Does Amgen use AI…" leaks "Uses AI…" as surely as the exact phrase does, and stems are folded
+    further here only (ies/y, ie/y, es/s) so "technologies" leaks "technology".
+    Best-effort against rewordings: synonyms and other variants get through, and that is accepted
+    rather than answered with more rules.
     """
     from agents.evaluation import content_words   # evaluation imports this module
-    said = content_words(text)
+
+    def roots(s: str) -> set[str]:
+        return {re.sub(r"(?:ie|i|y|e|s)$", "", w) if len(w) > 4 else w for w in content_words(s)}
+    said = roots(text)
     hits = []
     for a in attributes:
         for phrase in [a.label, *a.aliases]:
-            if len(phrase) > 3 and (words := content_words(phrase)) and words <= said:
+            if len(phrase) > 3 and (words := roots(phrase)) and words <= said:
                 hits.append(a.id)
                 break
     return hits
