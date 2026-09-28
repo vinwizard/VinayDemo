@@ -148,6 +148,15 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
       .finally(() => setSaving(false));
   };
 
+  /** A flagged claim reviewed: keep measuring it, or set it aside (and restore it later). */
+  const review = (attributeId: string, decision: "keep" | "set_aside") => {
+    setSaving(true); setError(null);
+    patchCompany(company.id, { weights: {}, added: [], review: { [attributeId]: decision } })
+      .then(onCompany)
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setSaving(false));
+  };
+
   const intended = Object.values(weights).filter((w) => w > 0).length;
   const nothingToMeasure = !company.attributes.length && !draft.label.trim();
   const locked = saving || running;
@@ -187,7 +196,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
 
       <div className="claims">
         {company.attributes.map((a) => (
-          <div key={a.id} className={`claim ${(weights[a.id] ?? 0) > 0 ? "on" : ""}`}>
+          <div key={a.id} className={`claim ${(weights[a.id] ?? 0) > 0 ? "on" : ""}${a.set_aside ? " aside" : ""}`}>
             <div>
               <div className="claim-label">{a.label}</div>
               {a.description && <div className="desc">{a.description}</div>}
@@ -203,6 +212,19 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
                 <p className="quote">
                   {company.replay && <span className="tag sample">sample</span>} {a.claim_quotes[0]}
                 </p>
+              )}
+              {a.set_aside ? (
+                <div className="review">
+                  Set aside: kept on file, not measured.{" "}
+                  <button className="linky" disabled={fixed} onClick={() => review(a.id, "keep")}>Restore it</button>
+                </div>
+              ) : a.review && (
+                <div className="review">
+                  <strong>Needs your review.</strong> {a.review}{" "}
+                  <button className="linky" disabled={fixed} onClick={() => review(a.id, "keep")}>Keep it</button>
+                  {" · "}
+                  <button className="linky" disabled={fixed} onClick={() => review(a.id, "set_aside")}>Set it aside</button>
+                </div>
               )}
               {a.claim_quotes.length === 0 && (
                 <p className="muted" style={{ margin: ".3rem 0 0" }}>

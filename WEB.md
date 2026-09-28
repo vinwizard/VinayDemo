@@ -153,7 +153,9 @@ things make the buyer number trustworthy anyway:
 
 - **Visibility is measured on two fronts, side by side.** Brand questions are answered and read
   first (`graph.plan_brand` → `perceive`), then `graph.plan_buyer` asks buyer questions about two
-  categories, `BUYER_QUESTIONS` each (`ana.set_questions`):
+  categories, `BUYER_QUESTIONS` each (`ana.set_questions`), less one topic held back for every
+  claim the customer weighted (at most half the topics), so each weighted claim is asked its own
+  buyer questions and its Quick-wins fix can cite them:
   **where AI places you** — the attribute, claimed or discovered, that the most valid brand answers
   endorsed (`ana.placed_attribute`; ties go to the claim stated on more pages; its questions are the
   claim's own, topped up by the onboarding model) — and **where you aim to be**, the site's core
@@ -257,7 +259,7 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 | `POST /api/runs/{id}/reask` | test a fix: `{probe_id}` asks that buyer question once more, with the rewritten passage and the cited page's passage as the only sources, and saves whether the brand was named on its retrieval row. One metered model call; live runs only, refused on the public demo without a pass. A simulation that moves no score |
 | `POST /api/runs/{id}/rescore` | lens 2 after the fact: `{weights: {id: 0..1}}` sets intent on a finished run and re-scores its saved answers — no provider is built and no model is asked. Unnamed weights keep their value; 0 unweights; with nothing weighted the run reads through the claim lens again. Saved in place, except in the public demo (`VISEXP_PUBLIC_DEMO`) and for the committed live example (`SHOWCASE_RUN`) |
 | `GET /api/onboard/stream?url=&name=` | the same onboarding as SSE: `pages` (the URLs the crawl fetched) as soon as the crawl lands, then `company` once extraction is saved, or `error`. The page uses this one |
-| `GET /api/onboard?url=&name=` | Agent 1: crawl up to 6 of a company's own pages, extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. Needs the same key as live mode. A company is always saved, never refused: a site where fewer than three claims survive quote validation carries a prominent warning that it states too little for a reliable claim percentage, and the existing insufficient-evidence rules withhold the scores rather than the company |
+| `GET /api/onboard?url=&name=` | Agent 1: crawl up to 8 of a company's own pages (`CRAWL_PAGES`), extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. Needs the same key as live mode. A company is always saved, never refused: a site where fewer than three claims survive quote validation carries a prominent warning that it states too little for a reliable claim percentage, and the existing insufficient-evidence rules withhold the scores rather than the company |
 | `GET /api/companies` · `GET /api/companies/{id}` | onboarded companies, newest first, and one in full |
 | `PATCH /api/companies/{id}` | the customer's own input: `{weights: {id: 0..1}, added: [{label, description, intended_weight}]}`. Intent arrives only here (or on `rescore`) — never derived from their copy, and a weight of 0 leaves an extracted attribute unintended. Weights are optional: a company measured with none runs the claim lens. An **added** claim is intended by construction, so its weight cannot go below 0.1 |
 | `POST /api/access/exchange` · `GET /api/access` | access passes on the hosted demo (`access.py`): `{code}` from a personal link `/?pass=<code>` becomes an HttpOnly session cookie; `GET` is the holder's meter (`{pass: {label, spent_usd, cap_usd, capped}}` or `{pass: null}`). With a pass, live runs and onboarding are allowed on the public demo, charged to the pass, every run it makes (replay or live) is saved under `DATA_DIR`, and runs and companies are listed only to the pass that made them — a pass sees none of the shared preloaded ones. `/admin` (behind `ADMIN_PASSWORD`) creates passes, shows each link once, and tops up or revokes. Cookies are same-origin, so passes work on the production build, not across the Vite dev port |
@@ -268,18 +270,24 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 
 The page has two tabs, Onboard and History. Two committed examples ship with every clone:
 `data/companies/5eed0001.json`, a real onboarding of notion.com with an example set of intent weights,
-reopened from step 1 of Onboard; and `data/runs/0c55be2792.json`, a real live run of amgen.com
-(`data/companies/3afc276406.json` its onboarding), listed in History and labelled as measured live
+reopened from step 1 of Onboard; and `data/runs/cb67186167.json`, a real live run of amgen.com on
+`gpt-6-luna` (28 Sep 2026; `data/companies/b5aced577f.json` its onboarding), listed in History and labelled as measured live
 with its date. Opening that run asks no model; re-weighting it re-scores in the page but never
 rewrites the committed file (`SHOWCASE_RUN` in `api/main.py`). On the hosted demo a visitor without a
 pass cannot onboard, so the page opens on History; a pass holder sees neither example, only their own
 work, starting on Onboard.
 
 - **Onboard your own company** — one workflow on one screen, seven stages that complete in order:
-  read their site (the pages fetched), extract what they claim (claims kept, each with its verbatim
-  quote and page count, and a "How we checked these claims" panel listing each extracted claim once:
-  left out because no quote was found on their pages, left out for another reason, or kept with some
-  quotes removed), optionally choose what you want to be known for (the zero-floor intent
+  read their site (the homepage and up to seven same-site pages chosen by what they are — about,
+  mission and values, what it offers, "why us", the newsroom's own page, then customers, pricing,
+  enterprise — from the homepage's links and their words, topped up from `/sitemap.xml`; never a
+  story, blog post, campaign, careers or legal page: `fetching.positioning_links`), extract what they
+  claim (claims kept, each with its verbatim quote — matched with case, apostrophes, quotation marks,
+  dashes and spacing forgiven, stored as the page spells it — and page count, and a "How we checked
+  these claims" panel listing each extracted claim once: left out because no quote was found on
+  their pages, left out for another reason, or kept with some quotes removed; a claim whose
+  statement leans on marketing words is never dropped for them: it is kept, measured and marked
+  "Needs your review", and the customer keeps it or sets it aside, and can restore one set aside), optionally choose what you want to be known for (the zero-floor intent
   sliders and the add-your-own row), ask buyer questions, ask brand questions, follow up on products AI named, and
   score. Each stage is driven by the stream's events, shows what it actually did, and lists every
   answer as it arrives; a finished stage folds to a one-line summary. The report appears beneath
@@ -324,7 +332,8 @@ work, starting on Onboard.
   - **Quick wins** (the tab once called Win it back; its badge and the pinned figure count the
     claims with room to grow: claims to win back plus claims to amplify) — the action plan (per claim, the page of theirs to
     change, a suggested rewrite and the buyer questions that did not recommend them which it should
-    help with — one evaluator-model call at the end of a live run over the saved answers and pages,
+    help with, or when the proposer names none, the claim's own buyer questions that did not
+    recommend them — one evaluator-model call at the end of a live run over the saved answers and pages,
     authored and labelled sample in replay; `agents/win_back.py` drops any action whose page was
     not read, whose replaced copy is not verbatim on it, whose rewrite is marketing language, or
     whose question was not asked, and says why in a plain sentence under "Suggestions we could not
@@ -381,7 +390,9 @@ work, starting on Onboard.
     on the biggest fixable gap.
   - **Sources & rivals** — the **citation network**, headed by its finding ("AI cited 6 sites
     beside your rivals, never beside Notion"; collapsed on a phone): the third-party sites (not the
-    brand's or a rival's own) cited in counted buyer answers that named a rival and never mentioned the brand, ranked by buyer answers citing
+    brand's or a rival's own — a rival's own site is recognised from its name, whole, first or last
+    word, or initials, so jnj.com and innovativemedicine.jnj.com are Johnson & Johnson's:
+    `insights.domain_keys`) cited in counted buyer answers that named a rival and never mentioned the brand, ranked by buyer answers citing
     each then rivals beside it, each with its rivals' initials and opening in place to the answers
     that cited it; a citation map joining brands to the sites cited beside them (plain SVG, wide
     screens only); and every cited site with its type (own, rival's, review, community, media,
@@ -393,9 +404,10 @@ work, starting on Onboard.
     wants to be (the claims weighted, by weight) or, with no weights, where its site aims (its
     positioning points), and up to six rivals as the buyer-answer sentences naming them describe
     them, each the mean embedding of its sentences; a rival named as a division of another it names
-    ("Johnson & Johnson Innovative Medicine" beside "Johnson & Johnson") counts as that company
-    only when the rest of its name is a known division or legal suffix, so "Merck KGaA" stays apart
-    from "Merck" (`evaluation.merge_divisions`). Each axis is one of the company's own claims, so it is always
+    ("Johnson & Johnson Innovative Medicine" beside "Johnson & Johnson", "Merck & Co." beside
+    "Merck") counts as that company only when the rest of its name is a known division or legal
+    suffix, so "Merck KGaA" stays apart from "Merck"; a trailing "(qualifier)" is dropped, and "X and
+    Y" is two companies when either is also named alone and neither is such a suffix (`evaluation.merge_divisions`). Each axis is one of the company's own claims, so it is always
     named, in the chart above and below the plot: across, how strongly a dot's sentences talk
     about the claim weighted highest (with no weights, the one the dots spread along most); up, the
     claim the dots differ on most once the first is taken out. Every dot carries its own full name

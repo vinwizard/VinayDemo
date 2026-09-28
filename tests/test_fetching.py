@@ -141,15 +141,13 @@ def test_malformed_html_still_yields_text():
 
 
 # --- link discovery ----------------------------------------------------------
-def test_only_same_origin_useful_links_are_followed():
+def test_only_same_origin_positioning_pages_are_followed():
     html = ('<a href="/product/ai">ai</a>'
             '<a href="https://other.example.com/product">off-site</a>'
             '<a href="/careers">careers</a>'
             '<a href="/enterprise">enterprise</a>')
-    links = fetching.same_origin_links("https://example.com/", html, limit=5)
+    links = fetching.positioning_links("https://example.com/", html, limit=5)
     assert links == ["https://example.com/product/ai", "https://example.com/enterprise"]
-    assert not any("other.example.com" in l for l in links)
-    assert not any("careers" in l for l in links)
 
 
 def test_stylesheets_are_not_pages_and_keywords_match_whole_words():
@@ -159,18 +157,66 @@ def test_stylesheets_are_not_pages_and_keywords_match_whole_words():
             '<a data-href="/about/ignored" href="/-/media/Themes/CorporateAffairs/brochure">brochure</a>'
             '<a class="nav" href="/about/therapy-areas">Therapy areas</a>'
             '<a href="/ai-and-data-science">AI</a>')
-    assert fetching.same_origin_links("https://www.amgen.com/", html, limit=5) == [
+    assert fetching.positioning_links("https://www.amgen.com/", html, limit=5) == [
         "https://www.amgen.com/about/therapy-areas", "https://www.amgen.com/ai-and-data-science"]
 
 
-def test_one_page_per_site_section_before_a_second_from_the_same_one():
+def test_one_page_of_each_kind_before_a_second_of_any():
     # amgen.com's first five matching links were all under /about/, so the page listing its
     # medicines (/products) was never read and its own products could not count as mentions.
-    html = "".join(f'<a href="/about/{p}">x</a>' for p in ("history", "values", "leadership", "partners"))
-    html += '<a href="/products">Products</a><a href="/about/awards">x</a>'
-    assert fetching.same_origin_links("https://www.amgen.com/", html, limit=3) == [
-        "https://www.amgen.com/about/history", "https://www.amgen.com/products",
-        "https://www.amgen.com/about/values"]
+    html = "".join(f'<a href="/about/{p}">x</a>' for p in ("history", "leadership", "partners"))
+    html += '<a href="/products">Products</a><a href="/about/awards">x</a><a href="/about/mission-and-values">x</a>'
+    assert fetching.positioning_links("https://www.amgen.com/", html, limit=4) == [
+        "https://www.amgen.com/about/history", "https://www.amgen.com/about/mission-and-values",
+        "https://www.amgen.com/products", "https://www.amgen.com/about/leadership"]
+
+
+# amgen.com, 22 Sep 2026: a URL keyword ("why") sent the six-page crawl to a MrBeast press story and a
+# deep R&D page, while its mission and newsroom pages went unread.
+AMGEN_NAV = ('<a href="/about">About</a><a href="/about/amgen-history">Amgen History</a>'
+             '<a href="/about/mission-and-values">Mission and Values</a>'
+             '<a href="/science/research-and-development-strategy/ai-in-research-and-development">AI in R&amp;D</a>'
+             '<a href="/products">Products</a>'
+             '<a href="/stories/2026/07/why-mrbeast-stand-up-to-cancer-and-amgen-joined-forces-to-support-'
+             'pediatric-cancer-research">Why MrBeast joined forces</a>'
+             '<a href="/newsroom">Newsroom</a><a href="/newsroom/press-releases/2026/08/amgen-q2">Q2</a>'
+             '<a href="/careers">Careers</a><a href="/privacy-statement">Privacy</a>')
+
+
+def test_pages_are_picked_by_what_they_are_not_by_a_word_in_their_url():
+    links = fetching.positioning_links("https://www.amgen.com/", AMGEN_NAV, limit=7)
+    assert links == ["https://www.amgen.com/about", "https://www.amgen.com/about/mission-and-values",
+                     "https://www.amgen.com/products", "https://www.amgen.com/newsroom",
+                     "https://www.amgen.com/about/amgen-history"]
+    assert not any(x in u for u in links for x in ("stories", "press-releases", "careers", "science"))
+
+
+@pytest.mark.parametrize("path,text,kind", [
+    ("/why-linear", "", "why"), ("/ai", "", "ai"), ("/our-story", "", "about"),
+    ("/what-we-do", "", "offer"), ("/company/leadership", "Our purpose", "about"),
+    ("/team/charter", "Our mission", "mission"), ("/blog/why-we-built", "", None),
+    ("/changelog/2026-09-14-loops", "", None), ("/newsroom/amgen-wins", "", None),
+])
+def test_page_kind(path, text, kind):
+    assert fetching.page_kind(path, text) == kind
+
+
+def test_a_homepage_with_too_few_links_is_topped_up_from_the_sitemap(monkeypatch):
+    home = '<html><body><p>Acme makes contracts searchable.</p><a href="/about">About</a></body></html>'
+    sitemap = ("<urlset><url><loc>https://acme.example/blog/2026/launch</loc></url>"
+               "<url><loc>https://acme.example/products</loc></url>"
+               "<url><loc>https://acme.example/mission</loc></url></urlset>")
+    fetched = []
+
+    def raw(url, timeout=10, types=("html", "text")):
+        fetched.append(url)
+        return url, sitemap if url.endswith("sitemap.xml") else home
+    monkeypatch.setattr(fetching, "fetch_raw", raw)
+    monkeypatch.setattr(fetching, "fetch", lambda url: (url, "Acme page text."))
+    pages, _ = fetching.fetch_site("https://acme.example/", max_pages=8)
+    assert [u for u, _ in pages] == ["https://acme.example/", "https://acme.example/about",
+                                     "https://acme.example/mission", "https://acme.example/products"]
+    assert "https://acme.example/sitemap.xml" in fetched
 
 
 def test_a_page_must_be_html_though_robots_txt_may_be_plain_text(monkeypatch):

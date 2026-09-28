@@ -325,9 +325,12 @@ def owner(kind: str, item_id: str) -> Optional[str]:
     return row["pass_id"] if row else None
 
 
-# The retired Profound showcase (its run, then its company). Earlier releases copied them into
-# DATA_DIR, and a persistent disk still holds them; they stay on disk and are never listed or served.
-RETIRED = {"8d1d78c3e6", "998420ffae"}
+# Retired committed examples, each a run then its company: the Profound showcase, and the first Amgen
+# run, whose saved rival names had been edited by hand and could not be reproduced by the code.
+# Earlier releases copied them into DATA_DIR, and a persistent disk still holds them; they stay on
+# disk and are never listed or served.
+RETIRED_EXAMPLES = (("8d1d78c3e6", "998420ffae"), ("0c55be2792", "3afc276406"))
+RETIRED = {i for pair in RETIRED_EXAMPLES for i in pair}
 
 
 def visible(kind: str, item_id: str, pass_id: Optional[str]) -> bool:

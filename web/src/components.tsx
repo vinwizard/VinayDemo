@@ -1389,7 +1389,7 @@ function CitationNetwork({ run }: { run: Run }) {
           <tbody>
             {s.sources.map((r) => (
               <tr key={r.domain}>
-                <td><strong>{r.domain}</strong><br /><span className="muted">{KIND_LABEL[r.kind] ?? "other site"}</span></td>
+                <td><strong>{r.domain}</strong><br /><span className="muted">{r.rival ? `${r.rival}'s site` : KIND_LABEL[r.kind] ?? "other site"}</span></td>
                 <td>{r.answers}<br /><span className="muted">{r.buyer} buyer · {r.brand} brand</span></td>
                 <td className="muted">
                   {[...(r.with_brand ? [`${brand} (${r.with_brand})`] : []),
@@ -1961,7 +1961,8 @@ function FixCard({ a, run }: { a: WinBackAction; run: Run }) {
       {a.question_ids.length ? (
         <ul style={{ margin: 0 }}>
           {a.question_ids.map((q) => (
-            <li key={q}><QRef id={q} run={run} />: {probes.get(q)?.text}</li>
+            // the question first: a long question name is a button, and a wrapped button sits above its bullet
+            <li key={q}>{probes.get(q)?.text} <span className="muted">(<QRef id={q} run={run} />)</span></li>
           ))}
         </ul>
       ) : (

@@ -311,11 +311,12 @@ def test_a_pass_holders_runs_survive_a_restart_and_a_new_session(env, tmp_path):
 
 
 @pytest.mark.parametrize("public", [True, False])
-def test_the_retired_profound_showcase_left_on_a_disk_is_never_listed_or_served(env, tmp_path, monkeypatch, public):
+@pytest.mark.parametrize("old_run,old_company", access.RETIRED_EXAMPLES)
+def test_a_retired_example_left_on_a_disk_is_never_listed_or_served(env, tmp_path, monkeypatch, public,
+                                                                    old_run, old_company):
     if not public:
         monkeypatch.delenv(access.PUBLIC_ENV)
     preload_examples(tmp_path)
-    old_run, old_company = sorted(access.RETIRED)
     for kind, item, like in (("runs", old_run, main.SHOWCASE_RUN), ("companies", old_company, main.SHOWCASE_COMPANY)):
         body = json.loads((reports.BUNDLED / kind / f"{like}.json").read_text())
         (tmp_path / kind / f"{item}.json").write_text(json.dumps(body | {"id": item}))

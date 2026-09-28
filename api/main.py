@@ -13,7 +13,7 @@ import threading
 import traceback
 import uuid
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator, Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -76,8 +76,8 @@ SEED_COMPANY = "5eed0001"
 OFFLINE_ENV = "VISEXP_OFFLINE_REPLAY"
 # The committed live example: a real live run of amgen.com (and its onboarding), committed so every
 # clone and the public demo have one measured report in History. Never rewritten in place.
-SHOWCASE_COMPANY = "3afc276406"
-SHOWCASE_RUN = "0c55be2792"
+SHOWCASE_COMPANY = "b5aced577f"
+SHOWCASE_RUN = "cb67186167"
 OFFLINE_FIXED = "offline replay: the bundled sample's claims and weights are fixed"
 
 
@@ -327,7 +327,7 @@ def get_run(run_id: str, request: Request = None):
         raise HTTPException(404, f"run {run_id} not found")
 
 
-CRAWL_PAGES = 6
+CRAWL_PAGES = 8  # the homepage and up to seven pages that say how the company positions itself
 
 
 def vet_questions(profile, attributes: list[Attribute]) -> list[str]:
@@ -435,7 +435,8 @@ def company_payload(c: Company) -> dict:
                          claim_quotes=a.claim_quotes, claim_pages=a.claim_pages,
                          claim_pages_total=a.claim_pages_total,
                          buyer_questions=a.buyer_questions, intended_weight=a.intended_weight,
-                         added_by_user=a.added_by_user, note=a.note)
+                         added_by_user=a.added_by_user, note=a.note,
+                         review=a.review, set_aside=a.set_aside)
                     for a in c.attributes],
         warnings=c.warnings, checks=[k.model_dump() for k in c.checks], replay=offline_seed(c.id),
         audit=c.audit.model_dump() if c.audit else None)
@@ -531,6 +532,9 @@ class CompanyPatch(BaseModel):
     added: list[AddedAttribute] = []
     # None leaves it alone; "" clears it. A correction, so its buyer questions are written again.
     core_category: Optional[str] = Field(default=None, max_length=80)
+    # A flagged claim, reviewed: "keep" measures it and clears the flag (and restores one set aside);
+    # "set_aside" keeps it on file but stops measuring it.
+    review: dict[str, Literal["keep", "set_aside"]] = {}
 
 
 def added_buyer_questions(company: Company, raw: AddedAttribute) -> tuple[list[str], list[str]]:
@@ -702,8 +706,15 @@ def patch_company(company_id: str, patch: CompanyPatch, request: Request = None)
     c = _company(company_id)
     check_weights(c.attributes, patch.weights)
     by_id = {a.id: a for a in c.attributes}
+    if unknown := [aid for aid in patch.review if aid not in by_id]:
+        raise HTTPException(400, f"unknown attribute {unknown[0]!r}")
     for aid, weight in patch.weights.items():
         by_id[aid].intended_weight = round(weight, 2) or None
+    for aid, decision in patch.review.items():
+        a = by_id[aid]
+        a.set_aside = decision == "set_aside"
+        if decision == "keep":
+            a.review = None
     if patch.core_category is not None and patch.core_category.strip() != (c.profile.core_category or ""):
         if leaks := brand_leaks(patch.core_category, c.profile):
             raise HTTPException(400, f"The core category names you ({', '.join(leaks)}). Describe what "

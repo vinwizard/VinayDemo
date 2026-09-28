@@ -121,6 +121,38 @@ def test_patch_rejects_an_unknown_attribute(store):
     assert e.value.status_code == 400
 
 
+def flagged_company():
+    return mk_company(attrs=[
+        Attribute(id="fast", label="Fast to set up", claim_evidence_ids=["pg1"], claim_quotes=["set up in minutes"],
+                  claim_pages=1, claim_pages_total=1),
+        Attribute(id="novel", label="Innovative medicines", claim_evidence_ids=["pg1"],
+                  claim_quotes=["delivers innovative medicines"], claim_pages=1, claim_pages_total=1,
+                  review="Its statement leans on marketing language (innovative) …")])
+
+
+def test_a_flagged_claim_is_measured_until_set_aside_and_can_be_restored(store):
+    reports.save_company(flagged_company())
+    measured = lambda: [a.id for a in CompanyProvider(reports.load_company("abc123")).attributes()]
+    assert measured() == ["fast", "novel"]               # flagged, not dropped: it is measured
+    out = main.patch_company("abc123", main.CompanyPatch(review={"novel": "set_aside"}))
+    novel = next(a for a in out["attributes"] if a["id"] == "novel")
+    assert novel["set_aside"] and novel["review"]        # on file, reason kept, no longer measured
+    assert measured() == ["fast"]
+    assert all("innovative" not in p.text.lower()
+               for p in CompanyProvider(reports.load_company("abc123")).named_probes())
+    out = main.patch_company("abc123", main.CompanyPatch(review={"novel": "keep"}))
+    novel = next(a for a in out["attributes"] if a["id"] == "novel")
+    assert not novel["set_aside"] and novel["review"] is None   # restored and reviewed
+    assert measured() == ["fast", "novel"]
+
+
+def test_reviewing_an_unknown_claim_is_refused(store):
+    reports.save_company(flagged_company())
+    with pytest.raises(HTTPException) as e:
+        main.patch_company("abc123", main.CompanyPatch(review={"nope": "keep"}))
+    assert e.value.status_code == 400
+
+
 # ---------------------------------------------------------------- discovered competitors
 def te(topic_id, competitors, phase="baseline"):
     return TopicEvaluation(topic_id=topic_id, phase=phase, provenance="live_api", n=3, excluded=0,
