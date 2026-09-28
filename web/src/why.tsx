@@ -126,11 +126,15 @@ export function InvestigationCard({ inv }: { inv: Investigation }) {
           {base && base.n > 0 && <> · {base.k} of {base.n} (<b>{share(base.k, base.n)}</b>) when its reading list is{" "}
             <Term k="replay_experiment">replayed</Term></>}
         </dd>
-        <dt>Belief</dt>
-        <dd>
-          With web search off: {inv.off.k} of {inv.off.n}.{" "}
-          {inv.off.k ? "The model already believes it." : "Not something it says from memory: it comes from search."}
-        </dd>
+        {inv.off.n > 0 && (
+          <>
+            <dt>Belief</dt>
+            <dd>
+              With web search off: {inv.off.k} of {inv.off.n}.{" "}
+              {inv.off.k ? "The model already believes it." : "Not something it says from memory: it comes from search."}
+            </dd>
+          </>
+        )}
         {cause && (
           <>
             <dt>Because of</dt>
@@ -159,7 +163,7 @@ export function InvestigationCard({ inv }: { inv: Investigation }) {
           </>
         )}
       </dl>
-      <details className="why-arms">
+      {inv.arms.length > 0 && <details className="why-arms">
         <summary>{plural(inv.arms.length - 1, "experiment")} · <Term k="effect_interval">effect</Term> with its 95% interval</summary>
         <div className="tablewrap">
           <table>
@@ -177,7 +181,7 @@ export function InvestigationCard({ inv }: { inv: Investigation }) {
             </tbody>
           </table>
         </div>
-      </details>
+      </details>}
       <p className="muted why-foot">
         {PROVENANCE_LABEL.counterfactual_replay}: it never moves a score. {inv.model}, judged by {inv.judge} ·
         spent ${inv.spent_usd.toFixed(2)} of ${inv.budget_usd.toFixed(2)}

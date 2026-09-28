@@ -274,6 +274,7 @@ def test_it_stops_at_its_budget(monkeypatch):
     inv = investigate(fake, DEBT, STRENGTHS["question"], "debt")
     assert inv.status == "stopped" and inv.verdicts[-1].kind == "budget" and inv.budget_usd == 0.05
     assert not fake.calls   # refused before the first live call, whose estimate alone is over
+    assert "0 experiment(s) ran" in inv.verdicts[-1].text   # never a negative count
 
 
 def test_spend_is_counted_from_reported_usage():

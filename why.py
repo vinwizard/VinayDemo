@@ -383,7 +383,7 @@ class Agent:
                 self.test_fixes()
             return self.finish("complete")
         except OverBudget:
-            self.verdict("budget", f"Stopped at the ${inv.budget_usd:.2f} budget: {len(inv.arms) - 1} experiment(s) "
+            self.verdict("budget", f"Stopped at the ${inv.budget_usd:.2f} budget: {max(0, len(inv.arms) - 1)} experiment(s) "
                                    "ran; what is below is as far as they got.")
             return self.finish("stopped")
 
