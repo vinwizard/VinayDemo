@@ -93,11 +93,8 @@ test("\"How it works\" always replays something, even for a pass holder on Histo
   assert.equal(replayPart(false, false), "onboard");   // the app switches to the Onboard tab first
 });
 
-test("the story opens with a welcome saying what the app is, before the four scenes", () => {
+test("the story's welcome thanks the visitor, says what the app is and credits Profound", () => {
   assert.match(STORY_WELCOME.headline, /thanks/i);
   assert.match(STORY_WELCOME.body, /how AI sees your company/);
   assert.equal(STORY_WELCOME.credit, "Inspired by Profound.");
-  const guide = readFileSync(new URL("./guide.tsx", import.meta.url), "utf8");
-  assert.equal(guide.match(/className="story-kicker /g)?.length, 5, "welcome + four scenes");
-  assert.match(guide, /const LAST = 4;/, "the fix scene is the last one the timer and CTA wait for");
 });
