@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 import access
 import audit
+from why import budget as why_budget
 import demand
 import fetching
 import graph
@@ -38,6 +39,7 @@ from config import load_env, redacted_status
 from providers import fixture, live
 from providers.company import CompanyProvider
 from api import admin
+from api import why as why_api
 from reports import RUNS, list_companies, load_company, load_run, save_company, save_run
 from schemas import Attribute, Company
 
@@ -795,6 +797,7 @@ def health(request: Request = None):
             "forced_search": live.TOOL_CHOICE != "auto",
             "buyer_questions": set_questions(), "repeat_sample": live.repeat_sample(),
             "buyer_tries": live.buyer_tries(),
+            "why_budget_usd": why_budget(),
             # a model grading its own output has a self-preference bias worth surfacing
             "same_model_warning": bool(measured and evaluator and measured == evaluator)}
 
@@ -846,6 +849,7 @@ if access.configured():
     if not (store := access.storage())["persistent"]:
         print(f"WARNING: passes and runs will not survive a redeploy. {store['reason']} {access.STORAGE_FIX}", flush=True)
 app.include_router(admin.router)
+app.include_router(why_api.router)
 
 # Production: serve the built web app from the same origin (render.yaml builds it with VITE_API="").
 # Mounted last so every /api route above wins.

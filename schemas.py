@@ -6,7 +6,9 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, model_validator
 
 SCHEMA_VERSION = 1
-Provenance = Literal["synthetic", "web_research_snapshot", "live_api"]
+# counterfactual_replay: an answer to a recorded reading list the why agent changed (why.py). An
+# experiment, never a measurement: it lives only in an Investigation and is never scored.
+Provenance = Literal["synthetic", "web_research_snapshot", "live_api", "counterfactual_replay"]
 SYNTHETIC_PROVIDERS = {None, "fixture"}
 
 
@@ -569,3 +571,63 @@ class Run(BaseModel):
     audit: Optional[SiteAudit] = None
     log: list[str] = []
     status: str = "planned"
+
+
+class WhyRate(BaseModel):
+    """How many of n answers stated the claim."""
+    k: int = 0
+    n: int = 0
+
+
+class WhyArm(BaseModel):
+    """One experiment on the recorded reading list, re-asked with search off until decided."""
+    id: str
+    kind: Literal["base", "drop_source", "drop_passage", "edit", "inject"]
+    label: str                                  # plain words: what was changed
+    urls: list[str] = []                        # the pages it touched
+    text: list[str] = []                        # lines removed, or the copy put in
+    hypothetical: bool = False                  # edited or injected copy: not what the page says today
+    k: int = 0
+    n: int = 0
+    effect: Optional[float] = None              # this arm's rate minus the base rate
+    interval: Optional[list[float]] = None      # 95% interval of the effect, the whole investigation corrected
+    decided: Literal["effect", "no_effect", "undecided", "base"] = "undecided"
+    quotes: list[str] = []                      # a few verbatim sentences that stated the claim
+
+
+class WhyVerdict(BaseModel):
+    kind: Literal["caused_by", "over_determined", "prior_belief", "not_in_reading", "not_said", "copy_fix",
+                  "authority_fix", "not_movable", "not_reproducible", "undecided", "budget"]
+    text: str
+    arm_id: Optional[str] = None
+    fix: Optional[Literal["copy", "authority", "none"]] = None
+
+
+class Investigation(BaseModel):
+    """Why AI says (or does not say) one claim to one branded question, and what changes it (why.py).
+
+    `live` and `off` are real asks, search on and off; every arm is a counterfactual replay of
+    `reading`, the reading list one live answer was built from. None of it feeds a run's scores."""
+    id: str
+    schema_version: int = SCHEMA_VERSION
+    run_id: str
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
+    company: str
+    question: str
+    probe_id: Optional[str] = None
+    attribute_id: str
+    claim: str
+    term: Optional[str] = None              # a literal word that counts as stating it; else the evaluator judges
+    model: str
+    judge: str
+    provenance: Literal["counterfactual_replay"] = "counterfactual_replay"
+    budget_usd: float
+    spent_usd: float = 0.0
+    status: Literal["running", "complete", "stopped"] = "running"
+    live: WhyRate = WhyRate()
+    off: WhyRate = WhyRate()
+    live_quotes: list[str] = []
+    reading: list[ReadStep] = []
+    arms: list[WhyArm] = []
+    verdicts: list[WhyVerdict] = []
+    log: list[str] = []
