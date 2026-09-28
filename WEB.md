@@ -164,8 +164,8 @@ things make the buyer number trustworthy anyway:
   **where AI places you** — the attribute, claimed or discovered, that the most valid brand answers
   endorsed (`ana.placed_attribute`; ties go to the claim stated on more pages; one discovery marked
   `business`, about the company's stock, revenue, cash or size rather than what it sells, is never
-  placed; its questions are the claim's own, topped up by the onboarding model) — and **where you aim to be**, the site's core
-  category (`profile.core_category`, named at onboarding from the one-line description, blind
+  placed; its questions are the claim's own, topped up by the onboarding model) — and **where you
+  aim to be**, the site's core category (`profile.core_category`, named at onboarding from the one-line description, blind
   questions written for it, correctable on the claims screen). Each front has its own visibility,
   repeat sample, wobble and control question (`drift.sets`), and `drift.visibility_gap` is placed minus
   aiming: "known for AI search visibility, not yet seen as an AI marketing platform" is the finding.
