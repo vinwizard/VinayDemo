@@ -812,7 +812,8 @@ def health(request: Request = None):
             # every measured call is made with tool_choice forcing the web_search tool
             "forced_search": live.TOOL_CHOICE != "auto",
             # sampler-lite (sampler.py): each front's margin at 95%, its two looks, the wobble re-asks
-            "buyer_questions": set_questions(), "target_margin": sampler.margin(),
+            "buyer_questions": set_questions(), "max_buyer_questions": graph.max_baseline(),
+            "target_margin": sampler.margin(),
             "looks": list(sampler.looks()), "wobble_audit": sampler.wobble_audit(),
             "run_budget_usd": sampler.run_budget(),
             "why_budget_usd": why_budget(),

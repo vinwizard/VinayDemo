@@ -492,6 +492,7 @@ class Agent:
         if not copy:
             self.note("No rewrite or site quote to test for this claim, so copy and authority were not tested.")
             return
+        yours = "your rewrite" if self.rewrite else "your own copy"
         results = []
         if mine:
             # the copy question is "does a page AI reads, and that does not say it yet, move it if it
@@ -500,8 +501,9 @@ class Agent:
             silent = [u for u in mine if not any(says(r.text) for s in inv.reading for r in s.results if r.url == u)]
             pool = silent or mine
             target = next((u for u in pool if u in self.cited), pool[0])
-            arm = self.add(WhyArm(id=f"a{len(inv.arms)}", kind="edit", urls=[target], text=[copy], hypothetical=True,
-                                  label=f"Your rewrite leads {page_name(target)}, a page AI already read"),
+            arm = self.add(WhyArm(id=f"a{len(inv.arms)}", kind="edit", urls=[target], text=[copy],
+                                  hypothetical=bool(self.rewrite),
+                                  label=f"{yours.capitalize()} leads {page_name(target)}, a page AI already read"),
                            lead_with(inv.reading, target, copy))
             if arm:
                 results.append(self.test(arm))
@@ -520,7 +522,7 @@ class Agent:
                 results.append(self.test(arm))
         up = [a for a in results if a.decided == "effect" and a.effect > 0]
         if edit := next((a for a in up if a.kind == "edit"), None):
-            self.verdict("copy_fix", f"The fix is copy: with your rewrite leading {page_name(edit.urls[0])}, AI says it in "
+            self.verdict("copy_fix", f"The fix is copy: with {yours} leading {page_name(edit.urls[0])}, AI says it in "
                                      f"{edit.k} of {edit.n} answers against {edit.base_k} of {edit.base_n} — a predicted "
                                      f"{edit.effect:+.0%} ({edit.interval[0]:+.0%} to {edit.interval[1]:+.0%}) once the "
                                      "page is re-crawled.", edit, "copy")
@@ -532,8 +534,15 @@ class Agent:
                                           f"The fix is authority: AI says it once it reads {page_name(add.urls[0])} "
                                           f"({add.k} of {add.n} answers), but search never returned that page for this "
                                           "question. Getting it found is the fix, not rewriting it.", add, "authority")
+        elif down := next((a for a in results if a.decided == "effect" and a.effect < 0), None):
+            where = (f"with {yours} leading {page_name(down.urls[0])}" if down.kind == "edit"
+                     else f"once it reads {page_name(down.urls[0])}")
+            self.verdict("copy_lowers", f"This copy lowers it: {where}, AI says it in {down.k} of {down.n} answers "
+                                        f"against {down.base_k} of {down.base_n} — {down.effect:+.0%} "
+                                        f"({down.interval[0]:+.0%} to {down.interval[1]:+.0%}). It is not the fix.",
+                         down, "none")
         elif results and all(a.decided == "no_effect" for a in results):
-            self.verdict("not_movable", "No copy moves it on this question: neither your rewrite on a page AI reads "
+            self.verdict("not_movable", f"No copy moves it on this question: neither {yours} on a page AI reads "
                                         "nor your page that states it changed how often AI says it by a fifth of "
                                         "answers or more. The question is not asking for it.",
                          results[0], "none")

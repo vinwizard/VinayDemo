@@ -636,7 +636,7 @@ class WhyArm(BaseModel):
 
 class WhyVerdict(BaseModel):
     kind: Literal["caused_by", "over_determined", "prior_belief", "not_in_reading", "not_said", "copy_fix",
-                  "authority_fix", "not_movable", "not_reproducible", "undecided", "budget"]
+                  "authority_fix", "not_movable", "copy_lowers", "not_reproducible", "undecided", "budget"]
     text: str
     arm_id: Optional[str] = None
     fix: Optional[Literal["copy", "authority", "none"]] = None

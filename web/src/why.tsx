@@ -75,6 +75,7 @@ const VERDICT: Record<WhyVerdict["kind"], { label: string; tone: string }> = {
   copy_fix: { label: "Fix: copy", tone: "landed" },
   authority_fix: { label: "Fix: authority", tone: "imposed" },
   not_movable: { label: "Not movable by copy", tone: "neutral" },
+  copy_lowers: { label: "Copy lowers it", tone: "contested" },
   not_reproducible: { label: "Not reproducible", tone: "neutral" },
   undecided: { label: "Undecided", tone: "neutral" },
   budget: { label: "Stopped at budget", tone: "neutral" },

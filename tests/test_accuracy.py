@@ -224,7 +224,7 @@ def test_the_margin_sets_how_many_questions_a_front_freezes(monkeypatch, raw, po
         monkeypatch.setenv(sampler.MARGIN_ENV, raw)
     assert sampler.margin() == points and sampler.MARGIN_ENV == "TARGET_MARGIN"
     assert ana.set_questions() == max(ana.PER_TOPIC, sampler.looks(points)[1])
-    assert graph.max_baseline() == 2 * ana.PER_TOPIC * -(-ana.set_questions() // ana.PER_TOPIC)
+    assert graph.max_baseline() == 3 * ana.PER_TOPIC * -(-ana.set_questions() // ana.PER_TOPIC)
 
 
 @pytest.mark.parametrize("raw,wobble", [(None, 1), ("0", 0), ("2", 2), ("some", 1)])

@@ -244,6 +244,21 @@ def test_copy_that_moves_nothing_is_not_movable():
     inv = investigate(fake, AI, DIFFERENT["question"], "AI")
     assert inv.verdicts[-1].kind == "not_movable" and inv.verdicts[-1].fix == "none"
     assert all(a.decided == "no_effect" for a in inv.arms[1:])
+    # no win-back rewrite: the edit arm leads with the site's own quote, and says so
+    edit = next(a for a in inv.arms if a.kind == "edit")
+    assert edit.text == AI.claim_quotes and not edit.hypothetical and edit.label.startswith("Your own copy leads")
+    assert "rewrite" not in inv.verdicts[-1].text
+
+
+def test_copy_that_lowers_the_rate_is_said_to_lower_it():
+    fake = Fake(DIFFERENT, lambda text: "It is a pioneer." if AI.claim_quotes[0] in text else "It uses AI in research.",
+                live_text="It uses AI in research.")
+    inv = investigate(fake, AI, DIFFERENT["question"], "AI")
+    edit = next(a for a in inv.arms if a.kind == "edit")
+    assert edit.decided == "effect" and edit.effect < 0
+    last = inv.verdicts[-1]
+    assert (last.kind, last.fix, last.arm_id) == ("copy_lowers", "none", edit.id)
+    assert "lowers it" in last.text and "your own copy" in last.text
 
 
 def test_a_page_only_injection_moves_is_an_authority_fix():

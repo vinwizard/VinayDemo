@@ -86,7 +86,7 @@ def test_two_fronts_are_measured_side_by_side_with_the_gap(monkeypatch):
     assert (d.placed_category, d.aiming_category) == ("AI-native workspace", AIMING)
     # the same budget on each front: six frozen, split evenly; what neither needed is kept as unasked
     asked = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
-    assert len(asked) + len(run.sampler.unasked) == graph.max_baseline() == 12
+    assert len(asked) + len(run.sampler.unasked) == 2 * ana.set_questions() == 12
     assert [(f.front, f.pool, f.asked, f.stopped_early) for f in run.sampler.fronts] == [
         ("placed", 6, 4, True), ("aiming", 6, 4, True)]
     # each front has its own control, and only the one that leaves the brand out is flagged
@@ -104,11 +104,29 @@ def test_every_weighted_claim_gets_its_own_buyer_questions_before_the_fronts_sha
     buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
     topics = {t.id: t for t in run.topics}
     own = {p.topic_id[len("pos-"):] for p in buyer if topics[p.topic_id].front is None}
-    held = min(len(weighted), ana.max_topics() // 2)
+    held = min(len(weighted), ana.front_topics())
     assert len(own & set(weighted)) == held                      # the heaviest claims, one topic each
     assert [s.front for s in run.drift.sets][:2] == ["placed", "aiming"]
-    assert all(s.questions == ana.PER_TOPIC * ((ana.max_topics() - held) // 2) for s in run.drift.sets[:2])
+    assert [f.pool for f in run.sampler.fronts] == [ana.set_questions()] * 2   # held on top, not taken
     assert len(buyer) <= graph.max_baseline()
+
+
+def test_three_weighted_claims_leave_each_front_its_look_2_pool_at_the_default_margin(monkeypatch):
+    # Amgen, three weighted claims at ±20: each front was cut to 18 questions, short of the 23 that
+    # look 2 needs, so a 50% front could never reach ±20 however many of them were asked.
+    monkeypatch.delenv(sampler.MARGIN_ENV, raising=False)
+    n2 = sampler.looks()[1]
+    profile = F.profile.model_copy(update=dict(core_category=AIMING, category_questions=[
+        f"Which workspace tool suits a team of {n}?" for n in range(1, n2 + 1)]))
+    placed_qs = [f"Which AI workspace can draft documents for a team of {n}?" for n in range(1, n2 + 1)]
+    weighted = [a for a in F.attributes() if a.intended and a.buyer_questions and a.id != PLACED.id]
+    assert len(weighted) == 3
+    topics, probes, _, _ = ana.blind_probes_for_fronts(profile, PLACED, placed_qs, F.attributes())
+    front = {t.id: t.front for t in topics}
+    buyer = [p for p in probes if p.phase == "baseline"]
+    assert Counter(front[p.topic_id] for p in buyer if front[p.topic_id]) == {"placed": n2, "aiming": n2}
+    assert {t.id for t in topics if t.kind == "buyer" and not t.front} == {f"pos-{a.id}" for a in weighted}
+    assert len(buyer) <= graph.max_baseline() and not ana.validate_probes(probes, topics, profile)
 
 
 def test_the_same_category_on_both_fronts_is_asked_once_and_said_so(monkeypatch):

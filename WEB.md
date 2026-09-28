@@ -77,7 +77,8 @@ Everything else has a working default. The full list, and what each one changes:
 `LIVE_MODEL=gpt-4o-mini` would otherwise have kept the model that named obscure tools for a category
 leader's own category. Every live report names both models ("answered by gpt-6-luna, judged by
 gpt-4.1-mini"); `/api/health` reports `measured_model`, `evaluator_model`, `forced_search`,
-`target_margin`, `looks`, `buyer_questions` (the questions a front freezes), `wobble_audit`,
+`target_margin`, `looks`, `buyer_questions` (the questions a front freezes), `max_buyer_questions`
+(the most a run may plan: both fronts plus one front's worth for weighted claims), `wobble_audit`,
 `run_budget_usd` and `why_budget_usd`, plus `configured_measured_model`, `search_mode` and
 `model_fallback` when a step-down happened.
 
@@ -102,7 +103,8 @@ Because search dominates, the **model** is no longer the cost lever — the **nu
 A buyer answer averaged **$0.025** on 24 Amgen buyer questions (2026-09-28). `TARGET_MARGIN` is
 therefore the dial that moves the bill: at ±20 a front costs 10 to 23 buyer asks (about $0.50–1.15
 for two fronts, against $0.80 for the old fixed 16 a front, which guaranteed no margin), at ±15 it
-costs 16 to 43. The tool's `search_context_size` is the one lever still untouched. The preflight call costs one forced search of its own (~$0.01): that is
+costs 16 to 43. Each weighted claim adds one topic of 3 questions (about $0.08) on top, at most one
+front's worth, so the known maximum at ±20 is 72 buyer questions (about $1.80, `max_buyer_questions`). The tool's `search_context_size` is the one lever still untouched. The preflight call costs one forced search of its own (~$0.01): that is
 the price of proving the exact request shape before spending a run on it.
 
 Restart the API. It prints `[config] loaded from .env: OPENAI_API_KEY=<set>` — names only, never
@@ -156,9 +158,9 @@ things make the buyer number trustworthy anyway:
 
 - **Visibility is measured on two fronts, side by side.** Brand questions are answered and read
   first (`graph.plan_brand` → `perceive`), then `graph.plan_buyer` asks buyer questions about two
-  categories, a pool of `ana.set_questions()` each (look 2 for `TARGET_MARGIN`), less one topic held
-  back for every claim the customer weighted (at most half the topics), so each weighted claim is
-  asked its own buyer questions and its Quick-wins fix can cite them:
+  categories, a full pool of `ana.set_questions()` each (look 2 for `TARGET_MARGIN`), plus one topic
+  for every claim the customer weighted (at most one front's worth), so each weighted claim is asked
+  its own buyer questions, its Quick-wins fix can cite them, and neither front drops below look 2:
   **where AI places you** — the attribute, claimed or discovered, that the most valid brand answers
   endorsed (`ana.placed_attribute`; ties go to the claim stated on more pages; its questions are the
   claim's own, topped up by the onboarding model) — and **where you aim to be**, the site's core

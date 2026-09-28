@@ -586,7 +586,7 @@ export interface WhyArm {
 }
 export interface WhyVerdict {
   kind: "caused_by" | "over_determined" | "prior_belief" | "not_in_reading" | "not_said" | "copy_fix"
-    | "authority_fix" | "not_movable" | "not_reproducible" | "undecided" | "budget";
+    | "authority_fix" | "not_movable" | "copy_lowers" | "not_reproducible" | "undecided" | "budget";
   text: string; arm_id: string | null; fix: "copy" | "authority" | "none" | null;
 }
 /** Why AI says (or does not say) one claim to one branded question, and what changes it. */

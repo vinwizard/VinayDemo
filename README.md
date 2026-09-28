@@ -246,7 +246,7 @@ the full table, with what each one does, is in [WEB.md](WEB.md#live-mode).
 | `WHY_BUDGET_USD` | `1.00` per investigation | let an investigation run more experiments | stop it sooner |
 
 `<site>/api/health` shows what is actually in force: `measured_model`, `evaluator_model`,
-`search_mode`, `forced_search`, `target_margin`, `looks`, `buyer_questions`, `wobble_audit`,
+`search_mode`, `forced_search`, `target_margin`, `looks`, `buyer_questions`, `max_buyer_questions`, `wobble_audit`,
 `run_budget_usd` and `why_budget_usd`. If OpenAI
 refuses the configured model or the live-search tool, the one preflight call steps down to
 `gpt-5-nano` — and, if that will not search either, to no search at all, with every answer marked

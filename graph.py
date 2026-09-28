@@ -21,7 +21,7 @@ RECURSION_LIMIT = 25
 
 
 def max_baseline() -> int:
-    """The whole buyer budget: BUYER_QUESTIONS a front, both fronts (agents/ana.py)."""
+    """The most buyer questions a run may plan: `ana.max_topics()` topics of PER_TOPIC."""
     return ana.max_topics() * ana.PER_TOPIC
 
 
