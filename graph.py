@@ -7,6 +7,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 
 import drift
+import sampler
 from agents import ana, evaluation, win_back
 from labels import probe_name
 from schemas import Run, VisibilitySet
@@ -16,11 +17,11 @@ from scoring import (MIN_INTERVAL_ANSWERS, echo_draws, gap_verdict, interval, lo
 MAX_NAMED = 8
 MAX_FOLLOWUP = 4
 MAX_ADAPTIVE_ROUNDS = 1
-RECURSION_LIMIT = 20
+RECURSION_LIMIT = 25
 
 
 def max_baseline() -> int:
-    """The whole buyer budget: BUYER_QUESTIONS a front, both fronts (agents/ana.py)."""
+    """The most buyer questions a run may plan: `ana.max_topics()` topics of PER_TOPIC."""
     return ana.max_topics() * ana.PER_TOPIC
 
 
@@ -45,6 +46,7 @@ STAGES = {  # node -> (UI stage, logical agent). Both strings are shown to the r
     "validate_and_freeze": ("Topic planning", "Orchestrator"),
     "execute_or_replay": ("Baseline / Follow-up", "Orchestrator"),
     "evaluate": ("Gap evaluation", "Agent 3 · Answer evaluation"),
+    "sample": ("Baseline / Follow-up", "Orchestrator"),
     "choose_followup": ("Follow-up", "Agent 2 · Question planner"),
     "measure_drift": ("Perception gap", "Agent 3 · Answer evaluation"),
     "build_gap_report": ("Report", "Agent 3 · Answer evaluation"),
@@ -176,7 +178,13 @@ def validate_and_freeze(s: State):
         errors.append(f"{len(named)} named questions exceeds {MAX_NAMED}")
     if errors:
         raise ValidationError("; ".join(errors))
-    run.baseline_hash = ana.baseline_hash(run.probes)
+    if getattr(s["provider"], "sampler", False):
+        run.sampler = sampler.start(run)
+        n1, n2 = run.sampler.looks
+        run.log.append(f"Sampler: ±{run.sampler.margin} points at 95% on each front, so each front freezes "
+                       f"{n2} questions and asks {n1} first; the rest only if the answers so far are not "
+                       "clear enough.")
+    run.baseline_hash = frozen_hash(run)
     run.status = "baseline_frozen"
     run.log.append("Baseline validated (unbranded questions leak no brand, branded questions leak no attribute) "
                    f"and frozen with fingerprint {run.baseline_hash[:12]}.")
@@ -186,14 +194,16 @@ def validate_and_freeze(s: State):
 def execute_or_replay(s: State):
     run, provider = s["run"], s["provider"]
     done = {a.probe_id for a in run.answers}
-    todo = [p for p in run.probes if p.id not in done]
+    held = set(run.sampler.held) if run.sampler else set()
+    todo = [p for p in run.probes if p.id not in done and p.id not in held]
     # Every baseline buyer question is asked once; a small deterministic sample of them is asked
     # `tries` times, each in a fresh context, which is what the wobble estimate needs. Replay has one
     # authored answer per question, so a fixture provider has no `tries` and is asked once.
     tries = getattr(provider, "tries", 1)
     have = {(a.probe_id, a.try_no) for a in run.repeat_answers}
-    buyer_probes = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
-    sampled = repeat_sampled(buyer_probes, getattr(provider, "repeat_sample", 0))
+    buyer_probes = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline" and p.id not in held]
+    sampled = ([p for p in buyer_probes if p.id in run.sampler.wobble] if run.sampler
+               else repeat_sampled(buyer_probes, getattr(provider, "repeat_sample", 0)))
     again = [(p, t) for p in sampled for t in range(2, tries + 1) if (p.id, t) not in have]
     jobs = [(p, 1) for p in todo] + again
     ask = lambda p, t: provider.answer(p) if t == 1 else provider.answer(p, try_no=t)
@@ -219,6 +229,10 @@ def execute_or_replay(s: State):
     src = "fixtures" if verb == "Replayed" else f"{provider.name} ({getattr(provider, 'model', '?')})"
     extra = (f", plus {len(again)} repeat asks of {len(sampled)} sampled unbranded question(s) "
              f"({tries} tries each)") if again else ""
+    if shared := getattr(provider, "shared", 0):
+        if run.sampler:
+            run.sampler.shared = shared
+        extra += f"; {shared} buyer answer(s) shared with another run in the same category today"
     run.log.append(f"{verb} {len(todo)} {phase} answers{extra} from {src} ({failed} failed).")
     return {"run": run}
 
@@ -304,6 +318,8 @@ def score_drift(run: Run) -> None:
     measure_drift calls it once the observations exist; `rescore` calls it again after the customer
     sets intent weights on a finished run, which is why nothing here may ask anything.
     """
+    if run.sampler:
+        sampler.finish(run)
     answers = {a.probe_id: a for a in run.answers}
     blind = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
     ev = {e.probe_id: e for e in run.evaluations}
@@ -459,7 +475,7 @@ def rescore(run: Run, weights: dict[str, float]) -> Run:
 
 def build_gap_report(s: State):
     run = s["run"]
-    if ana.baseline_hash(run.probes) != run.baseline_hash:
+    if frozen_hash(run) != run.baseline_hash:
         raise ValidationError("baseline changed after freeze")
     run.findings = evaluation.build_findings(run.topics, run.topic_evaluations, run.evaluations, run.probes)
     # After every score exists, over saved answers and pages only: it reads the zones, never moves them.
@@ -512,22 +528,52 @@ def map_positioning(run: Run, build) -> None:
 
 
 def route_after_evaluate(s: State) -> str:
-    """Brand answers are in and nothing is frozen yet: read them, then plan the unbranded questions."""
-    return "perceive" if s["run"].baseline_hash is None else "choose_followup"
+    """Brand answers are in and nothing is frozen yet: read them, then plan the unbranded questions.
+    Look 1 is in and the sampler has not decided: decide first."""
+    run = s["run"]
+    if run.baseline_hash is None:
+        return "perceive"
+    return "sample" if run.sampler and not run.sampler.decided else "choose_followup"
+
+
+def sample(s: State):
+    """Sampler-lite's one decision (sampler.py): a front whose look-1 answers already meet the margin
+    stops; any other asks the rest of its pool. What no front needs leaves the run's questions."""
+    run = s["run"]
+    released = sampler.decide(run, getattr(s["provider"], "spent", 0.0))
+    sampler.drop_unasked(run)
+    early = [f for f in run.sampler.fronts if f.stopped_early]
+    run.log.append(f"Sampler: {len(early)} front(s) already within ±{run.sampler.margin} at look 1"
+                   + (f"; {len(released)} more question(s) asked for the rest." if released else "; nothing more to ask.")
+                   + "".join(f" {f.note}" for f in run.sampler.fronts if f.note))
+    return {"run": run}
+
+
+def route_after_sample(s: State) -> str:
+    run = s["run"]
+    pending = [p for p in run.probes if p.id not in {a.probe_id for a in run.answers}]
+    return "execute_or_replay" if pending else "choose_followup"
+
+
+def frozen_hash(run: Run) -> str:
+    """What validate_and_freeze fingerprints: the probes, or with the sampler the whole frozen pool
+    (asked and never needed), so dropping unneeded questions does not read as a changed baseline."""
+    return ana.baseline_hash(sampler.frozen(run) if run.sampler else run.probes)
 
 
 def build_graph():
     g = StateGraph(State)
     for name, fn in [("plan_brand", plan_brand), ("perceive", perceive), ("plan_buyer", plan_buyer),
                      ("validate_and_freeze", validate_and_freeze),
-                     ("execute_or_replay", execute_or_replay), ("evaluate", evaluate),
+                     ("execute_or_replay", execute_or_replay), ("evaluate", evaluate), ("sample", sample),
                      ("choose_followup", choose_followup), ("measure_drift", measure_drift),
                      ("build_gap_report", build_gap_report)]:
         g.add_node(name, fn)
     g.add_edge(START, "plan_brand")
     g.add_edge("plan_brand", "execute_or_replay")
     g.add_edge("execute_or_replay", "evaluate")
-    g.add_conditional_edges("evaluate", route_after_evaluate, ["perceive", "choose_followup"])
+    g.add_conditional_edges("evaluate", route_after_evaluate, ["perceive", "sample", "choose_followup"])
+    g.add_conditional_edges("sample", route_after_sample, ["execute_or_replay", "choose_followup"])
     g.add_edge("perceive", "plan_buyer")
     g.add_edge("plan_buyer", "validate_and_freeze")
     g.add_edge("validate_and_freeze", "execute_or_replay")

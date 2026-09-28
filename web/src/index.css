@@ -596,3 +596,47 @@ details.skipped ul { margin: .2rem 0 0; padding-left: 1.1rem; font-size: .85rem;
                font-size: 9px; font-weight: 650; color: #fff; background: #8c96a3; flex: none; }
 .pmap-swatch.seen { background: var(--accent); }
 .pmap-swatch.intended { background: var(--surface); border: 2px dashed var(--accent); }
+
+/* ---------------------------------------------------------------- what AI read (why.tsx) */
+.read > summary { cursor: pointer; font-size: .84rem; color: var(--accent); }
+.read-steps { margin: .3rem 0 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .5rem; font-size: .86rem; }
+.read-kind { font-weight: 600; }
+.read-results { list-style: none; margin: .25rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; }
+.read-results li { border-left: 2px solid var(--border); padding-left: .55rem; min-width: 0; }
+.read-results a { overflow-wrap: anywhere; }
+.read-text { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+             color: var(--muted); font-size: .82rem; overflow-wrap: anywhere; white-space: pre-line; }
+
+/* ---------------------------------------------------------------- the why agent (why.tsx) */
+.why-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: .6rem .9rem; align-items: end; }
+.why-form label { display: flex; flex-direction: column; gap: .25rem; font-size: .84rem; min-width: 0; }
+.why-form select, .why-form input { width: 100%; min-width: 0; }
+.why-form button { justify-self: start; }
+.why-log { margin: 0; padding-left: 1.2rem; font-size: .84rem; color: var(--muted); display: flex; flex-direction: column; gap: .15rem; }
+.why-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .85rem 1rem;
+            display: flex; flex-direction: column; gap: .45rem; min-width: 0; }
+.why-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .6rem; flex-wrap: wrap; }
+.why-q { margin: 0; }
+.why-rows { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: .45rem .8rem; margin: 0; font-size: .9rem; }
+.why-rows dt { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; padding-top: .15rem; }
+.why-rows dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 560px) { .why-rows { grid-template-columns: minmax(0, 1fr); gap: .1rem; } .why-rows dd { margin-bottom: .4rem; } }
+.why-lines { margin: .35rem 0 0; padding-left: 1rem; font-size: .84rem; color: var(--muted); }
+.why-lines li { border-left: 2px solid var(--lost); padding-left: .45rem; list-style: none; margin-left: -1rem; }
+.why-arms > summary { cursor: pointer; font-size: .84rem; color: var(--accent); }
+.why-arms td { font-size: .84rem; }
+.effect-col { width: 9rem; }
+.effect-bar { width: 8.5rem; height: 14px; display: block; }
+.effect-zero { stroke: var(--border); stroke-width: 1; }
+.effect-ci { stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; }
+.effect-dot { fill: var(--surface); stroke: var(--accent); stroke-width: 1.4; }
+.effect-dot.decided { fill: var(--accent); }
+.why-foot { margin: 0; font-size: .78rem; }
+.why-group { display: flex; flex-direction: column; gap: .4rem; }
+.why-earlier > summary { cursor: pointer; font-size: .84rem; color: var(--muted); padding-left: .2rem; }
+.why-earlier[open] { display: flex; flex-direction: column; gap: .45rem; }
+.why-earlier .why-card { opacity: .85; }
+
+/* ---------------------------------------------------------------- sampler-lite (margin.tsx) */
+.front-margin { overflow-wrap: anywhere; }
+.front-margin .warn { color: var(--lost); }

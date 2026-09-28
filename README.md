@@ -114,7 +114,7 @@ demo with no key or internet, start the API with `VISEXP_OFFLINE_REPLAY=1`, then
 the Onboard tab: measuring it replays the bundled Notion sample, labelled as such. Stop either process with `Ctrl+C`.
 [`WEB.md`](WEB.md) has the details, live mode and the API reference.
 
-Tests: `conda activate visexp && python -m pytest -q` (offline; 489 passing,
+Tests: `conda activate visexp && python -m pytest -q` (offline; 547 passing,
 incl. one journey per bundled scenario end to end through the `/api/stream` event stream, the API over
 HTTP via fastapi's TestClient, the live adapter under an injected
 transport — including how it classifies a refused key or a region block — no API key, no network).
@@ -163,8 +163,12 @@ Then repeat the create step above.
 web/              React frontend (the product UI)
 api/main.py       FastAPI server over the engine; streams each run as server-sent events
 api/admin.py      /admin: access passes for the hosted demo (see "Deploy to Render")
+api/why.py        the why agent over HTTP: an investigation streamed as SSE, kept beside its run
 access.py         access passes, sessions, and the metered gateway every OpenAI call goes through
-graph.py          LangGraph orchestrator: plan_brand → execute_or_replay → evaluate → perceive → plan_buyer → validate_and_freeze → execute_or_replay → evaluate → choose_followup ⟲ → measure_drift → build_gap_report
+graph.py          LangGraph orchestrator: plan_brand → execute_or_replay → evaluate → perceive → plan_buyer → validate_and_freeze → execute_or_replay → evaluate → sample (live) ⟲ → choose_followup ⟲ → measure_drift → build_gap_report
+why.py            the why agent: record what AI read, replay it with one thing changed, find what makes AI say a claim and what fix moves it
+sampler.py        sampler-lite: each buyer front sized for a stated margin at 95%, two looks
+sharing.py        buyer questions and answers shared across brands in one category, per model and day
 schemas.py        Pydantic contracts
 agents/           onboarding.py (Agent 1), ana.py (Agent 2), evaluation.py (Agent 3 + suggested-action table)
 providers/        fixture.py (replay), company.py (an onboarded company), imported.py (research snapshots), live.py
@@ -236,12 +240,14 @@ the full table, with what each one does, is in [WEB.md](WEB.md#live-mode).
 | --- | --- | --- | --- |
 | `MEASURED_MODEL` | `gpt-6-luna` | — set it to a bigger searching model (`gpt-5.6-luna`, `gpt-5.4-mini`, `gpt-5.5`) if the answers read thin | — |
 | `EVALUATOR_MODEL` | `gpt-6-luna` | — set it to `gpt-4.1-mini` so the judge is not grading its own answers | — |
-| `BUYER_QUESTIONS` | `12` per front | narrow the confidence range further | spend less per run |
-| `REPEAT_SAMPLE` | `2` | see the wobble on more questions | `0` removes repeats, the wobble and the interval |
-| `BUYER_TRIES` | `3` | — | — |
+| `TARGET_MARGIN` | `20` points at 95% | spend less per run (a wider margin) | tighter numbers: `15` is about 2.5× the buyer calls on a mid-range brand |
+| `RUN_BUDGET_USD` | unset | — | cap a run's measured calls; a front that would pass it reports its margin as not met |
+| `WOBBLE_AUDIT` | `1` re-ask per front | see the wobble on more re-asks | `0` removes it |
+| `WHY_BUDGET_USD` | `1.00` per investigation | let an investigation run more experiments | stop it sooner |
 
 `<site>/api/health` shows what is actually in force: `measured_model`, `evaluator_model`,
-`search_mode`, `forced_search`, `buyer_questions`, `repeat_sample` and `buyer_tries`. If OpenAI
+`search_mode`, `forced_search`, `target_margin`, `looks`, `buyer_questions`, `max_buyer_questions`, `wobble_audit`,
+`run_budget_usd` and `why_budget_usd`. If OpenAI
 refuses the configured model or the live-search tool, the one preflight call steps down to
 `gpt-5-nano` — and, if that will not search either, to no search at all, with every answer marked
 ungrounded. It never substitutes a third model. `model_fallback` then says why, in the same words

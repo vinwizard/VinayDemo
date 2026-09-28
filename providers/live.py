@@ -11,12 +11,15 @@ ungrounded, and `scoring.eligible` excludes it from live scores rather than quie
 Transport is injectable so the whole adapter is testable with no API key and no network.
 """
 import os
+import re
+import threading
 from datetime import datetime, timezone
 from typing import Callable, NamedTuple, Optional
 
+import sampler
+import sharing
 from agents.onboarding_model import buyer_category_for, buyer_questions_for
-from config import setting
-from schemas import Answer, Attribute, CompanyProfile, Probe, Topic
+from schemas import Answer, Attribute, CompanyProfile, Probe, ReadResult, ReadStep, Topic
 
 KEY_ENV = "OPENAI_API_KEY"
 # The model that ANSWERS the questions — the one being measured. The judge is separate
@@ -49,6 +52,10 @@ TOOL_CHOICE = "required"
 # change of behaviour — and an API that does not know the field is a 400 the fallback catches.
 SEARCH_TOOL = {"type": "web_search", "external_web_access": True}
 FALLBACK_TOOL = {"type": "web_search"}
+# What the model read rides on the same call, at no extra charge: `sources` are the URLs each search
+# consulted and `results` the text it was handed — ranked snippets, the window of an opened page,
+# the lines a find-in-page matched (reading_of). This is what the why agent replays (why.py).
+INCLUDE = ["web_search_call.action.sources", "web_search_call.results"]
 # The record of the most recent successful `preflight`, for /api/health and status() only: the
 # step-down reason, in words safe to show, and whether any web_search tool is sent at all. A run
 # never reads it back — it uses the `Resolved` its own preflight returned, so a concurrent run's
@@ -58,15 +65,8 @@ FALLBACK_TOOL = {"type": "web_search"}
 # worse than measuring nothing.
 _fallback: Optional[str] = None
 _search: bool = True
-# The buyer budget, spent on distinct questions rather than repeats. Re-asking one question moves
-# the number by a few points; different questions disagree by tens, so questions — not tries — are
-# what narrows the confidence interval. BUYER_QUESTIONS per front are asked once each; REPEAT_SAMPLE
-# of them are also asked BUYER_TRIES times, which is all the wobble estimate needs.
-# BUYER_QUESTIONS lives in agents/ana.py, where the questions are planned.
-TRIES_ENV = "BUYER_TRIES"
-DEFAULT_TRIES = 3
-SAMPLE_ENV = "REPEAT_SAMPLE"
-DEFAULT_SAMPLE = 2
+# How many buyer questions a front asks, and when it may stop, is sampler-lite's (sampler.py): fresh
+# questions up to a stated margin at 95%, plus WOBBLE_AUDIT re-asks per front for the wobble.
 
 LIMITS = dict(max_unique_probes=16, max_probe_retries=4, max_model_attempts=40, concurrency=3,
               per_call_timeout_s=90, investigation_deadline_s=600)
@@ -123,17 +123,6 @@ def current() -> Resolved:
     """The most recent preflight's record, for a provider built without one."""
     from agents import evaluator_model
     return Resolved(model_name(), search_tool(), evaluator_model.model_name(), _fallback)
-
-
-def buyer_tries() -> int:
-    """BUYER_TRIES: how many times a repeat-sampled unbranded question is asked. At least 1."""
-    return setting(TRIES_ENV, DEFAULT_TRIES, floor=1)
-
-
-def repeat_sample() -> int:
-    """REPEAT_SAMPLE: how many buyer questions are asked BUYER_TRIES times instead of once. 0 turns
-    repeats off, and with them the wobble estimate."""
-    return setting(SAMPLE_ENV, DEFAULT_SAMPLE)
 
 
 def status() -> str:
@@ -295,12 +284,46 @@ def searches_of(response) -> list[str]:
     return out
 
 
+# The Responses API wraps each snippet's citation handle in private-use characters
+# ("\ue200cite\ue202turn0search0\ue201") and prefixes a quoting limit; neither is text the page said.
+MARKUP = re.compile(r"\ue200[^\ue201]*\ue201\s*|\[wordlim: \d+\]\s*")
+CRAWLED = re.compile(r"Crawled: ([^;\n]+);")
+TRACE_CAP = 600   # characters of each result a run keeps: enough to show; the why agent keeps its own whole
+READ_KINDS = {"search": "search", "open_page": "open_page", "find_in_page": "find_in_page", "find": "find_in_page"}
+
+
+def reading_of(response, cap: Optional[int] = TRACE_CAP) -> Optional[list[ReadStep]]:
+    """-> every web_search_call as a ReadStep, in order, with the text the model was handed; None when
+    no search ran. `results` is the record to trust, not `action`: one call can bundle several finds
+    while its action names only one of them."""
+    steps = []
+    for item in _output_items(response):
+        if _item(item, "type") != "web_search_call":
+            continue
+        action = _item(item, "action") or {}
+        queries = [q.strip() for q in [_item(action, "query"), *(_item(action, "queries") or [])]
+                   if isinstance(q, str) and q.strip()]
+        results = []
+        for r in _item(item, "results") or []:
+            url = _item(r, "url")
+            if not isinstance(url, str) or not url:
+                continue
+            text = MARKUP.sub("", _item(r, "snippet") or _item(r, "text") or "").strip()
+            crawled = CRAWLED.search(text)
+            results.append(ReadResult(url=url, title=_item(r, "title"), text=text[:cap] if cap else text,
+                                      crawled=crawled.group(1).strip() if crawled else None))
+        steps.append(ReadStep(kind=READ_KINDS.get(_item(action, "type"), "search"),
+                              queries=list(dict.fromkeys(queries)), url=_item(action, "url"),
+                              pattern=_item(action, "pattern"), results=results))
+    return steps or None
+
+
 def default_transport(messages: list[dict], model: str, timeout: int,
                       tool: Optional[dict] = SEARCH_TOOL):
     import access  # metered: refused at a pass's cap, charged to it after
     # tool_choice is the whole point of forcing search: with "auto" the model decides, and the
     # answers it decides not to search for are paid for and then excluded from the score.
-    extra = dict(tools=[tool], tool_choice=TOOL_CHOICE) if tool else {}
+    extra = dict(tools=[tool], tool_choice=TOOL_CHOICE, include=INCLUDE) if tool else {}
     return access.openai_response(timeout, model=model, input=messages, **extra)
 
 
@@ -319,7 +342,7 @@ class LiveProvider:
                  writer: Optional[Callable] = None, demand: Optional[Callable] = None,
                  categorize: Optional[Callable] = None,
                  retrieval: Optional[Callable] = None, positioning: Optional[Callable] = None,
-                 resolved: Optional[Resolved] = None):
+                 resolved: Optional[Resolved] = None, share=None):
         if not attributes:
             raise ValueError("live run needs the attribute set being measured")
         self._attributes = attributes
@@ -329,8 +352,16 @@ class LiveProvider:
         self.model = model or resolved.model
         self.search_tool = resolved.tool
         self.fallback = resolved.reason
-        self.tries = buyer_tries()
-        self.repeat_sample = repeat_sample()
+        # sampler-lite (sampler.py) sizes the buyer fronts; a wobble-audited question is asked `tries` times
+        self.sampler = True
+        self.tries = 1 + sampler.wobble_audit()
+        self.repeat_sample = 0
+        self.spent = 0.0      # what the measured calls cost, for RUN_BUDGET_USD
+        self._spent_lock = threading.Lock()
+        # buyer questions and answers shared with every run in the same category today (sharing.py);
+        # an injected transport (a test) gets none unless it injects one too
+        self._share = share if share is not None else (sharing.Store() if transport is None else None)
+        self.shared = 0
         self._transport = transport or (lambda msgs, model, timeout: default_transport(
             msgs, model, timeout, tool=self.search_tool))
         # run -> RetrievalSim. The real one fetches pages and embeds them, so an injected transport
@@ -380,11 +411,31 @@ class LiveProvider:
             real.update({q.strip().lower(): d for q, d in found})
             return [q for q, _ in found]
 
+        def shared(category: str) -> list[str]:
+            """Today's questions for this category from another run, if any (sharing.py)."""
+            pool = self._share.pool(category) if self._share else []
+            if pool:
+                self.demand_notes.append(f"{category}: asked the same {len(pool)} questions another run in this "
+                                         "category asked today, so their answers are shared too.")
+            return pool
+
+        def written(category: str, description: Optional[str], have: list[str]) -> list[str]:
+            """What the writer adds to reach a full pool; stated, never swallowed, when it cannot."""
+            if len(have) >= per_front:
+                return []
+            try:
+                return self._writer(category, description, per_front - len(have))
+            except Exception as e:
+                self.notes.append(f"Unbranded questions for {category} could not be written "
+                                  f"({type(e).__name__}); its own {len(have)} were asked.")
+                return []
+
         aiming = profile.core_category
         if aiming:
             # real ones first: the fronts keep the first `per_front`, so written ones only fill a shortfall
-            profile = profile.model_copy(update=dict(
-                category_questions=[*ground(aiming), *profile.category_questions]))
+            questions = shared(aiming) or [*ground(aiming), *profile.category_questions]
+            questions += written(aiming, "Any product in this category, for the buyer's own situation.", questions)
+            profile = profile.model_copy(update=dict(category_questions=questions))
         placed_as = placed.label if placed else None
         if placed and self._categorize:
             try:
@@ -397,16 +448,17 @@ class LiveProvider:
                                   f"{profile.name} ({placed.label}: {type(e).__name__}), so its label was used.")
         questions = list(placed.buyer_questions) if placed else []
         if placed and not (aiming and same_category(placed_as, aiming)):
-            questions = [*ground(placed_as), *questions]
-        if placed and len(questions) < per_front:
-            try:
-                questions += self._writer(placed_as, placed.description, per_front - len(questions))
-            except Exception as e:                  # stated, never swallowed: the front is smaller
-                self.notes.append(f"Unbranded questions for {placed_as} could not be written "
-                                  f"({type(e).__name__}); its own {len(questions)} were asked.")
+            questions = shared(placed_as) or [*ground(placed_as), *questions]
+        if placed:
+            questions += written(placed_as, placed.description, questions)
         topics, blind, self.skipped_questions, self.missing_fronts = blind_probes_for_fronts(
             profile, placed, questions, self._attributes, placed_as)
         blind = [p.model_copy(update=dict(demand=real.get(p.text.strip().lower()))) for p in blind]
+        if self._share:
+            front = {t.id: t for t in topics if t.front and t.kind == "buyer"}
+            for label in dict.fromkeys(t.label for t in front.values()):
+                self._share.save_pool(label, [p.text for p in blind if p.phase == "baseline"
+                                              and p.topic_id in front and front[p.topic_id].label == label])
         return topics, blind
 
     def attributes(self) -> list[Attribute]:
@@ -433,12 +485,38 @@ class LiveProvider:
         """One measured call: -> (response, None) or (None, the exception it raised)."""
         self.calls += 1
         try:
-            return self._transport(measured_prompt(probe), self.model,
-                                   LIMITS["per_call_timeout_s"]), None
+            raw = self._transport(measured_prompt(probe), self.model, LIMITS["per_call_timeout_s"])
         except Exception as e:                      # surfaced as a failed answer, never swallowed
             return None, e
+        import access
+        cost = access.cost(self.model, raw)[0]
+        with self._spent_lock:
+            self.spent += cost
+        return raw, None
 
     def answer(self, probe: Probe, try_no: int = 1) -> Answer:
+        # A buyer question's first ask may be one another run in this category asked today: its
+        # answer is reused (sharing.py) and judged again below for this brand. A re-ask never is.
+        share = self._share if probe.kind == "blind" and try_no == 1 else None
+        if share and (got := share.answer(probe.text, self.model)):
+            self.shared += 1
+            return self._labelled(probe, got.model_copy(update=dict(probe_id=probe.id, shared=True)))
+        answer = self._ask(probe, try_no)
+        if share:
+            share.save_answer(probe.text, answer)
+        return self._labelled(probe, answer)
+
+    def _labelled(self, probe: Probe, answer: Answer) -> Answer:
+        if answer.status == "ok" and self.evaluator is not None and self._profile is not None:
+            # Agent 3 runs here, on a separate model, seeing the company. The measured call above
+            # has already returned, so nothing about the target could have reached it.
+            labels = self.evaluator.label(probe, answer, self._attributes, self._profile)
+            if labels is not None:
+                answer = answer.model_copy(update=dict(evaluator_labels=labels,
+                                                       evaluator_model=self.evaluator.model))
+        return answer
+
+    def _ask(self, probe: Probe, try_no: int) -> Answer:
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         base = dict(probe_id=probe.id, provenance="live_api", provider=self.name,
                     model=self.model, collected_at=now, try_no=try_no)
@@ -458,13 +536,5 @@ class LiveProvider:
         if not text:
             return Answer(**base, text="", status="error", error="empty response",
                           search_executed=searched)
-        answer = Answer(**base, text=text, citations=citations, search_executed=searched, status="ok",
-                        searches=searches_of(raw))
-        if self.evaluator is not None and self._profile is not None:
-            # Agent 3 runs here, on a separate model, seeing the company. The measured call above
-            # has already returned, so nothing about the target could have reached it.
-            labels = self.evaluator.label(probe, answer, self._attributes, self._profile)
-            if labels is not None:
-                answer = answer.model_copy(update=dict(evaluator_labels=labels,
-                                                       evaluator_model=self.evaluator.model))
-        return answer
+        return Answer(**base, text=text, citations=citations, search_executed=searched, status="ok",
+                      searches=searches_of(raw), trace=reading_of(raw))

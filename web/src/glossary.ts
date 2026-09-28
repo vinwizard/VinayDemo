@@ -212,6 +212,74 @@ export const GLOSSARY = {
       + "where AI places you to where you want to be (the claims you weighted) or, until you weight "
       + "any, to where your site aims.",
   },
+  what_ai_read: {
+    term: "What AI read",
+    def: "The searches the AI ran before it answered, the snippets each search handed back, the pages it "
+      + "opened and the lines it looked up in them, in order. The API returns them with the answer, so this "
+      + "is the AI's own reading list, not a guess at it.",
+  },
+  why_investigation: {
+    term: "Why investigation",
+    def: "An experiment on what AI read. We ask a branded question live and record what the AI read, ask it "
+      + "again with web search off, then hand the AI the same reading list with one thing changed (a page "
+      + "removed, a few lines removed, your rewrite put in) and ask again, many times, until the change in "
+      + "how often it says the claim is clear. It never moves a score.",
+  },
+  replay_experiment: {
+    term: "Replay",
+    def: "The same question asked with web search off, handing the AI the recorded reading list as if its "
+      + "own search had just returned it. On four Amgen questions a replay agreed with the live answer at "
+      + "least as well as two live answers agree with each other.",
+  },
+  effect_interval: {
+    term: "Effect",
+    def: "How much a change moved the share of answers that say the claim, with its 95% confidence interval. "
+      + "The interval is widened for every experiment the investigation could run, so 95% holds for the whole "
+      + "investigation. If it excludes zero the change really moved it; if it sits inside ±20 points, it did not.",
+  },
+  copy_fix: {
+    term: "Copy fix",
+    def: "AI reads your page but does not say it: when your rewrite (or your own copy) leads a page AI already "
+      + "read, it says it much more often. Change the words on that page.",
+  },
+  authority_fix: {
+    term: "Authority fix",
+    def: "AI would say it if it read your page that states it, but its search never returns that page for this "
+      + "question. Getting the page found and cited is the fix, not rewriting it.",
+  },
+  not_movable: {
+    term: "Not movable by copy",
+    def: "Neither your rewrite (or your own copy) on a page AI reads nor your page that states it changed how "
+      + "often AI says it. This question does not ask for the claim; ask a different one or accept it.",
+  },
+  copy_lowers: {
+    term: "Copy lowers it",
+    def: "Putting your copy on a page AI reads, or adding your page search never returned, made AI say it "
+      + "decidedly less often. That copy is not the fix for this claim.",
+  },
+  prior_belief: {
+    term: "Prior belief",
+    def: "AI says it even with every page that says it removed, and says it with web search off too: it comes "
+      + "from what the model already believes, and no website change can move it.",
+  },
+  over_determined: {
+    term: "Several pages",
+    def: "More than one page AI read says it, and removing any one of them leaves the others to say it. Only "
+      + "removing them all changes the answer.",
+  },
+  margin: {
+    term: "Margin",
+    def: "How far the share of buyer questions that named the company could be from the true share, at 95% "
+      + "confidence. Each front asks fresh questions until it is within this margin: a front where AI almost "
+      + "never (or almost always) names you is clear after the first look, anything else asks the rest of "
+      + "its questions. The most a front can ask is fixed in advance, so the cost is known.",
+  },
+  shared_answer: {
+    term: "Shared answer",
+    def: "A buyer question never names a company, so its answer is the same whichever company it is scored "
+      + "for. When another run in the same category asked the same question of the same model today, its "
+      + "answer is reused and judged again for this company, instead of paying for it twice.",
+  },
 } satisfies Record<string, { term: string; def: string }>;
 
 export type TermKey = keyof typeof GLOSSARY;

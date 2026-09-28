@@ -52,7 +52,8 @@ def test_journey(journey, scenario, alignment, landed):
     assert "error" not in kinds
     assert kinds[-1] == "done" and kinds.count("done") == 1
     nodes = [p["node"] for k, p in evs if k == "node"]
-    assert set(nodes) == set(main.graph.STAGES)
+    # every node but the sampler's, which only a live provider has: a replay asks what was authored
+    assert set(nodes) == set(main.graph.STAGES) - {"sample"}
     answers = [p for k, p in evs if k == "answer"]
     assert answers and [a["done"] for a in answers] == list(range(1, len(answers) + 1))
     assert all(a["status"] == "ok" for a in answers)

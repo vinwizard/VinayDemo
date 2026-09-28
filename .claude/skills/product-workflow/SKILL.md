@@ -134,6 +134,7 @@ Run: id, schema_version, mode, profile, topics[], baseline_hash,
 ```
 
 Use provenance values `synthetic`, `web_research_snapshot`, or `live_api`. Keep source metadata at record level, not only run level. Never pool different provenance types into a visibility metric.
+`counterfactual_replay` marks the why agent's answers to an edited, recorded reading list (`why.py`): an experiment kept in its own `Investigation` record, never on a run and never scored.
 
 Persist completed runs as local JSON in `data/runs/`. Use Streamlit session state for the active run and prevent rerender-driven duplicate execution. Durable recovery of in-flight model calls is out of scope. A restart can reopen a completed run.
 

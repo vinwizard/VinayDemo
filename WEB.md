@@ -64,9 +64,10 @@ Everything else has a working default. The full list, and what each one changes:
 | `MEASURED_MODEL` | `gpt-6-luna` | The model that ANSWERS the buyer and brand questions: the one being measured. It must accept the Responses API `web_search` tool. The default is the cheapest current model that does ($0.10/$0.50 per 1M tokens, knowledge to May 2026). `gpt-4.1` was the old default and its training stops in 2024, so it answered about brands it had never heard of. |
 | `EVALUATOR_MODEL` | `gpt-6-luna` | The separate model that grades those answers. It is sent no tools at all — it reads text it is handed. It defaults to the same model as the measured side, so both halves of a run are priced the same; that means one model grades its own answers, which `/api/health` surfaces as `same_model_warning`. Set it to something else (`gpt-4.1-mini` is the tested one) to remove the self-preference bias. |
 | `ONBOARDING_MODEL` | `gpt-4.1-mini` | Reads a company's own pages and extracts what they claim, and writes buyer questions for a category. |
-| `BUYER_QUESTIONS` | `12` | How many buyer questions are asked **per front**, once each. More distinct questions is what narrows the confidence interval; the two fronts together are the whole buyer budget. |
-| `REPEAT_SAMPLE` | `2` | How many of those questions are also asked `BUYER_TRIES` times, to show how much one question wobbles between asks. `0` turns repeats off, and with them the wobble and the confidence interval. |
-| `BUYER_TRIES` | `3` | How many times each **repeat-sampled** question is asked. Every other question is asked once. |
+| `TARGET_MARGIN` | `20` | The margin each buyer front aims for, in points of "named you", at 95% (`sampler.py`). It sets how many questions a front freezes and asks: 10 first, and the rest of 23 only where those are not clear yet. `15` means 16 then 43 — about 2.5× the buyer calls on a mid-range brand. Clamped to 5–50. |
+| `RUN_BUDGET_USD` | unset | The most one run's measured calls may spend. A front whose look 2 would pass it stops at look 1, and its margin is reported as not met. Unset: look 2's size is the cap. |
+| `WOBBLE_AUDIT` | `1` | How many times each front's first question is asked again, to show how much one question wobbles. `0` turns it off. |
+| `WHY_BUDGET_USD` | `1.00` | The most one why investigation may spend (`why.py`); it stops there and says how far it got. |
 | `DATA_DIR` | bundled `data/` | Where runs, companies and the access database are kept. On Render, the mount path of a disk, or a redeploy wipes them. |
 | `VISEXP_PUBLIC_DEMO` | unset | Hosted demo: saved replays for everyone, live runs only for a pass holder. |
 | `SESSION_SECRET`, `ADMIN_PASSWORD`, `CONTACT_EMAIL` | — | Access passes and the admin page: README "Deploy to Render". |
@@ -76,8 +77,10 @@ Everything else has a working default. The full list, and what each one changes:
 `LIVE_MODEL=gpt-4o-mini` would otherwise have kept the model that named obscure tools for a category
 leader's own category. Every live report names both models ("answered by gpt-6-luna, judged by
 gpt-4.1-mini"); `/api/health` reports `measured_model`, `evaluator_model`, `forced_search`,
-`buyer_questions`, `repeat_sample` and `buyer_tries`, plus `configured_measured_model`,
-`search_mode` and `model_fallback` when a step-down happened.
+`target_margin`, `looks`, `buyer_questions` (the questions a front freezes), `max_buyer_questions`
+(the most a run may plan: both fronts plus one front's worth for weighted claims), `wobble_audit`,
+`run_budget_usd` and `why_budget_usd`, plus `configured_measured_model`, `search_mode` and
+`model_fallback` when a step-down happened.
 
 Any model you point `MEASURED_MODEL` or `EVALUATOR_MODEL` at should be in `access.PRICES`, or the
 spend meter charges it `UNKNOWN_PRICE` — deliberately above every listed model, so a pass is never
@@ -97,9 +100,11 @@ every call priced exactly rather than estimated. The shape of that bill is the t
 
 Forced search worked: 16 of 16 answers were grounded, none needed the retry, and none was discarded.
 Because search dominates, the **model** is no longer the cost lever — the **number of answers** is.
-At the default budget (about 39 measured answers) the same shape comes to roughly **$0.85** a run.
-`BUYER_QUESTIONS` is therefore the dial that moves the bill, and the tool's `search_context_size`
-is the one still untouched. The preflight call costs one forced search of its own (~$0.01): that is
+A buyer answer averaged **$0.025** on 24 Amgen buyer questions (2026-09-28). `TARGET_MARGIN` is
+therefore the dial that moves the bill: at ±20 a front costs 10 to 23 buyer asks (about $0.50–1.15
+for two fronts, against $0.80 for the old fixed 16 a front, which guaranteed no margin), at ±15 it
+costs 16 to 43. Each weighted claim adds one topic of 3 questions (about $0.08) on top, at most one
+front's worth, so the known maximum at ±20 is 72 buyer questions (about $1.80, `max_buyer_questions`). The tool's `search_context_size` is the one lever still untouched. The preflight call costs one forced search of its own (~$0.01): that is
 the price of proving the exact request shape before spending a run on it.
 
 Restart the API. It prints `[config] loaded from .env: OPENAI_API_KEY=<set>` — names only, never
@@ -107,8 +112,8 @@ values. Check `curl -s http://127.0.0.1:8000/api/health` for `"live_available": 
 mode switch in the page: every measurement it starts is live.
 
 A live run asks every brand question once, then plans its buyer questions from those answers, and
-asks each of them once to the measured model — `REPEAT_SAMPLE` of them `BUYER_TRIES` times — plus one
-**control question** per front, and has the evaluator grade each
+asks each of them once to the measured model — look 1 first, look 2 only where needed, and one per
+front once more — plus one **control question** per front, and has the evaluator grade each
 answer — two calls per ask — plus one round-two comparison question when a buyer answer names a
 competitor, and one evaluator call at the end for the action plan. Without a key, live mode
 **errors** rather than falling back to fixtures — a fixture result under a live label would be a
@@ -153,9 +158,9 @@ things make the buyer number trustworthy anyway:
 
 - **Visibility is measured on two fronts, side by side.** Brand questions are answered and read
   first (`graph.plan_brand` → `perceive`), then `graph.plan_buyer` asks buyer questions about two
-  categories, `BUYER_QUESTIONS` each (`ana.set_questions`), less one topic held back for every
-  claim the customer weighted (at most half the topics), so each weighted claim is asked its own
-  buyer questions and its Quick-wins fix can cite them:
+  categories, a full pool of `ana.set_questions()` each (look 2 for `TARGET_MARGIN`), plus one topic
+  for every claim the customer weighted (at most one front's worth), so each weighted claim is asked
+  its own buyer questions, its Quick-wins fix can cite them, and neither front drops below look 2:
   **where AI places you** — the attribute, claimed or discovered, that the most valid brand answers
   endorsed (`ana.placed_attribute`; ties go to the claim stated on more pages; its questions are the
   claim's own, topped up by the onboarding model) — and **where you aim to be**, the site's core
@@ -182,21 +187,32 @@ things make the buyer number trustworthy anyway:
   scraping Google, so the one is stated when it fails and the other is not used. Nothing is a
   volume estimate. With no usable searches the front keeps its written questions and
   `run.demand_notes` says why. Tests never touch the network (`tests/conftest.py`).
-- **The budget goes on distinct questions, with a sample re-asked.** Every buyer question is asked
-  once; `REPEAT_SAMPLE` of them (default 2, spread evenly through the plan order so each front
-  contributes one — `graph.repeat_sampled`) are asked `BUYER_TRIES` times, each in a fresh context.
-  Re-asking one question moves visibility by a few points while different questions disagree by
-  tens, so questions — not tries — are what narrows the interval, and the same money buys a tighter
-  number. Buyer visibility is the mean over **questions**, each question worth the mean of its own
-  tries (`scoring.visibility_by_question`): a question asked three times still gets one vote, or the
-  sample would drag the whole number towards whatever those two questions happen to say.
-  The re-asked questions show how stable they were ("named in 2 of 3 tries") with every try's answer,
-  and their per-try spread is the **wobble** (`drift.visibility_range`) — reported from that sample
-  alone, and shown inside the number's popover rather than beside it, so the summary carries one
-  range and not two. Brand questions are asked once. Extra asks are stored in `run.repeat_answers` /
-  `repeat_evaluations`, so everything else — topic scores, sources, share of voice, the action plan —
-  reads the first try exactly as before. A replayed sample has one authored answer per question, so
-  nothing is re-asked, there is no wobble to show, and its numbers do not move.
+- **Each front asks fresh questions until its margin is met** (`sampler.py`, sampler-lite). On the
+  Amgen run 35 of 36 re-asks of a buyer question gave the same answer (intraclass correlation 0.90),
+  so what a front's number does not know yet is the questions not asked, not one question's wobble.
+  Each front freezes a pool sized for `TARGET_MARGIN` (±20 points of "named you" at 95%: 23
+  questions), asks the first 10, and asks the rest only if the Wilson interval of those 10 is wider
+  than the margin — a front AI never (or always) names the brand in is clear after the first look.
+  The 5% error is split 1% at look 1 and 4% at look 2 (`sampler.ALPHA1`, `ALPHA2`), so the reported
+  interval holds the true rate with at least 95% whichever look the front stopped at, and look 2 is
+  the known most a front can cost. Questions no front needed leave the run's questions for
+  `run.sampler.unasked`; the frozen hash covers both (`graph.frozen_hash`). Simulated on cells fitted
+  to that run, a bandit or a Bayesian allocator saved nothing over this, so neither is built.
+  `WOBBLE_AUDIT` asks each front's first question once more; that re-ask is the **wobble**
+  (`drift.visibility_range`), shown inside the number's popover, and like every re-ask it is stored
+  in `run.repeat_answers` / `repeat_evaluations`, so everything else reads the first try. Buyer
+  visibility is still the mean over **questions**, each worth the mean of its own tries
+  (`scoring.visibility_by_question`). The report shows each front's rate of "named you" with its
+  margin and how many of the frozen questions it took (`run.sampler.fronts`). A replayed sample has
+  one authored answer per question, no sampler and no wobble, and its numbers do not move.
+- **Buyer answers are shared across brands in one category** (`sharing.py`). A buyer question
+  never names a brand, so the same question asked of the same model on the same UTC day is the same
+  measurement whichever brand it is scored for. The pool a front was planned with is kept per
+  category and day, so the next brand in that category asks the same questions (vetted again for
+  it), and each grounded buyer answer is reused, flagged `shared`, and judged again for the brand it
+  now scores: tracking a brand and five rivals pays for the buyer calls once. Brand questions and
+  re-asks are never shared. On the public demo nothing is shared across access passes. Kept in
+  `DATA_DIR/shared.db`.
 - **Every number says how sure it is.** `scoring` bootstraps a 95% confidence interval (2,000
   resamples, fixed seed, so a saved run always shows the same interval) and the report shows it as a
   small low–high range beside the number (the headline's in untapped-potential terms, 100 minus the
@@ -264,6 +280,8 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 | `PATCH /api/companies/{id}` | the customer's own input: `{weights: {id: 0..1}, added: [{label, description, intended_weight}]}`. Intent arrives only here (or on `rescore`) — never derived from their copy, and a weight of 0 leaves an extracted attribute unintended. Weights are optional: a company measured with none runs the claim lens. An **added** claim is intended by construction, so its weight cannot go below 0.1 |
 | `POST /api/access/exchange` · `GET /api/access` | access passes on the hosted demo (`access.py`): `{code}` from a personal link `/?pass=<code>` becomes an HttpOnly session cookie; `GET` is the holder's meter (`{pass: {label, spent_usd, cap_usd, capped}}` or `{pass: null}`). With a pass, live runs and onboarding are allowed on the public demo, charged to the pass, every run it makes (replay or live) is saved under `DATA_DIR`, and runs and companies are listed only to the pass that made them — a pass sees none of the shared preloaded ones. `/admin` (behind `ADMIN_PASSWORD`) creates passes, shows each link once, and tops up or revokes. Cookies are same-origin, so passes work on the production build, not across the Vite dev port |
 | `POST /api/companies/{id}/audit` | checks again whether AI can read the site (`audit.py`) and saves it on the company; the same check runs once during onboarding. Plain fetches, no model and no key: robots.txt for the AI crawlers, the claim's words in the no-JavaScript HTML, schema.org JSON-LD, headings, load time and llms.txt, on every page that states each claim, plus Wikidata/Wikipedia (tied to the company only by Wikidata's official website on its domain) and the Crunchbase, G2 and LinkedIn pages the site itself links to. Anything that cannot be reached, or whose robots.txt turns automated tools away, is "could not check", never a guess. A run copies the company's audit when it starts |
+| `GET /api/runs/{id}/why/stream?attribute=&probe=` or `&question=`, optional `&term=` | the why agent (`api/why.py`) as SSE: `start` (its budget), `log`, `arm` (one experiment, decided), `verdict`, `done` (the investigation, saved under `DATA_DIR/investigations/`), `error`. Live runs only; refused on the public demo without a pass, without a key, or with a model that cannot search. The question must name the company and not the claim |
+| `GET /api/runs/{id}/why` · `GET /api/investigations/{id}` | a run's investigations, newest first, and one in full. The run itself is never changed |
 | `DELETE /api/companies/{id}/attributes/{attr}` | removes a claim the customer added. Refuses for a claim extracted from their own pages: that one is evidence, and excluding it from scoring is what its zero slider is for |
 
 ## Views
@@ -349,9 +367,38 @@ work, starting on Onboard.
     questions are grouped by front, each group with its visibility and range, its
     questions and its **control question** with its answer and, when flagged, why the result is
     low confidence. A buyer row, and its question popover, also says what the model searched for
-    it and whether any cited page was the brand's own.
+    it and whether any cited page was the brand's own. Every live answer opens to **What AI read**
+    (`Answer.trace`, `live.reading_of`): each search with the snippets it returned, each page the
+    model opened and the lines it looked up, in order, with the crawler's own date stamp. The
+    Responses API returns them with the answer when asked (`include=["web_search_call.action.sources",
+    "web_search_call.results"]`, `live.INCLUDE`), at no extra charge; a run keeps each result's first
+    600 characters. Each front's header gives its rate of "named you" with its **margin** and how many
+    of its frozen questions it took.
   - **Why AI misses you** — diagnosis sections, each headed by one finding sentence and collapsed
-    on a phone. **What ChatGPT searched** (`insights.searches`): the web searches the measured model
+    on a phone. **Why AI says it** (the why agent, `why.py`, live runs only): pick a claim and a
+    branded question — one of the run's, or your own that names the company and not the claim — and
+    optionally a word that counts as saying it (otherwise the evaluator judges, quote verified). The
+    agent asks it live 3 times recording what the model read, and 3 times with web search off (what
+    the model already believes); replays the recorded reading list with search off, handed back as
+    the web_search tool's own output, and stops unless the replay says the claim about as often as
+    live did; then runs experiments on that reading list: remove every page that says it, bisect
+    them, remove only the lines that say it; for a claim the company makes, lead a page AI already
+    read with the run's win-back rewrite, or without one the site's own quote of the claim (copy), and add the company's page that states it where
+    search never returned it (authority; with no such page, the rewrite's page carrying the
+    rewrite). Each experiment is re-asked 6, 18, then 36 times until its effect's 95% interval —
+    widened for every look and every experiment (`why.Z`) — excludes zero, or sits inside ±20 points. The claim card says what AI says, whether it believes it, what causes it
+    (down to the lines), the tested fix with its predicted rate, and every experiment's effect.
+    There is one card per claim and question: asking again gives a fresh result, since what AI reads
+    changes, so the newest leads and earlier ones fold under it (`web/src/investigations.ts`). A
+    media-library file or download the model read (`/-/media/`, `/static-files/`, a PDF or `.ashx`;
+    `why.is_asset`) can be a cause and is named as a document, but it is never a page to put a
+    rewrite on or to add.
+    Replays are provenance `counterfactual_replay` and never reach a score; any copy that is not a
+    page's own verbatim text is labelled hypothetical. Every call is metered; an investigation stops
+    at `WHY_BUDGET_USD`.
+    On Amgen (2026-09-28) it traced "debt" to two lines of the company's Q2-2026 earnings release and
+    showed the "AI in R&D" rewrite on /about taking the claim from 6/18 to 14/18 answers.
+    **What ChatGPT searched** (`insights.searches`): the web searches the measured model
     ran for the buyer questions (every try), read from the Responses API's `web_search_call` items
     into `Answer.searches` and grouped when they differ only by case, a year or punctuation; one
     question told as a sentence, then each search with the questions it came from and the pages
