@@ -568,6 +568,8 @@ export interface WhyArm {
   kind: "base" | "drop_source" | "drop_passage" | "edit" | "inject";
   label: string; urls: string[]; text: string[]; hypothetical: boolean;
   k: number; n: number;
+  /** The base it was compared with, when it was decided. */
+  base_k: number; base_n: number;
   effect: number | null;
   /** 95% interval of the effect, corrected for every look and arm of the investigation. */
   interval: [number, number] | null;

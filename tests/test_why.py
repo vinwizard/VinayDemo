@@ -265,3 +265,35 @@ def test_the_pilots_ai_arms_re_derive_and_need_the_last_look():
     assert (base, fixed, gone) == ((6, 18), (14, 18), (0, 18))
     assert newcombe(*fixed, *base, z_for(0.05))[0] > 0      # decided at a plain 95%, as the pilot reported
     assert newcombe(*fixed, *base, why.Z)[0] < 0           # not yet, corrected: the agent asks to 36
+
+
+# ---------------------------------------------------------------- found live, 2026-09-28
+def test_the_copy_test_edits_a_page_that_does_not_say_it_yet():
+    """Live, search returned Amgen's AI page itself: leading it with the rewrite repeated what it
+    already said and moved nothing. The copy question is about a page AI reads that is silent."""
+    fake = Fake(DIFFERENT, ai_model())
+    action = WinBackAction(attribute_id=AI.id, label=AI.label, zone="unstated_intent", page_url=AI_PAGE,
+                           rewrite=REWRITE, provenance="live_api")
+    inv = investigate(fake, AI, DIFFERENT["question"], "AI", win_back=[action])
+    edit = next(a for a in inv.arms if a.kind == "edit")
+    said = why.term_pattern("AI")
+    assert not any(said.search(r.text) for s in inv.reading for r in s.results if r.url == edit.urls[0])
+
+
+def test_whether_ai_says_it_is_decided_on_the_second_looks_asks():
+    """Live, the base read 0 of 6 and 12 of 36 once topped up: a claim said a third of the time
+    must still get its cause searched."""
+    tick = count()
+    fake = Fake(DIFFERENT, lambda text: "It uses AI." if "tools like AI" in text and next(tick) % 7 == 6
+                else "It is a biotech pioneer.")
+    inv = investigate(fake, AI, DIFFERENT["question"], "AI")
+    assert inv.arms[0].n >= why.LOOKS[1] and any(a.kind == "drop_source" for a in inv.arms)
+
+
+def test_each_experiment_keeps_the_base_it_was_decided_against():
+    fake = Fake(STRENGTHS, says_debt, live_text="Amgen carries meaningful debt.")
+    inv = investigate(fake, DEBT, STRENGTHS["question"], "debt")
+    for a in inv.arms[1:]:
+        assert a.base_n and a.effect == round(a.k / a.n - a.base_k / a.base_n, 2)
+    passage = next(a for a in inv.arms if a.id == inv.verdicts[-1].arm_id)
+    assert f"from {passage.base_k}/{passage.base_n} to {passage.k}/{passage.n}" in inv.verdicts[-1].text

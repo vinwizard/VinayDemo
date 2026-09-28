@@ -166,7 +166,7 @@ export function InvestigationCard({ inv }: { inv: Investigation }) {
               {inv.arms.map((a) => (
                 <tr key={a.id}>
                   <td>{a.label}{a.hypothetical && <> <span className="tag sample">hypothetical</span></>}</td>
-                  <td>{a.k}/{a.n}</td>
+                  <td>{a.k}/{a.n}{a.base_n > 0 && <span className="muted"> vs {a.base_k}/{a.base_n}</span>}</td>
                   <td>{a.decided === "base" ? "base" : a.effect == null ? "—"
                     : `${signed(a.effect)} pts${a.decided === "undecided" ? " (undecided)" : a.decided === "no_effect" ? " (none)" : ""}`}</td>
                   <td className="effect-col"><EffectBar a={a} /></td>

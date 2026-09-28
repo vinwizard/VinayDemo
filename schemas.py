@@ -622,6 +622,8 @@ class WhyArm(BaseModel):
     hypothetical: bool = False                  # edited or injected copy: not what the page says today
     k: int = 0
     n: int = 0
+    base_k: int = 0                             # the base it was compared with, when it was decided
+    base_n: int = 0
     effect: Optional[float] = None              # this arm's rate minus the base rate
     interval: Optional[list[float]] = None      # 95% interval of the effect, the whole investigation corrected
     decided: Literal["effect", "no_effect", "undecided", "base"] = "undecided"

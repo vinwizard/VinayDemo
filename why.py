@@ -301,13 +301,14 @@ class Agent:
             if not arm.n or not self.base.n:
                 continue
             lo, hi = newcombe(arm.k, arm.n, self.base.k, self.base.n, Z)
+            arm.base_k, arm.base_n = self.base.k, self.base.n
             arm.effect = round(arm.k / arm.n - self.base.k / self.base.n, 2)
             arm.interval = [round(lo, 2), round(hi, 2)]
             arm.decided = "effect" if lo > 0 or hi < 0 else "no_effect" if -NO_EFFECT <= lo and hi <= NO_EFFECT else "undecided"
             if arm.decided != "undecided":
                 break
         self.emit("arm", arm.model_dump())
-        self.note(f"{arm.label}: {arm.k}/{arm.n} against {self.base.k}/{self.base.n} — "
+        self.note(f"{arm.label}: {arm.k}/{arm.n} against {arm.base_k}/{arm.base_n} — "
                   + {"effect": f"changes it by {arm.effect:+.2f} [{arm.interval[0]:+.2f}, {arm.interval[1]:+.2f}]",
                      "no_effect": "no change",
                      "undecided": "not decided within the asks allowed"}[arm.decided] if arm.interval else f"{arm.label}: not judged")
@@ -367,6 +368,8 @@ class Agent:
                              "No experiment on the reading list would be a fair test.")
                 return self.finish("complete")
             self.note(f"Replayed, the reading list gives it in {base.k} of {base.n}: close enough to live to experiment on.")
+            # whether AI says it at all decides which experiments run, so it gets the second look's asks
+            self.ask_replays(base, LOOKS[1])
             if base.k:
                 self.find_cause(reserve=0 if self.attribute.discovered else FIX_ARMS)
             elif self.attribute.discovered:
@@ -455,10 +458,10 @@ class Agent:
                               label=f"Removed only the lines of {page_name(cause)} that say it"), reading, reserve) if lines else None
         if arm and self.test(arm).decided == "effect" and arm.effect < 0:
             self.verdict("caused_by", f"AI says it because of {len(lines)} line(s) of {page_name(cause)}: removing just "
-                                      f"them takes it from {self.base.k}/{self.base.n} to {arm.k}/{arm.n}.", arm)
+                                      f"them takes it from {arm.base_k}/{arm.base_n} to {arm.k}/{arm.n}.", arm)
         else:
             self.verdict("caused_by", f"AI says it because of {page_name(cause)}: removing that page takes it from "
-                                      f"{self.base.k}/{self.base.n} to {source_arm.k}/{source_arm.n}.", source_arm)
+                                      f"{source_arm.base_k}/{source_arm.base_n} to {source_arm.k}/{source_arm.n}.", source_arm)
 
     def test_fixes(self) -> None:
         """Copy or authority? Put the company's copy first on its page AI already read; add its page
@@ -473,7 +476,12 @@ class Agent:
             return
         results = []
         if mine:
-            target = next((u for u in mine if u in self.cited), mine[0])
+            # the copy question is "does a page AI reads, and that does not say it yet, move it if it
+            # does": a page that already says it only repeats it. Cited pages first.
+            says = marker(self.attribute, inv.term, inv.live_quotes, inv.reading)
+            silent = [u for u in mine if not any(says(r.text) for s in inv.reading for r in s.results if r.url == u)]
+            pool = silent or mine
+            target = next((u for u in pool if u in self.cited), pool[0])
             arm = self.add(WhyArm(id=f"a{len(inv.arms)}", kind="edit", urls=[target], text=[copy], hypothetical=True,
                                   label=f"Your rewrite leads {page_name(target)}, a page AI already read"),
                            lead_with(inv.reading, target, copy))
@@ -492,7 +500,7 @@ class Agent:
         up = [a for a in results if a.decided == "effect" and a.effect > 0]
         if edit := next((a for a in up if a.kind == "edit"), None):
             self.verdict("copy_fix", f"The fix is copy: with your rewrite leading {page_name(edit.urls[0])}, AI says it in "
-                                     f"{edit.k} of {edit.n} answers against {self.base.k} of {self.base.n} — a predicted "
+                                     f"{edit.k} of {edit.n} answers against {edit.base_k} of {edit.base_n} — a predicted "
                                      f"{edit.effect:+.0%} ({edit.interval[0]:+.0%} to {edit.interval[1]:+.0%}) once the "
                                      "page is re-crawled.", edit, "copy")
         elif add := next((a for a in up if a.kind == "inject"), None):
