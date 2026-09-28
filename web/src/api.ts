@@ -142,6 +142,15 @@ export interface Answer {
   search_executed: boolean | null;
   evaluator_model?: string | null;
   try_no?: number;
+  /** What the answering model read, step by step; absent when not recorded. */
+  trace?: ReadStep[] | null;
+}
+
+/** One thing the model read: a search snippet, an opened page's lines or a find-in-page hit. */
+export interface ReadResult { url: string; title: string | null; text: string; crawled: string | null }
+export interface ReadStep {
+  kind: "search" | "open_page" | "find_in_page";
+  queries: string[]; url: string | null; pattern: string | null; results: ReadResult[];
 }
 
 export interface QueryEvaluation {

@@ -16,6 +16,7 @@ import { GLOSSARY } from "./glossary";
 import { LINE, layoutMap } from "./maplabels";
 import { PHONE, Popover, Term } from "./popover";
 import { WhyAIMisses } from "./audit";
+import { WhatItRead } from "./why";
 
 const ZONE_FILL: Record<Zone, string> = {
   landed: "var(--landed)",
@@ -1725,6 +1726,7 @@ function QuestionRow({ p, name, answer, verdict, tags, note, replay, after, sub 
           {answer && replay && <span className="tag sample">sample</span>}
           {answer ? plain(answer.text) : "no answer"}
         </p>
+        <WhatItRead a={answer} />
         {after}
       </div>
     </details>

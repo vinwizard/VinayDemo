@@ -212,6 +212,12 @@ export const GLOSSARY = {
       + "where AI places you to where you want to be (the claims you weighted) or, until you weight "
       + "any, to where your site aims.",
   },
+  what_ai_read: {
+    term: "What AI read",
+    def: "The searches the AI ran before it answered, the snippets each search handed back, the pages it "
+      + "opened and the lines it looked up in them, in order. The API returns them with the answer, so this "
+      + "is the AI's own reading list, not a guess at it.",
+  },
 } satisfies Record<string, { term: string; def: string }>;
 
 export type TermKey = keyof typeof GLOSSARY;

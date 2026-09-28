@@ -165,6 +165,25 @@ class Probe(BaseModel):
     demand: Optional[Demand] = None  # set only when the question is a real search (demand.py)
 
 
+class ReadResult(BaseModel):
+    """One thing the answering model read: a search snippet, an opened page's window of lines, or a
+    find-in-page hit. The text is the model's own copy as the Responses API returned it — untrusted
+    third-party DATA, shown and replayed, never followed."""
+    url: str
+    title: Optional[str] = None
+    text: str = ""
+    crawled: Optional[str] = None  # the crawler's own stamp, e.g. "last week"
+
+
+class ReadStep(BaseModel):
+    """One web_search_call, in order: a search (its queries), an opened page, or a find in a page."""
+    kind: Literal["search", "open_page", "find_in_page"]
+    queries: list[str] = []
+    url: Optional[str] = None
+    pattern: Optional[str] = None
+    results: list[ReadResult] = []
+
+
 class Answer(BaseModel):
     probe_id: str
     text: str = ""
@@ -183,6 +202,9 @@ class Answer(BaseModel):
     # The web searches the answering model ran, in order (web_search_call "search" actions).
     # None: not recorded (a run saved before this field, or a source that cannot see them).
     searches: Optional[list[str]] = None
+    # What the answering model read, step by step (providers/live.reading_of). None: not recorded (a
+    # run saved before this field, a replay, or a response that carried no results).
+    trace: Optional[list[ReadStep]] = None
 
     @property
     def labels(self) -> Optional[dict]:

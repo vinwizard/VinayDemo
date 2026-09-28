@@ -11,12 +11,13 @@ ungrounded, and `scoring.eligible` excludes it from live scores rather than quie
 Transport is injectable so the whole adapter is testable with no API key and no network.
 """
 import os
+import re
 from datetime import datetime, timezone
 from typing import Callable, NamedTuple, Optional
 
 from agents.onboarding_model import buyer_category_for, buyer_questions_for
 from config import setting
-from schemas import Answer, Attribute, CompanyProfile, Probe, Topic
+from schemas import Answer, Attribute, CompanyProfile, Probe, ReadResult, ReadStep, Topic
 
 KEY_ENV = "OPENAI_API_KEY"
 # The model that ANSWERS the questions — the one being measured. The judge is separate
@@ -49,6 +50,10 @@ TOOL_CHOICE = "required"
 # change of behaviour — and an API that does not know the field is a 400 the fallback catches.
 SEARCH_TOOL = {"type": "web_search", "external_web_access": True}
 FALLBACK_TOOL = {"type": "web_search"}
+# What the model read rides on the same call, at no extra charge: `sources` are the URLs each search
+# consulted and `results` the text it was handed — ranked snippets, the window of an opened page,
+# the lines a find-in-page matched (reading_of). This is what the why agent replays (why.py).
+INCLUDE = ["web_search_call.action.sources", "web_search_call.results"]
 # The record of the most recent successful `preflight`, for /api/health and status() only: the
 # step-down reason, in words safe to show, and whether any web_search tool is sent at all. A run
 # never reads it back — it uses the `Resolved` its own preflight returned, so a concurrent run's
@@ -295,12 +300,46 @@ def searches_of(response) -> list[str]:
     return out
 
 
+# The Responses API wraps each snippet's citation handle in private-use characters
+# ("\ue200cite\ue202turn0search0\ue201") and prefixes a quoting limit; neither is text the page said.
+MARKUP = re.compile(r"\ue200[^\ue201]*\ue201\s*|\[wordlim: \d+\]\s*")
+CRAWLED = re.compile(r"Crawled: ([^;\n]+);")
+TRACE_CAP = 600   # characters of each result a run keeps: enough to show; the why agent keeps its own whole
+READ_KINDS = {"search": "search", "open_page": "open_page", "find_in_page": "find_in_page", "find": "find_in_page"}
+
+
+def reading_of(response, cap: Optional[int] = TRACE_CAP) -> Optional[list[ReadStep]]:
+    """-> every web_search_call as a ReadStep, in order, with the text the model was handed; None when
+    no search ran. `results` is the record to trust, not `action`: one call can bundle several finds
+    while its action names only one of them."""
+    steps = []
+    for item in _output_items(response):
+        if _item(item, "type") != "web_search_call":
+            continue
+        action = _item(item, "action") or {}
+        queries = [q.strip() for q in [_item(action, "query"), *(_item(action, "queries") or [])]
+                   if isinstance(q, str) and q.strip()]
+        results = []
+        for r in _item(item, "results") or []:
+            url = _item(r, "url")
+            if not isinstance(url, str) or not url:
+                continue
+            text = MARKUP.sub("", _item(r, "snippet") or _item(r, "text") or "").strip()
+            crawled = CRAWLED.search(text)
+            results.append(ReadResult(url=url, title=_item(r, "title"), text=text[:cap] if cap else text,
+                                      crawled=crawled.group(1).strip() if crawled else None))
+        steps.append(ReadStep(kind=READ_KINDS.get(_item(action, "type"), "search"),
+                              queries=list(dict.fromkeys(queries)), url=_item(action, "url"),
+                              pattern=_item(action, "pattern"), results=results))
+    return steps or None
+
+
 def default_transport(messages: list[dict], model: str, timeout: int,
                       tool: Optional[dict] = SEARCH_TOOL):
     import access  # metered: refused at a pass's cap, charged to it after
     # tool_choice is the whole point of forcing search: with "auto" the model decides, and the
     # answers it decides not to search for are paid for and then excluded from the score.
-    extra = dict(tools=[tool], tool_choice=TOOL_CHOICE) if tool else {}
+    extra = dict(tools=[tool], tool_choice=TOOL_CHOICE, include=INCLUDE) if tool else {}
     return access.openai_response(timeout, model=model, input=messages, **extra)
 
 
@@ -459,7 +498,7 @@ class LiveProvider:
             return Answer(**base, text="", status="error", error="empty response",
                           search_executed=searched)
         answer = Answer(**base, text=text, citations=citations, search_executed=searched, status="ok",
-                        searches=searches_of(raw))
+                        searches=searches_of(raw), trace=reading_of(raw))
         if self.evaluator is not None and self._profile is not None:
             # Agent 3 runs here, on a separate model, seeing the company. The measured call above
             # has already returned, so nothing about the target could have reached it.

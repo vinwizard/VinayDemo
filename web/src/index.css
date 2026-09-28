@@ -593,3 +593,13 @@ details.skipped ul { margin: .2rem 0 0; padding-left: 1.1rem; font-size: .85rem;
                font-size: 9px; font-weight: 650; color: #fff; background: #8c96a3; flex: none; }
 .pmap-swatch.seen { background: var(--accent); }
 .pmap-swatch.intended { background: var(--surface); border: 2px dashed var(--accent); }
+
+/* ---------------------------------------------------------------- what AI read (why.tsx) */
+.read > summary { cursor: pointer; font-size: .84rem; color: var(--accent); }
+.read-steps { margin: .3rem 0 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .5rem; font-size: .86rem; }
+.read-kind { font-weight: 600; }
+.read-results { list-style: none; margin: .25rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; }
+.read-results li { border-left: 2px solid var(--border); padding-left: .55rem; min-width: 0; }
+.read-results a { overflow-wrap: anywhere; }
+.read-text { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+             color: var(--muted); font-size: .82rem; overflow-wrap: anywhere; white-space: pre-line; }
