@@ -62,9 +62,10 @@ def test_an_investigation_streams_and_is_kept_beside_the_run(client):
 
 def test_its_own_question_must_name_the_company_and_not_the_claim(client):
     assert "must name Amgen" in stream(client, attribute=AI.id, question="What makes it different?")[0][1]["message"]
-    leak = stream(client, attribute=AI.id,
-                  question="Is it true Amgen uses AI and advanced technology in research and development?")
-    assert "names the claim" in leak[0][1]["message"]
+    for question in ["Is it true Amgen uses AI and advanced technology in research and development?",
+                     "Does Amgen use AI and advanced technology in research and development?"]:
+        leak = stream(client, attribute=AI.id, question=question)
+        assert "names the claim" in leak[0][1]["message"]
 
 
 def test_only_a_live_run_and_a_known_claim(client):
