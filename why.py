@@ -20,7 +20,7 @@ bisected, never one guess at a time.
 
 A replay is an experiment on a recorded reading list, never a measurement: its answers are
 provenance `counterfactual_replay`, live only in the Investigation, and never reach a score.
-Edited and injected text is hypothetical copy and is labelled so. Every call goes through
+Edited or injected text that is not a page's own verbatim text is hypothetical copy and is labelled so. Every call goes through
 access.openai_response, and the whole investigation stops at its budget (WHY_BUDGET_USD).
 """
 import json

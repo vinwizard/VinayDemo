@@ -383,7 +383,7 @@ work, starting on Onboard.
     the web_search tool's own output, and stops unless the replay says the claim about as often as
     live did; then runs experiments on that reading list: remove every page that says it, bisect
     them, remove only the lines that say it; for a claim the company makes, lead a page AI already
-    read with the run's win-back rewrite (copy), and add the company's page that states it where
+    read with the run's win-back rewrite, or without one the site's own quote of the claim (copy), and add the company's page that states it where
     search never returned it (authority; with no such page, the rewrite's page carrying the
     rewrite). Each experiment is re-asked 6, 18, then 36 times until its effect's 95% interval —
     widened for every look and every experiment (`why.Z`) — excludes zero, or sits inside ±20 points. The claim card says what AI says, whether it believes it, what causes it
