@@ -429,14 +429,16 @@ class Agent:
             self.verdict("undecided", "Removing the pages that say it may change the answer, but not decidedly "
                                       "within the asks allowed.", group)
             return
-        if group.decided == "no_effect" or group.effect >= 0:
+        if group.decided == "no_effect":
             self.verdict("prior_belief" if inv.off.k else "not_in_reading",
-                         ("Removing every page that says it does not stop the model saying it"
-                          if group.decided == "no_effect" else
-                          "Removing every page that says it makes the model say it more often, not less")
+                         "Removing every page that says it does not stop the model saying it"
                          + (" — and with search off it says it too: it comes from what the model already "
                             "believes, and no page edit can move it." if inv.off.k else
                             ". It is the model's own wording, not a source's."), group)
+            return
+        if group.effect >= 0:
+            self.verdict("not_in_reading", "Removing every page that says it makes the model say it more often, not "
+                                           "less: those pages are not why AI says it, they hold it back.", group)
             return
         pages = sources
         while len(pages) > 1:
@@ -454,7 +456,7 @@ class Agent:
                 if self.test(arm).decided == "effect" and arm.effect < 0:
                     found = list(part)
                     break
-                cleared += arm.decided == "no_effect"
+                cleared += arm.decided != "undecided"
             if not found and cleared < len(half):
                 self.verdict("undecided", f"The {len(pages)} pages that say it together are the reason ("
                              + ", ".join(page_name(u) for u in pages) + "); removing part of them was not decided "
@@ -522,7 +524,11 @@ class Agent:
                                      f"{edit.effect:+.0%} ({edit.interval[0]:+.0%} to {edit.interval[1]:+.0%}) once the "
                                      "page is re-crawled.", edit, "copy")
         elif add := next((a for a in up if a.kind == "inject"), None):
-            self.verdict("authority_fix", f"The fix is authority: AI says it once it reads {page_name(add.urls[0])} "
+            self.verdict("authority_fix", f"The fix is your rewrite and authority: AI says it once it reads your "
+                                          f"rewrite on {page_name(add.urls[0])} ({add.k} of {add.n} answers), but search "
+                                          "never returned that page for this question. Both are needed: the rewrite on "
+                                          "it, and getting it found." if add.hypothetical else
+                                          f"The fix is authority: AI says it once it reads {page_name(add.urls[0])} "
                                           f"({add.k} of {add.n} answers), but search never returned that page for this "
                                           "question. Getting it found is the fix, not rewriting it.", add, "authority")
         elif results and all(a.decided == "no_effect" for a in results):

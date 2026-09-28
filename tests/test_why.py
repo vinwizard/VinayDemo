@@ -171,6 +171,37 @@ def test_halves_that_are_only_undecided_are_not_over_determined():
     assert inv.verdicts[-1].kind == "undecided"
 
 
+def test_pages_that_hold_a_claim_back_are_never_called_prior_belief():
+    ticks = count()
+
+    def says(text):   # with the pages: every other answer; without them: always
+        if "debt outstanding" not in text.lower() or next(ticks) % 2 == 0:
+            return "Amgen has debt."
+        return "Revenue grew 10%."
+    fake = Fake(STRENGTHS, says, off="Amgen has debt.", live_text="Amgen has debt.")
+    inv = investigate(fake, DEBT, STRENGTHS["question"], "debt")
+    group = inv.arms[1]
+    assert inv.off.k and group.decided == "effect" and group.effect > 0
+    assert inv.verdicts[-1].kind == "not_in_reading" and "no page edit" not in inv.verdicts[-1].text
+
+
+def test_halves_each_decided_without_a_drop_are_over_determined():
+    reading = live.reading_of(STRENGTHS, cap=None)
+    pages = {r.url for s in reading for r in s.results if "cash flow" in r.text}
+    assert len(pages) == 2
+    ticks = count()
+
+    def says(text):   # both pages: every other answer; either one alone: always; neither: never
+        held = sum(u in text for u in pages)
+        return "Strong cash flow." if held == 1 or held == 2 and next(ticks) % 2 == 0 else "Amgen."
+    fake = Fake(STRENGTHS, says, live_text="Strong cash flow.")
+    inv = investigate(fake, Attribute(id="cash", label="Strong cash flow", discovered=True),
+                      STRENGTHS["question"], "cash flow")
+    halves = inv.arms[2:]
+    assert inv.arms[1].decided == "effect" and all(a.decided == "effect" and a.effect > 0 for a in halves)
+    assert inv.verdicts[-1].kind == "over_determined"
+
+
 def test_a_replay_that_does_not_match_live_stops_before_any_experiment():
     fake = Fake(STRENGTHS, lambda text: "Amgen is growing.", live_text="Amgen has a lot of debt.")
     inv = investigate(fake, DEBT, STRENGTHS["question"], "debt")
@@ -334,3 +365,15 @@ def test_a_page_that_does_not_state_the_claim_is_never_injected_as_its_copy():
                       win_back=[action])
     inject = next(a for a in inv.arms if a.kind == "inject")
     assert inject.urls == [AI_PAGE] and inject.hypothetical and inject.text == [REWRITE]
+
+
+def test_a_rewrite_injected_on_an_unread_page_needs_the_rewrite_and_authority():
+    unstated = AI.model_copy(update=dict(claim_evidence_ids=[]))
+    action = WinBackAction(attribute_id=AI.id, label=AI.label, zone="unstated_intent", page_url=AI_PAGE,
+                           rewrite=REWRITE, provenance="live_api")
+    fake = Fake(DIFFERENT, lambda text: "It uses AI." if REWRITE in text and "ai-in-research-and-development" in text
+                else "It is a pioneer.")
+    inv = investigate(fake, unstated, DIFFERENT["question"], "AI", win_back=[action])
+    fix = inv.verdicts[-1]
+    assert fix.kind == "authority_fix" and next(a for a in inv.arms if a.id == fix.arm_id).hypothetical
+    assert "your rewrite" in fix.text and "not rewriting it" not in fix.text
