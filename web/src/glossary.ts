@@ -239,8 +239,8 @@ export const GLOSSARY = {
   },
   copy_fix: {
     term: "Copy fix",
-    def: "AI reads your page but does not say it: when your rewrite leads a page AI already read, it says it "
-      + "much more often. Change the words on that page.",
+    def: "AI reads your page but does not say it: when your rewrite (or your own copy) leads a page AI already "
+      + "read, it says it much more often. Change the words on that page.",
   },
   authority_fix: {
     term: "Authority fix",
@@ -249,8 +249,13 @@ export const GLOSSARY = {
   },
   not_movable: {
     term: "Not movable by copy",
-    def: "Neither your rewrite on a page AI reads nor your page that states it changed how often AI says it. "
-      + "This question does not ask for the claim; ask a different one or accept it.",
+    def: "Neither your rewrite (or your own copy) on a page AI reads nor your page that states it changed how "
+      + "often AI says it. This question does not ask for the claim; ask a different one or accept it.",
+  },
+  copy_lowers: {
+    term: "Copy lowers it",
+    def: "Putting your copy on a page AI reads, or adding your page search never returned, made AI say it "
+      + "decidedly less often. That copy is not the fix for this claim.",
   },
   prior_belief: {
     term: "Prior belief",

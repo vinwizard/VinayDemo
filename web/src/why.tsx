@@ -83,7 +83,7 @@ const VERDICT: Record<WhyVerdict["kind"], { label: string; tone: string }> = {
 
 const VERDICT_TERM: Partial<Record<WhyVerdict["kind"], TermKey>> = {
   copy_fix: "copy_fix", authority_fix: "authority_fix", not_movable: "not_movable",
-  prior_belief: "prior_belief", over_determined: "over_determined",
+  copy_lowers: "copy_lowers", prior_belief: "prior_belief", over_determined: "over_determined",
 };
 
 const share = (k: number, n: number) => (n ? `${Math.round((100 * k) / n)}%` : "n/a");
