@@ -308,7 +308,7 @@ the measuring stages) and the report tour on their first finished report. Each p
 own once per browser (`localStorage["offmessage.tour.v1"]`; blocked storage means once per page
 load). Skip, Esc or finishing ends a part, and skipping the story skips the report tour too.
 **How it works** in the top bar replays it: the story when the showcase run can be read, else the
-tour of the screen. Captions fill in the open report's own numbers, and a step whose element or
+report tour on an open report, else the Onboard tour, switching to that tab first. Captions fill in the open report's own numbers, and a step whose element or
 number is missing is left out. Invented terms open their `glossary.ts` definition. The caption is a
 bottom sheet on a phone; ← → move, Esc skips, and Tab stays inside the caption. Under reduced
 motion the story is a still strip of all four scenes and the spotlight jumps instead of sliding.
