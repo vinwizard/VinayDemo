@@ -183,6 +183,13 @@ export const ONBOARD_STEPS: Step[] = [
 export const replayPart = (hasStory: boolean, reportOpen: boolean): Part =>
   hasStory ? "story" : reportOpen ? "report" : "onboard";
 
+/**
+ * Without a story to tell (a pass holder cannot read the showcase run), the welcome scene still
+ * opens the guide: on a first visit before the tour that would auto-start, and on every replay.
+ */
+export const welcomeFirst = (store: Store | null, hasStory: boolean, auto: boolean) =>
+  !hasStory && (!auto || autoStarts(store, "story"));
+
 /** The scene before the story: what the app is, before it is shown on a real run. */
 export const STORY_WELCOME = {
   headline: "Hey, thank you for being here! 👋",

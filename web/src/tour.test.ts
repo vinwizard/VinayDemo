@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { beforeEach, test } from "node:test";
-import { autoStarts, fill, loadSeen, markSeen, pickStory, replayPart, resetMemory, sceneMs, STORAGE_KEY, STORY_WELCOME, termParts, type Store, type StoryRun } from "./tour.ts";
+import { autoStarts, fill, loadSeen, markSeen, pickStory, replayPart, resetMemory, welcomeFirst, sceneMs, STORAGE_KEY, STORY_WELCOME, termParts, type Store, type StoryRun } from "./tour.ts";
 
 const memory = (): Store & { data: Record<string, string> } => {
   const data: Record<string, string> = {};
@@ -103,4 +103,13 @@ test("the story's welcome welcomes the visitor, says what the app is and credits
 test("the welcome stays up about 8 s, long enough to read; the other scenes keep 3.6 s", () => {
   assert.equal(sceneMs(0), 8000);
   for (const i of [1, 2, 3, 4]) assert.equal(sceneMs(i), 3600);
+});
+
+test("a pass holder, with no story to tell, still gets the welcome first, once, and on every replay", () => {
+  const s = memory();
+  assert.equal(welcomeFirst(s, false, true), true);    // first visit: welcome, then the onboard tour
+  markSeen(s, "story", "done");
+  assert.equal(welcomeFirst(s, false, true), false);   // seen once in this browser
+  assert.equal(welcomeFirst(s, false, false), true);   // "How it works" replays it
+  assert.equal(welcomeFirst(memory(), true, true), false);   // with a story the welcome is its scene 0
 });

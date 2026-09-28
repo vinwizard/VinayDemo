@@ -10,11 +10,10 @@ import type { Vars } from "./guideBus";
 import { reportVars } from "./guideBus";
 import { PHONE, Term } from "./popover";
 import type { Part, Step, Story } from "./tour";
-import { autoStarts, fill, markSeen, ONBOARD_STEPS, readySteps, replayPart, REPORT_STEPS, sceneMs, STORY_HEADLINES, STORY_WELCOME, termParts } from "./tour";
+import { autoStarts, fill, markSeen, ONBOARD_STEPS, readySteps, replayPart, welcomeFirst, REPORT_STEPS, sceneMs, STORY_HEADLINES, STORY_WELCOME, termParts } from "./tour";
 
 const store = (() => { try { return window.localStorage; } catch { return null; } })();
 const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const LAST = 4;   // the fix scene; the welcome is scene 0
 
 
 function Caption({ text, vars }: { text: string; vars: Vars }) {
@@ -34,7 +33,7 @@ function trapTab(e: ReactKeyboardEvent<HTMLElement>) {
 
 // ------------------------------------------------------------------------------------------ story
 
-function StoryDialog({ story, vars, onSkip, onSee }: { story: Story; vars: Vars; onSkip: () => void; onSee: () => void }) {
+function StoryDialog({ story, vars, onSkip, onSee }: { story: Story | null; vars: Vars; onSkip: () => void; onSee: () => void }) {
   const still = reduced();
   const [scene, setScene] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -42,7 +41,9 @@ function StoryDialog({ story, vars, onSkip, onSee }: { story: Story; vars: Vars;
   const [elapsed, setElapsed] = useState(0);
   const see = useRef<HTMLButtonElement>(null);
   const skip = useRef<HTMLButtonElement>(null);
-  const brand = story.brand;
+  const brand = story?.brand;
+  // Without a story (a pass holder) the welcome is the only scene; its button hands over to the tour.
+  const LAST = story ? 4 : 0;   // the fix scene; the welcome is scene 0
   const go = (i: number) => { setScene(Math.max(0, Math.min(LAST, i))); setElapsed(0); };
 
   useEffect(() => { skip.current?.focus(); }, []);
@@ -60,7 +61,7 @@ function StoryDialog({ story, vars, onSkip, onSee }: { story: Story; vars: Vars;
     // `elapsed` only seeds a resumed scene; re-running on every frame would restart the timer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene, paused, hover, still]);
-  useEffect(() => { if (scene === LAST && !still) see.current?.focus(); }, [scene, still]);
+  useEffect(() => { if (scene === LAST && !still) see.current?.focus(); }, [scene, still, LAST]);
 
   const onKey = (e: ReactKeyboardEvent<HTMLElement>) => {
     if (e.key === "Escape" && !document.querySelector(".popover")) { e.preventDefault(); onSkip(); }
@@ -77,7 +78,7 @@ function StoryDialog({ story, vars, onSkip, onSee }: { story: Story; vars: Vars;
       <p>{STORY_WELCOME.body}</p>
       <p className="story-note">Inspired by <a href={STORY_WELCOME.creditUrl} target="_blank" rel="noopener noreferrer">Profound</a>.</p>
     </>,
-    <>
+    ...(story ? [<>
       <span className="story-kicker landed">1 · What they claim</span>
       <h3>{fill(STORY_HEADLINES[0], { brand })}</h3>
       <div className="story-page"><div className="story-url">{story.domain}</div>
@@ -116,21 +117,21 @@ function StoryDialog({ story, vars, onSkip, onSee }: { story: Story; vars: Vars;
       {story.fixBefore && <p className="story-old">{story.fixBefore}</p>}
       <p className="story-new"><strong>Suggested rewrite:</strong> {story.fixAfter}</p>
       <p className="story-note">A draft from the report’s <Term k="quick_wins">Quick wins</Term>: check it against the product before publishing.</p>
-    </>,
+    </>] : []),
   ];
 
   return createPortal(
     <div className="guide-backdrop">
-      <div className={`story${still ? " still" : ""}`} role="dialog" aria-modal="true" aria-label={`How Off Message works, shown on ${brand}`}
+      <div className={`story${still ? " still" : ""}`} role="dialog" aria-modal="true" aria-label={brand ? `How Off Message works, shown on ${brand}` : "Welcome to Off Message"}
            onKeyDown={onKey} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
         <div className="story-ctl">
-          {!still && <button type="button" className="ghost" onClick={() => setPaused((p) => !p)}>{paused ? "Play" : "Pause"}</button>}
+          {!still && LAST > 0 && <button type="button" className="ghost" onClick={() => setPaused((p) => !p)}>{paused ? "Play" : "Pause"}</button>}
           <button type="button" className="ghost" ref={skip} onClick={onSkip}>Skip</button>
         </div>
         {still
           ? scenes.map((s, i) => <section key={i} className="scene on">{s}</section>)
           : <section key={scene} className="scene on" aria-live="polite">{scenes[scene]}</section>}
-        {!still && (
+        {!still && LAST > 0 && (
           <div className="story-progress" role="group" aria-label="Scenes">
             {scenes.map((_, i) => (
               <button key={i} type="button" aria-label={`Scene ${i + 1} of ${scenes.length}`} aria-current={i === scene ? "step" : undefined}
@@ -141,7 +142,7 @@ function StoryDialog({ story, vars, onSkip, onSee }: { story: Story; vars: Vars;
           </div>
         )}
         {(still || scene === LAST) && (
-          <div className="story-cta"><button type="button" className="primary" ref={see} onClick={onSee}>See the full {brand} report →</button></div>
+          <div className="story-cta"><button type="button" className="primary" ref={see} onClick={onSee}>{brand ? `See the full ${brand} report →` : "Show me around →"}</button></div>
         )}
       </div>
     </div>,
@@ -249,7 +250,7 @@ function Spotlight({ steps, vars, onEnd }: { steps: Step[]; vars: Vars; onEnd: (
 
 // ------------------------------------------------------------------------------------- controller
 
-type Active = { kind: "story" } | { kind: "tour"; part: "report" | "onboard"; steps: Step[] } | null;
+type Active = { kind: "story"; then?: "report" | "onboard" } | { kind: "tour"; part: "report" | "onboard"; steps: Step[] } | null;
 
 /** Waits (a few frames, up to 3 s) for a screen's first anchor, since reports load after the click. */
 function whenAnchored(steps: Step[], then: (present: Step[]) => void) {
@@ -274,10 +275,13 @@ export function Guide({ story, vars, autoStory, replay, onOpenShowcase }: {
   const [active, setActive] = useState<Active>(null);
   const busy = useRef(false);
   const back = useRef<HTMLElement | null>(null);
+  const storyRef = useRef(story);
+  storyRef.current = story;
 
-  const startTour = useCallback((part: "report" | "onboard", auto: boolean) => {
+  const startTour = useCallback((part: "report" | "onboard", auto: boolean, welcomed = false) => {
     if (busy.current || (auto && !autoStarts(store, part))) return;
     busy.current = true;
+    if (!welcomed && welcomeFirst(store, !!storyRef.current, auto)) { setActive({ kind: "story", then: part }); return; }
     whenAnchored(part === "report" ? REPORT_STEPS : ONBOARD_STEPS, (present) => {
       // Read the report's numbers only now: after the story, the report loads while this waits.
       const steps = part === "report" ? readySteps(present, reportVars()) : present;
@@ -321,9 +325,14 @@ export function Guide({ story, vars, autoStory, replay, onOpenShowcase }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replay]);
 
-  if (active?.kind === "story" && story) {
-    return <StoryDialog story={story} vars={vars} onSkip={() => end("story", "skipped")}
-                        onSee={() => { end("story", "done"); onOpenShowcase(); startTour("report", false); }} />;
+  if (active?.kind === "story" && (story || active.then)) {
+    const then = active.then;
+    return <StoryDialog story={then ? null : story} vars={vars} onSkip={() => end("story", "skipped")}
+                        onSee={() => {
+                          end("story", "done");
+                          if (then) { startTour(then, false, true); return; }
+                          onOpenShowcase(); startTour("report", false);
+                        }} />;
   }
   if (active?.kind === "tour") {
     const part = active.part;
