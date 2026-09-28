@@ -95,7 +95,8 @@ class Fake:
                     "usage": self.usage}
         if kind == "writer":
             items = re.findall(r"^(\d+)\. ", kw["input"], re.M)
-            lines = self.writer(items) if self.writer else [{"rank": int(r), "text": "Do this."} for r in items]
+            lines = (self.writer(items) if self.writer else
+                     [{"rank": int(r), "text": "Lead acme.com/about with the rewrite."} for r in items])
             return message(json.dumps({"lines": lines}), self.usage)
         if kind == "judge":
             return SimpleNamespace(output_text=judge(kw["input"]), output=[], usage=self.usage)
@@ -236,10 +237,13 @@ def test_a_copy_fix_and_a_cause_are_found_and_ranked(world):
     assert fix.k > fix.base_k and fix.interval[0] > 0 and fix.rank == 1
     cause = next(i for i in plan.items if i.attribute_id == "emergent_debt")
     assert cause.fix == "source" and cause.sources == [NEWS]
-    assert plan.written_by == "gpt-6-luna" and fix.text == "Do this."
+    assert "None of them is your page to edit" in cause.text    # news.example.com is not Acme's
+    assert plan.written_by == "gpt-6-luna" and fix.text == "Lead acme.com/about with the rewrite."
     assert status == "complete"
-    # the writer and the coordinator were each paid for through the same metered path
-    assert fake.of("writer") and fake.of("coordinator")
+    # the writer and the coordinator were each paid for through the same metered path; the writer is
+    # handed only the tested fixes, never a source to "remove" or an undecided claim to act on
+    [(_, _, sent)] = fake.of("writer")
+    assert "[copy]" in sent["input"] and "[source]" not in sent["input"] and fake.of("coordinator")
 
 
 def test_a_challenged_task_is_redispatched_with_one_change(world):
@@ -299,14 +303,15 @@ def test_a_task_past_its_deadline_is_cancelled_and_keeps_what_it_found(world):
 
 
 def test_the_purse_stops_every_agent_and_still_leaves_the_plan_written(world, monkeypatch):
-    # each task alone is affordable, both together are not: the shared purse, not a task's cap, stops them
+    # each task alone is affordable, both together are not: the shared purse, not a task's cap, stops
+    # the second; the first, a copy fix, is what the writer's reserve is kept for
     monkeypatch.setenv(why.BUDGET_ENV, "0.30")
     fake = world(Fake(coordinator=[[dispatch("fast", "np-2"), dispatch("emergent_debt", "np-1", term="debt")]],
                       usage={"input_tokens": 20_000, "output_tokens": 4_000}))   # $0.004 a call
-    status, events = execute(world_run(), budget_usd=0.40)
+    status, events = execute(world_run(), budget_usd=0.45, lanes=1)
     stopped = [v for e in of(events, "finished") for v in e.data["verdicts"] if v["kind"] == "budget"]
-    assert stopped and "the fleet's $0.40 budget" in stopped[0]["text"]
-    assert of(events, "done")[0].data["spent_usd"] <= 0.40 + 0.02     # the limit, plus what an estimate misses
+    assert stopped and "the fleet's $0.45 budget" in stopped[0]["text"]
+    assert of(events, "done")[0].data["spent_usd"] <= 0.45 + 0.02     # the limit, plus what an estimate misses
     assert fake.of("writer") and fleet.plan_of(events).written_by == "gpt-6-luna"   # the reserve paid for it
 
 
@@ -317,8 +322,14 @@ def test_a_capped_pass_stops_the_fleet_and_the_plan_falls_back_to_the_template(w
         status, events = execute(world_run())
     assert status == "stopped" and of(events, "stopped")
     plan = fleet.plan_of(events)
-    assert plan.written_by == "template" and "writer's call failed" in plan.notes[0]
+    assert plan.written_by == "template"
     assert [i.fix for i in plan.items] == ["untested"]                # nothing ran; the run's rewrite stays, untested
+    # a writer the pass refuses leaves every line the template's
+    fix = fleet.PlanItem(rank=1, attribute_id="fast", claim="Fast", fix="copy", text="Lead acme.com/about.")
+    worded = fleet.ActionPlan(items=[fix])
+    with access.spending(pid):
+        fleet.write(worded, world_run(), "gpt-6-luna")
+    assert worded.written_by == "template" and "writer's call failed" in worded.notes[0]
 
 
 # ---------------------------------------------------------------- passes, provenance, the log
@@ -459,6 +470,7 @@ def test_the_writer_may_reword_but_never_add_a_number_or_a_page():
     assert not fleet.acceptable("Lead acme.com/about with the rewrite: 90% of answers will say it.", old)
     assert not fleet.acceptable("Put it on acme.com/shipping instead: 14 of 18.", old)
     assert not fleet.acceptable("A seamless rewrite of acme.com/about.", old)
+    assert not fleet.acceptable("Rewrite the page: 14 of 18 answers said it.", old)   # dropped which page
 
 
 def test_a_writer_line_that_adds_a_number_keeps_the_template(world):

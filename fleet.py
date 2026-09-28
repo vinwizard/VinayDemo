@@ -36,6 +36,7 @@ from agents import ana, evaluation
 from agents.evaluator_model import _json_object
 from agents.onboarding_model import MARKETING
 from providers import live
+from scoring import domain_matches
 from schemas import (ActionPlan, Challenge, FleetEvent, FleetTask, Investigation, PlanItem, Run)
 
 BUDGET_ENV, DEFAULT_BUDGET = "FLEET_BUDGET_USD", 3.00
@@ -519,8 +520,10 @@ def _numbers(a) -> dict:
     return dict(arm_id=a.id, k=a.k, n=a.n, base_k=a.base_k, base_n=a.base_n, effect=a.effect, interval=a.interval)
 
 
-def item_for(task: FleetTask, inv: Investigation, attribute, challenges: list[Challenge]) -> PlanItem:
-    """One claim's line, from the investigation that decided most. Numbers are the arm's own."""
+def item_for(task: FleetTask, inv: Investigation, attribute, challenges: list[Challenge],
+             own: tuple[str, ...] = ()) -> PlanItem:
+    """One claim's line, from the investigation that decided most. Numbers are the arm's own. `own` is
+    the company's domains: a source on them is its to change, anyone else's is not."""
     base = dict(rank=0, attribute_id=task.attribute_id, claim=task.claim, question=task.question, task_id=task.id,
                 investigation_id=inv.id, notes=[c.text for c in challenges if c.kind in ("off_claim", "contradicts")])
     doubtful = any(c.kind == "off_claim" for c in challenges)
@@ -536,6 +539,9 @@ def item_for(task: FleetTask, inv: Investigation, attribute, challenges: list[Ch
         text = cause.text if cause else (
             f"AI says it because of what {why.count_pages(a.urls)} say together ({why.named(a.urls)}): removing them "
             f"takes it from {a.base_k}/{a.base_n} to {a.k}/{a.n} replays. Neither part of them decided alone.")
+        mine = [u for u in a.urls if domain_matches(u, list(own))]
+        text += (" Some of them are your own pages: what they say there is yours to change." if mine else
+                 " None of them is your page to edit: answer what they say on a page of yours that AI reads.")
         return PlanItem(fix="source", text=text, sources=a.urls, **_numbers(a), **base)
     settled = next((v for v in inv.verdicts if v.kind in ("prior_belief", "not_movable", "copy_lowers", "not_in_reading", "not_said")), None)
     if settled and not doubtful:
@@ -568,7 +574,8 @@ def plan(st: State) -> ActionPlan:
                                                         + (st.failed.get(last.id) or "the fleet stopped first.")))
             continue
         task, inv = best(tries)
-        items.append(item_for(task, inv, st.attributes[aid], st.challenges.get(task.id, [])))
+        items.append(item_for(task, inv, st.attributes[aid], st.challenges.get(task.id, []),
+                              tuple(run.profile.all_domains())))
     for w in run.win_back:
         if w.attribute_id not in {i.attribute_id for i in items}:
             items.append(PlanItem(rank=0, attribute_id=w.attribute_id, claim=w.label, fix="untested", page_url=w.page_url,
@@ -586,7 +593,7 @@ def plan(st: State) -> ActionPlan:
     return ActionPlan(items=items)
 
 
-WRITER = """You write the action plan for {name}'s marketing team. Each item below is already ranked and has a line written by code. Rewrite each line in plain words a marketer acts on: what to do, where, and what the experiment found. Keep every number exactly as given and add none. Name no page or site the line does not name. No marketing adjectives. At most 45 words a line.
+WRITER = """You write the action plan for {name}'s marketing team. Each item below is a fix an experiment tested, already ranked, with a line written by code. Rewrite each line in plain words a marketer acts on: what to publish or get found, on which page, and what the experiment found. Keep the action the line gives; keep every number exactly as given and add none. Name the page the line names and no other. No marketing adjectives. At most 45 words a line.
 
 Return ONLY JSON: {{"lines": [{{"rank": <int>, "text": <string>}}]}}
 
@@ -597,18 +604,27 @@ DOMAIN = re.compile(r"\b[\w-]+(?:\.[a-z]{2,})+(?:/[\w\-./%~]*[\w/])?", re.I)
 
 
 def acceptable(new, old: str) -> bool:
-    """A writer's line replaces the template's only if it adds no number, no page and no marketing word."""
+    """A writer's line replaces the template's only if it adds no number, no page and no marketing word,
+    and still names the page the template names."""
     if not evaluation.real(new) or len(new.split()) > 60:
         return False
-    return (set(NUMBER.findall(new)) <= set(NUMBER.findall(old)) and set(DOMAIN.findall(new)) <= set(DOMAIN.findall(old))
+    pages, named = set(DOMAIN.findall(new)), set(DOMAIN.findall(old))
+    return (set(NUMBER.findall(new)) <= set(NUMBER.findall(old)) and pages <= named and (pages or not named)
             and not MARKETING.search(new))
 
 
+WORDED = ("copy", "authority")   # the fixes a marketer acts on; every other line stays code's own
+
+
 def write(p: ActionPlan, run: Run, model: str) -> None:
-    """One model call words the plan; code keeps each line only if `acceptable`, else the template's."""
-    if not p.items:
+    """One model call words the tested fixes; code keeps each line only if `acceptable`, else the
+    template's. Sources, what copy cannot move and what did not decide keep code's lines: on the live
+    Amgen fleet (2026-09-28) the writer turned "AI says it because of a line of the SEC filing" into
+    "remove them", and "not decided" into instructions to test more."""
+    worded = [i for i in p.items if i.fix in WORDED]
+    if not worded:
         return
-    items = "\n".join(f"{i.rank}. [{i.fix}] {i.claim}: {i.text}" for i in p.items)
+    items = "\n".join(f"{i.rank}. [{i.fix}] {i.claim}: {i.text}" for i in worded)
     try:
         r = access.openai_response(live.LIMITS["per_call_timeout_s"], model=model,
                                    input=WRITER.format(name=run.profile.name, items=items))
@@ -616,15 +632,15 @@ def write(p: ActionPlan, run: Run, model: str) -> None:
     except (Exception, access.PurseEmpty, access.Refused) as e:
         p.notes.append(f"The writer's call failed ({type(e).__name__}), so every line is the template's.")
         return
-    by_rank, kept = {i.rank: i for i in p.items}, 0
+    by_rank, kept = {i.rank: i for i in worded}, 0
     for line in lines if isinstance(lines, list) else []:
         item = by_rank.get(line.get("rank")) if isinstance(line, dict) else None
         if item and acceptable(line.get("text"), item.text):
             item.text, kept = " ".join(line["text"].split()), kept + 1
     p.written_by = model if kept else "template"
-    if kept < len(p.items):
-        p.notes.append(f"{len(p.items) - kept} of {len(p.items)} line(s) are the template's: the writer's version "
-                       "added a number or a page, or was missing.")
+    if kept < len(worded):
+        p.notes.append(f"{len(worded) - kept} of {len(worded)} fix line(s) are the template's: the writer's version "
+                       "added a number or a page, dropped the page, or was missing.")
 
 
 # ---------------------------------------------------------------- the loop
