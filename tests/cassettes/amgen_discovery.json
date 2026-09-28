@@ -1,0 +1,23 @@
+{
+ "note": "Recorded 2026-09-28: the discovery prompt (with 'about') and the category prompt, live, over the brand answers of data/runs/cb67186167.json (Amgen).",
+ "run": "cb67186167",
+ "discovery": {
+  "model": "gpt-6-luna",
+  "answers": [
+   "np-1",
+   "np-2",
+   "np-3",
+   "np-4",
+   "np-5",
+   "np-6",
+   "np-7"
+  ],
+  "raw": "{\"proposals\":[{\"label\":\"Serious-disease treatments\",\"description\":\"Amgen is described as making medicines for serious illnesses.\",\"about\":\"offering\",\"evidence\":[{\"answer\":\"np-1\",\"quote\":\"prescription medicines for serious illnesses\",\"polarity\":\"neutral\"},{\"answer\":\"np-2\",\"quote\":\"treatments for serious illnesses\",\"polarity\":\"neutral\"},{\"answer\":\"np-3\",\"quote\":\"for serious illnesses.\",\"polarity\":\"neutral\"}]},{\"label\":\"Broad disease coverage\",\"description\":\"Amgen’s medicines span a range of disease areas.\",\"about\":\"offering\",\"evidence\":[{\"answer\":\"np-1\",\"quote\":\"cancer, rare diseases, inflammatory conditions, and general medicine areas\",\"polarity\":\"neutral\"},{\"answer\":\"np-2\",\"quote\":\"including cancer, rare diseases, and inflammatory and heart conditions\",\"polarity\":\"neutral\"},{\"answer\":\"np-3\",\"quote\":\"cancer, inflammation, rare diseases, and heart and bone conditions\",\"polarity\":\"neutral\"}]},{\"label\":\"For patients with relevant conditions\",\"description\":\"Amgen’s medicines are relevant to patients whose health conditions may respond to them.\",\"about\":\"offering\",\"evidence\":[{\"answer\":\"np-1\",\"quote\":\"people whose specific health condition may be treated\",\"polarity\":\"positive\"},{\"answer\":\"np-7\",\"quote\":\"Patients who benefit from Amgen’s medicines\",\"polarity\":\"positive\"}]},{\"label\":\"Growing business\",\"description\":\"Amgen’s business and revenue are described as growing, though growth is uneven.\",\"about\":\"business\",\"evidence\":[{\"answer\":\"np-4\",\"quote\":\"Q2 2026 revenue rose 10% year over year\",\"polarity\":\"positive\"},{\"answer\":\"np-5\",\"quote\":\"Amgen’s business is growing\",\"polarity\":\"positive\"},{\"answer\":\"np-6\",\"quote\":\"It grew, though not evenly across its portfolio\",\"polarity\":\"neutral\"}]},{\"label\":\"Strong cash generation\",\"description\":\"Amgen generates substantial cash, including free cash flow.\",\"about\":\"business\",\"evidence\":[{\"answer\":\"np-4\",\"quote\":\"Scale and strong cash generation.\",\"polarity\":\"positive\"},{\"answer\":\"np-5\",\"quote\":\"generated $3.5 billion in free cash flow\",\"polarity\":\"positive\"}]},{\"label\":\"Competition and pricing pressure\",\"description\":\"Amgen faces falling sales for some established products as biosimilars and pricing pressure weigh on the business.\",\"about\":\"business\",\"evidence\":[{\"answer\":\"np-4\",\"quote\":\"older drugs losing ground to biosimilars and pricing pressure\",\"polarity\":\"negative\"},{\"answer\":\"np-5\",\"quote\":\"biosimilar erosion, drug-pricing pressure\",\"polarity\":\"negative\"},{\"answer\":\"np-6\",\"quote\":\"faced falling sales as biosimilars gained ground\",\"polarity\":\"negative\"}]},{\"label\":\"Significant debt load\",\"description\":\"Amgen’s substantial debt is described as a financial burden that can constrain flexibility.\",\"about\":\"business\",\"evidence\":[{\"answer\":\"np-4\",\"quote\":\"debt load can limit financial flexibility\",\"polarity\":\"negative\"},{\"answer\":\"np-5\",\"quote\":\"Amgen reported $57.3 billion in debt\",\"polarity\":\"negative\"}]}]}"
+ },
+ "category": {
+  "model": "gpt-4.1-mini",
+  "label": "For patients with relevant conditions",
+  "description": "Amgen’s medicines are relevant to patients whose health conditions may respond to them.",
+  "raw": "{\"category\": \"medicines for chronic health conditions\"}"
+ }
+}

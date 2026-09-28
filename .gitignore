@@ -20,3 +20,5 @@ data/companies/*.json
 data/access.db*
 data/investigations/
 data/shared.db
+data/demand/
+data/embeddings.db

@@ -122,7 +122,9 @@ CATEGORY_PROMPT = """AI answers say this about a company: {label}
 
 Name what a buyer would be looking for if they needed that, as they would type it into a search
 box: 2 to 6 plain lowercase words, never a company, product or brand name. For example "payroll
-software for startups", "treatments for rare blood disorders".
+software for startups", "treatments for rare blood disorders". It is a kind of product or service
+people buy from the company, never an investment, its finances or growth, or "companies" or
+"business" in general.
 Return ONLY JSON: {{"category": string}}"""
 
 

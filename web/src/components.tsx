@@ -1446,12 +1446,15 @@ const quoted = (qs: string[]) => qs.map((q, i) => (
   <span key={i}>{i ? (i === qs.length - 1 ? " and " : ", ") : ""}“{q}”</span>
 ));
 
+/** Who ran the searches: the measured model through its API, by name when the answers record it. */
+const searcher = (run: Run) => modelsOf(run).answered || "the AI";
+
 /** One try in one sentence: what the model searched, how many pages it cited, and whether any was yours. */
-function tryStory(t: SearchTry) {
+function tryStory(t: SearchTry, who: string) {
   const own = t.owned_pages.length;
   return (
     <>
-      {t.searches.length ? <>ChatGPT searched {quoted(t.searches)}</> : "ChatGPT answered without searching"}
+      {t.searches.length ? <>{who} searched {quoted(t.searches)}</> : `${who} answered without searching`}
       {t.pages.length ? ` and cited ${plural(t.pages.length, "page")}. ` : " and cited no pages."}
       {t.pages.length > 0 && (own ? <strong className="own">{own} {own === 1 ? "was" : "were"} yours.</strong> : "None was yours.")}
     </>
@@ -1468,11 +1471,11 @@ function Searched({ run, p }: { run: Run; p: Probe }) {
   if (!s || p.phase !== "baseline" || (!tries && !answeredOk(run, p))) return null;
   return (
     <div className="searched">
-      <h4>What ChatGPT searched <Term k="fan_out" icon /></h4>
+      <h4>What the AI searched <Term k="fan_out" icon /></h4>
       {tries ? tries.map((t) => (
         <p key={t.try_no}>
           {run.mode !== "live_api" && <span className="tag sample">sample</span>}
-          {tries.length > 1 && <strong>Try {t.try_no}: </strong>}{tryStory(t)}
+          {tries.length > 1 && <strong>Try {t.try_no}: </strong>}{tryStory(t, searcher(run).replace(/^the/, "The"))}
         </p>
       )) : <p className="muted">Not recorded for this run.</p>}
     </div>
@@ -1494,10 +1497,10 @@ function WhatItSearched({ run }: { run: Run }) {
   const missed = buyer.filter((p) => first(p)?.pages.length && !first(p)!.owned_pages.length);
   const story = missed.find((p) => run.evaluations.find((e) => e.probe_id === p.id)?.mentioned === false)
     ?? missed[0] ?? buyer.find((p) => first(p)?.searches.length);
-  const found = s.reason ? (s.answers ? "no web searches" : buyer.some((p) => answeredOk(run, p)) ? "not recorded" : "no buyer answers") : `ChatGPT ran ${plural(s.searches.length, "different search", "different searches")};`
+  const found = s.reason ? (s.answers ? "no web searches" : buyer.some((p) => answeredOk(run, p)) ? "not recorded" : "no buyer answers") : `${searcher(run)} ran ${plural(s.searches.length, "different search", "different searches")};`
     + ` your site was cited after ${s.owned ? s.owned : "none"} of them`;
   return (
-    <Block open={!window.matchMedia(PHONE).matches} title="What ChatGPT searched" found={found}>
+    <Block open={!window.matchMedia(PHONE).matches} title="What the AI searched" found={found}>
       {s.reason ? <p className="muted" style={{ margin: 0 }}>{s.reason}</p> : (
         <>
           <p className="muted" style={{ margin: 0 }}>
@@ -1508,7 +1511,7 @@ function WhatItSearched({ run }: { run: Run }) {
           {story && (
             <p className="callout story">
               {replay && <span className="tag sample">sample</span>}
-              When a buyer asked “{story.text}”, {tryStory(first(story)!)}
+              When a buyer asked “{story.text}”, {tryStory(first(story)!, searcher(run))}
             </p>
           )}
           <ul className="search-list">
@@ -1649,7 +1652,7 @@ function TestAFix({ run, reasks, onReasked }: {
       <p className="muted" style={{ margin: 0 }}>
         {replay && <>Authored sample, not computed: the passages and scores were written by hand to show this panel. </>}
         We split your pages and the pages AI cited into short passages and scored how closely each
-        matches the question and ChatGPT's searches for it: a <Term k="retrieval_score">retrieval score</Term> from
+        matches the question and the AI's searches for it: a <Term k="retrieval_score">retrieval score</Term> from
         0 to 1. Then we put the suggested rewrite from “Quick wins” into your page and scored it again.
         A simulation of what the AI reads first, not a promise of a citation. Tap a question for the passages.
       </p>
@@ -1680,7 +1683,7 @@ function TestAFix({ run, reasks, onReasked }: {
                     <Reask run={run} r={r} got={r.reask ?? reasks[`${run.id}:${r.probe_id}`]} onReasked={onReasked} />
                   </>
                 ) : <p className="muted">No suggested fix targets this question.</p>}
-                <p className="muted">Scored against {plural(r.queries, "search", "searches")}: the question and ChatGPT's own searches for it; the best match counts.</p>
+                <p className="muted">Scored against {plural(r.queries, "search", "searches")}: the question and the AI's own searches for it; the best match counts.</p>
               </Popover>
             </li>
           );

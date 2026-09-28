@@ -274,7 +274,7 @@ def discover_attributes(proposals, answers: dict[str, Answer], attributes: list[
                 said = re.search(re.escape(EMPHASIS.sub("", quote)), EMPHASIS.sub("", answers[pid].text), re.IGNORECASE)
                 found[pid] = AttributeObservation(attribute_id="", quote=said.group(0) if said else quote,
                                                   polarity=polarity)
-        candidates.append((label, raw.get("description"), found, bad))
+        candidates.append((label, raw.get("description"), found, bad, raw.get("about") == "business"))
 
     # Everything already counted: each attribute's phrasings, and its quotes per answer.
     known = [([w for w in (content_words(x, brand) for x in [a.label, *a.aliases]) if w], a.label,
@@ -296,7 +296,7 @@ def discover_attributes(proposals, answers: dict[str, Answer], attributes: list[
         return None
 
     new, new_obs = [], {}
-    for label, desc, found, bad in sorted(candidates, key=lambda c: -len(c[2])):
+    for label, desc, found, bad, business in sorted(candidates, key=lambda c: -len(c[2])):
         why = f" Rejected evidence: {'; '.join(bad)}." if bad else ""
         words = content_words(label, brand)
         if len(found) < EMERGENT_MIN_ANSWERS:
@@ -310,7 +310,7 @@ def discover_attributes(proposals, answers: dict[str, Answer], attributes: list[
             # distinct words give a distinct slug: two labels that slug alike were dropped as the same
             aid = "emergent_" + re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")
             new.append(Attribute(id=aid, label=label, description=desc if real(desc) else None,
-                                 discovered=True))
+                                 discovered=True, business=business))
             if bad:
                 dropped.append(f"'{label}': kept on its verbatim answers.{why}")
             for pid, o in found.items():

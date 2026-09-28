@@ -162,9 +162,10 @@ things make the buyer number trustworthy anyway:
   for every claim the customer weighted (at most one front's worth), so each weighted claim is asked
   its own buyer questions, its Quick-wins fix can cite them, and neither front drops below look 2:
   **where AI places you** — the attribute, claimed or discovered, that the most valid brand answers
-  endorsed (`ana.placed_attribute`; ties go to the claim stated on more pages; its questions are the
-  claim's own, topped up by the onboarding model) — and **where you aim to be**, the site's core
-  category (`profile.core_category`, named at onboarding from the one-line description, blind
+  endorsed (`ana.placed_attribute`; ties go to the claim stated on more pages; one discovery marked
+  `business`, about the company's stock, revenue, cash or size rather than what it sells, is never
+  placed; its questions are the claim's own, topped up by the onboarding model) — and **where you
+  aim to be**, the site's core category (`profile.core_category`, named at onboarding from the one-line description, blind
   questions written for it, correctable on the claims screen). Each front has its own visibility,
   repeat sample, wobble and control question (`drift.sets`), and `drift.visibility_gap` is placed minus
   aiming: "known for AI search visibility, not yet seen as an AI marketing platform" is the finding.
@@ -417,7 +418,7 @@ Tests: `web/src/tour.test.ts`.
     at `WHY_BUDGET_USD`.
     On Amgen (2026-09-28) it traced "debt" to two lines of the company's Q2-2026 earnings release and
     showed the "AI in R&D" rewrite on /about taking the claim from 6/18 to 14/18 answers.
-    **What ChatGPT searched** (`insights.searches`): the web searches the measured model
+    **What the AI searched** (`insights.searches`): the web searches the measured model
     ran for the buyer questions (every try), read from the Responses API's `web_search_call` items
     into `Answer.searches` and grouped when they differ only by case, a year or punctuation; one
     question told as a sentence, then each search with the questions it came from and the pages

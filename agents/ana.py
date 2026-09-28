@@ -205,8 +205,10 @@ def placed_attribute(scores: list[AttributeScore], attributes: list[Attribute],
     """Where AI already places the company: the attribute, claimed or emergent, that the most valid
     brand answers associated with it supportively. Ties go to the claim the site states on more
     pages. None when no brand answer endorsed anything. An attribute whose label names the brand is
-    skipped: it could not be asked about without naming it."""
-    by = {a.id: a for a in attributes}
+    skipped: it could not be asked about without naming it. So is one about the company as a
+    business: on Amgen, "Would you recommend Amgen?" came back as a stock pick, "Growing business"
+    won, and the buyer questions asked which companies have strong revenue growth."""
+    by = {a.id: a for a in attributes if not a.business}
     ranked = sorted((s for s in scores if s.echo_rate and s.attribute_id in by
                      and not brand_leaks(s.label, profile)),
                     key=lambda s: (-s.echo_rate, -by[s.attribute_id].claim_pages))
