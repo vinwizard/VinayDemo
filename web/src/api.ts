@@ -1,5 +1,7 @@
 // Typed client for the Python engine's HTTP API. Mirrors schemas.py — keep in sync.
 // VITE_API lets a second checkout run beside the first without fighting over port 8000.
+import type { FleetEvent } from "./fleetlog.ts";
+
 export const API: string = import.meta.env.VITE_API ?? "http://127.0.0.1:8000";
 
 export type Zone = "landed" | "lost_claim" | "contested" | "unstated_intent" | "imposed" | "unprioritised";
@@ -473,6 +475,10 @@ export interface Health {
   buyer_tries: number;
   /** The most one why investigation may spend. */
   why_budget_usd?: number;
+  /** The investigation fleet: its purse, its lanes, and one re-check's cap. */
+  fleet_budget_usd?: number;
+  fleet_concurrency?: number;
+  verify_budget_usd?: number;
   /** The committed live example in History; the first-visit story is told with its run. */
   showcase?: { company: string; run: string } | null;
 }
@@ -592,13 +598,17 @@ export interface WhyArm {
 }
 export interface WhyVerdict {
   kind: "caused_by" | "over_determined" | "prior_belief" | "not_in_reading" | "not_said" | "copy_fix"
-    | "authority_fix" | "not_movable" | "copy_lowers" | "not_reproducible" | "undecided" | "budget";
+    | "authority_fix" | "not_movable" | "copy_lowers" | "not_reproducible" | "undecided" | "budget" | "cancelled";
   text: string; arm_id: string | null; fix: "copy" | "authority" | "none" | null;
 }
 /** Why AI says (or does not say) one claim to one branded question, and what changes it. */
 export interface Investigation {
   id: string; run_id: string; created_at: string; company: string; question: string; probe_id: string | null;
   attribute_id: string; claim: string; term: string | null; model: string; judge: string;
+  /** What counted as saying it: a claim's endorsements, or any mention (a perception AI raised, a literal term). */
+  counts?: "mentions" | "endorsements";
+  /** The investigation fleet that dispatched it, if one did. */
+  fleet_id?: string | null;
   provenance: "counterfactual_replay"; budget_usd: number; spent_usd: number;
   status: "running" | "complete" | "stopped";
   live: { k: number; n: number }; off: { k: number; n: number }; live_quotes: string[];
@@ -622,6 +632,29 @@ export const streamWhy = (runId: string, q: { attribute: string; probe?: string;
                     { start: h.onStart, log: h.onLog, arm: h.onArm, verdict: h.onVerdict, done: h.onDone },
                     "done", h.onError);
 };
+
+// ---------------------------------------------------------------- the investigation fleet (fleet.py)
+// Its records live in fleetlog.ts, which the node unit tests read without this file's Vite globals.
+export type { ActionPlan, Challenge, FleetEvent, FleetTask, PlanItem, Verification } from "./fleetlog.ts";
+export interface FleetSummary {
+  id: string; run_id: string; created_at: string; status: "running" | "complete" | "stopped";
+  spent_usd: number; wall_s: number | null; tasks: number; planned: boolean;
+}
+export interface FleetEstimate { candidates: number; picks: number; usd: number; minutes: number; budget_usd: number }
+
+export const getFleets = (runId: string) =>
+  json<{ fleets: FleetSummary[]; estimate: FleetEstimate | null }>(`/api/runs/${runId}/fleets`);
+export const startFleet = (runId: string) => json<{ id: string }>(`/api/runs/${runId}/fleet`, { method: "POST" });
+
+/** A fleet's log as it is written: every event after `after`, then `onEnd` once the fleet is done. */
+export const streamFleet = (fleetId: string, after: number, onEvent: (e: FleetEvent) => void,
+  onEnd: () => void, onError: (e: { message: string }) => void) =>
+  openStream(`/api/fleets/${fleetId}/stream?after=${after}`, { fleet: onEvent, end: onEnd }, "end", onError);
+
+/** Re-checks one fix of a finished fleet: the page first (free), then live asks. */
+export const streamVerify = (fleetId: string, rank: number, onEvent: (e: FleetEvent) => void,
+  onEnd: () => void, onError: (e: { message: string }) => void) =>
+  openStream(`/api/fleets/${fleetId}/verify/stream?rank=${rank}`, { fleet: onEvent, end: onEnd }, "end", onError);
 
 /** One front as sampler-lite asked it: fresh questions up to a stated margin at 95%. */
 export interface FrontSample {

@@ -17,6 +17,7 @@ import { LINE, layoutMap } from "./maplabels";
 import { PHONE, Popover, Term } from "./popover";
 import { WhyAIMisses } from "./audit";
 import { WhatItRead, WhyPanel } from "./why";
+import { FleetPanel } from "./fleet";
 import { FrontMargin, SamplerNote } from "./margin";
 import { useReportTour } from "./guideBus";
 import { measuredWhat } from "./tour";
@@ -578,6 +579,7 @@ export function Report({ run, onRescored }: {
           )}
           {tab === "win-back" && (
             <>
+              <FleetPanel run={run} />
               <WinBack run={run} />
               <Section title="Where the upside is" found="the biggest open claims first">
                 <GapCards run={run} />

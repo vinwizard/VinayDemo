@@ -280,6 +280,38 @@ export const GLOSSARY = {
       + "for. When another run in the same category asked the same question of the same model today, its "
       + "answer is reused and judged again for this company, instead of paying for it twice.",
   },
+  investigation_fleet: {
+    term: "Investigation fleet",
+    def: "A team of agents that runs after the report. A coordinator picks the claims worth investigating and "
+      + "the branded question for each, several why investigations run at the same time, a critic challenges "
+      + "the ones that did not decide, and the verdicts become a ranked plan of fixes that were tested. One "
+      + "budget covers all of it, and none of it moves a score.",
+  },
+  fleet_coordinator: {
+    term: "Coordinator",
+    def: "The agent that decides who investigates what: which claims are worth the money, which branded question "
+      + "to ask for each, and, as each verdict lands, whether to accept it or send another investigator. It can "
+      + "only choose from options our code already checked, and when it cannot decide, our code does.",
+  },
+  fleet_critic: {
+    term: "Critic",
+    def: "Fixed rules that challenge a verdict: it did not decide, the question already says the claim so no fix "
+      + "could show a rise (a ceiling), the replay did not match the live answers, the quotes do not mention the "
+      + "claim, or another question's verdict disagrees. No model is involved.",
+  },
+  tested_plan: {
+    term: "Tested plan",
+    def: "The fixes ranked by what the experiments found: copy that raised how often AI says a claim first, then "
+      + "pages to get found, then sources to address, then what copy cannot move. Each prediction is a replay "
+      + "of what AI read, not a measurement; the numbers come straight from the experiment.",
+  },
+  fix_recheck: {
+    term: "Re-check",
+    def: "Once you publish a fix: we read the page to see the new copy is there (free), then ask the question "
+      + "live and look at what AI read. If AI now reads your copy and says the claim about as often as the "
+      + "experiment predicted, the fix is confirmed. We also replay the old reading list to catch the model "
+      + "itself changing.",
+  },
 } satisfies Record<string, { term: string; def: string }>;
 
 export type TermKey = keyof typeof GLOSSARY;
