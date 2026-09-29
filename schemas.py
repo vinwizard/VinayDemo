@@ -117,11 +117,12 @@ class Attribute(BaseModel):
     # words, onboarding_model.marketing_words), or None. Flagged claims are kept and measured.
     review: Optional[str] = None
     set_aside: bool = False                  # the customer set it aside: kept on file, never measured
-    claim_pages: int = 0                     # DERIVED: pages whose text contains a validated quote
-    claim_pages_total: int = 0               # DERIVED: pages actually fetched
+    claim_pages: int = 0                     # DERIVED: public pages whose text contains a validated quote
+    claim_pages_total: int = 0               # DERIVED: public pages read (own pages and search copies)
     # DERIVED: every validated quote is in a private uploaded document and on no public page. AI
     # cannot read those, so a claim it does not repeat is a messaging gap, never an authority gap.
     private_only: bool = False
+    in_documents: bool = False               # DERIVED: a validated quote is also in an uploaded document
     # The buyer questions this claim implies, with no brand name anywhere. If the positioning were
     # landing, the company should surface for these. This is the placebo test.
     buyer_questions: list[str] = []

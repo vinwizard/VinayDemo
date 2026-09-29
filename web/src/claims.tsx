@@ -207,7 +207,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
                   ? `stated on ${statedOn(a.claim_pages, a.claim_pages_total)}`
                   : "no page data"}
                 {a.added_by_user && " · added by you"}
-                {a.private_only && <> · <Term k="private_document" /></>}
+                {a.private_only ? <> · <Term k="private_document" /></> : a.in_documents && " · also in your documents"}
               </div>
               {a.claim_quotes[0] && (
                 <p className="quote">

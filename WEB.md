@@ -349,7 +349,9 @@ Only the company's name is needed (`web/src/find.tsx`, `discovery.py`, `document
    the file is never stored, and a document is only ever loaded from the caller's own folder.
    Documents add to the pages read, or with "Use only my documents" replace them; with no website
    they are the only source. Quotes are checked word for word against their text like a page's.
-   A document is private: a claim found only in documents is `private_only`, and if AI does not
+   A document is private: it never counts toward "stated on N% of your pages", which is over public
+   pages only (own pages and search copies); a claim also in documents says so. A claim found only
+   in documents is `private_only`, and if AI does not
    repeat it, `drift.classify` calls it a **messaging gap** (the company has not said it in public),
    never an authority gap. The site audit skips such claims and does not run with no website.
 

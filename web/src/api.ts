@@ -375,6 +375,8 @@ export interface ClaimedAttribute {
   discovered?: boolean;
   /** Every quote is in an uploaded document and on no public page: a gap is a messaging gap. */
   private_only?: boolean;
+  /** A quote is also in an uploaded document; claim_pages counts public pages only. */
+  in_documents?: boolean;
 }
 
 /** One thing onboarding read. Mirrors api.main.source_payload. */

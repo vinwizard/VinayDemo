@@ -459,7 +459,8 @@ def company_payload(c: Company) -> dict:
                          claim_pages_total=a.claim_pages_total,
                          buyer_questions=a.buyer_questions, intended_weight=a.intended_weight,
                          added_by_user=a.added_by_user, note=a.note,
-                         review=a.review, set_aside=a.set_aside, private_only=a.private_only)
+                         review=a.review, set_aside=a.set_aside, private_only=a.private_only,
+                         in_documents=a.in_documents)
                     for a in c.attributes],
         warnings=c.warnings, checks=[k.model_dump() for k in c.checks], replay=offline_seed(c.id),
         audit=c.audit.model_dump() if c.audit else None)
@@ -900,6 +901,8 @@ def reaudit(company_id: str, request: Request = None):
         raise HTTPException(400, OFFLINE_FIXED)
     refuse_unowned(company_id, holder)
     c = _company(company_id)
+    if not c.pages and not c.profile.domain:
+        raise HTTPException(400, "This company has no website to check: it was read from documents only.")
     c.audit = audit.run(c)
     save_company(c)
     return company_payload(c)

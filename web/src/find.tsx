@@ -32,7 +32,10 @@ export function FindCompany({ busy, onRead }: { busy: boolean; onRead: (r: ReadR
       .then((f) => { setFound(f); setPick(0); setMode("confirm"); })
       .catch((e: Error) => { setError(e.message); setMode("name"); });
   };
-  const upload = (files: { body: Blob; name: string }[]) => {
+  const upload = (all: { body: Blob; name: string }[]) => {
+    const files = all.slice(0, Math.max(0, 5 - docs.length - uploading));
+    if (files.length < all.length)
+      setDocErrors((es) => [...es, `${all.length - files.length} file(s) not added: at most 5 documents.`]);
     setUploading((n) => n + files.length);
     for (const f of files) {
       uploadDocument(f.body, f.name)

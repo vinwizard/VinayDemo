@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 import access
 import api.main as main
 import discovery
+import drift
 import fetching
 import reports
 from agents import onboarding_model
@@ -135,3 +136,27 @@ def test_an_upload_too_large_or_unreadable_is_refused_in_plain_words(env):
     assert big.status_code == 413 and "larger than 10 MB" in big.json()["detail"]
     scan = client.post("/api/onboard/documents?filename=deck.pdf", content=make_pdf())
     assert scan.status_code == 422 and "scanned images" in scan.json()["detail"]
+
+
+def test_a_claim_also_in_a_document_is_shared_over_public_pages_only(env, monkeypatch):
+    """Reproduced in review: 4 pages and a document, the claim on 1 page and the document, read 2/5
+    = 0.4 "stated" and a miss as an authority gap. Public share 1/4 makes it a messaging gap."""
+    pages = [(f"https://acme.example/{p}", f"Acme. {SITE_QUOTE if p == 'about' else 'Other words.'}.")
+             for p in ("", "about", "product", "pricing")]
+    monkeypatch.setattr(fetching, "fetch_site", lambda url, max_pages: (pages, None))
+    doc = main.documents.save(None, "plan.txt", f"{SITE_QUOTE}. {DOC_QUOTE}.".encode())
+    out = main.onboard(url="acme.example", name="Acme", docs=doc["id"])
+    claim = next(a for a in out["attributes"] if a["id"] == "web_answers")
+    assert (claim["claim_pages"], claim["claim_pages_total"]) == (1, 4)
+    assert claim["in_documents"] and not claim["private_only"]
+    a = next(a for a in reports.load_company(out["id"]).attributes if a.id == "web_answers")
+    assert a.claim_evidence_ids == ["pg2", "pg5"] and drift.claim_strength(a) == 0.25
+    assert drift.classify(a.model_copy(update={"intended_weight": 1.0}), 0.0, drift.claim_strength(a))[1] == "messaging_gap"
+
+
+def test_a_documents_only_company_has_no_site_to_check_again(env, monkeypatch):
+    doc = main.documents.save(None, "positioning.txt", f"{DOC_QUOTE}.".encode())
+    out = main.onboard(url="", name="Harbor Loom", docs=doc["id"])
+    assert out["attributes"][0]["claim_pages_total"] == 0 and out["attributes"][0]["private_only"]
+    r = TestClient(main.app).post(f"/api/companies/{out['id']}/audit")
+    assert r.status_code == 400 and "no website" in r.json()["detail"]

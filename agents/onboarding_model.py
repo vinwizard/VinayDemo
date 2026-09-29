@@ -307,13 +307,14 @@ def build_attributes(data: dict, pages: list[tuple[str, str]], name: str = "",
             check.notes.append(f"Kept for your review: marketing language ({', '.join(vague)}).")
         # the number that drives "stated on N% of your pages" — counted from validated quotes only
         on = [j for j, t in enumerate(texts, start=1) if any(page_span(q, t) for q in verified)]
-        private_only = bool(private) and all(private[j - 1] for j in on)
+        # the share is of public sources only: a private document supports a claim, never states it
+        public = [j for j in range(1, len(texts) + 1) if not (private and private[j - 1])]
         out.append(Attribute(
             id=aid, label=label, description=description,
             aliases=[a for a in (raw.get("aliases") or []) if isinstance(a, str)][:6],
             claim_evidence_ids=[f"pg{j}" for j in on],
-            claim_quotes=verified[:3], claim_pages=len(on), claim_pages_total=len(texts),
-            private_only=private_only,
+            claim_quotes=verified[:3], claim_pages=len(set(on) & set(public)), claim_pages_total=len(public),
+            private_only=not set(on) & set(public), in_documents=bool(set(on) - set(public)),
             buyer_questions=[q for q in (raw.get("buyer_questions") or [])
                              if isinstance(q, str) and q.strip()][:3],
             review=review,
