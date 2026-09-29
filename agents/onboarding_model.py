@@ -14,7 +14,7 @@ Nothing the model says is trusted:
 import json
 import os
 import re
-from typing import Callable, Optional
+from typing import Callable, Optional, Sequence
 
 from schemas import (Attribute, ClaimCheck, CompanyProfile, Evidence, PositioningPoint,
                      distinctive_alias)
@@ -89,7 +89,7 @@ Quote rules — a quote that breaks these is discarded:
   * At least 5 words, from ONE place on the page. Never join two separate phrases, never shorten
     with "...", never invent. If a claim has no supporting quote, omit the attribute entirely."""
 
-PROMPT = """You are reading a company's own public web pages to establish how it positions itself.
+PROMPT = """You are reading a company's own public web pages, and any documents it supplied, to establish how it positions itself.
 
 Company (as supplied by the user): {name}
 
@@ -260,10 +260,10 @@ def page_span(quote: str, text: str) -> Optional[str]:
     return m.group(0) if m else None
 
 
-def build_attributes(data: dict, pages: list[tuple[str, str]], name: str = ""
-                     ) -> tuple[list[Attribute], list[ClaimCheck]]:
+def build_attributes(data: dict, pages: list[tuple[str, str]], name: str = "",
+                     private: Sequence[bool] = ()) -> tuple[list[Attribute], list[ClaimCheck]]:
     """-> (claimed attributes, one check per extracted claim). claim_pages is counted, never taken
-    from the model."""
+    from the model. `private` marks each page that is an uploaded document rather than a public page."""
     texts = [text for _, text in pages]
     names = [name, data.get("name") or "", *[a for a in (data.get("aliases") or []) if isinstance(a, str)]]
     out, checks = [], []
@@ -307,11 +307,13 @@ def build_attributes(data: dict, pages: list[tuple[str, str]], name: str = ""
             check.notes.append(f"Kept for your review: marketing language ({', '.join(vague)}).")
         # the number that drives "stated on N% of your pages" — counted from validated quotes only
         on = [j for j, t in enumerate(texts, start=1) if any(page_span(q, t) for q in verified)]
+        private_only = bool(private) and all(private[j - 1] for j in on)
         out.append(Attribute(
             id=aid, label=label, description=description,
             aliases=[a for a in (raw.get("aliases") or []) if isinstance(a, str)][:6],
             claim_evidence_ids=[f"pg{j}" for j in on],
             claim_quotes=verified[:3], claim_pages=len(on), claim_pages_total=len(texts),
+            private_only=private_only,
             buyer_questions=[q for q in (raw.get("buyer_questions") or [])
                              if isinstance(q, str) and q.strip()][:3],
             review=review,
@@ -319,11 +321,15 @@ def build_attributes(data: dict, pages: list[tuple[str, str]], name: str = ""
     return out, checks
 
 
-def build_profile(data: dict, pages: list[tuple[str, str]], domain: str) -> CompanyProfile:
+def build_profile(data: dict, pages: list[tuple[str, str]], domain: str,
+                  meta: Sequence[dict] = ()) -> CompanyProfile:
     # The whole extracted page (fetching caps it at MAX_CHARS), not its opening: claim quotes are
     # verified against the whole page, so a fix that replaces one must be checked against it too.
-    evidence = [Evidence(id=f"pg{i}", url=url, excerpt=text, source_type="page_fetch")
-                for i, (url, text) in enumerate(pages, start=1)]
+    # `meta` says what each page is when it is not a page read directly (Evidence fields: a search
+    # copy's source_type and age, a document's title, url None and private).
+    meta = list(meta) or [{}] * len(pages)
+    evidence = [Evidence(**{"id": f"pg{i}", "url": url, "excerpt": text, "source_type": "page_fetch", **m})
+                for i, ((url, text), m) in enumerate(zip(pages, meta), start=1)]
     points, one_liner = [], (data.get("one_liner") or "").strip()
     if one_liner:
         points.append(PositioningPoint(id="pp1", text=one_liner,
@@ -364,13 +370,13 @@ class OnboardingAgent:
         self._transport = transport or default_transport
         self.timeout = timeout
 
-    def run(self, name: str, domain: str, pages: list[tuple[str, str]]
+    def run(self, name: str, domain: str, pages: list[tuple[str, str]], meta: Sequence[dict] = ()
             ) -> tuple[CompanyProfile, list[Attribute], list[str], list[ClaimCheck]]:
         if not pages:
             raise ValueError("onboarding needs at least one fetched page")
         data = parse(self._transport(build_prompt(name, pages), self.model, self.timeout))
-        attributes, checks = build_attributes(data, pages, name)
-        profile = build_profile(data, pages, domain)
+        attributes, checks = build_attributes(data, pages, name, [bool(m.get("private")) for m in meta])
+        profile = build_profile(data, pages, domain, meta)
         warnings = [] if attributes else [
             "No attribute survived quote validation; nothing can be measured yet."]
         return profile, attributes, warnings, checks

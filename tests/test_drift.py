@@ -28,6 +28,14 @@ def test_intended_but_barely_stated_is_the_companys_own_problem():
     assert drift.classify(a, 0.0, drift.claim_strength(a))[1] == "messaging_gap"
 
 
+def test_a_claim_stated_only_in_a_private_document_is_a_messaging_gap():
+    """AI cannot read an uploaded document, so not repeating what only it says is not AI failing to
+    listen: stated on every source, it is still the company not having said it in public."""
+    a = mk(private_only=True, **INTENDED_STATED)
+    assert drift.classify(a, 0.1, drift.claim_strength(a)) == ("unstated_intent", "messaging_gap")
+    assert drift.classify(a, 0.1, drift.claim_strength(a), claim_lens=True) == ("lost_claim", "messaging_gap")
+
+
 def test_unclaimed_and_unechoed_attribute_is_not_reported():
     """Without the relevance floor every unclaimed attribute would show as 'imposed' at 0%."""
     assert not drift.relevant(mk(claim_pages=0, claim_pages_total=8), 0.0)

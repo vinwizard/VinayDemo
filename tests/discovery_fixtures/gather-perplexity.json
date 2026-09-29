@@ -1,0 +1,802 @@
+{
+ "output": [
+  {
+   "type": "web_search_call",
+   "action": {
+    "type": "search",
+    "queries": [
+     "site:perplexity.ai about company Perplexity",
+     "site:perplexity.ai product platform enterprise pricing Perplexity",
+     "site:perplexity.ai newsroom press blog Perplexity",
+     "Perplexity AI about product enterprise pricing blog docs help center"
+    ],
+    "query": "site:perplexity.ai about company Perplexity",
+    "sources": [
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/help-center/en/articles/10352986-enterprise-pricing-and-billing-frequently-asked-questions"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/enterprise/pricing"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/help-center/en/articles/11187416-which-perplexity-subscription-plan-is-right-for-you"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/enterprise/use-cases/product"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/hub"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/api-platform"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/help-center/es/articles/10352986-precios-y-facturacion-del-plan-enterprise-preguntas-frecuentes"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/help-center/pt-BR/articles/10352986-precos-e-cobrancas-do-plano-enterprise-perguntas-frequentes"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0001493152-26-023952?exchange=NYSEAM&ticker=CHOW"
+     },
+     {
+      "type": "url",
+      "url": "https://brand.perplexity.ai/pdf/the-economic-impacts-of-AI-on-enterprise-IT-organizations.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0001193125-26-098466?exchange=NYSE&ticker=BOX"
+     },
+     {
+      "type": "url",
+      "url": "https://r2cdn.perplexity.ai/pdf/pplx-at-work.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0001577916-25-000011?exchange=NASDAQ&ticker=PINC"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0000950170-25-036261?exchange=NYSE&ticker=BOX"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1jm2ekd"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1rhq1b6/hey_perplexity_we_need_some_answers/"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/GrowthHacking/comments/1tafdna/we_built_4_things_that_make_ai_search_engines/"
+     },
+     {
+      "type": "url",
+      "url": "https://en.wikipedia.org/wiki/Perplexity_AI"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1quyuhg/the_company_perplexity_should_take_a_clear_stance/"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1wdmpj6/warning_about_using_images/"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1owcsnw"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1r6jgar/an_open_letter_to_perplexity_youre_losing_your/"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1w6z5f5/enterprise_pro/"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1wbwufe/perplexity_pro_is_an_absolute_joke_now_youre/"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/u_singularity-mkting/comments/1psxcrl/psa_your_saas_pricing_integrations_might_be/"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1jbky3f"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1o8ah4g"
+     },
+     {
+      "type": "url",
+      "url": "https://www.axios.com/2024/04/23/perplexity-ai-enterprise-search-answer-engine"
+     },
+     {
+      "type": "url",
+      "url": "https://ru.wikipedia.org/wiki/Perplexity_AI"
+     },
+     {
+      "type": "url",
+      "url": "https://www.axios.com/newsletters/axios-ai%2B-8c3cf687-b62d-4f92-b28f-cfc152f522cf"
+     },
+     {
+      "type": "url",
+      "url": "https://de.wikipedia.org/wiki/Perplexity.ai"
+     },
+     {
+      "type": "url",
+      "url": "https://apnews.com/article/f307cb607f0db871b05f843a3f744340"
+     },
+     {
+      "type": "url",
+      "url": "https://www.tomsguide.com/ai/i-didnt-realize-perplexity-could-do-this-10-hidden-features-worth-trying"
+     },
+     {
+      "type": "url",
+      "url": "https://zh.wikipedia.org/wiki/Perplexity"
+     },
+     {
+      "type": "url",
+      "url": "https://de.wikipedia.org/wiki/Perplexity_AI"
+     },
+     {
+      "type": "url",
+      "url": "https://es.wikipedia.org/wiki/Perplexity"
+     }
+    ]
+   },
+   "results": [
+    {
+     "url": "https://www.perplexity.ai/help-center/en/articles/10352986-enterprise-pricing-and-billing-frequently-asked-questions",
+     "title": "Enterprise Pricing and Billing: Frequently Asked Questions | Perplexity Help Center",
+     "text": "\ue200cite\ue202turn0search0\ue201 [wordlim: 200] Published: 2 months ago; Crawled: 2 weeks ago; ### How does Perplexity Enterprise pricing work? ... Enterprise Pro offers extended usage limits compared to Perplexity Pro. ... Please note that if you purchase API Platform credits, these will be billed separately.\n\n# Enterprise Pricing and Billing: Frequently Asked Questions\n\nGet answers to the most common Pricing and Billing questions for our Enterprise plan\n\nImage\n\nWritten by Perplexity Support\n\nLast updated on July 22, 2026\n\n## Understanding your subscription\n\n### How does Perplexity Enterprise pricing work?\n\nEnterprise pricing is per seat (user), and you\u2019re only billed for your active team members, so it\u2019s straightforward to scale as your team grows or shrinks.\n\n\u00a0\n\nWe offer two pricing tiers:\n\n  * Enterprise Pro: Each seat is $40 per month or $400 per year (a 20% discount versus monthly subscriptions)\n\n  * Enterprise Max: Each seat is $325 per month or $3,250 per year\n\nDiscounts may be available for larger teams (250+ members), schools, universities, not-for-profit organizations, or government agencies.\n\n\u00a0\n\n### Which payment methods can I use?\n\nWe accept all major credit cards (Visa, MasterCard and AMEX). Additional payment options may be available depending on your region.\n\n\u00a0\n\n"
+    },
+    {
+     "url": "https://www.perplexity.ai/enterprise/pricing",
+     "title": "Perplexity Pricing: Plans for Individuals and Enterprise",
+     "text": "\ue200cite\ue202turn0search1\ue201 [wordlim: 200] Crawled: 3 weeks ago; Platform ... For organizations that need enterprise-grade controls like SCIM, role-based access control, audit logs, and other scaled security features, contact us to discuss custom pricing. ... Perplexity Enterprise gives organizations fast, current, and cited answers to complex questions, with the security controls IT requires.\n# Where curiosity meets capability\n\nOne plan for the most accurate answers, powered by all the top AI models.\n\n[Button: Individual][Button: Enterprise]\n\nFree\n\nSearch only with accurate answers and citations\n\n$0/month\n\n* * *\n\nGood for limited daily usage\n\nBetter for simple questions\n\nCitations in every answer\n\nAccess to basic AI models\n\nSelect\n\nPopular\n\nBetter answers. More answers. Built for serious work.\n\n$20/month\n\n* * *\n\nExpanded Computer access\n\n4,000 bonus credits\n\nDeep research\n\nAccess to top AI models\n\nSelect between AI models\n\nCreate polished documents & apps\n\nMore usage limits and memory\n\n[Button: Get started]\n\nFreeGet started\n\n[Button: Get Pro]\n\n[Button: Get Max]\n\nComputer\n\nComputer credits\n\n\u2014\n\n\u2014\n\n10,000/month\n\nPlatform\n\nAccess to advanced models\n\n\u2014\n\nHighest level of access\n\nPreferred model selection\n\n\u2014\n\nGet answers from [the web]\n\nLimited\n\n10x\n\nConnect 400+ app connectors\n\n\u2014\n\nModel Council\n\n\u2014\n\n\u2014\n\nBrain\n\n\u2014\n\n\u2014\n\nFile uploads\n\nLimited\n\n10x\n\nAsset generation\n\nLimited\n\n10x\n\nVideo generation\n\n\u2014\n\n5x\n\n> \u201cPerplexity provides real ROI. It makes many tasks significantly more efficient, saving staff time so they can focus on higher-value activities. Given the cost and time benefit, we saved more than the cost of the annual licensing in the first week, and the ROI continues to increase as we find more use cases.\u201d\n\nChris Powell Chief Information Officer, MDNRC\n\n## Frequently asked questions\n\n  * How is Pro different from Free?\n\nFree includes access to the top AI models with limited weekly usage. Pro raises every limit and adds Perplexity Computer, premium data sources like PitchBook and Statista, search across the web, files, and apps, model council, and the ability to select a preferred model per query.\n\n  * Why choose Max over Pro?\n\nMax is built for heavy, sustained work. It includes everything in Pro with higher limits on Deep Research, asset generation, and file uploads, plus more video creation per month and several Model Council runs per month.\n\n  * Which AI models come with each plan?\n\nPerplexity orchestrates multiple top models and selects the best one per query, includi"
+    },
+    {
+     "url": "https://www.perplexity.ai/help-center/en/articles/11187416-which-perplexity-subscription-plan-is-right-for-you",
+     "title": "Which Perplexity Subscription Plan is right for you? | Perplexity Help Center",
+     "text": "\ue200cite\ue202turn0search2\ue201 [wordlim: 200] Published: 3 weeks ago; Crawled: 2 weeks ago;   * The\u00a0Highest Level Access to Our Full Suite of Advanced AI Models: get faster access to the latest models from OpenAI, Anthropic, and others in Perplexity Research, and create files and apps with minimal limits on volume or frequency. ...   * Pay-as-you-go pricing: Buy credits or set up auto top-off ...   * Choose Enterprise Max if: You\u2019re a business or organization requiring Enterprise-grade security, control and collaboration tools, and would benefit from Perplexity\u2019s most advanced plan, including the highest access to Create files and apps and Research search modes.  * Choose the API Platform if: You\u2019re a developer integrating Perplexity into your own products.\n\n# Which Perplexity Subscription Plan is right for you?\n\nLearn more about our different consumer and commercial products.\n\nImage\n\nWritten by Perplexity Support\n\nLast updated on September 2, 2026\n\n\nChoosing the right Perplexity plan depends on your usage needs, team size, and the features you require. Here\u2019s a breakdown of each plan to help you decide.\n\n\u00a0\n\n## What Perplexity plans are available?\n\n### Individual:\n\n  * Standard (Free)\n\n  * Perplexity Pro\u00a0\n\n  * Perplexity Max\n\n  * Education Pro ($10/mo with verification from SheerID).\n\n### Enterprise:\n\n  * Enterprise Pro\n\n  * Enterprise Max\n\n## API (Individual and Enterprise):\n\n  * API Platform\n\n\u00a0\n\n## What do I get with the Free (Standard) plan?\n\n  * Search history access\n\n  * Practically unlimited basic searches\n\n  * Very limited amount of Pro Searches\n\n  * We pick the best model to use for your query\n\n  * Basic file uploads (limited)\n\n  * No access to advanced AI models, image generation, or premium support.\n## What does Enterprise Pro include?\n\n  * All Pro features, plus:\n\n    * Trust center access and strict data privacy (data never used for training)\n\n    * Per-seat pricing (starts at $40/month or $400/year/seat)\n\n    * Advanced seat management for organizations\n\n    * Internal knowledge search through shared Projects and centrally governed File Connectors\n\n    * Increased daily file uploads (with organization-level controls)\n\n    * Dedicated support\n\n    * Admins manage billing and account access\n\n    * Projects for team collaboration, custom knowledge hubs, and internal file search.\n\nBest for: Businesses and organizations needing robust collaboration, security, and admin controls.\n\n\u00a0\n\n## What does Enterprise Max offer?\n\nAll Enterprise Pro features, plus:\n\n  * C"
+    },
+    {
+     "url": "https://www.perplexity.ai/enterprise/use-cases/product",
+     "title": "Perplexity for Product",
+     "text": "\ue200cite\ue202turn0search3\ue201 [wordlim: 200] Crawled: last month; ### Perplexity connects customer signals, market research, and product docs into one source of truth. ... ##### \u201cWith Perplexity Enterprise, shifting prompts between LLMs is like having a personal panel of AI models to do the research you need. ... ## Write PRDs, track bugs, and ship informed product decisions from one connected platform\n\n## Perplexity for Product\n\n## Perplexity for Product\n\n# From PRD to production, with cited research at every step\n\n### Perplexity connects customer signals, market research, and product docs into one source of truth.\n\nGet started\n\nGet started\n\nImage\n\n## Ship products that stay ahead of a changing market\n\n## Guide product decisions with deep research\n\nDraft PRDs and strategy docs that pull cited inputs from user research, feedback tools, competitive intel, and market data, so every decision reflects the full, fast\u2011moving customer journey.\n\n## Understand customer sentiment at every stage\n\nConnect reviews, support tickets, usage analytics, and social signals so multi\u2011model agents track sentiment across every touchpoint and highlight where customers are adopting, struggling, or churning in real time.\n\n## Documentation that scales across teams\n\nTurn PRDs, release notes, FAQs, and playbooks into consistent docs, decks, and help content, keeping product, GTM, and customers on the same page as the product and market evolve.\n"
+    },
+    {
+     "url": "https://www.perplexity.ai/hub",
+     "title": "Perplexity | AI for the Curious",
+     "text": "\ue200cite\ue202turn0search4\ue201 [wordlim: 200] Crawled: 3 days ago; Answer Engine Get accurate, cited answers; then go deeper with analysis to turn information into real insight.Get answers Computer Research, analyze, create, and code; then run it all as a multi-step workflow, start to finish.Build with Computer Comet Ask, navigate, and act in the flow of the work, without ever leaving the browser.Try our AI Browser API Platform The same accurate AI that powers Perplexity is available as an API for whatever you're building.Build with our API ... For individuals The full power of Perplexity, free to start.Start free For teams Secure, compliant, and ready to scale.Explore Enterprise For developers Add trusted, cited search and research to builds.Start building ... Enterprise pricing is available on request.\n"
+    },
+    {
+     "url": "https://www.perplexity.ai/api-platform",
+     "title": "Perplexity API Platform \u2014 AI Search & Grounded LLM APIs for Developers",
+     "text": "\ue200cite\ue202turn0search5\ue201 [wordlim: 200] Crawled: last month; # Build with the AI power of Perplexity's platform. ... Agent API Model-agnostic platform for search and agentic workflows, combining high-quality retrieval with transparent pricing and production-grade performance. ... ### Turbocharging Joule with real-time answers for every enterprise ... Jake Konoske, Director of Product, Doximity\n"
+    },
+    {
+     "url": "https://www.perplexity.ai/help-center/es/articles/10352986-precios-y-facturacion-del-plan-enterprise-preguntas-frecuentes",
+     "title": "Precios y facturaci\u00f3n del plan Enterprise: Preguntas frecuentes | Perplexity Help Center",
+     "text": "\ue200cite\ue202turn0search6\ue201 [wordlim: 200] Published: 2 months ago; Crawled: 2 weeks ago; ### \u00bfC\u00f3mo funcionan los precios de Perplexity Enterprise? ... Ten en cuenta que, si compras cr\u00e9ditos de API Platform, se facturar\u00e1n por separado.\n"
+    },
+    {
+     "url": "https://www.perplexity.ai/help-center/pt-BR/articles/10352986-precos-e-cobrancas-do-plano-enterprise-perguntas-frequentes",
+     "title": "Pre\u00e7os e cobran\u00e7as do plano Enterprise: perguntas frequentes | Perplexity Help Center",
+     "text": "\ue200cite\ue202turn0search7\ue201 [wordlim: 200] Published: 2 months ago; Crawled: 2 weeks ago; ### Como funciona a precifica\u00e7\u00e3o do Perplexity Enterprise? ... Observe que, se voc\u00ea comprar cr\u00e9ditos da API Platform, eles ser\u00e3o cobrados separadamente.\n"
+    },
+    {
+     "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0001493152-26-023952?exchange=NYSEAM&ticker=CHOW",
+     "title": "form20-f.html",
+     "text": "\ue200cite\ue202turn0search8\ue201 [wordlim: 200] Published: 4 months ago; Our AI & Data Science platform is designed with a comprehensive architecture that covers data ingestion, data storage and management, distributed computing, experiment tracking and model ... Our Revenue And Pricing ModelsWe typically charge our clients a fixed service fee at a price based on the scope of services required on a project-by-project basis.\n"
+    },
+    {
+     "url": "https://brand.perplexity.ai/pdf/the-economic-impacts-of-AI-on-enterprise-IT-organizations.pdf",
+     "title": "Economic Impacts of AI on Enterprise IT Organizations",
+     "text": "\ue200cite\ue202turn0search9\ue201 [wordlim: 200] Published: 5 months ago; This analysis covers 85.5 million Perplexity Enterprise queries from a sample of 135,852 organizations between January 2025 and January 2026. ... perplexity.ai/enterprise\n"
+    },
+    {
+     "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0001193125-26-098466?exchange=NYSE&ticker=BOX",
+     "title": "10-K",
+     "text": "\ue200cite\ue202turn0search10\ue201 [wordlim: 200] Published: 6 months ago; performance of our partners and resellers, our pricing, the prices of competing products or services, mergers and acquisitions affecting our customer base, our ability to successfully integrate new oracquired technology into our products, our ability to execute on our product roadmap, our customers\u2019 budgets and spending levels, and the effects of global economic conditions, especially if ... platform and purchase of our higher-tiered Suites plan, including our Enterprise Advanced plan.\n"
+    },
+    {
+     "url": "https://r2cdn.perplexity.ai/pdf/pplx-at-work.pdf",
+     "title": "Practical Applications",
+     "text": "\ue200cite\ue202turn0search11\ue201 [wordlim: 200] Published: 10 months ago; Prompt: \"Our company is considering a freemium pricing model transition. ... Prompt: \"Analyze the feasibility of entering the healthcare technology market with our existing platform. ... Perplexity at Work: A Guide to Getting More Done\n"
+    },
+    {
+     "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0001577916-25-000011?exchange=NASDAQ&ticker=PINC",
+     "title": "pinc-20250630",
+     "text": "\ue200cite\ue202turn0search12\ue201 [wordlim: 200] Published: 1.1 years ago; The Company, through its GPO programs, aggregates member purchasing power to negotiate pricing discounts and improve contract terms with suppliers. ... Performance Services revenue consists of revenue generated through the Company\u2019s technology and services platform. ... Clinical analytics products subscriptions are generally three- to five-year agreements with automatic renewal clauses and annual price escalators that ... Software Licenses: \u00a0\u00a0 Enterprise analytics licenses include term licenses that generally range from three to ten years and offer clinical analytics products, improvements in cost management,\n"
+    },
+    {
+     "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0000950170-25-036261?exchange=NYSE&ticker=BOX",
+     "title": "10-K",
+     "text": "\ue200cite\ue202turn0search13\ue201 [wordlim: 200] Published: 1.3 years ago; Our product development organization is responsible for the specification, design, development and testing of our platform and applications. ... business process workflow, and archival capabilities; newer mobile enterprise vendors who are beginning to enter the content collaboration market; vendors whose core competency is simple file sync ... in the content management market include, but are not limited to, Microsoft (SharePoint) and OpenText (Documentum). ... industry which could adversely alter the competitive dynamics of our markets including both pricing and our ability to compete successfully for customers.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1jm2ekd",
+     "title": "Message from Aravind, Cofounder and CEO of Perplexity",
+     "text": "\ue200cite\ue202turn0reddit14\ue201 [wordlim: 200] Published: 1.5 years ago; Crawled: 1.2 years ago; This is Aravind, cofounder and CEO of Perplexity. ... Our product and company grew really fast and we now have to uplevel to handle the scale and continue to ship new things while keeping the product reliable. ... ** \\- All AI products right now are shipping non-stop and adding a ton of buttons and dropdown menus and clutter.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1rhq1b6/hey_perplexity_we_need_some_answers/",
+     "title": "Hey PERPLEXITY we need some answers",
+     "text": "\ue200cite\ue202turn0reddit15\ue201 [wordlim: 200] Published: 7 months ago; We genuinely like your product and want to keep supporting it. ... Perplexity DGAF about communication with their customers unless they're on Max or Enterprise. ... It supposedly offers frontier performance at a fraction of the price. ... The \"weekly advanced/Pro search limit reached\" message you're seeing is expected behavior for Pro plans - usage limits are in place to help maintain platform performance and reliability for all users. ... AI Support agent for Perplexity\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/GrowthHacking/comments/1tafdna/we_built_4_things_that_make_ai_search_engines/",
+     "title": "We built 4 things that make AI search engines recommend our product. Cost: $0.",
+     "text": "\ue200cite\ue202turn0reddit16\ue201 [wordlim: 200] Published: 4 months ago; So we focused on getting AI search engines (ChatGPT, Perplexity, Claude, Google AI) to recommend us when someone asks about our category. ... 1. /llms.txt - A plain text file that explains what our product does, pricing, features, and comparisons. ... Blog posts that start with a direct 2-3 sentence answer to the title question.\n"
+    },
+    {
+     "url": "https://en.wikipedia.org/wiki/Perplexity_AI",
+     "title": "Perplexity AI",
+     "text": "\ue200cite\ue202turn0search17\ue201 [wordlim: 200] Crawled: 4 months ago; Perplexity Help Center. ... Perplexity Pro is a subscription tier, a more capable paid \"enterprise\" service, including stronger security and data protection and additional tools, including the ability to search uploaded documents alongside web content and access to a programmatic application programming interface (API). ... Perplexity's Shopping Hub is an online shopping platform that provides AI-generated product recommendations, and enables users to purchase products directly through Perplexity's interface. ... The tool provides real-time stock quotes and price tracking, industry peer comparisons and basic financial analysis tools. ... On October 24, 2024, Perplexity AI published an official response on its company blog asserting that the claims in the lawsuits were misleading and stating it was open to revenue-sharing arrangements with content providers. ... - Perplexity AI Is Lying about Their User Agent.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1quyuhg/the_company_perplexity_should_take_a_clear_stance/",
+     "title": "The company Perplexity should take a clear stance on what its actual usage limits are for its Pro users.",
+     "text": "\ue200cite\ue202turn0reddit18\ue201 [wordlim: 200] Published: 7 months ago; It's a really bad customer experience, even though the product is good. ... The limits are listed at https://www.perplexity.ai/enterprise/pricing ...   The \"normal\" message, so all the models (beside sonar and non-thinking grok that are still unlimited) it's \"pro search\", or \"advanced model\" like they call it when you reach the limit and get a warning \"only 3 reaming advanced query\" ... So basically all I read is perplexity is no longer available to you because we turned into a typical greedy company that chooses a bad idea to make more money over users perseption of the service which is about to take a dump.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1wdmpj6/warning_about_using_images/",
+     "title": "Warning about using images",
+     "text": "\ue200cite\ue202turn0reddit19\ue201 [wordlim: 200] Published: 2 weeks ago; Found out a new fun fact about our beloved Perplexity today\u2014unless you\u2019re on an Enterprise plan, all AI images generated within Perplexity, irrespective of the underlying model, are licensed only for personal use. ... Not that anyone smart enough to launch a company and grow it to success who has used Perplexity for any amount of time would continue using it, but there are new users every day thanks to all the JRE ad money that\u2018s not being spent on building a usable product. ... They cannot be used for commercial or personal applications in your own docs. fun times.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1owcsnw",
+     "title": "Business Plan generation question.",
+     "text": "\ue200cite\ue202turn0reddit20\ue201 [wordlim: 200] Published: 10 months ago; Crawled: 10 months ago; Hey, I've been using perplexity pro for a few months and basically getting used to all this AI new world. ... [1] File Uploads | Perplexity Help Center URL ... [7] Introduction to File Connectors for Enterprise Organizations URL\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1r6jgar/an_open_letter_to_perplexity_youre_losing_your/",
+     "title": "An Open Letter to Perplexity: You're Losing Your Best Advocates",
+     "text": "\ue200cite\ue202turn0reddit21\ue201 [wordlim: 200] Published: 7 months ago; Dear Perplexity team, ... The way I see it, you have six weeks to show me you actually care about paying customers.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1w6z5f5/enterprise_pro/",
+     "title": "Enterprise Pro??",
+     "text": "\ue200cite\ue202turn0reddit22\ue201 [wordlim: 200] Published: 3 weeks ago; I don\u2019t see many people discussing or having complaints about Enterprise Pro, so I wanted to ask. ... And I use several AI platforms so for me Perplexity isn\u2019t a choice that excludes other options. ... I have noticed perplexity's quality slumping lately, but honestly I think it is a slow sign that the AI bubble in general may be ready to burst?\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1wbwufe/perplexity_pro_is_an_absolute_joke_now_youre/",
+     "title": "Perplexity Pro is an absolute joke now. You\u2019re literally paying $20 a month for a duct-taped bundle of free tiers",
+     "text": "\ue200cite\ue202turn0reddit23\ue201 [wordlim: 200] Published: 2 weeks ago; Their own docs say a complex Computer task can cost hundreds of credits, and heavy tasks can go well over 1,000. ...   Well, I had to step away for a while due to the price hikes across all AI tools. ... After feeding perplexity about 500 in credits to work on a project I swapped to Claude. ...       https://lounge.llmgateway.io/pricing ... But they are actively ruining the experience by turning the $20 Pro plan into a paid 'freemium' product just to push people toward their expensive enterprise tiers and 'Computer' agent features. ... It shouldn't just be about looking up facts or searching for a restaurant\u2014it's supposed to be a top-tier LLM chatbot where we can have long discussions, analyze complex text, and do deep writing and reading without constantly hitting an invisible wall. ... They\u2019ve gotten completely distracted by chasing shiny enterprise tech, building their own desktop browser, and constantly swapping around confusing micro-offerings like page creators. ... Perplexity AI still stands out as a top search app for me.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/u_singularity-mkting/comments/1psxcrl/psa_your_saas_pricing_integrations_might_be/",
+     "title": "PSA: Your SaaS pricing + integrations might be invisible to AI search",
+     "text": "\ue200cite\ue202turn0reddit24\ue201 [wordlim: 200] Published: 9 months ago; Seeing this a lot lately, SaaS sites with beautiful pricing pages that ChatGPT / Perplexity / Claude basically can\u2019t read.If your pricing tables, feature grids, or integration lists are rendered via JavaScript, there\u2019s a good chance AI assistants don\u2019t see them at all.Result: no citations, even when users ask exactly about your product. ... * Add a simple llms.txt pointing to pricing, integrations, docs, comparisons ... Early engagement seems to help pickup.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1jbky3f",
+     "title": "Ridiculous API cost of Perplexity AI",
+     "text": "\ue200cite\ue202turn0reddit25\ue201 [wordlim: 200] Published: 1.5 years ago; Crawled: 1.2 years ago; \\- Hi Name, We explain this in the pricing breakdown here (https://docs.perplexity.ai/guides/pricing#detailed-pricing-breakdown-for-sonar-reasoning-pro-and-sonar-pro) but we will make it more clear and visible in the docs. ... I agree in general about Perplexity\u2019s sneaky business model, having heard the CEO speak and having read his tweets I am don\u2019t want to support their product.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1o8ah4g",
+     "title": "[Enterprise Users] Scaling a company knowledge base assistant: Best way to handle 2000+ files with ChatGPT Business vs Perplexity Enterprise Pro?",
+     "text": "\ue200cite\ue202turn0reddit26\ue201 [wordlim: 200] Published: last year; Crawled: 11 months ago; We're working on deploying an expert AI assistant to answer internal questions from our staff about company operations, datasets, and documentation. ... Perplexity Enterprise Pro: ... Have IT resources to expose our docs via Synology NAS as a file-sharing system (SMB/NFS/WebDAV/etc.) ... Perplexity's Enterprise Pro plan offers solid search and integration, but file count is still a concern for us\n"
+    },
+    {
+     "url": "https://www.axios.com/2024/04/23/perplexity-ai-enterprise-search-answer-engine",
+     "title": "Perplexity brings its \"answer engine\" to enterprises",
+     "text": "\ue200cite\ue202turn0news27\ue201 [wordlim: 100] Published: 2.4 years ago; Perplexity, the 2-year-old AI-generated \"answer engine,\" Tuesday launched its first business offering, Perplexity Enterprise Pro. ... Zoom in: Enterprise Pro will speed teams' research by scanning the web and internal company data shared with the platform, a Perplexity spokesperson told Axios.\n"
+    },
+    {
+     "url": "https://ru.wikipedia.org/wiki/Perplexity_AI",
+     "title": "Perplexity AI",
+     "text": "\ue200cite\ue202turn0search28\ue201 [wordlim: 200] Crawled: 5 months ago; Perplexity AI ... Perplexity lets you search your internal enterprise files and the web.\n"
+    },
+    {
+     "url": "https://www.axios.com/newsletters/axios-ai%2B-8c3cf687-b62d-4f92-b28f-cfc152f522cf",
+     "title": "\ud83e\uddab Beaver-fur hat vibes",
+     "text": "\ue200cite\ue202turn0news29\ue201 [wordlim: 100] Published: 2.4 years ago; Yes, but: The bill specifies that it doesn't apply to apps that primarily provide product reviews and retail sales, Congressional aides told reporters on a press call in March. ... Perplexity, the AI-generated \"answer engine,\" launched its first business offering, Perplexity Enterprise Pro, yesterday, Axios' Eleanor Hawkins reports.\n"
+    },
+    {
+     "url": "https://de.wikipedia.org/wiki/Perplexity.ai",
+     "title": "Perplexity.ai",
+     "text": "\ue200cite\ue202turn0search30\ue201 [wordlim: 200] Crawled: 5 months ago; Perplexity's Comet is the AI browser Google wants. ... Perplexity bietet eine Version namens Enterprise f\u00fcr Unternehmen zur Recherche an. ... Perplexity Help Center.\n"
+    },
+    {
+     "url": "https://apnews.com/article/f307cb607f0db871b05f843a3f744340",
+     "title": "AI startup Perplexity wants to upend search business. News outlet Forbes says it's ripping them off",
+     "text": "\ue200cite\ue202turn0news31\ue201 [wordlim: 100] Published: 2.3 years ago; Perplexity bills itself as a search engine while \"acting like a media company and publishing a story\" that only Forbes had reported, Lane said. ... Srinivas, a computer scientist and former AI researcher at OpenAI and Google, co-founded Perplexity in the summer of 2022, not long before the AI image-generator Stable Diffusion and OpenAI's ChatGPT began sparking the public's fascination with the possibilities of generative AI.\n"
+    },
+    {
+     "url": "https://www.tomsguide.com/ai/i-didnt-realize-perplexity-could-do-this-10-hidden-features-worth-trying",
+     "title": "I didn't know Perplexity could do this - 10 hidden features worth trying",
+     "text": "\ue200cite\ue202turn0news32\ue201 [wordlim: 100] Published: 8 months ago; I admit Perplexity is not my first choice for AI.I honestly forget about it most of the time because I rely so heavily on what I call the Big Three: ChatGPT, Gemini and Claude.\n"
+    },
+    {
+     "url": "https://zh.wikipedia.org/wiki/Perplexity",
+     "title": "Perplexity",
+     "text": "\ue200cite\ue202turn0search33\ue201 [wordlim: 200] Crawled: 6 months ago; \u6574\u9ad4\u4f86\u8aaa\uff0cPerplexity\u7684\u4ed8\u8cbb\u6a21\u5f0f\u900f\u904e\u5206\u7d1a\u4f86\u63d0\u4f9b\u66f4\u5f37\u5927\u7684AI\u80fd\u529b\u3001\u66f4\u8c50\u5bcc\u7684\u529f\u80fd\u548c\u66f4\u9ad8\u984d\u5ea6\u7684\u4f7f\u7528\u91cf\uff0c\u4ee5\u6eff\u8db3\u5f9e\u8f15\u5ea6\u4f7f\u7528\u8005\u5230\u5c08\u696d\u4eba\u58eb\u548c\u4f01\u696d\u7d44\u7e54\u7684\u591a\u5143\u9700\u6c42\u3002 ... Perplexity Help Center.\n"
+    },
+    {
+     "url": "https://de.wikipedia.org/wiki/Perplexity_AI",
+     "title": "Perplexity AI",
+     "text": "\ue200cite\ue202turn0search34\ue201 [wordlim: 200] Crawled: 7 months ago; Der Umsatz wird insbesondere aus den Abonnements f\u00fcr Perplexity Pro und Perplexity Enterprise erzielt. ... - Perplexity AI crosses $100 million in annual revenue.\n"
+    },
+    {
+     "url": "https://es.wikipedia.org/wiki/Perplexity",
+     "title": "Perplexity",
+     "text": "\ue200cite\ue202turn0search35\ue201 [wordlim: 200] Crawled: 6 months ago; - TNB Tech Minute: Startup Perplexity Challenges Google With AI Search - Tech News Briefing - WSJ Podcasts.\n"
+    }
+   ]
+  },
+  {
+   "type": "web_search_call",
+   "action": {
+    "type": "search",
+    "queries": [
+     "site:perplexity.ai/about Perplexity about company",
+     "site:perplexity.ai \"Blog\" Perplexity \"Newsroom\"",
+     "site:perplexity.ai/blog Perplexity blog",
+     "site:docs.perplexity.ai Perplexity documentation"
+    ],
+    "query": "site:perplexity.ai/about Perplexity about company",
+    "sources": [
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/hub"
+     },
+     {
+      "type": "url",
+      "url": "https://docs.perplexity.ai/docs/docs/cookbook"
+     },
+     {
+      "type": "url",
+      "url": "https://hub-prod.perplexity.ai/"
+     },
+     {
+      "type": "url",
+      "url": "https://hub-prod.perplexity.ai/hub/faq/what-is-perplexity"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/help-center/en/articles/11187416-which-perplexity-subscription-plan-is-right-for-you"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/sv/hub/blog/category/research"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/enterprise"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0001193125-26-134544?exchange=NYSE&ticker=INFQ"
+     },
+     {
+      "type": "url",
+      "url": "https://r2cdn.perplexity.ai/pdf/pplx-at-work.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://brand.perplexity.ai/pdf/the-economic-impacts-of-AI-on-enterprise-IT-organizations.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0001773427-25-000010?exchange=NASDAQ&ticker=SWTX"
+     }
+    ]
+   },
+   "results": [
+    {
+     "url": "https://www.perplexity.ai/hub",
+     "title": "Perplexity | AI for the Curious",
+     "text": "\ue200cite\ue202turn1search0\ue201 [wordlim: 200] Crawled: 3 days ago; Answer Engine Get accurate, cited answers; then go deeper with analysis to turn information into real insight.Get answers Computer Research, analyze, create, and code; then run it all as a multi-step workflow, start to finish.Build with Computer Comet Ask, navigate, and act in the flow of the work, without ever leaving the browser.Try our AI Browser API Platform The same accurate AI that powers Perplexity is available as an API for whatever you're building.Build with our API ... Go deep on any company, market, or topic, with sources.\n\n# AI for the\ncurious AI for the curious\n\nGet answers. Build ideas.Change worlds.\n\n## What we do\n\n### Accurate AI\n\nAccurate answers, deeper research, fewer hallucinations, backed by citations\n\n### Multi-model orchestration\n\nThe best frontier AI models, routed in parallel to perform their best\n\n### Web-first agentic AI\n\nAI designed to work on the open web, wherever you work\n\n### Powerful APIs\n\nAccurate search grounding with web-first agent technology for any developer\n\n## One place to research, build, and ship\n\nAnswer Engine Get accurate, cited answers; then go deeper with analysis to turn information into real insight.Get answersComputer Research, analyze, create, and code; then run it all as a multi-step workflow, start to finish.Build with ComputerComet Ask, navigate, and act in the flow of the work, without ever leaving the browser.Try our AI BrowserAPI Platform The same accurate AI that powers Perplexity is available as an API for whatever you're building.Build with our API\n\n## From first question to finished work\n\nGo deep on any company, market, or topic, with sources.\n\n[Button: Research][Button: Analyze][Button: Build][Button: Automate]\n\n## Used daily by individuals, trusted by organizations\n\nFor individuals The full power of Perplexity, free to start.Start freeFor teams Secure, compliant, and ready to scale.Explore EnterpriseFor developers Add trusted, cited search and research to builds.Start building\n\n## Follow us\n\n  *   *   *   * ## Frequently asked questions\n\n  * What is Perplexity?\n\nPerplexity is an AI answer engine that researches the open web in real time and returns concise, cited answers. Underneath, it routes queries across multiple frontier models so each question is handled by the model best suited for it.\n\n  * How can I use Perplexity?\n\nUse Perplexity through the web app, the mobile apps for iOS and Android, the Comet Browser, or the API. Free users ge"
+    },
+    {
+     "url": "https://docs.perplexity.ai/docs/docs/cookbook",
+     "title": "Overview - Perplexity",
+     "text": "\ue200cite\ue202turn1search1\ue201 [wordlim: 200] Crawled: 7 months ago; Quickstart Guide Getting started is simple and fast\u2014make your first API call within minutes.\n\nPower your products with unparalleled real-time, web-wide research and Q&A capabilities.\n\nQuickstart Guide Getting started is simple and fast\u2014make your first API call within minutes.\n\nGet StartedGet Your API Key\n\n## Available APIs\n\n### Search\n\nGet ranked web search results with advanced filtering and real-time data.\n\n### Agent API\n\nAccess third-party models with web search tools and presets."
+    },
+    {
+     "url": "https://hub-prod.perplexity.ai/",
+     "title": "Perplexity Blog",
+     "text": "\ue200cite\ue202turn1search2\ue201 [wordlim: 200] Crawled: 2 weeks ago; How Perplexity Builds Accuracy into Frontier AI Apr 22, 2026 Research Company\n\n#### Personal Computer is now available on Windows\n\nPerplexity\u2019s Personal Computer runs on Windows. Work across local files, Microsoft 365, and the web in one place.\n\nRead more\n\n#### Personal Computer is now available on Windows\n\nPerplexity\u2019s Personal Computer runs on Windows. Work across local files, Microsoft 365, and the web in one place.\n\nRead more\n\n#### Personal Computer is now available on Windows\n\nPerplexity\u2019s Personal Computer runs on Windows. Work across local files, Microsoft 365, and the web in one place.\n\nRead more\n\nTopics\n\n[Input: Search articles]\n\nAgent API: One Place to Build with LLMs, the Web, and Agents Aug 13, 2026 Updates\n\nAgent API: One Place to Build with LLMs, the Web, and Agents Aug 13, 2026 Updates\n\nAgent API: One Place to Build with LLMs, the Web, and Agents Aug 13, 2026 Updates\n\nComputer for Builders Aug 6, 2026 Updates\n\nComputer for Builders Aug 6, 2026 Updates\n\nComputer for Builders Aug 6, 2026 Updates\n\nSpaces are now Projects Jul 30, 2026 Updates\n\nSpaces are now Projects Jul 30, 2026 Updates\n\nSpaces are now Projects Jul 30, 2026 Updates\n\nModel Council comes to Computer Jul 28, 2026 Updates\n\nModel Council comes to Computer Jul 28, 2026 Updates\n\nModel Council comes to Computer Jul 28, 2026 Updates\n\nSecure Sandboxes for Agents Jul 15, 2026 Updates\n\nSecure Sandboxes for Agents Jul 15, 2026 Updates\n\nSecure Sandboxes for Agents Jul 15, 2026 Updates\n\nIntroducing Computer for Counsel Jun 24, 2026 Updates\n\nIntroducing Computer for Counsel Jun 24, 2026 Updates\n\nIntroducing Computer for Counsel Jun 24, 2026 Updates\n\nSelf-improving Memory for Agents Jun 18, 2026 Updates\n\nSelf-improving Memory for Agents Jun 18, 2026 Updates\n\nSelf-improving Memory for Agents Jun 18, 2026 Updates\n\nDeep Research, now in Computer Jun 11, 2026 Updates\n\nDeep Research, now in Computer Jun 11, 2026 Updates\n\nDeep Research, now in Computer Jun 11, 2026 Updates\n\nHow Computer is Reshaping Knowledge Work Jun 10, 2026 Company Research\n\nHow Computer is Reshaping Knowledge Work Jun 10, 2026 Company Research\n\nHow Computer is Reshaping Knowledge Work Jun 10, 2026 Company Research\n\nPerplexity Computer for Growing Businesses Jun 4, 2026 Company Updates\n\nPerplexity Computer for Growing Businesses Jun 4, 2026 Company Updates\n\nPerplexity Computer for Growing Businesses Jun 4, 2026 Company Updates\n\nPersonal Computer is Coming to Windows Jun 3, 2"
+    },
+    {
+     "url": "https://hub-prod.perplexity.ai/hub/faq/what-is-perplexity",
+     "title": "What is Perplexity?",
+     "text": "\ue200cite\ue202turn1search3\ue201 [wordlim: 200] Crawled: 1.3 years ago; Perplexity is a free AI search engine designed to revolutionize the way you discover information.\n\n# What is Perplexity?\n\n## What is Perplexity?\n\nPerplexity is a free AI search engine designed to revolutionize the way you discover information. Ask any question, and it searches the internet to give you an accessible, conversational, and verifiable answer. Think of Perplexity as a research partner, always on the clock, saving you valuable time by providing the precise knowledge you need.\n\n## Why choose Perplexity?\n\nThere are traditional search engines, and then there's Perplexity. Here's why it's the best choice for reliable research:\n\n#### Skip the links\n\nGet a single, comprehensive answer that summarizes everything you need to know.\n\n#### Real-time information\n\nData is pulled from the internet the moment you ask a question, so information is always up-to-date.\n\n#### Reliable sources\n\nEvery answer is backed by citations from trusted news outlets, academic papers, and established blogs.\n\n## Search like never before\n\nWhether you're researching for professional projects, seeking answers to everyday questions, or exploring new topics to broaden your understanding, Perplexity is your definitive source for information.\n\nTry it now."
+    },
+    {
+     "url": "https://www.perplexity.ai/help-center/en/articles/11187416-which-perplexity-subscription-plan-is-right-for-you",
+     "title": "Which Perplexity Subscription Plan is right for you? | Perplexity Help Center",
+     "text": "\ue200cite\ue202turn1search4\ue201 [wordlim: 200] Published: 3 weeks ago; Crawled: 2 weeks ago; Learn more about our different consumer and commercial products. ...   * The\u00a0Highest Level Access to Our Full Suite of Advanced AI Models: get faster access to the latest models from OpenAI, Anthropic, and others in Perplexity Research, and create files and apps with minimal limits on volume or frequency.\n\n# Which Perplexity Subscription Plan is right for you?\n\nLearn more about our different consumer and commercial products.\n\nImage\n\nWritten by Perplexity Support\n\nLast updated on September 2, 2026\n\n\nChoosing the right Perplexity plan depends on your usage needs, team size, and the features you require. Here\u2019s a breakdown of each plan to help you decide.\n\n\u00a0\n\n## What Perplexity plans are available?\n\n### Individual:\n\n  * Standard (Free)\n\n  * Perplexity Pro\u00a0\n\n  * Perplexity Max\n\n  * Education Pro ($10/mo with verification from SheerID).\n\n### Enterprise:\n\n  * Enterprise Pro\n\n  * Enterprise Max\n\n## API (Individual and Enterprise):\n\n  * API Platform\n\n\u00a0\n\n## What do I get with the Free (Standard) plan?\n\n  * Search history access\n\n  * Practically unlimited basic searches\n\n  * Very limited amount of Pro Searches\n\n  * We pick the best model to use for your query\n\n  * Basic file uploads (limited)\n\n  * No access to advanced AI models, image generation, or premium support.\n"
+    },
+    {
+     "url": "https://www.perplexity.ai/sv/hub/blog/category/research",
+     "title": "Forskning | Perplexity Blog",
+     "text": "\ue200cite\ue202turn1search5\ue201 [wordlim: 200] Crawled: yesterday; PerplexityBlogg ... 2026Photon: Bygga en h\u00e4mtnings- och rankningsmotor fr\u00e5n grundenHur specialiserade dataformat, batchade l\u00e4sningar och separeringen av indexbyggande fr\u00e5n fr\u00e5gebetj\u00e4ning f\u00f6rb\u00e4ttrar AI-nativ s\u00f6kning.\nPerplexityBlogg\n\nForskning, produkter och id\u00e9er.\n\n# Forskning\n\nForskning24 sep. 2026Photon: Bygga en h\u00e4mtnings- och rankningsmotor fr\u00e5n grundenHur specialiserade dataformat, batchade l\u00e4sningar och separeringen av indexbyggande fr\u00e5n fr\u00e5gebetj\u00e4ning f\u00f6rb\u00e4ttrar AI-nativ s\u00f6kning.\n\n  1. 21 sep. 2026L\u00e4r dig av misstag i den verkliga v\u00e4rldenEftertr\u00e4ning av en Perplexity Computer-modell med anv\u00e4ndarkorrigeringar och verktygsfel.\n  2. 9 sep. 2026Q2D-Web: Utv\u00e4rdering av h\u00e4mtare i f\u00f6rsta steget i skalaEtt riktm\u00e4rke och en topplista med 70 tusen agentfr\u00e5gor, 190 miljoner webbdokument och tre upps\u00e4ttningar relevansbed\u00f6mningar.\n  3. 25 aug. 2026En lokal-f\u00f6rst-agent f\u00f6r privat och kostnadseffektivt kunskapsarbeteEn kontrollmilj\u00f6 och modell samutformade f\u00f6r lokalt kunskapsarbete, som k\u00f6rs p\u00e5 enheten och n\u00e5r fj\u00e4rrfunktioner vid behov.\n\n## Alla publikationer\n\n  1. 24 sep. 2026Photon: Bygga en h\u00e4mtnings- och rankningsmotor fr\u00e5n grunden\n  2. 23 sep. 2026Fly fr\u00e5n Space: Del I\n  3. 21 sep. 2026L\u00e4r dig av misstag i den verkliga v\u00e4rlden\n  4. 14 sep. 2026CobbleDB: Bygger om AI-s\u00f6klagring f\u00f6r l\u00e4gre latens och kostnad\n  5. 9 sep. 2026Q2D-Web: Utv\u00e4rdering av h\u00e4mtare i f\u00f6rsta steget i skala\n  6. 4 sep. 2026Snabba inb\u00e4ddningar p\u00e5 GPU:er\n  7. 1 sep. 2026PII-TRACE: Uppt\u00e4ck personuppgifter innan de l\u00e4mnar enheten\n  8. 1 sep. 2026Optimera on-device-inferens f\u00f6r Apple silicon\n  9. 25 aug. 2026En lokal-f\u00f6rst-agent f\u00f6r privat och kostnadseffektivt kunskapsarbete\n  10. 19 aug. 2026Brain: Agentiskt minne som kunskapswiki\n"
+    },
+    {
+     "url": "https://www.perplexity.ai/enterprise",
+     "title": "Perplexity Enterprise",
+     "text": "\ue200cite\ue202turn1search6\ue201 [wordlim: 200] Crawled: last month; Find deep insights in seconds using integrations that centralize your company's knowledge \u2014 from the tools you already use. ... What are the core features of Perplexity\u2019s Enterprise AI?\n\n### Internal knowledge and applications\n\n### Surface answers from your files. Find deep insights in seconds using integrations that centralize your company's knowledge \u2014 from the tools you already use.\n\nConnect your apps\n\nConnect your apps\n\nConnect your apps\n\nImage\n\n### External research\n\n### Find reliable sources on the web. Get verifiable, straightforward answers to any question. Then, dive deeper with our automatically generated follow-up prompts.\n\nStart searching\n\nStart searching\n\n## Keep your company\u2019s data airtight.\n\n### At Perplexity, we manage customer data with enterprise-grade security.\n\n#### SOC 2 Type II Certified\n\n### Have peace of mind with industry-leading privacy and security standards.\n\n#### Data privacy\n\n### We never train our LLMs on enterprise customer's data. Perplexity is also GDPR and HIPAA compliant.\n\n#### Configurable file retention\n\n### Safekeep your work with private search and automatic file deletion up to 1 day.\n"
+    },
+    {
+     "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0001193125-26-134544?exchange=NYSE&ticker=INFQ",
+     "title": "10-K",
+     "text": "\ue200cite\ue202turn1search7\ue201 [wordlim: 200] Published: 6 months ago; (www.linkedin.com/company/infq/), our company news site (www.infleqtion.com/newsroom), and our company blog (www.infleqtion.com/blog).\n"
+    },
+    {
+     "url": "https://r2cdn.perplexity.ai/pdf/pplx-at-work.pdf",
+     "title": "<visual_element id=\"e1\">",
+     "text": "\ue200cite\ue202turn1search8\ue201 [wordlim: 200] Published: 10 months ago; Perplexity Labs dashboard screenshot titled \u201cB2B SaaS Series A Companies Dashboard\u201d with subtitle \u201c25 Companies That Raised Series A Funding (Sept 2024 - Sept 2025)\u201d and smaller text \u201cComprehensive directory of B2B SaaS companies for sales outreach and partnership opportunities.\u201d ... | COMPANY NAME | FUNDING AMOUNT | FUNDING DATE | INDUSTRY | HIRING STATUS | ... Right chart: \u201cCompanies by Industry\u201d pie chart with legend categories B2B Software, AI, Cloud Computing, 3D, Aerospace, Data, Home Services Technology, and Work Management Platform. ... The line starts near 6, declines to around 1, rises to about 3 in February 2025, then stays near 1 through July 2025.\n"
+    },
+    {
+     "url": "https://brand.perplexity.ai/pdf/the-economic-impacts-of-AI-on-enterprise-IT-organizations.pdf",
+     "title": "Economic Impacts of AI on Enterprise IT Organizations",
+     "text": "\ue200cite\ue202turn1search9\ue201 [wordlim: 200] Published: 5 months ago; About PerplexityPerplexity is an AI company that builds products and services on accurate AI.\n"
+    },
+    {
+     "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0001773427-25-000010?exchange=NASDAQ&ticker=SWTX",
+     "title": "UNITED STATES",
+     "text": "\ue200cite\ue202turn1search10\ue201 [wordlim: 200] Published: 6 months ago; Company\u2019s executive leadership team about the cyber program, including information about the status of ongoing efforts to enhance cybersecurity effectiveness.\n"
+    }
+   ]
+  },
+  {
+   "type": "web_search_call",
+   "action": {
+    "type": "search",
+    "queries": [
+     "site:perplexity.ai \"About Perplexity\"",
+     "site:perplexity.ai \"Company\" \"Perplexity\" \"Careers\"",
+     "site:perplexity.ai/news Perplexity newsroom press",
+     "site:perplexity.ai \"Perplexity for\" product pages"
+    ],
+    "query": "site:perplexity.ai \"About Perplexity\"",
+    "sources": [
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/merchants"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/enterprise/use-cases/tech"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/enterprise/use-cases/growing-businesses"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/startups"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/enterprise/use-cases/legal"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/enterprise/use-cases/government"
+     },
+     {
+      "type": "url",
+      "url": "https://r2cdn.perplexity.ai/pdf/pplx-at-work.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://brand.perplexity.ai/pdf/the-economic-impacts-of-AI-on-enterprise-IT-organizations.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0000950170-25-028949?exchange=NASDAQ&ticker=NXST"
+     }
+    ]
+   },
+   "results": [
+    {
+     "url": "https://www.perplexity.ai/merchants",
+     "title": "Perplexity for Merchants",
+     "text": "\ue200cite\ue202turn2search0\ue201 [wordlim: 200] Crawled: 10 months ago; ### The fastest way from research to purchase on Perplexity ...   * \ud83d\udd2eBuy a gift for someone picky ...   * \ud83d\udd75\ufe0fCheck if a viral product is legit\n# Your products, discovered instantly\n\n# Your products, discovered instantly\n\n### The fastest way to reach millions of shoppers ready to buy\n\n### The fastest way from research to purchase on Perplexity\n\n## See how shoppers discover you\n\n## See how shoppers discover you\n\n  * \ud83d\udd2eBuy a gift for someone picky\n\n  * \ud83d\udcdaFind a coffee maker that\u2019s just right\n\n  * \ud83d\udd75\ufe0fCheck if a viral product is legit\n\n  * \ud83e\ude91Get interior design inspiration\n\n  * \ud83c\udfa7Find the comfiest headphones\n\n  * \ud83d\udd0cPlug in retro tech to your TV\n\n  * \ud83e\udd52Slice cucumbers, not thumbs\n\n  * \ud83c\udf3fBring home a viral moss rug\n\n  * \ud83e\ude9eUpgrade your bedroom mirror\n\n  * \ud83d\udd0bCharge your phone in Europe\n\n  * \ud83d\udda8\ufe0fGet started with 3D printing\n\n## See how shoppers discover you\n\n  * \ud83d\udd2eBuy a gift for someone picky\n\n  * \ud83d\udcdaFind a coffee maker that\u2019s just right\n\n  * \ud83d\udd75\ufe0fCheck if a viral product is legit\n\n  * \ud83e\ude91Get interior design inspiration\n\n  * \ud83c\udfa7Find the comfiest headphones\n\n  * \ud83d\udd0cPlug in retro tech to your TV\n\n  * \ud83e\udd52Slice cucumbers, not thumbs\n\n  * \ud83c\udf3fBring home a viral moss rug\n\n  * \ud83e\ude9eUpgrade your bedroom mirror\n\n  * \ud83d\udd0bCharge your phone in Europe\n\n  * \ud83d\udda8\ufe0fGet started with 3D printing\n\n# We do the work.\nShoppers find you.\n\n# We do the work.\nShoppers find you.\n\n### Your products, found instantly\n\n### Your products, found instantly\n\n### Your products, found instantly\n\n### Stand out with rich product details\n\n### Stand out with rich product details\n\n### Stand out with rich product details\n\n### Your reputation, amplified\n\n### Your reputation, amplified\n\nImage\n\nImage\n\n### Summarized reviews from\nall over the internet\n\n### Seamless checkout drives sales\n\n# How it works\n\n# How it works\n\nGet discovered through natural search\n\n  * Get discovered through natural search\n\n  * Show up where shoppers are already searching. Tap into demand instantly and put your products in front of the right people\u2014no extra work needed.\n\nShow up where shoppers are already searching. Tap into demand instantly and put your products in front of the right people\u2014no extra work needed.\n\nStand out with rich product details\n\nMake your listings pop with trusted insights and visuals. Give buyers all the facts they need to choose you, not the competition.\n\nMake your listings pop with trusted insights and visuals. Give buyers all the facts they need to choose you, not the competition.\n\nEnable seam"
+    },
+    {
+     "url": "https://www.perplexity.ai/enterprise/use-cases/tech",
+     "title": "Perplexity for tech",
+     "text": "\ue200cite\ue202turn2search1\ue201 [wordlim: 200] Crawled: last month; ## Perplexity for tech ... Track feature releases, pricing changes, and engineering blog posts from a defined competitor set, summarized into a weekly briefing for product and leadership.\n\n## Perplexity for tech\n\n## Perplexity for tech\n\n# A team of agents for every team\n\n### Power your team\u2019s deep work with reliable research, premium data, and powerful AI models.\n\nGet started\n\nGet started\n\nImage\n\n## Every tool connected, every answer cited, every team covered\n\n## Answers grounded in real sources\n\nEvery answer is backed by inline citations to the original doc, repo, or web source so engineers and PMs can validate technical claims instantly and avoid decisions on stale or unverified info.\n\n## From app overload to effortless workflow\n\nGet answers and build workflows that pull from the web, files, and apps like Salesforce, GitHub, and Google Drive\u2014plus 400+ others\u2014all in one place.\n\n## Agents that improve workflows across teams\n\nGo beyond Q&A with agents that automate repetitive research, generate memos and decks, write and review code, create sites, and run background workflows that actually ship work.\n\n##### \"Perplexity provides Zoom with knowledge beyond our organization's four walls. The platform's grounded responses and flexible API also help us build trust with users who are just getting comfortable with AI.\"\n\n###### Xuedong Huang\n\n###### Chief Technology Officer at Zoom\n\n## What you can do with Computer\n\n## Power every team's workflow with Perplexity Computer\n\n\n### Cross-team knowledge base\n\nCentralize documentation from GitHub, Notion, Confluence, and Google Drive into one searchable surface that gives every team instant, cited answers.\n\n## automation\n\n## automation\n\n## automation\n\n### Agent-powered workflow automation\n\nBuild custom agents that automate recurring research, reporting, and documentation tasks across engineering, sales, marketing, and operations.\n\n## output\n\n## output\n\n## output\n\n### Technical documentation generation\n\nAPI changes, and runbooks into structured, publish-ready documentation by pulling context from existing repos and wikis.\n\n## research\n\n## research\n\n## research\n\n### Competitive market analysis\n\nTrack feature releases, pricing changes, and engineering blog posts from a defined competitor set, summarized into a weekly briefing for product and leadership.\n\n\n### Employee onboarding acceleration\n\nBuild a searchable onboarding Space that surfaces role-specific documentation,"
+    },
+    {
+     "url": "https://www.perplexity.ai/enterprise/use-cases/growing-businesses",
+     "title": "Start with curiosity. Scale with Perplexity.",
+     "text": "\ue200cite\ue202turn2search2\ue201 [wordlim: 200] Crawled: last month; ## Perplexity for growing businesses## Perplexity for growing businesses\n\n## Perplexity for growing businesses\n\n## Perplexity for growing businesses\n\n# Start with curiosity.\nScale with Perplexity.\n\n### Connect Computer to the tools you already use. Let it handle the research, reporting, and recurring tasks that eat your day.\n\nTry Computer\n\nTry Computer\n\n\n## One place to operate your business\n\nImage\n\n## Know more than your competitors\n\nUncover new markets, track competitors, and navigate regulatory change with Perplexity Search and Deep Research in minutes, not hours.\n\nImage\n\n## Connects your tools, connects the dots\n\nConnect Intuit Mailchimp, Intuit QuickBooks, Shopify, Stripe, Canva, and more. Computer finds what falls through the gaps.\n\nImage\n\n## Runs your operations so you can grow faster\n\nSchedule budget check-ins, daily briefs, weekly dashboards, and quarterly reviews. Always have the information you need, without asking for it.\n\n## Wherever your business takes you\n\nImage\n\n## Computer moves with you\n\nLet Computer run in the background, even when you're offline. Comet, our AI browser, handles web tasks that require logging in like paying an invoice or filling out a form.\n\n## Works inside Microsoft 365\n\nDraft, analyze, and create inside Word, Excel, and PowerPoint, with full context from Outlook, SharePoint, and Teams. Nothing falls through the cracks.\n\n##### \u201cWe need to be freed up to do more of the human things. We got so bogged down with doing the stuff that has to be done to grow a business. This gives us more time to do the human things.\u201d\n\n###### Teresa Overcash\n\n###### Owner, Realty ONE Group\n\n## Security, without the enterprise overhead\n\n## Your data stays yours. Full stop.\n\nEncryption in transit and at rest, enterprise-grade access controls, and data protection practices built to meet the standards your business already requires.\n\n## Always the right model for the right job.\n\nComputer automatically routes each task, from budget crunching to drafting emails, to the best available model.\n\n## Computer creates the deliverable. Exports it, too.\n\nTurn an email thread into a launch plan, client report, or creative brief. Computer drafts, formats, and exports docs, decks, code, and sites directly into your existing tools.\n\n## FAQs\n\nWhat subscription plans are best for growing businesses?\n\nWhat are the most common use cases for businesses like mine?\n\nHow much time will using Perplexity Computer save"
+    },
+    {
+     "url": "https://www.perplexity.ai/startups",
+     "title": "Perplexity for Startups",
+     "text": "\ue200cite\ue202turn2search3\ue201 [wordlim: 200] Crawled: 6 months ago; ##### Eligible startups get 3 months of free Perplexity Enterprise Pro for up to 50 seats, plus $5k in API credits to supercharge their growth.\n\n## Perplexity for Startups\n\n## Perplexity for Startups\n\nWhether it\u2019s conducting research or building with a web search API, Perplexity has you covered.\n\nJoin the program\n\nImage\n\n## Perplexity for Startups\n\nWhether it\u2019s conducting research or building with a web search API, Perplexity has you covered.\n\nJoin the program\n\n### Eligibility to apply\n\n### Eligibility to apply\n\n### Eligibility to apply\n\nImage\n\n##### Raised no more than $20M in equity\n\nImage\n\nImage\n\n##### Less than 5 years old\n\nImage\n\nImage\n\n##### Associated with one of our approved Startup Partners listed below\n\n##### Associated with one of our approved Startup Partners listed below\n\nImage\n\n##### Not an existing Enterprise Pro subscriber\n\n##### Not an existing Enterprise Pro subscriber\n\n##### Eligible startups get 3 months of free Perplexity Enterprise Pro for up to 50 seats, plus $5k in API credits to supercharge their growth.\n\n##### Eligible startups get 3 months of free Perplexity Enterprise Pro for up to 50 seats, plus $5k in API credits to supercharge their growth.\n\n##### Are you an investor, accelerator, incubator, or startup community? Apply to become a partner today\n\n##### Are you an investor, accelerator, incubator, or startup community? Apply to become a partner today\n\n##### Are you an investor, accelerator, incubator, or startup community?\nApply to become a partner today\n\n## Transform the way your team works with Perplexity Enterprise Pro\n\n## Transform the way your team works with Perplexity Enterprise Pro\n\n## Transform the way your team works with Perplexity Enterprise Pro\n\nTrust the answers powering every decision.\nEligible startups get 3 months free Perplexity Enterprise Pro.\n\nTrust the answers powering every decision. Eligible startups get 3 months free Perplexity Enterprise Pro.\n\nStart building\n\nStart building\n\n## Complete in-depth research in minutes\n\n## Complete in-depth research in minutes\n\nGet precise answers with citations you can trust \u2014 and smart follow-up questions that help you explore deeper.\n\n## Get answers in one reliable platform across all your sources\n\n## Get answers in one reliable platform across all your sources\n\nEvery second counts when building. Stop switching across the web, your files, and proprietary data sources. Get answers in one place.\u00a0\n\n## Access all the "
+    },
+    {
+     "url": "https://www.perplexity.ai/enterprise/use-cases/legal",
+     "title": "Perplexity for Legal",
+     "text": "\ue200cite\ue202turn2search4\ue201 [wordlim: 200] Crawled: last month; ##### \u201cPerplexity is now a reflex for our teams: rapid, cited context that we can validate quickly. ... research research research Patent prior art search Search patent databases for prior art relevant to a product, invention, or claim, with results organized by filing date, assignee, and relevance.\n\n## Perplexity for Legal\n\n## Perplexity for Legal\n\n# Computer for Counsel\n\n### Connect research databases, document repositories, contract tools, and matter-management systems lawyers use every day so the admin work gets handled\n\n## Automate research, document gathering, and contract triage so attorneys can stay focused on legal work.\n\n## Automated administrative tasks\n\nComputer runs cross-jurisdictional research, regulatory monitoring, and document review in the background, so attorneys spend their time on counsel and client relationships.\n\n## Verify accuracy in one click\n\nEvery answer includes inline citations linked to the original ruling, regulation, filing, or client document. Attorneys validate accuracy in one click and reference sources directly in client work.\n\n## From research to client-ready deliverables\n\nComputer reasons over the open web and premium sources for legal like Midpage, LegalZoom, and Deel. Then it assembles what\u2019s relevant into a brief, a memo, or a deal summary, ready for review.\n\n##### \u201cPerplexity is now a reflex for our teams: rapid, cited context that we can validate quickly. It doesn\u2019t replace expertise; it amplifies it. Our attorneys spend less time gathering information and more time on strategic advising. Clients feel that in the speed and clarity of our work.\"\n\n###### Joe Green\n\n###### Chief Innovation Officer at Gunderson Dettmer\n\n## Connect your legal stack to Computer\n\n## Spend less time digging up information, build your case instead\n\nresearch research research Prospect and client research Build a comprehensive briefing on a prospective client using public filings, news, leadership profiles, and litigation history, formatted and ready before the first meeting.\n\nmonitoring monitoring monitoring Monitor regulatory and legislative developments Surface relevant rulings and judicial opinions on a specific legal issue, with cited holdings organized by jurisdiction, date, and relevance to the matter at hand.\n\nmonitoring monitoring monitoring Regulatory filing monitoring Track new rules, proposed regulations, and agency guidance across assigned practice areas, with a daily dige"
+    },
+    {
+     "url": "https://www.perplexity.ai/enterprise/use-cases/government",
+     "title": "Perplexity Enterprise for Government",
+     "text": "\ue200cite\ue202turn2search5\ue201 [wordlim: 200] Crawled: last month; ## Perplexity for government## Perplexity for government\n\n## Perplexity for government\n\n## Perplexity for government\n\n# Accelerate decisions without sacrificing accuracy\n\n## Navigate complex regulations and save hours on interdisciplinary research with Perplexity\n\n## Navigate complex regulations and save hours on interdisciplinary research with Perplexity\n\nGet started\n\n## Get accurate answers to power precise decisions\n\nImage\n\nImage\n\nMulti-model AI platform\n\nMulti-model AI platform\n\nDe-risk your dependence on a singular model. Perplexity partners with the best-in-class LLM models.\n\nDe-risk your dependence on a singular model. Perplexity partners with the best-in-class LLM models.\n\nReliable, accurate, and trusted AI\n\nReliable, accurate, and trusted AI\n\nGet up-to-date information from cited resources your clients can trust \u2014 then, ask follow-up questions to dive deeper into any topic.\n\nGet up-to-date information from cited resources your clients can trust \u2014 then, ask follow-up questions to dive deeper into any topic.\n\nProcurement made simple\n\nProcurement made simple\n\nAccess Perplexity Enterprise through the Multiple Awards Schedule on GSA Advantage. Federal agencies eligible to enroll in Perplexity\u2019s OneGov offering in partnership with GSA.\n\nAccess Perplexity Enterprise through the Multiple Awards Schedule on GSA Advantage. Federal agencies eligible to enroll in Perplexity\u2019s OneGov offering in partnership with GSA.\n\nKeep government data safe\n\nKeep government data safe\n\nPerplexity Enterprise never trains on your data and offers access controls to prevent accidental sharing across teams and clients.\n\nPerplexity Enterprise never trains on your data and offers access controls to prevent accidental sharing across teams and clients.\n\n## Focused on law enforcement?\n\n## Explore Perplexity for Public Safety Organizations\n\n## Free for 12 months for up to 200 seats. Discounted agency plans available for larger deployments.\n\nLearn more\n\nLearn more\n\n## Get answers to all your government questions\n\n  * FOIA exemption quick reference guide\n\n  * What are Section 508 PDF remediation steps?\n\n  * What is federal guidance on encrypting a laptop?\n\n  * What is the records retention schedule by document type?\n\n  * FOIA exemption quick reference guide\n\n  * What are Section 508 PDF remediation steps?\n\n  * What is federal guidance on encrypting a laptop?\n\n  * What is the records retention schedule by document type?\n\n  * Create a"
+    },
+    {
+     "url": "https://r2cdn.perplexity.ai/pdf/pplx-at-work.pdf",
+     "title": "Useful Prompts for Agentic actions",
+     "text": "\ue200cite\ue202turn2search6\ue201 [wordlim: 200] Published: 10 months ago; \u201cFind and pull up the Youtube video at the section where Jensen Huang talks about Perplexity at GTC.\u201d\nUseful Prompts for Agentic actions\n\n<visual_element id=\"e1\">\nA boxed list of seven italicized example prompts under the heading \u201cUseful Prompts for Agentic actions\u201d:\n1. \u201cFind the latest published journal articles that focus on [insert topic]. Next, open each one in a new tab. Then create a comparison table analyzing research methodologies and results.\u201d\n2. \u201cFind all unanswered emails from the last 3 days that require a response and draft brief replies. Ignore calendar invites.\u201d\n3. \u201cGroup my tabs by topic and close any that aren't relevant to my current project\u201d\n4. \u201cApply for the open job listings opened in this window with my resume.\u201d\n5. \u201cFind and pull up the Youtube video at the section where Jensen Huang talks about Perplexity at GTC.\u201d\n6. \u201cLook through these customer case studies and identify any use cases relevant to how our company would use this vendor.\u201d\n7. \u201cGo through Amazon and see any supplies I haven\u2019t ordered in awhile and have it ship to the office address.\u201d\n</visual_element>\n\n13\n\nPerplexity at Work: A Guide to Getting More Done"
+    },
+    {
+     "url": "https://brand.perplexity.ai/pdf/the-economic-impacts-of-AI-on-enterprise-IT-organizations.pdf",
+     "title": "Economic Impacts of AI on Enterprise IT Organizations",
+     "text": "\ue200cite\ue202turn2search7\ue201 [wordlim: 200] Published: 5 months ago; About Perplexity\nEconomic Impacts of AI on Enterprise IT Organizations\n\nAbout Perplexity\n\nPerplexity is an AI company that builds products and services on accurate AI. Founded in 2022, the company\u2019s mission is to power the world\u2019s curiosity. They are the makers of the Perplexity answer engine, which draws from credible sources and deep research to answer questions with in-line citations, and the Comet Browser, the first AI-native web browser and harness for the powerful AI agent, the Comet Assistant. Perplexity is also the maker of Perplexity Computer, a massively multimodel orchestration of AI across tools, files, code creation, persistent memory and the open web. Each month, Perplexity answers more than 1.5 billion questions globally.\n\nperplexity.ai/enterprise\n\n15"
+    },
+    {
+     "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0000950170-25-028949?exchange=NASDAQ&ticker=NXST",
+     "title": "10-K",
+     "text": "\ue200cite\ue202turn2search8\ue201 [wordlim: 200] Published: 1.3 years ago; Each of the stations that we own, operate, program, or provide sales and other services to creates a highly recognized local brand, primarily attributable to our high quality local news programming, extensive local sports coverage, and community presence.\nLeading Local Franchises. We are focused on building and maintaining leading local franchises in the 116 local markets we serve. In total, we employ approximately 6,000 journalists and 1,600 salespeople, produce over 316,000 hours of programming, and have relationships with over 40,000 advertisers. Each of the stations that we own, operate, program, or provide sales and other services to creates a highly recognized local brand, primarily attributable to our high quality local news programming, extensive local sports coverage, and community presence. All of our news programming produced by Nexstar stations and rated by a third-party watchdog group, Ad Fontes, is judged to be politically neutral (labeled \u201cmiddle\u201d in terms of left or right bias). In addition, according to Ad Fontes virtually all of the news programming has a reliability rating of \u201creliable; analysis/fact reporting.\u201d In 2024, journalists at our stations won 494 awards for their reporting, including 35 Edward R. Murrow awards and 100 Emmy awards. We employ a high-quality local sales force in each of our markets to increase revenue from local advertisers by capitalizing on our investment in local programming, websites and over-the-top (\u201cOTT\u201d) applications. In even-numbered years, when most elections are held, we have historically generated substantial revenue from locally driven political advertising. Given our expansive geographic reach, we have television stations in more than 80% of the markets where there were contested political elections in 2024. In addition, we own or provide services to more than one station in certain markets which can enhance our service to local communities, broaden our audience share, enhance our revenue share and achieve significant operating efficiencies. For the year ended December 31, 2024, excluding our owned network assets, the Company earned approximately 66% of its advertising revenue from non-network programming.\n\nStrong National Brands. We have a portfolio of scaled, strong national brands that enables us to engage with national advertisers in more meaningful ways than we have in the past. Our primary national brands include The CW, NewsNation an"
+    }
+   ]
+  },
+  {
+   "type": "web_search_call",
+   "action": {
+    "type": "search",
+    "queries": [
+     "Perplexity official newsroom press page perplexity.ai press",
+     "site:perplexity.ai/hub \"Company\" Perplexity blog",
+     "site:docs.perplexity.ai Perplexity docs homepage",
+     "site:perplexity.ai/help-center Perplexity Help Center"
+    ],
+    "query": "Perplexity official newsroom press page perplexity.ai press",
+    "sources": [
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/hub"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0000950170-25-026866?exchange=NASDAQ&ticker=HUBG"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0001213900-25-034116?exchange=NASDAQ&ticker=OSRH"
+     },
+     {
+      "type": "url",
+      "url": "https://mediajustice.org/wp-content/uploads/2026/03/MediaJustice-Media-Capture-Report.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0000076334-25-000035?exchange=NYSE&ticker=PH"
+     },
+     {
+      "type": "url",
+      "url": "https://pixotech.com/app/uploads/2025/06/Perplexity-response.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://en.wikipedia.org/wiki/Perplexity_AI"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1khwrqm"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/14qqsnh"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1jv9hvm"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1jrl899"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1kypixi"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1nxdxpa"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1fur3n2"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1o5d5ms"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1mjhuk9/removed/"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1ewazrc/a_realtime_fact_checking_tool_for_perplexity_users/"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/12vh64q"
+     },
+     {
+      "type": "url",
+      "url": "https://ru.wikipedia.org/wiki/Perplexity_AI"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1co3czb"
+     },
+     {
+      "type": "url",
+      "url": "https://zh.wikipedia.org/wiki/Perplexity"
+     },
+     {
+      "type": "url",
+      "url": "https://de.wikipedia.org/wiki/Perplexity_AI"
+     },
+     {
+      "type": "url",
+      "url": "https://en.wikipedia.org/wiki/Perplexity"
+     },
+     {
+      "type": "url",
+      "url": "https://de.wikipedia.org/wiki/Perplexity.ai"
+     }
+    ]
+   },
+   "results": [
+    {
+     "url": "https://www.perplexity.ai/hub",
+     "title": "Perplexity | AI for the Curious",
+     "text": "\ue200cite\ue202turn3search0\ue201 [wordlim: 200] Crawled: 3 days ago; Answer Engine Get accurate, cited answers; then go deeper with analysis to turn information into real insight.Get answers Computer Research, analyze, create, and code; then run it all as a multi-step workflow, start to finish.Build with Computer Comet Ask, navigate, and act in the flow of the work, without ever leaving the browser.Try our AI Browser API Platform The same accurate AI that powers Perplexity is available as an API for whatever you're building.Build with our API ... Go deep on any company, market, or topic, with sources.\n\n# AI for the\ncurious AI for the curious\n\nGet answers. Build ideas.Change worlds.\n\n## What we do\n\n### Accurate AI\n\nAccurate answers, deeper research, fewer hallucinations, backed by citations\n\n### Multi-model orchestration\n\nThe best frontier AI models, routed in parallel to perform their best\n\n### Web-first agentic AI\n\nAI designed to work on the open web, wherever you work\n\n### Powerful APIs\n\nAccurate search grounding with web-first agent technology for any developer\n\n## One place to research, build, and ship\n\nAnswer Engine Get accurate, cited answers; then go deeper with analysis to turn information into real insight.Get answersComputer Research, analyze, create, and code; then run it all as a multi-step workflow, start to finish.Build with ComputerComet Ask, navigate, and act in the flow of the work, without ever leaving the browser.Try our AI BrowserAPI Platform The same accurate AI that powers Perplexity is available as an API for whatever you're building.Build with our API\n\n## From first question to finished work\n\nGo deep on any company, market, or topic, with sources.\n\n[Button: Research][Button: Analyze][Button: Build][Button: Automate]\n\n## Used daily by individuals, trusted by organizations\n\nFor individuals The full power of Perplexity, free to start.Start freeFor teams Secure, compliant, and ready to scale.Explore EnterpriseFor developers Add trusted, cited search and research to builds.Start building\n\n## Follow us\n\n  *   *   *   * ## Frequently asked questions\n\n  * What is Perplexity?\n\nPerplexity is an AI answer engine that researches the open web in real time and returns concise, cited answers. Underneath, it routes queries across multiple frontier models so each question is handled by the model best suited for it.\n\n  * How can I use Perplexity?\n\nUse Perplexity through the web app, the mobile apps for iOS and Android, the Comet Browser, or the API. Free users ge"
+    },
+    {
+     "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0000950170-25-026866?exchange=NASDAQ&ticker=HUBG",
+     "title": "10-K",
+     "text": "\ue200cite\ue202turn3search1\ue201 [wordlim: 200] Published: 1.3 years ago; Hub Group, Inc. (the \u201cCompany\u201d, \u201cHub\u201d, \u201cwe\u201d, \u201cus\u201d or \u201cour\u201d) is a leading supply chain solutions provider that offers comprehensive transportation and logistics management services focused on reliability, visibility and value for our customers.\nPART I\n\n**FORWARD LOOKING STATEMENTS**\n\nStatements in this Annual Report on Form 10-K that are not historical facts are forward-looking statements, provided pursuant to the safe harbor established under the Private Securities Litigation Reform Act of 1995. These forward-looking statements are not guarantees of future performance and involve risks, uncertainties and other factors that might cause the actual performance of the Company to differ materially from those expressed or implied by this discussion and, therefore, should be viewed with caution. Further information on the risks that may affect the Company\u2019s business is included under Item 1A \u201cRisk Factors\u201d and in subsequent filings the Company makes with the SEC from time to time. The Company assumes no obligation to update any such forward-looking statements.\n\n**Item 1.    BUSINESS**\n\n**General**\n\nHub Group, Inc. (the \u201cCompany\u201d, \u201cHub\u201d, \u201cwe\u201d, \u201cus\u201d or \u201cour\u201d) is a leading supply chain solutions provider that offers comprehensive transportation and logistics management services focused on reliability, visibility and value for our customers. Our mission is to continuously elevate each customer\u2019s business to drive long term success. Our vision is to build the industry\u2019s premier supply chain solution. Our service offerings include a full range of freight transportation and logistics services, some of which are provided using assets we own and operate, and some of which are provided by third parties with whom we contract. We have two reportable segments: Intermodal and Transportation Solutions (\u201cITS\u201d) and Logistics which are based primarily on the services each segment provides. Our ITS segment includes our intermodal and dedicated trucking. Our Logistics segment includes full outsource logistics solutions, transportation management services, consolidation and fulfillment services and final mile delivery services. Logistics also includes our brokerage business which provides third-party truckload, less-than-truckload (\u201cLTL\u201d), flatbed and temperature-controlled needs.\n\nWe are one of the largest freight transportation providers in North America. "
+    },
+    {
+     "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0001213900-25-034116?exchange=NASDAQ&ticker=OSRH",
+     "title": "UNITED STATES",
+     "text": "\ue200cite\ue202turn3search2\ue201 [wordlim: 200] Published: 1.3 years ago; Company operates as a hub-and-spoke\u00a0business model with a centralized executive team partnering with subsidiary management teams to ensure overall program and corporate alignment by and\nPART I\n\u00a0\nItem\u20091. Business\n\u00a0\nCompany and Business Strategy Overview\n\u00a0\nAs a global healthcare holding company, with operations in South Korea and Switzerland and an office in the United\u00a0States, we intend to leverage our existing and expanding network of academic\nand industry leaders and investor network, including venture capital and private equity, in major healthcare markets globally to identify, lead and support the growth of our subsidiaries and subsidiary\ncandidates based on innovative research. Subsidiary candidates are companies that are either already existing entities or new companies formed in connection with acquiring or licensing existing\nassets from pharmaceutical firms. We expect to attract industry partners either as co-investors\u00a0or through technology licensing deals and may raise capital directly from private, strategic or public\ninvestors. We seek to chart a potentially more efficient and optimal route by pairing what we believe are the right team and pharmaceutical or medical device technologies that have the potential to\ntreat diseases and improve healthcare outcomes with the necessary financial and other resources. Since our target markets feature large established global businesses with abundant capital that acquire\nhealthcare companies, we hope to realize additional liquidity through the sale of our subsidiaries from time to time.\n\u00a0\nWe are a data-driven\u00a0company. We evaluate our subsidiary candidate opportunities by better understanding the target indications toward identifying new approaches and technologies to improve\ntreatment outcomes. We collaborate with academic and industry leaders to promote a seamless integration and partnership between entrepreneurial scientists and seasoned business development and\nleadership teams. These technical and scientific experts from academia and industry bring innovative contributions and a high level of enthusiasm. Our holding company leadership team supports and\nempowers each subsidiary to transform their potentially breakthrough discoveries into impactful and viable commercial products.\n\u00a0\nOur company\u2019s collective expertise from industry veterans, seasoned scientists, capital market and legal professionals provides the core foundation of our global healthc"
+    },
+    {
+     "url": "https://mediajustice.org/wp-content/uploads/2026/03/MediaJustice-Media-Capture-Report.pdf",
+     "title": "Embedding AI in Newsrooms",
+     "text": "\ue200cite\ue202turn3search3\ue201 [wordlim: 200] Published: 6 months ago; They embed tech companies\u2019 tools and business interests directly into the newsroom. ... 49 \u201cIntroducing the Perplexity Publishers\u2019 Program,\u201d Perplexity AI press releases, 30 July 2024, www.perplexity.ai/hub/blog/introducing-the-perplexi- ty-publishers-program. ... 54 Charlotte Tobitt, \u201cWho\u2019s suing AI and who\u2019s signing: Penske Media sues Google over AI Overviews,\u201d *Press Gazette*, 15 September 2025, https://press- gazette.co.uk/platforms/news-publisher-ai-deals-lawsuits-openai-google.\n\u2075\u2070\n\nOpen AI has signed content licensing agreements, which gives it access to historical and current publications for training its models.\u2075\u00b9 These deals are typically made at the corporate level, often without informing the journalists whose work is being sold. Unionized workers at The Atlantic have pushed back, proposing that AI should not replace writing, fact-checking or illustrations.\u2075\u00b2\n\nAmazon has been especially aggressive with AI deals. As of 2025, it had signed deals with the New York Times, Hearst, Conde Nast \u2013which owns multiple publications such as Pitchfork, Vogue, The New Yorker and Wired.\u2075\u00b3,\u2075\u2074\n\n47 Michael M. Grynbaum and Cade Metz, \u201cThe Times and Amazon Announce an A.I. Licensing Deal,\u201d *The New York Times*, 29 May 2025, www.nytimes. com/2025/05/29/business/media/new-york-times-amazon-ai-licensing.html.\n48 See: https://newscorp.com/news-corp-businesses-and-brands.\n49 \u201cIntroducing the Perplexity Publishers\u2019 Program,\u201d Perplexity AI press releases, 30 July 2024, www.perplexity.ai/hub/blog/introducing-the-perplexi- ty-publishers-program.\n50 Keval Vachharajani, \u201cPerplexity to Share 80% of Subscription Revenue with Publishers,\u201d *GeekFlare*, 26 August 2025, https://geekflare.com/news/per- plexity-to-share-80-of-subscription-revenue-with-publishers.\n51 \u201cA landmark multi-year global partnership with News Corp,\u201d OpenAI press releases, 22 May 2024, https://openai.com/index/news-corp-and-openai- sign-landmark-multi-year-global-partnership.\n52 Rebecca Bellan, \u201cWhat\u2019s in it for us? journalists ask as publications sign content deals with AI firms,\u201d *TechCrunch*, 22 June 2024, https://techcrunch. com/2024/06/22/whats-in-it-for-us-journalists-ask-as-publications-sign-content-deals-with-openai.\n53 See: www.condenast.com/brands.\n54 Charlotte Tobitt, \u201cWho\u2019s suing AI and who\u2019s signing: Penske Media sues Google over AI Overviews,\u201d *Press Gazette*, 15 September 2025, https://press- gazette.co.uk/platforms/news-publisher-ai-dea"
+    },
+    {
+     "url": "https://www.perplexity.ai/rest/finance/documents/pdf/0000076334-25-000035?exchange=NYSE&ticker=PH",
+     "title": "ph-20250630",
+     "text": "\ue200cite\ue202turn3search4\ue201 [wordlim: 200] Published: 1.1 years ago; Our corporate headquarters is located in Cleveland, Ohio, and, at June\u00a030, 2025, the Company maintained approximately 322 manufacturing plants.\nCybersecurity Governance\nManagement is responsible for assessing and managing material risks from cybersecurity threats with leadership from the Company\u2019s Vice President \u2013 Chief Digital and Information Officer (\"CDIO\"),\nwho is responsible for the Company\u2019s global Digital, Information Technology and Cyber Security organization. Our CDIO has served in various roles in information technology and information\nsecurity for approximately 20 years with Fortune 500 companies. Our CDIO holds Bachelor of Science and Master of Science degrees in Computer Engineering. He has also completed other advanced\nleadership training and coursework regarding cybersecurity risk management. Our CDIO reports directly to the Chief Executive Officer.\nParker\u2019s cybersecurity program is led by our Digital & IT VP \u2013 Infrastructure and Security, who functions as our chief information security officer (\"CISO\") and has over 25 years of experience in\ncybersecurity operations, cybersecurity governance and compliance, risk management, operational technology (\"OT\") and connected products (\"IoT\") with global Fortune 200 and Fortune 500\ncompanies across diverse industries, such as retail, consumer goods, entertainment and manufacturing. The CISO reports to our CDIO and is supported by and receives regular updates from our\ndedicated Cyber Security team within our IT function, as well as our IT Risk Council, a cross-functional group that meets regularly to optimize our Digital & IT Risk Management Program and\npromote alignment with our Enterprise Risk Management program.\nRecognizing the importance of maintaining a secure environment for our products, data and systems that effectively supports our business objectives and customer needs, Parker\u2019s full Board of\nDirectors maintains oversight of cybersecurity. Our Board receives an in-depth report from our CDIO, at least annually, on the overall cybersecurity program, and updates throughout the year from our\nCDIO and CISO regarding such topics as cyber-risk management and the status of projects to strengthen cybersecurity effectiveness.\nITEM\u00a02. Properties\nOur corporate headquarters is located in Cleveland, Ohio, and, at June\u00a030, 2025, the Company maintained approximately 322 manufacturing plants. "
+    },
+    {
+     "url": "https://pixotech.com/app/uploads/2025/06/Perplexity-response.pdf",
+     "title": "Perplexity.docx",
+     "text": "\ue200cite\ue202turn3search5\ue201 [wordlim: 200] Published: 1.3 years ago; 3. https://www.perplexity.ai/hub/blog/perplexity-expands-publisher-program-with-15-new-media-partners ... 6. https://investors.legalzoom.com/news-releases/news-release-details/legalzoom-announces-strategic-partnership-perplexity-offer-legal\nThis allows each publisher to create their own custom answer engine on their website.\" 2\n\nIn summary, businesses can become a recommended resource by partnering with Perplexity as a publisher, data provider, or advertiser, ensuring their content or services are directly accessible and visible within the AI\u2019s answer ecosystem 128.\n\n1. https://www.perplexity.ai/hub/blog/meet-our-first-channel-partners-data-integrators  \n2. https://www.perplexity.ai/hub/blog/introducing-the-perplexity-publishers-program  \n3. https://www.perplexity.ai/hub/blog/perplexity-expands-publisher-program-with-15-new-media-partners  \n4. https://www.perplexity.ai/enterprise  \n5. https://www.bestcolleges.com/news/kogod-perlexity-ai-partnership/  \n6. https://investors.legalzoom.com/news-releases/news-release-details/legalzoom-announces-strategic-partnership-perplexity-offer-legal  \n7. https://www.reddit.com/r/perplexity_ai/comments/1izv4ju/accepted_into_the_perplexity_ai_business/  \n8. https://thefix.media/2024/09/06/how-perplexity-ai-partners-with-major-publishers/\n\nQuestion 3: If you were creating a checklist for businesses to make sure that they are recommended when people ask questions related to their products/services, what would you include?"
+    },
+    {
+     "url": "https://en.wikipedia.org/wiki/Perplexity_AI",
+     "title": "Perplexity AI",
+     "text": "\ue200cite\ue202turn3search6\ue201 [wordlim: 200] Crawled: 4 months ago; According to Forbes, Perplexity published a story largely copied from a proprietary Forbes article without mentioning or prominently citing Forbes. ... On October 24, 2024, Perplexity AI published an official response on its company blog asserting that the claims in the lawsuits were misleading and stating it was open to revenue-sharing arrangements with content providers. ... On August 8, 2025, the Japanese newspaper company Yomiuri Shimbun filed a lawsuit against Perplexity for \"free-riding\" use of 120,000 articles of the publication from February to June 2025. ... AI Startup Perplexity Fires Back After News Corp's Dow Jones Sues: 'Adversarial' Media Companies 'Wish This Technology Didn't Exist'.\nPerplexity AI\nAmerican artificial intelligence company\n\nName: Perplexity AI, Inc.\nLogo: Perplexity AI logo.svg\nLogo Upright: 1.2\nLogo Caption: Logo\nTrading Name: Perplexity\nType: Privately held company\nIndustry: Artificial intelligence, search engine\nFounded: August 2022\nFounders: Aravind Srinivas, Denis Yarats, Johnny Ho, Andy Konwinski\nLocation: San Francisco, California, U.S.\nArea Served: Worldwide\nProducts: Perplexity\nPerplexity Pro\nPerplexity Assistant\nPerplexity Computer\nPerplexity Comet\nWebsite: https://perplexity.ai\n\nPerplexity AI, Inc., or simply Perplexity, is an American privately held software company offering a web search engine that processes user queries and synthesizes responses. Perplexity products use large language models and incorporate real-time web search capabilities, providing responses based on current Internet content, citing sources used. Its real-time search engine is called Sonar and is based on Meta's Llama model. A free public version is available, while a paid Pro subscription offers access to more advanced language models and additional features. \n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1khwrqm",
+     "title": "AMA with Perplexity AI Team's Brett Chen and Thomas Wang",
+     "text": "\ue200cite\ue202turn3reddit7\ue201 [wordlim: 200] Published: 1.4 years ago; Crawled: 1.2 years ago; At Perplexity, he works on Deep Research, personalization, answer quality, and AI system reliability. ... or how do new grads get their foot in the door at fast-growing AI companies like perplexity? ... For example, I live in Europe and I would like to trigger daily a summary of the news to be more up-to-date with everything that is happening. ... Right now it has few languages \u200b\u200bfor speech recognition. ... How can I set up Perplexity Standard/Pro to always provide plain text links within answers? ... For example, we are unable to directly send an e-mail (or text message) on your behalf.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/14qqsnh",
+     "title": "The latest upgrade of perplexity.ai",
+     "text": "\ue200cite\ue202turn3reddit8\ue201 [wordlim: 200] Published: 3.2 years ago; Crawled: 3.1 years ago; \\- Official release of the default search chrome extension: https://chrome.google.com/webstore/detail/perplexity-ai-search/bnaffjbjpgiagpondjlnneblepbdchol \\- it sets your default search engine to perplexity right when you install it\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1jv9hvm",
+     "title": "AMA with Perplexity Co-Founder and CEO Aravind Srinivas",
+     "text": "\ue200cite\ue202turn3reddit9\ue201 [wordlim: 200] Published: 1.5 years ago; Crawled: last year; A sidecar that lets you have an AI along with you on any webpage you are on: you can use it for asking questions about the content, extracting/formatting the content to use for a task, or run a research job on that page/domain. ... Does Perplexity have plans of making its own leading AI model competing with the levels of OpenAI, Gemini, Anthropic and DeepSeek? ... Why are the news US focused, I really like the feature, but it should be international. ... u/aravind_pplx, on what basis Perplexity's discover page is getting chosen?\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1jrl899",
+     "title": "What We Shipped This Week",
+     "text": "\ue200cite\ue202turn3reddit10\ue201 [wordlim: 200] Published: 1.5 years ago; Crawled: 1.3 years ago; You can view a finance dashboard that's live and trending on Perplexity, with market sentiment, earnings call hubs, and relevant summaries of news related to stocks. https://perplexity.ai/finance ... New Settings Page ... Check out everything we shipped on our new changelog: https://www.perplexity.ai/changelog/april-2025-product-update\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1kypixi",
+     "title": "Introducing Perplexity Labs.",
+     "text": "\ue200cite\ue202turn3reddit11\ue201 [wordlim: 200] Published: 1.3 years ago; Crawled: 1.1 years ago; Get started by checking out the Perplexity Labs projects created by other builders: https://www.perplexity.ai/labs\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1nxdxpa",
+     "title": "[Perplexity Changelog] What We Shipped \u2013 October 3rd \ud83d\udea2",
+     "text": "\ue200cite\ue202turn3reddit12\ue201 [wordlim: 200] Published: last year; Crawled: last year; The Comet browser is now available worldwide \u2014 free to download at perplexity.ai/comet. ... Enterprise admins can configure access on the Permissions page. ... \ud83d\udd17 Full changelog: https://www.perplexity.ai/changelog/what-we-shipped-october-3rd\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1fur3n2",
+     "title": "Perplexity Failing at Research",
+     "text": "\ue200cite\ue202turn3reddit13\ue201 [wordlim: 200] Published: 2.0 years ago; Crawled: 2.0 years ago; However, you can provide the text of the press release by copying and pasting it here\" ... Then Perplexity tells me what to look for in press releases and financial states - which was worthless information and repetitive.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1o5d5ms",
+     "title": "Perplexity the time traveller",
+     "text": "\ue200cite\ue202turn3reddit14\ue201 [wordlim: 200] Published: last year; Crawled: last year; Perplexity refers to a nonexistent press release from the future. ... - Account changes: For account-related & individual billing issues, please email us at support@perplexity.ai\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1mjhuk9/removed/",
+     "title": "[Removed]",
+     "text": "\ue200cite\ue202turn3reddit15\ue201 [wordlim: 200] Published: 1.1 years ago; Perplexity the product \u2014 what you use at perplexity.ai \u2014 hasn't changed.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1ewazrc/a_realtime_fact_checking_tool_for_perplexity_users/",
+     "title": "A real-time fact checking tool for Perplexity users",
+     "text": "\ue200cite\ue202turn3reddit16\ue201 [wordlim: 200] Published: 2.1 years ago; I recently discovered Perplexity.ai and I was amazed!\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/12vh64q",
+     "title": "Who is behind Perplexity.ai? And which LLM does it use?",
+     "text": "\ue200cite\ue202turn3reddit17\ue201 [wordlim: 200] Published: 3.4 years ago; Crawled: 2.6 years ago; Perplexity AI is very legit with a top team. ... You can read their about page here:\n"
+    },
+    {
+     "url": "https://ru.wikipedia.org/wiki/Perplexity_AI",
+     "title": "Perplexity AI",
+     "text": "\ue200cite\ue202turn3search18\ue201 [wordlim: 200] Crawled: 5 months ago; - AI startup Perplexity launches assistant-like feature for Android devices.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1co3czb",
+     "title": "We\u2019re partnering with SoundHound (Nasdaq: SOUN), a global leader in voice AI. Together, we're bringing the power of real-time web search to voice assistants across cars, TVs, IoT devices, and more",
+     "text": "\ue200cite\ue202turn3reddit19\ue201 [wordlim: 200] Published: 2.4 years ago; Crawled: 2.4 years ago; Learn more about our collaboration: https://www.soundhound.com/newsroom/press-releases/soundhound-ai-and-perplexity-partner-to-bring-online-llms-to-its-next-gen-voice-assistants-across-cars-and-iot-devices/\n"
+    },
+    {
+     "url": "https://zh.wikipedia.org/wiki/Perplexity",
+     "title": "Perplexity",
+     "text": "\ue200cite\ue202turn3search20\ue201 [wordlim: 200] Crawled: 6 months ago; Name: Perplexity AI, Inc.\n"
+    },
+    {
+     "url": "https://de.wikipedia.org/wiki/Perplexity_AI",
+     "title": "Perplexity AI",
+     "text": "\ue200cite\ue202turn3search21\ue201 [wordlim: 200] Crawled: 7 months ago; - Perplexity AI strebt in neuer Finanzierungsrunde Bewertung von 18 Milliarden US-Dollar an Von Investing.com.\n"
+    },
+    {
+     "url": "https://en.wikipedia.org/wiki/Perplexity",
+     "title": "Perplexity",
+     "text": "\ue200cite\ue202turn3search22\ue201 [wordlim: 200] Crawled: 4 months ago; Perplexity was originally introduced in 1977 in the context of speech recognition by Frederick Jelinek,  Robert Leroy Mercer, Lalit R.\n"
+    },
+    {
+     "url": "https://de.wikipedia.org/wiki/Perplexity.ai",
+     "title": "Perplexity.ai",
+     "text": "\ue200cite\ue202turn3search23\ue201 [wordlim: 200] Crawled: 5 months ago; Ist Perplexity.ai besser als ChatGPT? - iPad-Teacher.\n"
+    }
+   ]
+  },
+  {
+   "type": "message",
+   "content": [
+    {
+     "type": "output_text",
+     "text": "https://www.perplexity.ai/hub\nhttps://www.perplexity.ai/enterprise\nhttps://www.perplexity.ai/enterprise/pricing\nhttps://www.perplexity.ai/api-platform\nhttps://www.perplexity.ai/enterprise/use-cases/tech\nhttps://www.perplexity.ai/enterprise/use-cases/product\nhttps://www.perplexity.ai/enterprise/use-cases/legal\nhttps://www.perplexity.ai/enterprise/use-cases/government\nhttps://www.perplexity.ai/enterprise/use-cases/growing-businesses\nhttps://www.perplexity.ai/startups\nhttps://www.perplexity.ai/merchants\nhttps://www.perplexity.ai/hub/blog\nhttps://docs.perplexity.ai\nhttps://www.perplexity.ai/help-center\nhttps://www.perplexity.ai/help-center/en/articles/11187416-which-perplexity-subscription-plan-is-right-for-you",
+     "annotations": []
+    }
+   ]
+  }
+ ]
+}

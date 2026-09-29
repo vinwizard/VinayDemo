@@ -1,5 +1,5 @@
 """No test reaches the network or the real data directory: the site audit's and real demand's one
-fetch functions refuse, unless a test records responses; demand harvests cache in a temp dir; the
+fetch functions refuse, as does onboarding's web search (discovery.py), unless a test records responses; demand harvests cache in a temp dir; the
 retrieval simulation skips the pages it would fetch, the embeddings call returns fixed vectors, and
 their cache lives in the test's own tmp_path. A test that exercises one of these replaces the stub
 itself.
@@ -15,6 +15,7 @@ import pytest
 import access
 import audit
 import demand
+import discovery
 import embeddings
 import retrieval
 import sharing
@@ -43,6 +44,10 @@ def no_network(tmp_path, monkeypatch):
     def refuse_demand(url):
         raise ConnectionError("no network in tests")
     monkeypatch.setattr(demand, "_fetch_json", refuse_demand)
+
+    def refuse_search(prompt, model, timeout):
+        raise ConnectionError("no network in tests")
+    monkeypatch.setattr(discovery, "default_transport", refuse_search)
     monkeypatch.setattr(demand, "_cache", lambda category, real=demand._cache: tmp_path / "demand" / real(category).name)
 
 

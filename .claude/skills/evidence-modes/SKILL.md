@@ -33,6 +33,22 @@ Every displayed record carries provenance. Show a permanent mode banner, add mod
 For arbitrary companies with no key: allow pasted facts and manual profile/topic edits, then show a research plan. Do not reuse Notion answers under a different company's name. Only bundled companies have replay results. Explain when generating new answers requires credentials or an imported research file.
 
 
+### Onboarding sources: what may count as claimed
+
+Claimed means the company's own words, so what onboarding reads keeps its kind on `Evidence.source_type`
+all the way to the report (WEB.md "Onboarding", `discovery.py`, `documents.py`):
+
+- `page_fetch`: its own page, read directly. `search_copy`: its own page as a search engine saved it,
+  with its age, used only when the page will not let us read it. Both count as claimed.
+- An own page is on the confirmed domain or a subdomain AND names the company, decided in code; a URL
+  counts only if a search result actually returned it, never because the model listed it.
+- `uploaded_document`: the company's own words, but private (`Evidence.private`). A claim found only
+  there is `private_only`: AI cannot read it, so its gap is a messaging gap, never an authority gap.
+- `third_party` (Wikipedia, news, forums): stored apart on `Company.third_party`, shown, never
+  extracted, never counted as claimed and never pooled with anything that is.
+- A web search that finds the company is not a measurement of anything: it is not a chatbot
+  visibility result and never feeds a score.
+
 ### Execution limits (from section 8)
 
 Live adapter, only if credentials are supplied: one official search-capable provider; configurable model; fresh probe context; max 16 unique probes, 4 extra probe retries, 40 total model attempts including internal decisions and repairs, concurrency 3, 25-second per-call timeout, 240-second investigation deadline. No automatic paid checks overnight. Track actual usage if available; do not invent dollar costs.

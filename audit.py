@@ -394,5 +394,7 @@ def run(company: Company) -> SiteAudit:
         html = "\n".join(p.html or "" for p in pages)
         profiles = list(pool.map(lambda s: profile_source(s, html), PROFILES))
         return SiteAudit(site=[llms_f.result(), no_js_check(pages)],
-                         claims=[claim_audit(a, pages, robots) for a in company.attributes if a.claim_quotes],
+                         # a claim only in a private document is on no page to check
+                         claims=[claim_audit(a, pages, robots) for a in company.attributes
+                                 if a.claim_quotes and not a.private_only],
                          entities=[*wiki_f.result(), *profiles])

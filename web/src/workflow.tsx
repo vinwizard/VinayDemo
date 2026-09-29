@@ -5,9 +5,11 @@
 // saved company, the graph's node events and one event per answer. Nothing here runs on a timer.
 import { Children, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { CompanyDetail, CompanySummary, Run, StreamAnswer, StreamNode } from "./api";
+import type { CompanyDetail, CompanySummary, Run, Source, StreamAnswer, StreamNode } from "./api";
 import { getCompanies, getCompany, streamOnboard, streamRun } from "./api";
 import { ClaimsStep } from "./claims";
+import type { ReadRequest } from "./find";
+import { FindCompany, SourceList } from "./find";
 import { Logo, Report } from "./components";
 import { PROVENANCE_LABEL, headline, plain, potentialText, streamingProbeLabel } from "./labels";
 
@@ -89,19 +91,17 @@ function AnswerList({ answers, replay }: { answers: StreamAnswer[]; replay: bool
   );
 }
 
-const PageList = ({ pages }: { pages: string[] }) => (
-  <ul className="pages">
-    {pages.map((u) => <li key={u}><a href={u} target="_blank" rel="noreferrer">{u.replace(/^https?:\/\//, "")}</a></li>)}
-  </ul>
-);
+/** A company saved before sources existed read every page directly. */
+const sourcesOf = (c: CompanyDetail): Source[] =>
+  c.sources ?? c.pages.map((url) => ({ url, title: null, kind: "page_fetch", saved: null, private: false }));
 
-type Onboarding = { phase: "idle" | "reading" | "extracting" | "failed"; pages: string[]; error?: string };
+type Onboarding = { phase: "idle" | "reading" | "extracting" | "failed"; sources: Source[]; error?: string };
 
 export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
   const [company, setCompany] = useState<CompanyDetail | null>(null);
   const [name, setName] = useState("");
-  const [url, setUrl] = useState("");
-  const [onb, setOnb] = useState<Onboarding>({ phase: "idle", pages: [] });
+  const [target, setTarget] = useState("");   // what is being read: a website, or "your documents"
+  const [onb, setOnb] = useState<Onboarding>({ phase: "idle", sources: [] });
   const [known, setKnown] = useState<CompanySummary[]>([]);
   const [running, setRunning] = useState(false);
   const [p, setP] = useState<Progress>(NO_PROGRESS);
@@ -113,24 +113,25 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
     return () => closer.current?.(); // abort an in-flight stream if the tab unmounts
   }, []);
 
-  const read = () => {
-    setOnb({ phase: "reading", pages: [] }); setCompany(null); setP(NO_PROGRESS);
+  const read = (r: ReadRequest) => {
+    setName(r.name); setTarget(r.url && !r.onlyDocs ? host(r.url) : "your documents");
+    setOnb({ phase: "reading", sources: [] }); setCompany(null); setP(NO_PROGRESS);
     closer.current?.();
-    closer.current = streamOnboard(url, name, {
-      onPages: (e) => setOnb({ phase: "extracting", pages: e.pages }),
+    closer.current = streamOnboard(r.url, r.name, {
+      onPages: (e) => setOnb({ phase: "extracting", sources: e.sources }),
       onCompany: (c) => { setCompany(c); setOnb((o) => ({ ...o, phase: "idle" })); },
       onError: (e) => setOnb((o) => ({ ...o, phase: "failed", error: e.message })),
-    });
+    }, r.docs.map((d) => d.id), r.onlyDocs);
   };
 
   const reopen = (id: string) => {
-    getCompany(id).then((c) => { setCompany(c); setOnb({ phase: "idle", pages: c.pages }); setP(NO_PROGRESS); })
-      .catch((e: Error) => setOnb({ phase: "failed", pages: [], error: e.message }));
+    getCompany(id).then((c) => { setCompany(c); setOnb({ phase: "idle", sources: sourcesOf(c) }); setP(NO_PROGRESS); })
+      .catch((e: Error) => setOnb({ phase: "failed", sources: [], error: e.message }));
   };
 
   const startOver = () => {
     closer.current?.();
-    setCompany(null); setP(NO_PROGRESS); setRunning(false); setOnb({ phase: "idle", pages: [] });
+    setCompany(null); setP(NO_PROGRESS); setRunning(false); setOnb({ phase: "idle", sources: [] });
     getCompanies().then(setKnown).catch(() => {});
   };
 
@@ -152,10 +153,12 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
   // ---------------------------------------------------------------- stages 1–2: onboarding
   const reading = onb.phase === "reading";
   const extracting = onb.phase === "extracting";
-  const failedAt = onb.phase === "failed" ? (onb.pages.length ? 2 : 1) : 0;
-  const pages = company?.pages ?? onb.pages;
-  const domain = company?.profile.domain ?? host(url);
-  const s1: StageState = company || onb.pages.length ? "done" : failedAt === 1 ? "failed" : "active";
+  const failedAt = onb.phase === "failed" ? (onb.sources.length ? 2 : 1) : 0;
+  const sources = company ? sourcesOf(company) : onb.sources;
+  const copies = sources.filter((s) => s.kind === "search_copy").length;
+  const docCount = sources.filter((s) => s.kind === "uploaded_document").length;
+  const where = company ? company.profile.domain || "your documents" : target;
+  const s1: StageState = company || onb.sources.length ? "done" : failedAt === 1 ? "failed" : "active";
   const s2: StageState = company ? "done" : failedAt === 2 ? "failed" : extracting ? "active" : "pending";
 
   // ---------------------------------------------------------------- stages 4–7: the run
@@ -207,13 +210,15 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
           <div className="row" style={{ alignItems: "center", flexWrap: "wrap" }}>
             <Logo name={company.profile.name} url={company.profile.logo_url} size={36} />
             <h2>{company.profile.name}</h2>
-            <a href={`https://${company.profile.domain}`} target="_blank" rel="noreferrer">{company.profile.domain}</a>
+            {company.profile.domain
+              ? <a href={`https://${company.profile.domain}`} target="_blank" rel="noreferrer">{company.profile.domain}</a>
+              : <span className="muted">from your documents</span>}
             <button className="linky" style={{ marginLeft: "auto" }} onClick={startOver} disabled={running}>
               Onboard a different company
             </button>
           </div>
           {company.profile.one_liner && (
-            <p className="one-liner">“{company.profile.one_liner}” <span className="muted">— how their own site puts it</span></p>
+            <p className="one-liner">“{company.profile.one_liner}” <span className="muted">— how {company.profile.domain ? "their own site puts it" : "their own documents put it"}</span></p>
           )}
         </header>
       )}
@@ -226,29 +231,18 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
         </div>
       )}
 
-      <Stage n={1} tour="onboard-form" title="Read their site" state={s1}
+      <Stage n={1} tour="onboard-form" title="Find the company and read its pages" state={s1}
              summary={company?.replay ? "No site was read — bundled sample data"
-               : s1 === "done" ? `${plural(pages.length, "page")} read from ${domain}`
-               : reading ? `Reading ${host(url)}…` : undefined}>
+               : s1 === "done" ? [sources.length > docCount && `${plural(sources.length - docCount, "page")}${copies ? ` (${copies} as search copies)` : ""}`,
+                                  docCount > 0 && plural(docCount, "document")].filter(Boolean).join(" and ")
+                 + ` read${where && where !== "your documents" ? ` from ${where}` : ""}`
+               : reading ? `Reading ${target}…` : undefined}>
         {s1 === "done" ? (
-          <PageList pages={pages} />
+          <SourceList sources={sources} third={company?.third_party} />
         ) : (
           <div className="stack">
-            <p className="lede">
-              Give a company name and its website. We read the homepage and up to seven of its own
-              pages that say how it positions itself, and keep a claim only when a verbatim quote on one of those pages states it.
-            </p>
-            <div className="row" style={{ flexWrap: "wrap" }}>
-              <input aria-label="Company name" placeholder="Profound" value={name}
-                     onChange={(e) => setName(e.target.value)} disabled={reading} />
-              <input aria-label="Website" placeholder="https://tryprofound.com" value={url} style={{ flex: "1 1 16rem" }}
-                     onChange={(e) => setUrl(e.target.value)} disabled={reading}
-                     onKeyDown={(e) => { if (e.key === "Enter" && url.trim() && !reading) read(); }} />
-              <button className="primary" onClick={read} disabled={reading || !url.trim()}>
-                {reading ? "Reading…" : "Read their site"}
-              </button>
-            </div>
-            {reading && <p className="muted working">Fetching {host(url)} and the product pages it links to…</p>}
+            <FindCompany busy={reading} onRead={read} />
+            {reading && <p className="muted working">Reading {target}, and the pages where it says what it does…</p>}
             {failedAt === 1 && <div className="callout error">{onb.error}</div>}
             {known.length > 0 && !reading && (
               <p className="muted" style={{ margin: 0 }}>
@@ -273,13 +267,17 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
         {extracting && (
           <div className="stack">
             <p className="muted working" style={{ margin: 0 }}>
-              An AI model is pulling out what these {plural(onb.pages.length, "page")} claim. Every claim
-              must come with a quote that appears word for word on one of them, or it is dropped.
+              An AI model is pulling out what these {plural(onb.sources.length, "source")} claim. Every claim
+              must come with a quote that appears word for word in one of them, or it is dropped.
             </p>
-            <PageList pages={onb.pages} />
+            <SourceList sources={onb.sources} />
           </div>
         )}
-        {failedAt === 2 && <div className="callout error">{onb.error}</div>}
+        {failedAt === 2 && (
+          <div className="callout error">
+            {onb.error} <button className="linky" onClick={startOver}>Start again</button>
+          </div>
+        )}
       </Stage>
 
       <Stage n={3} tour="onboard-intent" title="Choose what you want to be known for"

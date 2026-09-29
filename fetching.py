@@ -32,6 +32,7 @@ MAX_REDIRECTS = 2
 USER_AGENT = "OffMessage/0.1 (+research; contact via repository)"
 ALLOWED_SCHEMES = ("http", "https")
 HTML = "text/html,application/xhtml+xml"
+EMPTY = "{url} shows no text until script runs in a browser, so there is nothing to read"
 
 
 class UnsafeURL(ValueError):
@@ -39,7 +40,7 @@ class UnsafeURL(ValueError):
 
 
 class FetchError(RuntimeError):
-    pass
+    """A page that could not be read, said in plain words: the message is shown to the user as is."""
 
 
 def _check_ip(raw: str) -> ipaddress._BaseAddress:
@@ -61,9 +62,9 @@ def resolve_public(host: str, port: int) -> str:
     try:
         infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
     except socket.gaierror as e:
-        raise FetchError(f"cannot resolve {host}: {e}") from e
+        raise FetchError(f"there is no website at {host} (its name cannot resolve)") from e
     if not infos:
-        raise FetchError(f"cannot resolve {host}")
+        raise FetchError(f"there is no website at {host} (its name cannot resolve)")
     addrs = [info[4][0] for info in infos]
     for a in addrs:
         _check_ip(a)
@@ -159,10 +160,27 @@ def robots_allow(url: str, timeout: float = TIMEOUT) -> bool:
     return rules.can_fetch(USER_AGENT, url)
 
 
+def _plain(e: Exception, host: str, timeout: float) -> FetchError:
+    """A connection failure in words a user can act on. Uncaught, a timeout or a bad certificate
+    reached the page as "Onboarding failed: TimeoutError"."""
+    if isinstance(e, ssl.SSLCertVerificationError):
+        return FetchError(f"{host} has a security certificate that is not valid ({e.verify_message})")
+    if isinstance(e, ssl.SSLError):
+        return FetchError(f"{host} could not set up a secure connection")
+    if isinstance(e, TimeoutError):
+        return FetchError(f"{host} did not answer within {timeout:g} seconds")
+    if isinstance(e, http.client.HTTPException):
+        return FetchError(f"{host} sent a reply that is not a web page")
+    return FetchError(f"could not connect to {host}")
+
+
 def _get(scheme: str, host: str, port: int, path: str, timeout: float = TIMEOUT,
          accept: str = HTML) -> tuple[int, dict, bytes]:
     ip = resolve_public(host, port)          # validated, and we connect to THIS address
-    sock = socket.create_connection((ip, port), timeout=timeout)
+    try:
+        sock = socket.create_connection((ip, port), timeout=timeout)
+    except OSError as e:
+        raise _plain(e, host, timeout) from e
     try:
         if scheme == "https":
             ctx = ssl.create_default_context()
@@ -172,6 +190,8 @@ def _get(scheme: str, host: str, port: int, path: str, timeout: float = TIMEOUT,
         conn.request("GET", path, headers={"Host": host, "User-Agent": USER_AGENT, "Accept": accept})
         r = conn.getresponse()
         return r.status, dict(r.getheaders()), r.read(MAX_BYTES)
+    except (OSError, http.client.HTTPException) as e:
+        raise _plain(e, host, timeout) from e
     finally:
         try:
             sock.close()
@@ -197,14 +217,24 @@ def request(url: str, timeout: float = TIMEOUT, accept: str = HTML) -> tuple[str
     raise FetchError(f"too many redirects from {url}")
 
 
+def status_problem(status: int, url: str) -> str:
+    """Why a page that answered did not count, keeping "HTTP <status>" in it (robots_allow reads it).
+    A 403 is almost always a bot wall (Cloudflare's "verify you are human"), not a missing page."""
+    if status in (401, 403, 429):
+        return f"{urlparse(url).hostname} turns automated readers away (HTTP {status} for {url})"
+    if status in (404, 410):
+        return f"there is no page at {url} (HTTP {status})"
+    return f"{url} answered HTTP {status}"
+
+
 def fetch_raw(url: str, timeout: float = TIMEOUT, types: tuple[str, ...] = ("html", "text")) -> tuple[str, str]:
     """-> (final_url, raw_html). `types`: what the content type must contain. Any text by default,
     for robots.txt; a page of the company's site passes ("html",), since text/css is text too."""
     final, status, ctype, html = request(url, timeout)
     if status != 200:
-        raise FetchError(f"HTTP {status} for {final}")
+        raise FetchError(status_problem(status, final))
     if not any(t in ctype for t in types):
-        raise FetchError(f"unsupported content type {ctype!r}")
+        raise FetchError(f"{final} is not a web page (unsupported content type {ctype!r})")
     return final, html
 
 
@@ -213,7 +243,7 @@ def fetch(url: str) -> tuple[str, str]:
     final, html = fetch_raw(url, types=("html",))
     text = extract_text(html)
     if not text:
-        raise FetchError(f"no extractable text at {final}")
+        raise FetchError(EMPTY.format(url=final))
     return final, text
 
 
@@ -378,7 +408,7 @@ def fetch_site(url: str, max_pages: int = 3) -> tuple[list[tuple[str, str]], Opt
     final, html = fetch_raw(url, types=("html",))  # one request; HTML reused for text, links AND the icon
     text = extract_text(html)
     if not text:
-        raise FetchError(f"no extractable text at {final}")
+        raise FetchError(EMPTY.format(url=final))
     pages = [(final, text)]
     links = positioning_links(final, html, limit=max_pages - 1)
     if len(links) < max_pages - 1:            # the homepage links too few: read what the sitemap lists

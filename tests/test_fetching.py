@@ -263,3 +263,62 @@ def test_robots_txt_is_respected_and_a_missing_one_allows(monkeypatch):
     monkeypatch.setattr(fetching, "fetch_raw", down)
     with pytest.raises(FetchError):
         fetching.robots_allow("https://example.com/")
+
+
+# --- plain failures (reproduced 2026-09-28: a user saw "Onboarding failed: TimeoutError") ---------
+class _Conn:
+    """A socket stand-in for create_connection; the failure comes from the TLS or HTTP step."""
+    def close(self):
+        pass
+
+
+@pytest.mark.parametrize("error,words", [
+    (TimeoutError("timed out"), "did not answer within 10 seconds"),
+    (ConnectionRefusedError(61, "refused"), "could not connect to example.com"),
+])
+def test_a_connection_failure_is_a_plain_fetch_error(monkeypatch, error, words):
+    stub_resolve(monkeypatch, "93.184.216.34")
+
+    def fail(*a, **k):
+        raise error
+    monkeypatch.setattr(fetching.socket, "create_connection", fail)
+    with pytest.raises(FetchError, match=words):
+        fetching.fetch_raw("https://example.com/")
+
+
+def test_a_bad_certificate_is_a_plain_fetch_error(monkeypatch):
+    import ssl
+    stub_resolve(monkeypatch, "93.184.216.34")
+    monkeypatch.setattr(fetching.socket, "create_connection", lambda *a, **k: _Conn())
+    err = ssl.SSLCertVerificationError(1, "certificate verify failed")
+    err.verify_message = "certificate has expired"
+
+    class Ctx:
+        def wrap_socket(self, sock, server_hostname):
+            raise err
+    monkeypatch.setattr(fetching.ssl, "create_default_context", lambda: Ctx())
+    with pytest.raises(FetchError, match="security certificate that is not valid .certificate has expired"):
+        fetching.fetch_raw("https://example.com/")
+
+
+@pytest.mark.parametrize("status,words", [
+    (403, "www.example.com turns automated readers away .HTTP 403"),
+    (404, "there is no page at https://www.example.com/ .HTTP 404"),
+    (500, "answered HTTP 500"),
+])
+def test_a_status_says_what_it_means_and_keeps_its_number(monkeypatch, status, words):
+    """A 403 is a bot wall (perplexity.ai's Cloudflare check), not a missing page. The number stays
+    in the message: robots_allow reads "HTTP 4xx" out of it."""
+    monkeypatch.setattr(fetching, "_get", lambda *a: (status, {"Content-Type": "text/html"}, b"Just a moment..."))
+    stub_resolve(monkeypatch, "93.184.216.34")
+    with pytest.raises(FetchError, match=words):
+        fetching.fetch_raw("https://www.example.com/")
+
+
+def test_a_page_built_only_by_script_says_so(monkeypatch):
+    """character.ai: 327 KB of HTML and not one visible word."""
+    monkeypatch.setattr(fetching, "_get", lambda *a: (200, {"Content-Type": "text/html"},
+                                                      b"<html><head><script>app()</script></head><body><div id=root></div></body></html>"))
+    stub_resolve(monkeypatch, "93.184.216.34")
+    with pytest.raises(FetchError, match="shows no text until script runs"):
+        fetching.fetch_site("https://example.com/")

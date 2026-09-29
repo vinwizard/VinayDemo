@@ -1,0 +1,299 @@
+{
+ "output": [
+  {
+   "type": "web_search_call",
+   "action": {
+    "type": "search",
+    "queries": [
+     "Perplexity AI official company website",
+     "\"Perplexity\" company official website"
+    ],
+    "query": "Perplexity AI official company website",
+    "sources": [
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/hub"
+     },
+     {
+      "type": "url",
+      "url": "https://www.perplexity.ai/en-GB/hub/careers"
+     },
+     {
+      "type": "url",
+      "url": "https://www.linkedin.com/company/perplexity-ai/"
+     },
+     {
+      "type": "url",
+      "url": "https://hub-prod.perplexity.ai/hub/faq/what-is-perplexity"
+     },
+     {
+      "type": "url",
+      "url": "https://www.linkedin.com/company/perplexity-ai"
+     },
+     {
+      "type": "url",
+      "url": "https://ai.linkedin.com/company/perplexity-ai"
+     },
+     {
+      "type": "url",
+      "url": "https://sc.linkedin.com/company/perplexity-ai"
+     },
+     {
+      "type": "url",
+      "url": "https://as.linkedin.com/company/perplexity-ai"
+     },
+     {
+      "type": "url",
+      "url": "https://zm.linkedin.com/company/perplexity-ai"
+     },
+     {
+      "type": "url",
+      "url": "https://ttabvue.uspto.gov/ttabvue/ttabvue-91296890-OPP-18.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://en.wikipedia.org/wiki/Perplexity_AI"
+     },
+     {
+      "type": "url",
+      "url": "https://s3.documentcloud.org/documents/27823927/amazon-v-perplexity-complaint.pdf?t=1773167560217"
+     },
+     {
+      "type": "url",
+      "url": "https://r2cdn.perplexity.ai/pdf/pplx-at-work.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://en.wikipedia.org/wiki/Perplexity_%28disambiguation%29"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1odpofv/our_response_to_reddits_lawsuit/"
+     },
+     {
+      "type": "url",
+      "url": "https://en.wikipedia.org/wiki/Comet_%28browser%29"
+     },
+     {
+      "type": "url",
+      "url": "https://zh.wikipedia.org/wiki/Perplexity"
+     },
+     {
+      "type": "url",
+      "url": "https://de.wikipedia.org/wiki/Perplexity_AI"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1mjhuk9/removed/"
+     },
+     {
+      "type": "url",
+      "url": "https://pt.wikipedia.org/wiki/Perplexity_AI"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1quyuhg/the_company_perplexity_should_take_a_clear_stance/"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1kypixi"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1r12ujt/perplexity_ai_is_a_scam/"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/11ivp6g"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1g8iof7"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1rexj5n/i_tried_perplexity_computer_for_a_complex/"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1fn635z"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/aicuriosity/comments/1lq0dli"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1hmidbh"
+     },
+     {
+      "type": "url",
+      "url": "https://www.reddit.com/r/perplexity_ai/comments/1mq61yc"
+     }
+    ]
+   },
+   "results": [
+    {
+     "url": "https://www.perplexity.ai/hub",
+     "title": "Perplexity | AI for the Curious",
+     "text": "\ue200cite\ue202turn0search0\ue201 [wordlim: 200] Crawled: 3 days ago; Go deep on any company, market, or topic, with sources. ... Use Perplexity through the web app, the mobile apps for iOS and Android, the Comet Browser, or the API. ... Sign up at perplexity.ai with an email or Google account, ask your first question, and the answer engine will return a cited response within seconds.\n"
+    },
+    {
+     "url": "https://www.perplexity.ai/en-GB/hub/careers",
+     "title": "Perplexity Careers",
+     "text": "\ue200cite\ue202turn0search1\ue201 [wordlim: 200] Crawled: yesterday; ## Perplexity is AI for people who expect more. ...   * Retirement plans with company match\n"
+    },
+    {
+     "url": "https://www.linkedin.com/company/perplexity-ai/",
+     "title": "Perplexity | LinkedIn",
+     "text": "\ue200cite\ue202turn0search2\ue201 [wordlim: 200] Crawled: 2 weeks ago; Website ... Perplexity Perplexity is an AI-powered answer engine that draws from credible sources in real time to accurately answer questions with in-line citations, perform deep research, and more.Founded in 2022, the company's mission is to serve the world's curiosity by bridging the gap between traditional search engines and AI-driven interfaces.\n"
+    },
+    {
+     "url": "https://hub-prod.perplexity.ai/hub/faq/what-is-perplexity",
+     "title": "What is Perplexity?",
+     "text": "\ue200cite\ue202turn0search3\ue201 [wordlim: 200] Crawled: 1.3 years ago; Perplexity is a free AI search engine designed to revolutionize the way you discover information.\n"
+    },
+    {
+     "url": "https://www.linkedin.com/company/perplexity-ai",
+     "title": "Perplexity | LinkedIn",
+     "text": "\ue200cite\ue202turn0search4\ue201 [wordlim: 200] Crawled: 3 weeks ago; Website ... Perplexity Perplexity is an AI-powered answer engine that draws from credible sources in real time to accurately answer questions with in-line citations, perform deep research, and more.Founded in 2022, the company's mission is to serve the world's curiosity by bridging the gap between traditional search engines and AI-driven interfaces. ... Perplexity is available in the app store and online at https://www.perplexity.com\n"
+    },
+    {
+     "url": "https://ai.linkedin.com/company/perplexity-ai",
+     "title": "Perplexity | LinkedIn",
+     "text": "\ue200cite\ue202turn0search5\ue201 [wordlim: 200] Crawled: 6 days ago; Website ... Perplexity Perplexity is an AI-powered answer engine that draws from credible sources in real time to accurately answer questions with in-line citations, perform deep research, and more.Founded in 2022, the company's mission is to serve the world's curiosity by bridging the gap between traditional search engines and AI-driven interfaces. ... Perplexity is available in the app store and online at https://www.perplexity.com\u2020www.linkedin.com\u3011\n"
+    },
+    {
+     "url": "https://sc.linkedin.com/company/perplexity-ai",
+     "title": "Perplexity | LinkedIn",
+     "text": "\ue200cite\ue202turn0search6\ue201 [wordlim: 200] Crawled: 2 weeks ago; Website ... Perplexity Perplexity is an AI-powered answer engine that draws from credible sources in real time to accurately answer questions with in-line citations, perform deep research, and more.Founded in 2022, the company's mission is to serve the world's curiosity by bridging the gap between traditional search engines and AI-driven interfaces. ... Perplexity is available in the app store and online at https://www.perplexity.com\u2020www.linkedin.com\u3011\n"
+    },
+    {
+     "url": "https://as.linkedin.com/company/perplexity-ai",
+     "title": "Perplexity | LinkedIn",
+     "text": "\ue200cite\ue202turn0search7\ue201 [wordlim: 200] Crawled: today; Website ... Perplexity Perplexity is an AI-powered answer engine that draws from credible sources in real time to accurately answer questions with in-line citations, perform deep research, and more.Founded in 2022, the company's mission is to serve the world's curiosity by bridging the gap between traditional search engines and AI-driven interfaces.\n"
+    },
+    {
+     "url": "https://zm.linkedin.com/company/perplexity-ai",
+     "title": "Perplexity | LinkedIn",
+     "text": "\ue200cite\ue202turn0search8\ue201 [wordlim: 200] Crawled: 5 days ago; Website ... Perplexity Perplexity is an AI-powered answer engine that draws from credible sources in real time to accurately answer questions with in-line citations, perform deep research, and more.Founded in 2022, the company's mission is to serve the world's curiosity by bridging the gap between traditional search engines and AI-driven interfaces. ... Perplexity is available in the app store and online at https://www.perplexity.com\u2020www.linkedin.com\u3011\n"
+    },
+    {
+     "url": "https://ttabvue.uspto.gov/ttabvue/ttabvue-91296890-OPP-18.pdf",
+     "title": "Technical Problems filing on time 05:27:2026",
+     "text": "\ue200cite\ue202turn0search9\ue201 [wordlim: 200] Published: 4 months ago; The website currently located at the Infringing Domain Name prominently features the PERPLEXITY Mark. ... Defendant also has launched social media accounts that incorporate the PERPLEXITY Mark in its entirety, including on Instagram (@perplexity.ai), X (@perplexity_ai), Facebook (https://www.facebook.com/perplexityofficial/), and LinkedIn (https://www.linkedin.com/company/perplexity-ai), for the purpose of marketing, promoting, and/or soliciting potential customers for the Infringing Goods and Services.\n"
+    },
+    {
+     "url": "https://en.wikipedia.org/wiki/Perplexity_AI",
+     "title": "Perplexity AI",
+     "text": "\ue200cite\ue202turn0search10\ue201 [wordlim: 200] Crawled: 4 months ago; Trading Name: Perplexity ... Website: https://perplexity.ai ... ### Business Strategy and Finance (2026) ... Leadership stated the move was intended to preserve user trust in the \"answer engine,\" prioritizing objective results over ad revenue. ... In October 2024, Perplexity AI introduced new finance-related features, including looking up stock prices and company earnings data. ... On October 24, 2024, Perplexity AI published an official response on its company blog asserting that the claims in the lawsuits were misleading and stating it was open to revenue-sharing arrangements with content providers.\n"
+    },
+    {
+     "url": "https://s3.documentcloud.org/documents/27823927/amazon-v-perplexity-complaint.pdf?t=1773167560217",
+     "title": "Perplexity Legal Hub",
+     "text": "\ue200cite\ue202turn0search11\ue201 [wordlim: 200] Published: 6 months ago; For the purposes of this Privacy Policy, we are the data controller, and \u201cyou\u201d and \u201cyour\u201d means you as the user of the Services, whether you are a customer, website visitor, job applicant, representative of a company with whom we do business, or another individual whose information we have collected pursuant to this Privacy Policy. ... DataRep, a company registered at The Cube, Monahan Road, Cork, T12 HXY, Republic of Ireland (EU), with the contact email address privacy@perplexity.ai, is our representative in the European Economic Area (\u201cEEA\u201d) for the purposes of the EU GDPR.\n"
+    },
+    {
+     "url": "https://r2cdn.perplexity.ai/pdf/pplx-at-work.pdf",
+     "title": "Getting Started",
+     "text": "\ue200cite\ue202turn0search12\ue201 [wordlim: 200] Published: 10 months ago; Perplexity as Your Unified AI Platform\n"
+    },
+    {
+     "url": "https://en.wikipedia.org/wiki/Perplexity_%28disambiguation%29",
+     "title": "Perplexity (disambiguation)",
+     "text": "\ue200cite\ue202turn0search13\ue201 [wordlim: 200] Crawled: 6 months ago; * Perplexity AI, a US software company providing a search engine\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1odpofv/our_response_to_reddits_lawsuit/",
+     "title": "Our Response to Reddit\u2019s Lawsuit",
+     "text": "\ue200cite\ue202turn0reddit14\ue201 [wordlim: 200] Published: 11 months ago; Perplexity believes this is a sad example of what happens when public data becomes a big part of a public company\u2019s business model. ... Whenever anyone asks us about content licensing, we explain that Perplexity, as an application-layer company, does not train AI models on content. ... Best comparison is Google\u2019s AI Mode for Perplexity and Google\u2019s Gemini chat bot for ChatGPT. ... As unlike search paradigm indexing which still required you to visit the site for information (thus, giving the earnings to site owners), the AI paradigm basically steals all the earnings from site owners by presenting all the information on their portal without offering any kind of renumeration or large incentive to visit the original website. ... But we're ignoring the inevitable consequence that we will ALL bitch about eventually once all small and independent site owners retire, once we're left with only tech giants and big gov media known for censoring information, and every website becomes paywalled to negate crawlers/scrapers from content unless they pay up to compensate them for their data. ... In a way you are a marketing company but instead of profiting off of companies that use your service you profit off of the users and their traffic.\n"
+    },
+    {
+     "url": "https://en.wikipedia.org/wiki/Comet_%28browser%29",
+     "title": "Comet (browser)",
+     "text": "\ue200cite\ue202turn0search15\ue201 [wordlim: 200] Crawled: 5 months ago; Website: https://www.perplexity.ai/comet\n"
+    },
+    {
+     "url": "https://zh.wikipedia.org/wiki/Perplexity",
+     "title": "Perplexity",
+     "text": "\ue200cite\ue202turn0search16\ue201 [wordlim: 200] Crawled: 6 months ago; - AI-powered search engine Perplexity AI lands $26M, launches iOS app.\n"
+    },
+    {
+     "url": "https://de.wikipedia.org/wiki/Perplexity_AI",
+     "title": "Perplexity AI",
+     "text": "\ue200cite\ue202turn0search17\ue201 [wordlim: 200] Crawled: 7 months ago; Das Unternehmen entwickelt die gleichnamige Suchmaschine Perplexity AI, die Anfragen mithilfe von KI verarbeitet und Antworten in Form von Flie\u00dftext mit Quellenangaben liefert.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1mjhuk9/removed/",
+     "title": "[Removed]",
+     "text": "\ue200cite\ue202turn0reddit18\ue201 [wordlim: 200] Published: 1.1 years ago; Doesn't seem like a partnership or endorsement, but some official clarification would help. ... Perplexity the product \u2014 what you use at perplexity.ai \u2014 hasn't changed. ... Curiosity is the engine of change, and Perplexity\u2019s AI is developed to empower curiosity by delivering direct, reliable answers with transparent citations that allow anyone to dig deeper,\u201d Perplexity\u2019s chief business officer Dmitry Shevelenko said in the press release.\n"
+    },
+    {
+     "url": "https://pt.wikipedia.org/wiki/Perplexity_AI",
+     "title": "Perplexity AI",
+     "text": "\ue200cite\ue202turn0search19\ue201 [wordlim: 200] Crawled: 5 months ago; Website: perplexity.ai\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1quyuhg/the_company_perplexity_should_take_a_clear_stance/",
+     "title": "The company Perplexity should take a clear stance on what its actual usage limits are for its Pro users.",
+     "text": "\ue200cite\ue202turn0reddit20\ue201 [wordlim: 200] Published: 7 months ago; Why isn't the company Perplexity clearer about its limits!? ... The company takes no stance, provides no official limits; the information found is all from third parties, nothing is official or clear!! ... The limits are listed at https://www.perplexity.ai/enterprise/pricing ... I really liked Perplexity, but this change is so disgusting to focus on the Finance people or other audiences that can afford the $200 Max plan.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1kypixi",
+     "title": "Introducing Perplexity Labs.",
+     "text": "\ue200cite\ue202turn0reddit21\ue201 [wordlim: 200] Published: 1.3 years ago; Crawled: 1.1 years ago; Get started by checking out the Perplexity Labs projects created by other builders: https://www.perplexity.ai/labs ... Is it free or can be used on website? ... Also I run a business plan for an actual company like mine in order to compare the financial results with actual numbers and Manus had much more accurate results than Labs. ... https://perplexity.ai/pro?\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1r12ujt/perplexity_ai_is_a_scam/",
+     "title": "Perplexity AI is a scam",
+     "text": "\ue200cite\ue202turn0reddit22\ue201 [wordlim: 200] Published: 7 months ago; I remember checking the website, and it still claimed to offer \"unlimited\" Pro searches and Deep Research. ... To make matters worse, when I told Perplexity Support (which is an AI) that the company was acting like a criminal enterprise, it claimed I was \"threatening\" it. ...       So I said all this to say that, if you think about it, a web search with ChatGPT is still much more thorough and detailed, and it uses more sources, giving you a longer report with more information than a deep research in Perplexity The only reason to have a Perplexity subscription is if you want an app for quick web searches to check the weather, check updates, price match, and simple stuff like that.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/11ivp6g",
+     "title": "How does perplexity.ai make money? I can't find anything about its revenue?",
+     "text": "\ue200cite\ue202turn0reddit23\ue201 [wordlim: 200] Published: 3.6 years ago; Crawled: 2.9 years ago; Perplexity AI is a relatively new company that has raised $26 million in series A funding in March 2023[3]. ... Perplexity AI is an AI-powered search engine and chatbot company that uses a large language model to generate natural language text\\[1\\]\\[5\\].\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1g8iof7",
+     "title": "How Are Competitors Getting Traffic from Sites Like Perplexity.ai? Any Tips for an Indie SaaS Developer?",
+     "text": "\ue200cite\ue202turn0reddit24\ue201 [wordlim: 200] Published: 1.9 years ago; Crawled: 1.9 years ago; While researching some competitors, I noticed that a few of their referring websites include **perplexity.ai**, which piqued my curiosity. ...   Why did Perplexity choose to link to this website instead of others?\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1rexj5n/i_tried_perplexity_computer_for_a_complex/",
+     "title": "I tried Perplexity Computer for a complex research / data analysis project and had it vibe code a web site with a database + dashboards and the results were amazing",
+     "text": "\ue200cite\ue202turn0reddit25\ue201 [wordlim: 200] Published: 7 months ago; I then asked Perplexity Computer to create a Plan for me before building anything. ... I then told it to execute the project and find 500 SaaS companies that met my criteria for Embedded Finance. ... It did multiple passes of research to collect 20 pieces of data for each company and give the company a score according to the requirements doc.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1fn635z",
+     "title": "Is this official subreddit from perplexity?",
+     "text": "\ue200cite\ue202turn0reddit26\ue201 [wordlim: 200] Published: 2.0 years ago; Crawled: 2.0 years ago; I want to know if it is the official subreddit from the perplexity ai. ... It is in the sense that the company does monitor it for bug reports.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/aicuriosity/comments/1lq0dli",
+     "title": "Perplexity Unveils Perplexity Max: A Premium AI Subscription Tier",
+     "text": "\ue200cite\ue202turn0reddit27\ue201 [wordlim: 200] Published: 1.2 years ago; Crawled: 1.2 years ago; On July 2, 2025, Perplexity, a leading AI-powered search and research platform, announced the launch of its most advanced subscription tier yet\u2014**Perplexity Max**. ... For more details, visit the official Perplexity website or explore the dedicated Max page linked in their announcement.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1hmidbh",
+     "title": "Any use case for Plerplexity in investing and reading companies annual reports? Thank you",
+     "text": "\ue200cite\ue202turn0reddit28\ue201 [wordlim: 200] Published: 1.8 years ago; Crawled: 1.8 years ago;     These are the questions I use to guide my analysis of a company with Perplexity.\n"
+    },
+    {
+     "url": "https://www.reddit.com/r/perplexity_ai/comments/1mq61yc",
+     "title": "Do you think Perplexity should include a \"Teams\" Subscription tier?",
+     "text": "\ue200cite\ue202turn0reddit29\ue201 [wordlim: 200] Published: 1.1 years ago; Crawled: 1.1 years ago; We're a team of 6 and use AI tools heavily for a variety of tasks, from research, writing, content generation, ideas for content, and strategies.The three startups are somewhat related since they're in personal care, health and fitness: We have one supplements and natural health products company, a fitness accessory and gear company, and a bamboo hygiene products company.Now I've been a proponent, supporter and subscriber to Perplexity for more than 6 months now and use it daily for personal tasks, searching, fact-checking, quick info on a product, updating on an event, etc.\n"
+    }
+   ]
+  },
+  {
+   "type": "message",
+   "content": [
+    {
+     "type": "output_text",
+     "text": "{\"candidates\":[{\"name\":\"Perplexity AI, Inc.\",\"domain\":\"perplexity.ai\",\"what\":\"Develops an AI-powered answer engine for search and research.\"}]}",
+     "annotations": []
+    }
+   ]
+  }
+ ]
+}
