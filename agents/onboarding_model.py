@@ -178,7 +178,8 @@ def build_prompt(name: str, pages: list[tuple[str, str]]) -> str:
 
 def default_transport(prompt: str, model: str, timeout: int) -> str:
     import access  # metered: refused at a pass's cap, charged to it after
-    r = access.openai_response(timeout, model=model, input=prompt)
+    r = access.openai_response(timeout, model=model, input=prompt,
+                               text={"format": {"type": "json_object"}})
     return getattr(r, "output_text", None) or ""
 
 
@@ -375,7 +376,15 @@ class OnboardingAgent:
             ) -> tuple[CompanyProfile, list[Attribute], list[str], list[ClaimCheck]]:
         if not pages:
             raise ValueError("onboarding needs at least one fetched page")
-        data = parse(self._transport(build_prompt(name, pages), self.model, self.timeout))
+        prompt = build_prompt(name, pages)
+        try:
+            data = parse(self._transport(prompt, self.model, self.timeout))
+        except ValueError:          # malformed JSON now and then: ask once more, metered as usual
+            try:
+                data = parse(self._transport(prompt, self.model, self.timeout))
+            except ValueError as e:
+                raise ValueError(f"the extraction model returned text we could not read twice; "
+                                 f"try again ({e})") from e
         attributes, checks = build_attributes(data, pages, name, [bool(m.get("private")) for m in meta])
         profile = build_profile(data, pages, domain, meta)
         warnings = [] if attributes else [
