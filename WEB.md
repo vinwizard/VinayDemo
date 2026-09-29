@@ -276,8 +276,9 @@ the same time, from the **Investigate the gaps** button on Quick wins (`fleet.py
   Every number is copied from an experiment. One model call rewords the lines; a line is kept only if
   it adds no number, no page and no marketing word (`fleet.acceptable`), else the template's stays.
   $0.05 of the purse is held back for it, so running out never leaves a fleet without its plan.
-- **Verifier** — "Mark fix live" on a tested fix (`verify.py`): the page is fetched first, without a
-  model, and a fix whose copy is not on it word for word is "not published" for $0. Then the
+- **Verifier** — "Mark fix live" on a tested fix (`verify.py`): for a copy fix or a hypothetical
+  rewrite the page is fetched first, without a model, and one whose copy is not on it word for word
+  is "not published" for $0 (an authority fix on unchanged copy skips this check). Then the
   question is asked live 3, 8, then 16 times, recording whether AI read the fix (none of the first
   three reading it: "not crawled yet"), and the investigation's old reading list is replayed as a
   control (it moving means the model changed, not the page). Confirmed means the live rate's 95%
