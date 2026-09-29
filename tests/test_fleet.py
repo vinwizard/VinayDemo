@@ -612,3 +612,71 @@ def test_a_second_start_during_the_first_ones_preflight_is_refused(world, client
     fid = client.post(f"/api/runs/{run.id}/fleet").json()["id"]
     client.get(f"/api/fleets/{fid}/stream")
     assert seen == [409]
+
+
+def test_no_more_investigators_than_the_concurrency_limit_ask_at_once(world, monkeypatch):
+    monkeypatch.setenv(fleet.CONCURRENCY_ENV, "2")
+    now, peak, lock = set(), [0], threading.Lock()
+
+    def asking(q):
+        def hook():
+            with lock:
+                now.add(q)
+                peak[0] = max(peak[0], len(now))
+            time.sleep(0.05)
+            with lock:
+                now.discard(q)
+        return hook
+    world(Fake(coordinator=[[dispatch("fast", "np-2"), dispatch("emergent_debt", "np-1", term="debt"),
+                             dispatch("emergent_big", "np-3", term="big")]],
+               hooks={q: asking(q) for q in Q.values()}))
+    status, events = execute(world_run())
+    assert status == "complete" and len(of(events, "finished")) == 3
+    assert peak[0] == 2      # two questions asked at the same moment, never three
+
+
+def test_a_source_item_cannot_be_rechecked(world, monkeypatch):
+    world(Fake(coordinator=[[dispatch("emergent_debt", "np-1", term="debt")]]))
+    run = world_run()
+    reports.save_run(run)
+    _, events = execute(run)
+    item = next(i for i in fleet.plan_of(events).items if i.attribute_id == "emergent_debt")
+    assert item.fix == "source"
+    with pytest.raises(ValueError, match="only a tested copy or authority fix"):
+        verify.verify(events[0].data["fleet_id"], item.rank, resolve=lambda: pytest.fail("nothing is asked"))
+
+
+def test_an_authority_fix_of_two_quotes_apart_on_the_page_is_not_held_back_as_unpublished(world, monkeypatch):
+    fid, plan = finished_fleet(world, monkeypatch)
+    item = plan.items[0]
+    inv = reports.load_investigation(item.investigation_id)
+    arm = next(a for a in inv.arms if a.id == item.arm_id)
+    quotes = "Acme ships in a day. Orders leave the same afternoon."
+    arm.hypothetical, arm.text = False, [quotes]
+    reports.save_investigation(inv)
+    authority = plan.model_copy(update={"items": [item.model_copy(update={"fix": "authority", "rewrite": quotes,
+                                                                          "hypothetical": False})]})
+    fleet.EventLog(fid).append("planned", plan=authority.model_dump())
+    # the page says both, in separate paragraphs: never the joined string word for word
+    body = "<p>Acme ships in a day.</p>" + "<p>We make widgets for shops. </p>" * 10 + "<p>Orders leave the same afternoon.</p>"
+    monkeypatch.setattr(verify.audit, "get", lambda url: (url, 200, "text/html", body))
+    v = verify.verify(fid, 1, resolve=lambda: RESOLVED)
+    assert v.verdict != "not_published" and v.page_has_copy is None
+    assert v.read_by_ai.n >= verify.LOOKS[0] and v.read_by_ai.k > 0     # it was asked live, and read the page
+
+
+def test_mark_fix_live_streams_the_recheck_and_keeps_run_and_spent(world, client, monkeypatch):
+    fid, plan = finished_fleet(world, monkeypatch)
+    run_file = (reports.RUNS / "aaaaaa0001.json").read_bytes()
+    spent = fleet.summary(fleet.EventLog(fid).read())["spent_usd"]
+    access._create.pages = {**PAGES, ABOUT: REWRITE + " " + PAGES[ABOUT]}
+    monkeypatch.setattr(verify.audit, "get", lambda url: (url, 200, "text/html", "<p>" + (REWRITE + " ") * 10 + "</p>"))
+    body = client.get(f"/api/fleets/{fid}/verify/stream", params={"rank": 1}).text
+    events = sse_events(body)
+    assert [e["kind"] for e in events][0] == "verify" and events[-1]["kind"] == "verified" and "event: end" in body
+    v = events[-1]["data"]["verification"]
+    assert v["verdict"] == "confirmed" and v["live_provenance"] == "live_api"
+    # the live answers live in the Verification only: the run is untouched, the fleet's spent total kept
+    assert (reports.RUNS / "aaaaaa0001.json").read_bytes() == run_file
+    assert client.get("/api/runs/aaaaaa0001/fleets").json()["fleets"][0]["spent_usd"] == spent > 0
+    assert all(i.provenance == "counterfactual_replay" for i in reports.list_investigations("aaaaaa0001"))
