@@ -40,6 +40,7 @@ from config import load_env, redacted_status
 from providers import fixture, live
 from providers.company import CompanyProvider
 from api import admin
+from api import fleet as fleet_api
 from api import why as why_api
 from reports import RUNS, list_companies, load_company, load_run, save_company, save_run
 from schemas import Attribute, Company
@@ -818,6 +819,8 @@ def health(request: Request = None):
             "looks": list(sampler.looks()), "wobble_audit": sampler.wobble_audit(),
             "run_budget_usd": sampler.run_budget(),
             "why_budget_usd": why_budget(),
+            # the investigation fleet (fleet.py, verify.py): its purse, its lanes, one re-check's cap
+            **fleet_api.health(),
             # a model grading its own output has a self-preference bias worth surfacing
             "same_model_warning": bool(measured and evaluator and measured == evaluator)}
 
@@ -870,6 +873,7 @@ if access.configured():
         print(f"WARNING: passes and runs will not survive a redeploy. {store['reason']} {access.STORAGE_FIX}", flush=True)
 app.include_router(admin.router)
 app.include_router(why_api.router)
+app.include_router(fleet_api.router)
 
 # Production: serve the built web app from the same origin (render.yaml builds it with VITE_API="").
 # Mounted last so every /api route above wins.

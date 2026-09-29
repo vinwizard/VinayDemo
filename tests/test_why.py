@@ -292,6 +292,21 @@ def test_the_default_calls_go_through_the_metered_path(monkeypatch):
     assert sent and sent[0]["model"] == "gpt-6-luna"
 
 
+def test_every_call_is_charged_to_the_pass_that_asked():
+    # Regression: the experiments run on a thread pool, and a context copied inside a pool thread is
+    # empty, so every replay and judgment went out with no pass: refused on the public demo, unmetered
+    # everywhere else.
+    import access
+    fake, seen = Fake(STRENGTHS, says_debt, live_text="Amgen carries meaningful debt."), []
+
+    def spy(**kw):
+        seen.append(access.SPENDER.get())
+        return fake(**kw)
+    with access.spending("p1"):
+        investigate(spy, DEBT, STRENGTHS["question"], "debt")
+    assert len(seen) > 20 and set(seen) == {"p1"}
+
+
 def test_an_experiment_answer_never_counts():
     a = Answer(probe_id="np-1", text="x", provenance="counterfactual_replay", search_executed=True)
     e = QueryEvaluation(probe_id="np-1", valid=True, explanation="")

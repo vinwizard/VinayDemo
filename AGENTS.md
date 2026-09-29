@@ -33,7 +33,13 @@ question a front is asked again for the wobble, and tries 2+ live in `run.repeat
 `run.answers` stays one answer per probe for every other consumer. Buyer answers are shared across
 brands in one category per model and day (`sharing.py`); brand questions never are.
 The why agent (`why.py`) replays what a live answer read (`Answer.trace`) with one thing changed;
-its answers are provenance `counterfactual_replay`, kept in their own record, never scored.
+its answers are provenance `counterfactual_replay`, kept in their own record, never scored. After a
+run, the investigation fleet (`fleet.py`: a model coordinator bounded by code, parallel why
+investigators, a code critic, a planner; `verify.py` re-checks a live fix) exchanges typed events
+on one append-only log and draws every call on one `access.Purse` in `_metered`; a re-check's live
+answers stay in its `Verification`, never on a run (WEB.md "Investigation fleet"). A thread pool
+must copy the context in the submitting thread (`pool.submit(copy_context().run, ...)`): a pool
+thread starts empty, and a copy taken there drops the paying pass and the purse.
 Every measured call forces live web search (`live.TOOL_CHOICE`, `live.SEARCH_TOOL`) and
 retries once when none ran, because an ungrounded answer is paid for and then excluded; `preflight`
 steps down to `live.FALLBACK_MODEL`, then to no search at all, never to a third model, and says

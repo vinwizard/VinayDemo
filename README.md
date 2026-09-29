@@ -12,6 +12,7 @@ agents/       the steps of a run
 providers/    answer sources: live model calls and bundled sample replays
 graph.py      the run workflow
 why.py        the why agent
+fleet.py      the investigation fleet: coordinator, critic, planner (verify.py re-checks a live fix)
 sampler.py    question sizing
 sharing.py    shared answer cache
 schemas.py    shared data types
@@ -53,6 +54,7 @@ Only the key is needed locally; everything else has a default.
 | `MEASURED_MODEL`, `EVALUATOR_MODEL`, `ONBOARDING_MODEL` | choosing which models are used |
 | `TARGET_MARGIN`, `WOBBLE_AUDIT` | how many questions a run asks |
 | `RUN_BUDGET_USD`, `WHY_BUDGET_USD` | optional spending caps per run and per investigation |
+| `FLEET_BUDGET_USD`, `FLEET_CONCURRENCY`, `VERIFY_BUDGET_USD` | the investigation fleet's purse, lanes and re-check cap |
 | `DATA_DIR` | where companies, runs and passes are stored |
 | `VISEXP_OFFLINE_REPLAY` | replay the bundled sample instead of calling a model |
 | `VISEXP_PUBLIC_DEMO` | hosted-demo mode |

@@ -67,7 +67,10 @@ Everything else has a working default. The full list, and what each one changes:
 | `TARGET_MARGIN` | `20` | The margin each buyer front aims for, in points of "named you", at 95% (`sampler.py`). It sets how many questions a front freezes and asks: 10 first, and the rest of 23 only where those are not clear yet. `15` means 16 then 43 — about 2.5× the buyer calls on a mid-range brand. Clamped to 5–50. |
 | `RUN_BUDGET_USD` | unset | The most one run's measured calls may spend. A front whose look 2 would pass it stops at look 1, and its margin is reported as not met. Unset: look 2's size is the cap. |
 | `WOBBLE_AUDIT` | `1` | How many times each front's first question is asked again, to show how much one question wobbles. `0` turns it off. |
-| `WHY_BUDGET_USD` | `1.00` | The most one why investigation may spend (`why.py`); it stops there and says how far it got. |
+| `WHY_BUDGET_USD` | `0.60` | The most one why investigation may spend (`why.py`); it stops there and says how far it got. The mean investigation on Amgen cost $0.36 (2026-09-28). |
+| `FLEET_BUDGET_USD` | `3.00` | The most one investigation fleet may spend, every agent together (`fleet.py`, "Investigation fleet" below). |
+| `FLEET_CONCURRENCY` | `3` | How many of a fleet's investigators run at once (1–6); each already asks 6 calls at a time. |
+| `VERIFY_BUDGET_USD` | `0.75` | The most one re-check of a fix may spend (`verify.py`). An unpublished fix costs nothing. |
 | `DATA_DIR` | bundled `data/` | Where runs, companies and the access database are kept. On Render, the mount path of a disk, or a redeploy wipes them. |
 | `VISEXP_PUBLIC_DEMO` | unset | Hosted demo: saved replays for everyone, live runs only for a pass holder. |
 | `SESSION_SECRET`, `ADMIN_PASSWORD`, `CONTACT_EMAIL` | — | Access passes and the admin page: "Deploy to Render" below. |
@@ -79,7 +82,7 @@ leader's own category. Every live report names both models ("answered by gpt-6-l
 gpt-4.1-mini"); `/api/health` reports `measured_model`, `evaluator_model`, `forced_search`,
 `target_margin`, `looks`, `buyer_questions` (the questions a front freezes), `max_buyer_questions`
 (the most a run may plan: both fronts plus one front's worth for weighted claims), `wobble_audit`,
-`run_budget_usd` and `why_budget_usd`, plus `configured_measured_model`, `search_mode` and
+`run_budget_usd` and `why_budget_usd`, `fleet_budget_usd`, `fleet_concurrency` and `verify_budget_usd`, plus `configured_measured_model`, `search_mode` and
 `model_fallback` when a step-down happened.
 
 Any model you point `MEASURED_MODEL` or `EVALUATOR_MODEL` at should be in `access.PRICES`, or the
@@ -244,6 +247,60 @@ things make the buyer number trustworthy anyway:
   onboarding and ignored on older saved companies, and
   matching stays word-bounded and case-sensitive, so "AiMarketer" is not the brand.
 
+### Investigation fleet
+
+After a live run, a team of agents works out why AI says what it says and what would change it, at
+the same time, from the **Investigate the gaps** button on Quick wins (`fleet.py`, `verify.py`,
+`api/fleet.py`). It reads the saved run and never writes it.
+
+- **Coordinator** — a model (the evaluator model) choosing from a shortlist code builds
+  (`fleet.shortlist`: claims to win back, amplify or correct, and perceptions AI raised in a brand
+  answer, each with the run's branded questions that do not name it and what each answer said).
+  It picks the claims worth money and the question for each, and a literal term only for a
+  perception AI raised. Every call it makes is Responses API function calling, and every call is
+  checked (shortlisted claim, one of its questions, no term on a company claim, 2 tries a claim,
+  8 tasks, affordable); a refused call goes back to it as a reason. When its call fails or none of
+  its calls can be used, code's own ranking decides, and the task says "picked by code".
+- **Investigators** — `why.start`, one per claim and question, `FLEET_CONCURRENCY` at a time on
+  a stdlib thread pool; each stops at its own budget, the fleet's purse, or its deadline
+  (`live.LIMITS["investigation_deadline_s"]`, checked where it already checks its budget, so it keeps
+  what it found). One failing never stalls the rest.
+- **Critic** — code rules on each finished investigation (`fleet.critic`): not reproducible, a
+  **ceiling** (a claim AI already says in 90% of replays of that question, where no fix can show a
+  rise), stopped with an experiment still open (asks for more budget), quotes that share no word with
+  the claim, and a fix that moved it on one question and not another. The coordinator re-dispatches
+  once, changing one thing, or accepts.
+- **Planner / writer** — code ranks what was accepted: tested copy fixes by the low end of their
+  interval times intent weight, then authority fixes, then sources to address (a perception's
+  pages), then what copy cannot move, then what did not decide, then the run's untested rewrites.
+  Every number is copied from an experiment. One model call rewords the lines; a line is kept only if
+  it adds no number, no page and no marketing word (`fleet.acceptable`), else the template's stays.
+  $0.05 of the purse is held back for it, so running out never leaves a fleet without its plan.
+- **Verifier** — "Mark fix live" on a tested fix (`verify.py`): for a copy fix or a hypothetical
+  rewrite the page is fetched first, without a model, and one whose copy is not on it word for word
+  is "not published" for $0 (an authority fix on unchanged copy skips this check). Then the
+  question is asked live 3, 8, then 16 times, recording whether AI read the fix (none of the first
+  three reading it: "not crawled yet"), and the investigation's old reading list is replayed as a
+  control (it moving means the model changed, not the page). Confirmed means the live rate's 95%
+  interval holds the prediction and not the old rate.
+
+Agents never call each other: they write typed `FleetEvent`s to one append-only log,
+`DATA_DIR/fleets/<id>.jsonl`, which the fleet's loop thread alone writes while it runs (a re-check
+appends once it is done) and the page streams, resuming from the last event it saw. Every model
+call of every agent goes through `access.openai_response` and draws on one `access.Purse`
+(`FLEET_BUDGET_USD`, and at most 18 calls in flight), inside the pass that started the fleet; the
+pass cap still applies call by call. Investigations are `counterfactual_replay` and never scored; a
+re-check's live asks are `live_api` but kept in its `Verification`, never added to a run. A server
+restart mid-fleet marks it stopped and keeps what finished.
+
+Two live fleets on the committed Amgen run (2026-09-28, gpt-6-luna for every agent): 6 investigations
+each (5 picks and 1 re-dispatch; the coordinator skipped the 4 flattering perceptions, with a reason
+each), **8.4 and 9.6 minutes** against 18.0 and 23.8 had they run one after another, for **$0.98 and
+$1.25**, of which the coordinator and writer were $0.003–0.005. The first found a copy fix for
+"biologic medicines" (your rewrite on /about: 12 of 18 replays against 0 of 18); the second, on the
+same question, did not decide it — what AI reads changes between runs, so a plan is one fleet's
+reading. Both traced "significant debt" to one line of the Q2 2026 earnings release on sec.gov.
+
 ### Offline fallback — no network, no key
 
 For a demo on bad wifi, start the API with `VISEXP_OFFLINE_REPLAY=1`, then reopen Notion from the
@@ -283,6 +340,10 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 | `POST /api/companies/{id}/audit` | checks again whether AI can read the site (`audit.py`) and saves it on the company; the same check runs once during onboarding. Plain fetches, no model and no key: robots.txt for the AI crawlers, the claim's words in the no-JavaScript HTML, schema.org JSON-LD, headings, load time and llms.txt, on every page that states each claim, plus Wikidata/Wikipedia (tied to the company only by Wikidata's official website on its domain) and the Crunchbase, G2 and LinkedIn pages the site itself links to. Anything that cannot be reached, or whose robots.txt turns automated tools away, is "could not check", never a guess. A run copies the company's audit when it starts |
 | `GET /api/runs/{id}/why/stream?attribute=&probe=` or `&question=`, optional `&term=` | the why agent (`api/why.py`) as SSE: `start` (its budget), `log`, `arm` (one experiment, decided), `verdict`, `done` (the investigation, saved under `DATA_DIR/investigations/`), `error`. Live runs only; refused on the public demo without a pass, without a key, or with a model that cannot search. The question must name the company and not the claim |
 | `GET /api/runs/{id}/why` · `GET /api/investigations/{id}` | a run's investigations, newest first, and one in full. The run itself is never changed |
+| `POST /api/runs/{id}/fleet` | starts an investigation fleet on a live run ("Investigation fleet" above) and returns `{id}` at once. Refused on the public demo without a pass, on a sample run, with nothing to investigate, while another fleet is running on the run, and without a model that can search |
+| `GET /api/runs/{id}/fleets` | a run's fleets, newest first (`status`, `spent_usd`, `wall_s`), and what a new one would cost (`estimate`: shortlist size, picks, dollars, minutes) |
+| `GET /api/fleets/{id}/stream?after=` | the fleet's log as SSE: one `fleet` event per `FleetEvent` (with its number as the SSE id, so a reconnect resumes after `after` or `Last-Event-ID`), then `end` once it is done |
+| `GET /api/fleets/{id}/verify/stream?rank=` | re-checks plan item `rank` of a finished fleet: its `verify` and `verified` events as SSE (also kept on the log), then `end`. Only a tested copy or authority fix |
 | `DELETE /api/companies/{id}/attributes/{attr}` | removes a claim the customer added. Refuses for a claim extracted from their own pages: that one is evidence, and excluding it from scoring is what its zero slider is for |
 
 ## Views
@@ -378,7 +439,15 @@ Tests: `web/src/tour.test.ts`.
     not read, whose replaced copy is not verbatim on it, whose rewrite is marketing language, or
     whose question was not asked, and says why in a plain sentence under "Suggestions we could not
     confirm"; it moves no number), then "where the upside is"
-    cards for the biggest open claims.
+    cards for the biggest open claims. On a live run it opens with **Investigate the gaps**
+    (`web/src/fleet.tsx`, "Investigation fleet" above): a button with the fleet's estimate, then, as
+    the fleet's log streams in, the coordinator's picks with its reasons (and any calls our code
+    refused), one lane per investigator on one clock with its status, experiments, spend and verdict,
+    the critic's challenge and what became of it (re-dispatched as a new try, or accepted), and the
+    **tested plan**: ranked items, each with its fix, its line, the page, the prediction as "k/n
+    against k/n in replays" with its interval, and on a tested fix **Mark fix live — re-check**,
+    whose result sits under it with its live and replay numbers labelled apart. The panel folds the
+    log (`web/src/fleetlog.ts`), so reopening the run replays it to the same place.
   - **Questions we asked AI** — second, because the questions are the evidence for every number:
     the **unbranded questions** (the code's buyer questions) and **branded questions** (its brand
     questions) side by side, each set in its own bordered frame (stacked on a narrow screen), what
@@ -399,7 +468,9 @@ Tests: `web/src/tour.test.ts`.
   - **Why AI misses you** — diagnosis sections, each headed by one finding sentence and collapsed
     on a phone. **Why AI says it** (the why agent, `why.py`, live runs only): pick a claim and a
     branded question — one of the run's, or your own that names the company and not the claim — and
-    optionally a word that counts as saying it (otherwise the evaluator judges, quote verified). The
+    optionally a word that counts as saying it (otherwise the evaluator judges, quote verified, and
+    counts what the report counts: only answers that endorse a claim of the company's, any mention of
+    a perception AI raised; a literal word counts any mention). The
     agent asks it live 3 times recording what the model read, and 3 times with web search off (what
     the model already believes); replays the recorded reading list with search off, handed back as
     the web_search tool's own output, and stops unless the replay says the claim about as often as
@@ -579,7 +650,7 @@ Environment. Every one has a working default.
 
 `<site>/api/health` shows what is actually in force: `measured_model`, `evaluator_model`,
 `search_mode`, `forced_search`, `target_margin`, `looks`, `buyer_questions`, `max_buyer_questions`, `wobble_audit`,
-`run_budget_usd` and `why_budget_usd`. If OpenAI
+`run_budget_usd`, `why_budget_usd`, `fleet_budget_usd`, `fleet_concurrency` and `verify_budget_usd`. If OpenAI
 refuses the configured model or the live-search tool, the one preflight call steps down to
 `gpt-5-nano` — and, if that will not search either, to no search at all, with every answer marked
 ungrounded. It never substitutes a third model. `model_fallback` then says why, in the same words

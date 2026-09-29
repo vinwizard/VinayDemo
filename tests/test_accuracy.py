@@ -250,7 +250,9 @@ def test_health_names_both_models_the_budget_and_that_search_is_forced(monkeypat
     assert (h["measured_model"], h["forced_search"]) == ("gpt-6-luna", True)
     # sampler-lite's defaults: ±20 at 95%, 10 then 23 questions a front, one re-ask a front, no run cap
     assert (h["target_margin"], h["looks"], h["buyer_questions"]) == (20, [10, 23], 23)
-    assert (h["wobble_audit"], h["run_budget_usd"], h["why_budget_usd"]) == (1, None, 1.0)
+    assert (h["wobble_audit"], h["run_budget_usd"], h["why_budget_usd"]) == (1, None, 0.6)
+    # the investigation fleet: one $3 purse for every agent, 3 investigators at once, $0.75 a re-check
+    assert (h["fleet_budget_usd"], h["fleet_concurrency"], h["verify_budget_usd"]) == (3.0, 3, 0.75)
     assert h["search_mode"] == "web_search with external_web_access" and h["model_fallback"] is None
     assert h["configured_measured_model"] == h["measured_model"] == h["evaluator_model"]
     # the captain's default points both halves at one cheap model; the bias is surfaced, not hidden

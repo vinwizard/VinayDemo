@@ -14,6 +14,7 @@ DATA = Path(os.environ.get("DATA_DIR") or BUNDLED)
 RUNS = DATA / "runs"
 COMPANIES = DATA / "companies"
 INVESTIGATIONS = DATA / "investigations"   # the why agent's experiments (why.py), one file each
+FLEETS = DATA / "fleets"                   # each investigation fleet's event log (fleet.py), one JSONL file each
 ID = re.compile(r"[0-9a-f]{6,32}")
 
 # QueryEvaluation.strength is 0/1/2 in the data and never on a page.
