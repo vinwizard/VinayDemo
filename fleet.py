@@ -110,7 +110,7 @@ def summary(events: list[FleetEvent]) -> dict:
     done = next((e for e in events if e.kind == "done"), None)
     return dict(id=start.data.get("fleet_id") if start else None, run_id=start.data.get("run_id") if start else None,
                 created_at=start.at if start else None, status=done.data.get("status") if done else "running",
-                spent_usd=events[-1].spent_usd if events else 0.0, wall_s=done.data.get("wall_s") if done else None,
+                spent_usd=max((e.spent_usd for e in events), default=0.0), wall_s=done.data.get("wall_s") if done else None,
                 tasks=sum(e.kind == "dispatched" for e in events), planned=any(e.kind == "planned" for e in events))
 
 

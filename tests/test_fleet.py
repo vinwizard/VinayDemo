@@ -587,3 +587,28 @@ def test_a_sample_run_is_refused_before_anything_is_spent(client):
     reports.save_run(run)
     r = client.post(f"/api/runs/{run.id}/fleet")
     assert r.status_code == 400 and "Only a live run" in r.json()["detail"]
+
+
+def test_a_recheck_logged_later_keeps_what_the_fleet_spent(world):
+    world(Fake(coordinator=[[dispatch("fast", "np-2")]]))
+    status, events = execute(world_run())
+    spent = fleet.summary(events)["spent_usd"]
+    log = fleet.EventLog(events[0].data["fleet_id"])
+    log.append("verified", rank=1)
+    assert spent > 0 and fleet.summary(log.read())["spent_usd"] == spent
+
+
+def test_a_second_start_during_the_first_ones_preflight_is_refused(world, client, monkeypatch):
+    world(Fake(coordinator=[[dispatch("fast", "np-2")]]))
+    run = world_run()
+    reports.save_run(run)
+    seen = []
+
+    def preflight(*a, **k):
+        if not seen:
+            seen.append(client.post(f"/api/runs/{run.id}/fleet").status_code)
+        return RESOLVED
+    monkeypatch.setattr(live, "preflight", preflight)
+    fid = client.post(f"/api/runs/{run.id}/fleet").json()["id"]
+    client.get(f"/api/fleets/{fid}/stream")
+    assert seen == [409]

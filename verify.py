@@ -111,8 +111,9 @@ def verify(fleet_id: str, rank: int, resolve: Callable[[], object], emit: Callab
     v = Verification(fleet_id=fleet_id, rank=rank, attribute_id=attribute.id, claim=inv.claim, page_url=item.page_url,
                      copy_text=copy, question=inv.question, investigation_id=inv.id, budget_usd=budget(),
                      predicted=WhyRate(k=arm.k, n=arm.n), base=WhyRate(k=arm.base_k, n=arm.base_n))
-    v.page_has_copy, v.page_note = check_page(item.page_url, copy)
-    emit(v.page_note)
+    if item.fix == "copy" or arm.hypothetical:
+        v.page_has_copy, v.page_note = check_page(item.page_url, copy)
+        emit(v.page_note)
     if v.page_has_copy is False:
         v.verdict, v.text = "not_published", f"Not published: {v.page_note} Nothing was asked, so this check cost nothing."
         return v

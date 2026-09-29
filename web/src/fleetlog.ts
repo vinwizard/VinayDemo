@@ -89,7 +89,7 @@ const time = (at: string) => Date.parse(at);
 /** Pure: the same log always gives the same view, so a reload replays to where the stream left off. */
 export function fold(v: FleetView, e: FleetEvent): FleetView {
   if (e.seq <= v.seq) return v;
-  const next: FleetView = { ...v, seq: e.seq, spent: e.spent_usd };
+  const next: FleetView = { ...v, seq: e.seq, spent: Math.max(v.spent, e.spent_usd) };
   const lane = (id: string | null) => next.lanes.find((l) => l.task.id === id);
   const set = (id: string | null, patch: Partial<Lane>) => {
     next.lanes = next.lanes.map((l) => (l.task.id === id ? { ...l, ...patch } : l));

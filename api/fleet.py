@@ -98,11 +98,18 @@ def start(run_id: str, request: Request = None):
     if not fleet.shortlist(run):
         raise HTTPException(400, "Nothing on this run to investigate: no claim to win back or amplify, and no "
                                  "perception AI raises in a brand answer.")
-    with _lock:
-        if any(r == run_id and t.is_alive() for r, t in RUNNING.values()):
-            raise HTTPException(409, "A fleet is already investigating this run.")
-    resolved = resolve(holder, "Investigating the gaps")
     fleet_id, pid = fleet.new_id(), main.pass_id(holder)
+    t = threading.Thread(target=lambda: work(), daemon=True)
+    with _lock:
+        if any(r == run_id and (w.is_alive() or not w.ident) for r, w in RUNNING.values()):
+            raise HTTPException(409, "A fleet is already investigating this run.")
+        RUNNING[fleet_id] = (run_id, t)
+    try:
+        resolved = resolve(holder, "Investigating the gaps")
+    except BaseException:
+        with _lock:
+            RUNNING.pop(fleet_id, None)
+        raise
     if pid:
         access.own("fleet", fleet_id, pid, run.profile.name)
         access.log(pid, f"started a fleet on {run.profile.name}")
@@ -117,9 +124,6 @@ def start(run_id: str, request: Request = None):
                 log.append("stopped", reason=f"The fleet failed: {type(e).__name__}.")
                 log.append("done", status="stopped")
 
-    t = threading.Thread(target=work, daemon=True)
-    with _lock:
-        RUNNING[fleet_id] = (run_id, t)
     t.start()
     return {"id": fleet_id}
 
