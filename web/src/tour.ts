@@ -26,12 +26,13 @@ export function loadSeen(store: Store | null): Seen {
 }
 
 /**
- * Records how a part ended. Skipping the story skips the report tour it leads into as well: a visitor
- * who said "no guide" is not guided again on the next screen.
+ * Records how a part ended. Skipping the story skips the tour it leads into as well (`then`: the
+ * report tour, or for a welcome shown alone the tour it hands over to): a visitor who said "no
+ * guide" is not guided again on the next screen.
  */
-export function markSeen(store: Store | null, part: Part, how: "done" | "skipped"): Seen {
+export function markSeen(store: Store | null, part: Part, how: "done" | "skipped", then: "report" | "onboard" = "report"): Seen {
   const seen: Seen = { ...loadSeen(store), [part]: how };
-  if (part === "story" && how === "skipped") seen.report ??= "skipped";
+  if (part === "story" && how === "skipped") seen[then] ??= "skipped";
   fallback = seen;
   try { store?.setItem(STORAGE_KEY, JSON.stringify(seen)); } catch { /* kept in memory for this load */ }
   return seen;
@@ -183,16 +184,24 @@ export const ONBOARD_STEPS: Step[] = [
 export const replayPart = (hasStory: boolean, reportOpen: boolean): Part =>
   hasStory ? "story" : reportOpen ? "report" : "onboard";
 
+/**
+ * Without a story to tell (a pass holder cannot read the showcase run), the welcome scene still
+ * opens the guide: on a first visit before the tour that would auto-start, and on every replay.
+ */
+export const welcomeFirst = (store: Store | null, hasStory: boolean, auto: boolean) =>
+  !hasStory && (!auto || autoStarts(store, "story"));
+
 /** The scene before the story: what the app is, before it is shown on a real run. */
 export const STORY_WELCOME = {
-  headline: "Welcome - I'm so glad you're here!",
-  body: "This is my portfolio demo of an AI marketer's first step: researching how different AIs see a company, and how that compares with what the company wants to be known for.",
+  headline: "Hey, thank you for being here! 👋",
+  lead: "Welcome to my portfolio demo - I'm really excited to show you around.",
+  body: "It's my take on an AI marketer's first step: finding out how different AIs see a company, and whether that matches what the company wants to be known for.",
   /** Rendered "Inspired by <a>Profound</a>." */
   creditUrl: "https://tryprofound.com",
 };
 
 /** How long each story scene shows: the welcome has more to read than a scene's one line. */
-export const sceneMs = (scene: number) => scene === 0 ? 7000 : 3600;
+export const sceneMs = (scene: number) => scene === 0 ? 8000 : 3600;
 
 export const STORY_HEADLINES = [
   "{brand}'s website says who {brand} is.",

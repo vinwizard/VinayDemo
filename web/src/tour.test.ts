@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { beforeEach, test } from "node:test";
-import { autoStarts, fill, loadSeen, markSeen, pickStory, replayPart, resetMemory, sceneMs, STORAGE_KEY, STORY_WELCOME, termParts, type Store, type StoryRun } from "./tour.ts";
+import { autoStarts, fill, loadSeen, markSeen, pickStory, replayPart, resetMemory, welcomeFirst, sceneMs, STORAGE_KEY, STORY_WELCOME, termParts, type Store, type StoryRun } from "./tour.ts";
 
 const memory = (): Store & { data: Record<string, string> } => {
   const data: Record<string, string> = {};
@@ -29,6 +29,16 @@ test("skipping the story skips the report tour it leads into, but not onboarding
   markSeen(store, "story", "skipped");
   assert.equal(autoStarts(store, "report"), false);
   assert.equal(autoStarts(store, "onboard"), true);
+});
+
+test("skipping the welcome shown alone skips the onboard tour it hands over to, not the report tour", () => {
+  const store = memory();
+  markSeen(store, "story", "skipped", "onboard");
+  resetMemory();   // the next load reads only what was stored
+  assert.equal(autoStarts(store, "story"), false);
+  assert.equal(autoStarts(store, "onboard"), false);   // not shown on the next load
+  assert.equal(autoStarts(store, "report"), true);     // still shown on the first finished report
+  assert.equal(welcomeFirst(store, false, true), false);
 });
 
 test("a report tour already finished is not downgraded to skipped", () => {
@@ -94,12 +104,22 @@ test("\"How it works\" always replays something, even for a pass holder on Histo
 });
 
 test("the story's welcome welcomes the visitor, says what the app is and credits Profound", () => {
-  assert.equal(STORY_WELCOME.headline, "Welcome - I'm so glad you're here!");
+  assert.equal(STORY_WELCOME.headline, "Hey, thank you for being here! 👋");
+  assert.match(STORY_WELCOME.lead, /really excited to show you around/);
   assert.match(STORY_WELCOME.body, /how different AIs see a company/);
   assert.equal(STORY_WELCOME.creditUrl, "https://tryprofound.com");
 });
 
-test("the welcome stays up about 7 s, long enough to read; the other scenes keep 3.6 s", () => {
-  assert.equal(sceneMs(0), 7000);
+test("the welcome stays up about 8 s, long enough to read; the other scenes keep 3.6 s", () => {
+  assert.equal(sceneMs(0), 8000);
   for (const i of [1, 2, 3, 4]) assert.equal(sceneMs(i), 3600);
+});
+
+test("a pass holder, with no story to tell, still gets the welcome first, once, and on every replay", () => {
+  const s = memory();
+  assert.equal(welcomeFirst(s, false, true), true);    // first visit: welcome, then the onboard tour
+  markSeen(s, "story", "done");
+  assert.equal(welcomeFirst(s, false, true), false);   // seen once in this browser
+  assert.equal(welcomeFirst(s, false, false), true);   // "How it works" replays it
+  assert.equal(welcomeFirst(memory(), true, true), false);   // with a story the welcome is its scene 0
 });

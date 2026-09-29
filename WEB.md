@@ -297,19 +297,21 @@ pass cannot onboard, so the page opens on History; a pass holder sees neither ex
 work, starting on Onboard.
 
 **First-visit guide** (`web/src/guide.tsx`; copy, memory and the story's picker in `web/src/tour.ts`).
-A visitor without a pass on the hosted demo first sees a short "how it works" story: a welcome saying what the
-app is (about 7 s, time to read it), then four scenes of about 3.6 s each, told with the showcase run's own words, never written into the code. The scenes
+Every first-time visitor opens on a welcome saying what the app is (about 8 s, time to read it). A
+visitor without a pass on the hosted demo then sees a short "how it works" story: four scenes of about 3.6 s each, told with the showcase run's own words, never written into the code. The scenes
 are a claim quoted from the company's site, a branded question with pieces of its answer, the
 headline gap with one identity AI gave the company unasked, and the first Quick wins rewrite
 (`tour.pickStory`). The story plays only from a run measured live that has all four, and shows where
 each quote came from. Its last button opens that report, and a five-step spotlight tour takes over:
 the headline, buyer visibility, the claim groups, the Questions tab, and Quick wins, which the last
-step opens. A pass holder instead gets three steps on Onboard (the site form, the optional weights,
-the measuring stages) and the report tour on their first finished report. Each part starts on its
-own once per browser (`localStorage["offmessage.tour.v1"]`; blocked storage means once per page
-load). Skip, Esc or finishing ends a part, and skipping the story skips the report tour too.
-**How it works** in the top bar replays it: the story when the showcase run can be read, else the
-report tour on an open report, else the Onboard tour, switching to that tab first. Captions fill in the open report's own numbers, and a step whose element or
+step opens. A pass holder, who cannot read the showcase run, gets the welcome alone, which hands over to three steps
+on Onboard (the site form, the optional weights, the measuring stages); the report tour follows on
+their first finished report. Each part starts on its own once per browser
+(`localStorage["offmessage.tour.v1"]`; blocked storage means once per page load). Skip, Esc or
+finishing ends a part; skipping the story skips the report tour too, and skipping the welcome alone
+skips the tour it hands over to. **How it works** in the top bar replays it: the story when the
+showcase run can be read, else the welcome followed by the report tour on an open report or the
+Onboard tour, switching to that tab first. Captions fill in the open report's own numbers, and a step whose element or
 number is missing is left out. Invented terms open their `glossary.ts` definition. The caption is a
 bottom sheet on a phone; ← → move, Esc skips, and Tab stays inside the caption. Under reduced
 motion the story is a still strip of all five scenes and the spotlight jumps instead of sliding.

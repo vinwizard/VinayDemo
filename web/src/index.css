@@ -682,6 +682,11 @@ table.runs .open-cell { text-align: right; white-space: nowrap; }
 .story-a { max-width: 94%; background: var(--surface); border: 1px solid var(--border); padding: .55rem .8rem;
   border-radius: 12px 12px 12px 4px; }
 .story-note { font-size: .78rem; color: var(--muted); }
+.story-lead { font-weight: 600; font-size: 1.05em; }
+@media (prefers-reduced-motion: no-preference) {
+  .story-hello { animation: story-hello .5s ease-out; }
+  @keyframes story-hello { from { opacity: 0; transform: translateY(8px); } }
+}
 .story-small { font-size: .8rem; }
 .story-bar { height: 16px; border-radius: 999px; background: #e4e8f7; overflow: hidden; }
 .story-bar i { display: block; height: 100%; width: var(--w); background: var(--accent); }
