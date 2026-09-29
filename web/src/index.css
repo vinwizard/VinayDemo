@@ -771,3 +771,4 @@ th .pop-trigger.term { font: inherit; color: inherit; text-transform: inherit; l
 .plan-check { display: flex; align-items: center; gap: .4rem .6rem; flex-wrap: wrap; font-size: .84rem; }
 .plan-verdict { flex-basis: 100%; font-size: .86rem; }
 .plan-verdict p { margin: .25rem 0 0; }
+.fleet-others { display: flex; flex-wrap: wrap; gap: .2rem .8rem; align-items: baseline; }

@@ -19,7 +19,8 @@ const VERDICT_LABEL: Record<string, string> = {
   undecided: "Undecided", budget: "Stopped at budget", cancelled: "Stopped at deadline",
 };
 const CHALLENGE_LABEL: Record<Challenge["kind"], string> = {
-  thin: "Thin", ceiling: "Ceiling", not_reproducible: "Not reproducible", off_claim: "Quotes off the claim",
+  thin: "Thin", ceiling: "Ceiling", floor: "Not said here", not_reproducible: "Not reproducible",
+  off_claim: "Quotes off the claim",
   contradicts: "Contradicts",
 };
 const ASK_LABEL: Record<Challenge["ask"], string> = {
@@ -276,7 +277,16 @@ export function FleetPanel({ run }: { run: Run }) {
           </p>
         </>
       )}
-      {fleets.length > 1 && <p className="muted why-foot">{plural(fleets.length - 1, "earlier fleet")} on this run.</p>}
+      {fleets.some((f) => f.id !== view?.id) && (
+        <p className="muted why-foot fleet-others">
+          Other fleets on this run:{" "}
+          {fleets.filter((f) => f.id !== view?.id).map((f) => (
+            <button key={f.id} type="button" className="linky" onClick={() => { setView(emptyView(f.id)); follow(f.id); }}>
+              {(f.created_at ?? "").replace("T", " ").slice(0, 16)} · {plural(f.tasks, "task")} · {money(f.spent_usd)}
+            </button>
+          ))}
+        </p>
+      )}
     </section>
   );
 }

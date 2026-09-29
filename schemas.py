@@ -699,7 +699,7 @@ class FleetTask(BaseModel):
 class Challenge(BaseModel):
     """The critic's objection to one finished investigation. Code rules, no model (fleet.critic)."""
     task_id: str
-    kind: Literal["thin", "ceiling", "not_reproducible", "off_claim", "contradicts"]
+    kind: Literal["thin", "ceiling", "floor", "not_reproducible", "off_claim", "contradicts"]
     ask: Literal["other_question", "more_budget", "accept"]
     text: str
     evidence: list[str] = []                 # arm ids, or the other task's id

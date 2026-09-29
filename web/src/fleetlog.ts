@@ -10,7 +10,7 @@ export interface FleetTask {
 /** The critic's objection to one finished investigation: code rules, never a model. */
 export interface Challenge {
   task_id: string;
-  kind: "thin" | "ceiling" | "not_reproducible" | "off_claim" | "contradicts";
+  kind: "thin" | "ceiling" | "floor" | "not_reproducible" | "off_claim" | "contradicts";
   ask: "other_question" | "more_budget" | "accept";
   text: string; evidence: string[];
 }

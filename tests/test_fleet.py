@@ -181,10 +181,11 @@ def test_the_shortlist_is_claims_to_win_back_and_perceptions_ai_raised():
 
 def test_invalid_coordinator_calls_are_rejected_with_reasons_and_code_steps_in(world):
     fake = world(Fake(coordinator=[[dispatch("nope", "np-1"), dispatch("fast", "np-1", term="ships"),
-                                    dispatch("fast", "np-9"), ("dispatch", {"attribute_id": "fast", "probe_id": "np-2"})]]))
+                                    dispatch("fast", "np-9"), ("dispatch", {"attribute_id": "fast", "probe_id": "np-2"})],
+                                   [dispatch("nope", "np-1")]]))    # the repair turn fails too
     status, events = execute(world_run())
     reasons = [e.data["reason"] for e in of(events, "rejected")]
-    assert len(reasons) == 4
+    assert len(reasons) == 5
     assert reasons[0] == "not on the shortlist"
     assert "give no term" in reasons[1] and "not one of this claim's branded questions" in reasons[2]
     assert "reason" in reasons[3]
@@ -270,7 +271,7 @@ def test_a_challenged_task_is_redispatched_with_one_change(world):
 
 
 def test_code_follows_the_critics_ask_when_the_coordinator_stops_answering(world):
-    world(Fake(coordinator=[[dispatch("fast", "np-1")], [("accept", {"task_id": "t9"})]],
+    world(Fake(coordinator=[[dispatch("fast", "np-1")], [("accept", {"task_id": "t9"})], [("accept", {"task_id": "t9"})]],
                live_says={Q["np-1"]: "Acme ships every order in one day (CLAIM:fast:positive)."}))
     status, events = execute(world_run())
     again = of(events, "dispatched", "t2")[0].data["task"]
@@ -418,6 +419,26 @@ def test_quotes_that_share_no_word_with_the_claim_are_flagged():
     assert kinds == ["off_claim"]
     on = inv_with(inv.arms, inv.verdicts, quotes=["a leader in scientific innovation"])
     assert fleet.critic(on, TASK, ai, []) == []
+
+
+def test_a_perception_never_said_on_its_question_is_a_floor():
+    # live Amgen, 28 Sep 2026: "falling sales" was said in 0 of 3 answers to "What has changed about Amgen?"
+    inv = inv_with([WhyArm(id="base", kind="base", label="b", k=0, n=18, decided="base")],
+                   [WhyVerdict(kind="not_said", text="AI does not say it for this question.")])
+    inv.live = WhyRate(k=0, n=3)
+    [c] = fleet.critic(inv, TASK, DEBT, [])
+    assert (c.kind, c.ask) == ("floor", "other_question") and "0 of 3" in c.text
+
+
+def test_a_turn_whose_every_call_was_refused_gets_one_repair_turn(world):
+    # live Amgen, 28 Sep 2026: the coordinator dispatched a claim already dispatched, and the fleet ended
+    fake = world(Fake(coordinator=[[dispatch("nope", "np-1")], [dispatch("fast", "np-2", reason="Fixed it.")]]))
+    status, events = execute(world_run())
+    turns = [e.data for e in of(events, "turn")]
+    assert turns[0]["repair"] is False and turns[1]["repair"] is True
+    [task] = [e.data["task"] for e in of(events, "dispatched")]
+    assert task["by"] == "model" and task["reason"] == "Fixed it."   # the model's own fix, not code's fallback
+    assert "not on the shortlist" in json.dumps(fake.of("coordinator")[1][2]["input"])   # it was told why
 
 
 def test_verdicts_that_disagree_across_questions_are_contradictions():

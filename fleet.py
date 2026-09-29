@@ -210,6 +210,10 @@ def critic(inv: Investigation, task: FleetTask, attribute, others: list[tuple[Fl
         out.append(Challenge(task_id=task.id, kind="not_reproducible", ask="other_question",
                              text="Replayed, what the model read did not give the live answers, so no experiment on "
                                   "it was fair. Another question may reproduce."))
+    elif attribute.discovered and "not_said" in kinds:
+        out.append(Challenge(task_id=task.id, kind="floor", ask="other_question",
+                             text=f"AI did not say it on this question at all ({inv.live.k} of {inv.live.n} live answers), "
+                                  "so there is nothing to trace here. Ask one where it says it."))
     elif not kinds & (DECIDED if attribute.discovered else MOVED | UNMOVED):
         if not attribute.discovered and base and base.n and base.k / base.n >= CEILING:
             out.append(Challenge(task_id=task.id, kind="ceiling", ask="other_question", evidence=[base.id],
@@ -375,26 +379,30 @@ class Coordinator:
             return
         if st.turns >= MAX_TURNS:
             return self.fallback(f"the coordinator used its {MAX_TURNS} turns")
-        st.turns += 1
-        try:
-            calls = coordinator_calls(st, self.model)
-        except access.Refused as e:
-            st.refused = e.message
-            self.log.append("stopped", reason=e.message)
-            return
-        except (Exception, access.PurseEmpty) as e:
-            self.log.append("turn", by="code", n=st.turns, error=type(e).__name__)
-            return self.fallback(f"the coordinator's call failed ({type(e).__name__})")
-        st.notes = []
-        self.log.append("turn", by="model", n=st.turns, calls=len(calls))
-        valid = 0
-        for name, args in calls:
-            problem = self.apply(name, args, "model")
-            if problem:
-                st.notes.append(f"{name}({json.dumps(args)[:200]}): {problem}")
-                self.log.append("rejected", call=name, args=args, reason=problem)
-            else:
-                valid += 1
+        for repair in (False, True):
+            # a turn whose every call was refused gets one more, with the reasons, before code decides
+            st.turns += 1
+            try:
+                calls = coordinator_calls(st, self.model)
+            except access.Refused as e:
+                st.refused = e.message
+                self.log.append("stopped", reason=e.message)
+                return
+            except (Exception, access.PurseEmpty) as e:
+                self.log.append("turn", by="code", n=st.turns, error=type(e).__name__)
+                return self.fallback(f"the coordinator's call failed ({type(e).__name__})")
+            st.notes = []
+            self.log.append("turn", by="model", n=st.turns, calls=len(calls), repair=repair)
+            valid = 0
+            for name, args in calls:
+                problem = self.apply(name, args, "model")
+                if problem:
+                    st.notes.append(f"{name}({json.dumps(args)[:200]}): {problem}")
+                    self.log.append("rejected", call=name, args=args, reason=problem)
+                else:
+                    valid += 1
+            if valid or not st.notes or st.finished or st.turns >= MAX_TURNS:
+                break
         if not valid:
             self.fallback("none of the coordinator's calls could be used")
 

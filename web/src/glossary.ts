@@ -296,8 +296,9 @@ export const GLOSSARY = {
   fleet_critic: {
     term: "Critic",
     def: "Fixed rules that challenge a verdict: it did not decide, the question already says the claim so no fix "
-      + "could show a rise (a ceiling), the replay did not match the live answers, the quotes do not mention the "
-      + "claim, or another question's verdict disagrees. No model is involved.",
+      + "could show a rise (a ceiling), AI never said a perception on that question so there was nothing to trace, "
+      + "the replay did not match the live answers, the quotes do not mention the claim, or another question's "
+      + "verdict disagrees. No model is involved.",
   },
   tested_plan: {
     term: "Tested plan",
