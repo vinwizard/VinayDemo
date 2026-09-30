@@ -24,7 +24,8 @@ import secrets
 import sqlite3
 import threading
 import time
-from contextvars import ContextVar
+from concurrent.futures import ThreadPoolExecutor
+from contextvars import ContextVar, copy_context
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -80,6 +81,14 @@ REVOKED_MESSAGE = "This pass has been switched off. The saved reports are still 
 UNKNOWN_CODE = "That link is not valid any more. You can still browse the saved reports."
 
 SPENDER: ContextVar[Optional[str]] = ContextVar("spender", default=None)
+
+
+def pmap(fn, items, workers: int) -> list:
+    """fn over items, `workers` at a time, results in order. Each call runs in a copy of the CALLER's
+    context, taken here: a pool thread starts with an empty one, so a copy taken inside it would drop
+    the paying pass (SPENDER) and a fleet's purse, and every call would go unmetered or be refused."""
+    with ThreadPoolExecutor(workers) as pool:
+        return [f.result() for f in [pool.submit(copy_context().run, fn, x) for x in items]]
 
 
 class Refused(BaseException):

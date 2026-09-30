@@ -40,8 +40,8 @@ run, the investigation fleet (`fleet.py`: a model coordinator bounded by code, p
 investigators, a code critic, a planner; `verify.py` re-checks a live fix) exchanges typed events
 on one append-only log and draws every call on one `access.Purse` in `_metered`; a re-check's live
 answers stay in its `Verification`, never on a run (WEB.md "Investigation fleet"). A thread pool
-must copy the context in the submitting thread (`pool.submit(copy_context().run, ...)`): a pool
-thread starts empty, and a copy taken there drops the paying pass and the purse.
+must copy the context in the submitting thread (`access.pmap` does, or `pool.submit(copy_context().run, ...)`):
+a pool thread starts empty, and a copy taken there drops the paying pass and the purse.
 Every measured call forces live web search (`live.TOOL_CHOICE`, `live.SEARCH_TOOL`) and
 retries once when none ran, because an ungrounded answer is paid for and then excluded; `preflight`
 steps down to `live.FALLBACK_MODEL`, then to no search at all, never to a third model, and says

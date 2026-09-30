@@ -118,18 +118,9 @@ def build_prompt(probe: Probe, answer: Answer, attributes: list[Attribute],
 
 def default_transport(prompt: str, model: str, timeout: int) -> str:
     import access  # metered: refused at a pass's cap, charged to it after
+    from providers import live
     r = access.openai_response(timeout, model=model, input=prompt)
-    return getattr(r, "output_text", None) or _text_from(r)
-
-
-def _text_from(response) -> str:
-    parts = []
-    for item in (getattr(response, "output", None) or []):
-        for block in (getattr(item, "content", None) or []):
-            t = getattr(block, "text", None)
-            if t:
-                parts.append(t)
-    return "\n".join(parts)
+    return getattr(r, "output_text", None) or live.parse_response(r)[0]
 
 
 REPAIR_PROMPT = """Each quote below was meant to be copied exactly from the answer line shown under it,
@@ -176,7 +167,7 @@ def repair_quotes(labels: dict, text: str, ask: Callable[[str], str]) -> dict:
     try:
         raw = ask(REPAIR_PROMPT.format(items="\n".join(f"- quote: {json.dumps(q, ensure_ascii=False)}\n  line:  {json.dumps(x, ensure_ascii=False)}"
                                                        for q, x in near.items())))
-        fixed = json.loads(raw[raw.find("{"):raw.rfind("}") + 1]).get("fixed") or {}
+        fixed = json_object(raw).get("fixed") or {}
     except Exception:
         return labels
     ok = lambda q, f: (isinstance(f, str) and f.strip() and f in text
@@ -249,21 +240,21 @@ REQUIRED = ("mentioned", "recommended", "negative_mention", "competitor_recommen
             "evidence_quotes", "on_topic")
 
 
-def _json_object(raw: str) -> dict:
-    """Tolerates a fenced code block."""
+def json_object(raw: str, what: str = "evaluator") -> dict:
+    """The JSON object in a model's reply, around whatever prose it added. Tolerates a fenced code block."""
     text = (raw or "").strip()
     if text.startswith("```"):
         text = text.split("```")[1] if "```" in text[3:] else text.lstrip("`")
         text = text[4:] if text.lower().startswith("json") else text
     start, end = text.find("{"), text.rfind("}")
     if start == -1 or end == -1:
-        raise ValueError("evaluator returned no JSON object")
+        raise ValueError(f"{what} returned no JSON object")
     return json.loads(text[start:end + 1])
 
 
 def parse_labels(raw: str) -> dict:
     """A malformed payload raises rather than half-populating."""
-    labels = _json_object(raw)
+    labels = json_object(raw)
     missing = [k for k in REQUIRED if k not in labels]
     if missing:
         raise ValueError(f"evaluator output missing keys: {missing}")
@@ -303,7 +294,7 @@ class ModelEvaluator:
         """-> raw proposals for evaluation.discover_attributes to validate, or None if the call failed."""
         self.calls += 1
         try:
-            proposals = _json_object(self._transport(
+            proposals = json_object(self._transport(
                 build_discovery_prompt(profile, attributes, answers), self.model, self.timeout)).get("proposals")
             if not isinstance(proposals, list):
                 raise ValueError("discovery output has no proposals list")
@@ -316,7 +307,7 @@ class ModelEvaluator:
         """-> raw actions for win_back.validate, or None if the call failed."""
         self.calls += 1
         try:
-            actions = _json_object(self._transport(prompt, self.model, self.timeout)).get("actions")
+            actions = json_object(self._transport(prompt, self.model, self.timeout)).get("actions")
             if not isinstance(actions, list):
                 raise ValueError("action-plan output has no actions list")
         except Exception as e:

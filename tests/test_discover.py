@@ -215,7 +215,7 @@ def test_amgen_is_never_placed_as_a_stock_pick():
 
     import drift
     from agents import ana, onboarding_model
-    from agents.evaluator_model import _json_object
+    from agents.evaluator_model import json_object
     from schemas import Run
     root = Path(__file__).parent.parent
     rec = json.loads((root / "tests/cassettes/amgen_discovery.json").read_text())
@@ -224,7 +224,7 @@ def test_amgen_is_never_placed_as_a_stock_pick():
     answers = {a.probe_id: a for a in run.answers}
     obs = {pid: [o for o in got if o.attribute_id in {a.id for a in declared}]
            for pid, got in run.observations.items()}
-    new, found, _ = evaluation.discover_attributes(_json_object(rec["discovery"]["raw"])["proposals"],
+    new, found, _ = evaluation.discover_attributes(json_object(rec["discovery"]["raw"])["proposals"],
                                                    {p: answers[p] for p in rec["discovery"]["answers"]},
                                                    declared, obs, run.profile)
     for pid, got in found.items():

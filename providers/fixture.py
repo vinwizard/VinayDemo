@@ -1,10 +1,10 @@
 """Demo replay provider: authored deterministic fixtures. Everything it returns is synthetic."""
 import json
-import os
 import time
 from pathlib import Path
 
 from agents.onboarding import structural_fingerprint
+from config import setting
 from schemas import Answer, Attribute, CompanyProfile, PositioningMap, Probe, RetrievalSim, Run, Topic
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
@@ -21,10 +21,7 @@ def dev_delay() -> float:
     provider was called. Its only purpose is to expose how the UI behaves when `execute_or_replay`
     blocks, which is what a real per-call provider will do. When it is on, the app says so loudly.
     """
-    try:
-        return max(0.0, float(os.environ.get(DEV_DELAY_ENV, "0") or 0))
-    except ValueError:
-        return 0.0
+    return setting(DEV_DELAY_ENV, 0.0, cast=float)
 
 
 def load(scenario: str) -> dict:

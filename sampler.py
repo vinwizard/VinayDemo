@@ -39,12 +39,7 @@ def wobble_audit() -> int:
 
 
 def run_budget() -> Optional[float]:
-    import os
-    try:
-        v = float(os.environ.get(BUDGET_ENV) or 0)
-    except ValueError:
-        return None
-    return v if v > 0 else None
+    return setting(BUDGET_ENV, 0.0, cast=float) or None
 
 
 def half_width(k: int, n: int, z: float) -> float:
