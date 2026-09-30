@@ -1,5 +1,5 @@
 /**
- * The positioning map's layout (PositioningMapView in components.tsx). No DOM here, so
+ * The positioning map's layout (PositioningMapView in report/map.tsx). No DOM here, so
  * `node --test` can check the rule the map must keep: both axes are named, in the chart and outside
  * the plot, and every dot carries its own full name, with no two labels (or a label and a dot)
  * overlapping. Widths come in measured, never guessed: a guess ran "Kymriah" into "Where you want

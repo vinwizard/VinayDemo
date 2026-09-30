@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Health, PassStatus, Run, RunSummary } from "./api";
 import { API, exchangePass, getHealth, getPass, getRun, getRuns } from "./api";
-import { History, Report } from "./components";
+import { Report } from "./report/Report";
+import { History } from "./report/history";
 import { CompanyWorkflow } from "./workflow";
 import { Guide } from "./guide";
 import { requestTour } from "./guideBus";

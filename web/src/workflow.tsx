@@ -10,7 +10,8 @@ import { getCompanies, getCompany, streamOnboard, streamRun } from "./api";
 import { ClaimsStep } from "./claims";
 import type { ReadRequest } from "./find";
 import { FindCompany, SourceList } from "./find";
-import { Logo, Report } from "./components";
+import { Report } from "./report/Report";
+import { Logo } from "./report/ui";
 import { PROVENANCE_LABEL, headline, plain, plural, potentialText, streamingProbeLabel } from "./labels";
 
 type StageState = "pending" | "active" | "done" | "skipped" | "failed";

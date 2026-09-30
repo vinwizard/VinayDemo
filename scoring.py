@@ -180,7 +180,7 @@ EXCLUDED_REASON = {"snapshot": "search snapshot (not a chatbot observation)",
 
 def exclusion(answer: Answer, ev: QueryEvaluation) -> Optional[str]:
     """Why an answer is left out of every score, as a code, or None when it counts. The one rule:
-    the report words these codes (web/src/components.tsx) instead of re-deriving them."""
+    the report words these codes (web/src/report/util.tsx, leftOut) instead of re-deriving them."""
     if answer.provenance == "web_research_snapshot":
         return "snapshot"
     if answer.provenance == "counterfactual_replay":
