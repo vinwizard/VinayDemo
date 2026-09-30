@@ -519,7 +519,11 @@ Tests: `web/src/tour.test.ts`.
     proven rewrite (`verify.verify_investigation`), which reads the page first for free and only then
     asks live, kept on the investigation. One verdict line says what to do. A rewrite whose match check
     is worse on more of its questions than it is closer sits under "Rewrites we could not stand
-    behind", with its reason; nothing is hidden. Then **where the upside is**: the biggest open claims
+    behind", with its reason; nothing is hidden. On Amgen (2026-09-30), the question-headed rewrites
+    matched their buyer questions far better than the copy before them (0.55 → 0.84, 0.48 → 0.76), and
+    the replay test still disproved both it ran: with the rewrite among what the model read, it named
+    Amgen in 0 of 36 answers against 0 of 36 without it. A closer match is a reason to test, not proof.
+    Then **where the upside is**: the biggest open claims
     as one compact table (claim, type, why when their diagnoses differ, site share, AI share, AI's own
     words), the shared diagnosis said once above it, each claim opening to all its evidence. On a live run it opens with **Investigate the gaps**
     (`web/src/fleet.tsx`, "Investigation fleet" above): a button with the fleet's estimate, then, as
