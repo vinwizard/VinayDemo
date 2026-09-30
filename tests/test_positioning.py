@@ -5,7 +5,7 @@ import pytest
 
 import positioning
 from schemas import Answer, Attribute, CompanyProfile, PositioningPoint, Probe, QueryEvaluation, Run
-from test_retrieval import replay
+from fakes import replay
 
 VOCAB = ["wiki", "task", "meeting", "ai"]
 

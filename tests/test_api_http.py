@@ -17,6 +17,7 @@ import api.main as main
 import reports
 from agents import onboarding_model
 from providers import live
+from fakes import seeded_data, sse_events
 
 SENTINEL = "sk-SENTINEL-do-not-leak-7f3a9c"
 CO = "abcdef0123"            # a copy of the seed company under an id with no offline special case
@@ -29,15 +30,7 @@ SHOWCASE = reports.RUNS / f"{main.SHOWCASE_RUN}.json"   # the committed file, re
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    companies, runs = tmp_path / "companies", tmp_path / "runs"
-    companies.mkdir()
-    runs.mkdir()
-    seed = json.loads((reports.COMPANIES / f"{main.SEED_COMPANY}.json").read_text())
-    (companies / f"{CO}.json").write_text(json.dumps(seed | {"id": CO}))
-    monkeypatch.setattr(reports, "DATA", tmp_path)            # the access database, on the public demo
-    monkeypatch.setattr(reports, "COMPANIES", companies)
-    monkeypatch.setattr(reports, "RUNS", runs)
-    monkeypatch.setattr(main, "RUNS", runs)          # list_all globs its own imported name
+    seeded_data(tmp_path, monkeypatch, CO)
     monkeypatch.delenv(main.OFFLINE_ENV, raising=False)
     monkeypatch.delenv(live.KEY_ENV, raising=False)  # api.main loaded any local .env at import
     # an unexpected model call fails loudly instead of reaching the network
@@ -74,14 +67,6 @@ def test_health_with_a_key_reports_availability_never_the_key(client, monkeypatc
 
 
 # --- runs -----------------------------------------------------------------------------------------
-
-def sse_events(text):
-    out = []
-    for block in text.strip().split("\n\n"):
-        head, data = block.split("\n", 1)
-        out.append((head.removeprefix("event: "), json.loads(data.removeprefix("data: "))))
-    return out
-
 
 def test_a_run_streamed_over_http_is_listed_and_reopens(client):
     with client.stream("GET", "/api/stream", params={"scenario": "A"}) as r:
@@ -359,13 +344,13 @@ def test_public_demo_seeds_both_scenarios_once(public):
 
 
 def test_public_demo_seeds_the_scenarios_beside_the_committed_showcase(public):
-    (main.RUNS / SHOWCASE.name).write_bytes(SHOWCASE.read_bytes())
+    (reports.RUNS / SHOWCASE.name).write_bytes(SHOWCASE.read_bytes())
     main.seed_public_runs()
     assert sorted(str(r["scenario"]) for r in public.get("/api/runs").json()) == ["A", "B", "None"]
 
 
 def test_rescoring_the_showcase_never_rewrites_the_committed_file(client):
-    saved = main.RUNS / SHOWCASE.name
+    saved = reports.RUNS / SHOWCASE.name
     saved.write_bytes(SHOWCASE.read_bytes())
     claim = client.get(f"/api/runs/{main.SHOWCASE_RUN}").json()["attributes"][0]["id"]
     r = client.post(f"/api/runs/{main.SHOWCASE_RUN}/rescore", json={"weights": {claim: 0.5}})

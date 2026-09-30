@@ -1,6 +1,5 @@
 """Offline acceptance checks (.claude/skills/evaluation-and-scoring) for the engine. Run: python -m pytest"""
 import json
-import socket
 from pathlib import Path
 
 import pytest
@@ -9,24 +8,12 @@ from pydantic import ValidationError
 import graph
 from agents import ana, evaluation, onboarding
 from providers import fixture, live
+from fakes import replay as run_scenario
 from reports import from_json, load_run, save_run, to_json
 from schemas import Answer, CompanyProfile, GapFinding, PositioningPoint, Probe, QueryEvaluation, Topic
 from scoring import domain_matches, score_topic, visibility_score
 
 ROOT = Path(__file__).resolve().parent.parent
-
-
-@pytest.fixture(autouse=True)
-def no_internet(monkeypatch):
-    def blocked(*a, **k):
-        raise OSError("network disabled in tests")
-    monkeypatch.setattr(socket, "create_connection", blocked)
-    monkeypatch.setattr(socket.socket, "connect", blocked)
-
-
-def run_scenario(s):
-    prov = fixture.FixtureProvider(s)
-    return graph.execute(graph.new_run(fixture.bundled_profile(s), prov), prov)
 
 
 @pytest.fixture(scope="module")

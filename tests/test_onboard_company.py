@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 import api.main as main
 import drift
+from fakes import openai_reply
 import fetching
 import graph
 import reports
@@ -200,9 +201,7 @@ class FakeEvaluator:
 
 def live_run(competitors, answer_text, mentioned=False, quotes=()):
     from providers import live
-    message = {"type": "message", "content": [{"type": "output_text", "text": answer_text,
-                                               "annotations": []}]}
-    transport = lambda *_: {"output": [{"type": "web_search_call"}, message]}
+    transport = lambda *_: openai_reply(answer_text, searched=True, annotations=[])
     f = fixture.FixtureProvider("A")
     prov = live.LiveProvider(f.attributes(), f.named_probes(), profile=f.profile,
                              model="test-model", transport=transport,

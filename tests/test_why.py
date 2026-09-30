@@ -2,13 +2,11 @@
 whose answers depend only on what is in the reading list it is handed — so every cause is planted
 and the loop must find it, stop on its rule, and stay inside its budget."""
 import json
-import re
 from itertools import count
 from pathlib import Path
 
-import pytest
-
 import why
+from fakes import openai_reply
 from providers import live
 from schemas import Answer, Attribute, CompanyProfile, Evidence, Run, WinBackAction
 from scoring import eligible, newcombe, z_for
@@ -31,8 +29,7 @@ REWRITE = ("We use AI and other advanced technologies across R&D to accelerate d
 
 
 def message(text):
-    return {"output": [{"type": "message", "content": [{"type": "output_text", "text": text, "annotations": []}]}],
-            "usage": {"input_tokens": 1000, "output_tokens": 100}}
+    return openai_reply(text, usage={"input_tokens": 1000, "output_tokens": 100}, annotations=[])
 
 
 def read_text(kw) -> str:

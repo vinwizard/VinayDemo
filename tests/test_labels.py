@@ -9,6 +9,7 @@ import pytest
 
 import graph
 import labels
+from fakes import replay
 from providers import fixture
 from schemas import Probe
 
@@ -36,8 +37,7 @@ def test_numbering_comes_from_the_id_not_the_list_order():
 
 @pytest.fixture(scope="module")
 def run_a():
-    prov = fixture.FixtureProvider("A")
-    return graph.execute(graph.new_run(fixture.bundled_profile("A"), prov), prov)
+    return replay("A")
 
 
 # np-4, kb-2, pos-ai_native, ai_native-b1 — anything shaped like an engine id

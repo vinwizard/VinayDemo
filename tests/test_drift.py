@@ -3,7 +3,7 @@ import pytest
 
 import drift
 from agents import ana, evaluation
-from schemas import (Answer, Attribute, AttributeObservation, AttributeScore, CompanyProfile,
+from schemas import (Answer, Attribute, AttributeObservation, AttributeScore,
                      Probe, QueryEvaluation)
 
 mk = lambda **k: Attribute(id=k.pop("id", "x"), label=k.pop("label", "X"), **k)

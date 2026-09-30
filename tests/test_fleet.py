@@ -11,11 +11,13 @@ import pytest
 
 import access
 import fleet
+from fakes import openai_reply
+from fakes import sse_events
 import reports
 import verify
 import why
 from providers import live
-from schemas import (Answer, Attribute, AttributeObservation, AttributeScore, Challenge, CompanyProfile, Evidence,
+from schemas import (Answer, Attribute, AttributeObservation, AttributeScore, CompanyProfile, Evidence,
                      FleetTask, Investigation, Probe, Run, WhyArm, WhyRate, WhyVerdict, WinBackAction)
 
 ABOUT = "https://acme.com/about"
@@ -57,8 +59,7 @@ def world_run(name="Acme", run_id="aaaaaa0001") -> Run:
 
 
 def message(text, usage=USAGE):
-    return {"output": [{"type": "message", "content": [{"type": "output_text", "text": text, "annotations": []}]}],
-            "usage": usage}
+    return openai_reply(text, usage=usage, annotations=[])
 
 
 def answer_to(reading: str, question: str = "") -> str:
@@ -563,8 +564,8 @@ def client(world, monkeypatch):
     return TestClient(main.app)
 
 
-def sse_events(text):
-    return [json.loads(d) for e, d in re.findall(r"event: (\w+)\ndata: (.*)\n", text) if e == "fleet"]
+def fleet_events(text):
+    return [d for e, d in sse_events(text) if e == "fleet"]
 
 
 def test_a_fleet_starts_streams_and_ends_over_http(world, client):
@@ -573,12 +574,12 @@ def test_a_fleet_starts_streams_and_ends_over_http(world, client):
     reports.save_run(run)
     fid = client.post(f"/api/runs/{run.id}/fleet").json()["id"]
     body = client.get(f"/api/fleets/{fid}/stream").text
-    kinds = [e["kind"] for e in sse_events(body)]
+    kinds = [e["kind"] for e in fleet_events(body)]
     assert kinds[0] == "started" and kinds[-1] == "done" and "planned" in kinds and "event: end" in body
     listed = client.get(f"/api/runs/{run.id}/fleets").json()
     assert listed["fleets"][0]["id"] == fid and listed["fleets"][0]["planned"] and listed["estimate"]["picks"] == 2
     # a reconnect resumes after the last number it saw
-    resumed = sse_events(client.get(f"/api/fleets/{fid}/stream", params={"after": 3}).text)
+    resumed = fleet_events(client.get(f"/api/fleets/{fid}/stream", params={"after": 3}).text)
     assert resumed[0]["seq"] == 4
 
 
@@ -672,7 +673,7 @@ def test_mark_fix_live_streams_the_recheck_and_keeps_run_and_spent(world, client
     access._create.pages = {**PAGES, ABOUT: REWRITE + " " + PAGES[ABOUT]}
     monkeypatch.setattr(verify.audit, "get", lambda url: (url, 200, "text/html", "<p>" + (REWRITE + " ") * 10 + "</p>"))
     body = client.get(f"/api/fleets/{fid}/verify/stream", params={"rank": 1}).text
-    events = sse_events(body)
+    events = fleet_events(body)
     assert [e["kind"] for e in events][0] == "verify" and events[-1]["kind"] == "verified" and "event: end" in body
     v = events[-1]["data"]["verification"]
     assert v["verdict"] == "confirmed" and v["live_provenance"] == "live_api"

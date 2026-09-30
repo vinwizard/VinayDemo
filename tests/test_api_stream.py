@@ -6,12 +6,12 @@ runs end to end through the stream the React app consumes, and the finished run 
 The one rule worth pinning on setup is that a failure is visible to the browser without its detail,
 because that detail can carry the API key.
 """
-import json
 
 import pytest
 
 import api.main as main
 import reports
+from fakes import sse_events
 
 
 def test_setup_failure_is_streamed_without_the_exception_detail(monkeypatch):
@@ -29,11 +29,7 @@ def test_setup_failure_is_streamed_without_the_exception_detail(monkeypatch):
 
 
 def events(scenario):
-    out = []
-    for chunk in main.run_events(scenario, "demo"):
-        head, data = chunk.strip().split("\n")
-        out.append((head.removeprefix("event: "), json.loads(data.removeprefix("data: "))))
-    return out
+    return sse_events(main.run_events(scenario, "demo"))
 
 
 @pytest.fixture

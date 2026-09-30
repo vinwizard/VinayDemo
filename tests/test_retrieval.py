@@ -9,10 +9,11 @@ from fastapi.testclient import TestClient
 import access
 import api.main as main
 import embeddings
-import graph
+from fakes import openai_reply
 import reports
 import retrieval
-from providers import fixture, live
+from fakes import replay
+from providers import live
 from schemas import WinBackAction
 
 VOCAB = ["track", "task", "project", "meeting", "note", "wiki", "doc", "transcrib", "offline"]
@@ -21,11 +22,6 @@ VOCAB = ["track", "task", "project", "meeting", "note", "wiki", "doc", "transcri
 def by_words(texts):
     """A vector per text: how often each VOCAB stem appears, so similarity follows shared topic."""
     return [[t.lower().count(w) + 0.01 for w in VOCAB] for t in texts]
-
-
-def replay(scenario="A"):
-    prov = fixture.FixtureProvider(scenario)
-    return graph.execute(graph.new_run(prov.profile, prov), prov)
 
 
 PAGES = {
@@ -136,7 +132,6 @@ def api(tmp_path, monkeypatch):
     runs.mkdir()
     monkeypatch.setattr(reports, "DATA", tmp_path)
     monkeypatch.setattr(reports, "RUNS", runs)
-    monkeypatch.setattr(main, "RUNS", runs)
     monkeypatch.setenv(live.KEY_ENV, "sk-fake-never-sent")
     monkeypatch.delenv(access.PUBLIC_ENV, raising=False)
     run = replay()
@@ -149,8 +144,7 @@ def api(tmp_path, monkeypatch):
 def test_asking_again_supplies_both_passages_and_reads_whether_you_are_named(api, monkeypatch):
     c, run = api
     sent = []
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.append(kw) or {
-        "output": [{"type": "message", "content": [{"type": "output_text", "text": "Try Notion for this."}]}]})
+    monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.append(kw) or openai_reply("Try Notion for this."))
     r = c.post(f"/api/runs/{run.id}/reask", json={"probe_id": "pt-1"})
     assert r.status_code == 200, r.text
     row = next(x for x in r.json()["retrieval"]["rows"] if x["probe_id"] == "pt-1")
@@ -170,7 +164,7 @@ def test_asking_again_keeps_weights_saved_while_the_model_answered(api, monkeypa
 
     def rescore_meanwhile(timeout, **kw):
         c.post(f"/api/runs/{run.id}/rescore", json={"weights": {claim: 0.5}})
-        return {"output": [{"type": "message", "content": [{"type": "output_text", "text": "Try Notion."}]}]}
+        return openai_reply("Try Notion.")
 
     monkeypatch.setattr(access, "_create", rescore_meanwhile)
     assert c.post(f"/api/runs/{run.id}/reask", json={"probe_id": "pt-1"}).status_code == 200

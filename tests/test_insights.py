@@ -1,14 +1,8 @@
 """Cited sources and share of voice, read off saved runs with no model calls."""
 import re
 
-import graph
+from fakes import replay as run_scenario
 from insights import cited_sources, domain_keys, searches, share_of_voice, source_kind
-from providers import fixture
-
-
-def run_scenario(s):
-    prov = fixture.FixtureProvider(s)
-    return graph.execute(graph.new_run(fixture.bundled_profile(s), prov), prov)
 
 
 def test_sources_rank_owned_and_third_party_separately():

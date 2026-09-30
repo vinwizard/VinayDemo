@@ -7,6 +7,7 @@ No key, no network: transports, the judge and the question writer are injected.
 """
 from collections import Counter
 
+from fakes import CAT_QS, Judge, openai_reply
 import graph
 import reports
 import sampler
@@ -17,26 +18,13 @@ from scoring import mentions_alias
 
 F = fixture.FixtureProvider("A")
 AIMING = "connected workspace software"
-AIM_QS = [f"Which workspace tool suits a team of {n}?" for n in (5, 10, 20, 50, 100, 200)]
+AIM_QS = CAT_QS
 PLACED = next(a for a in F.attributes() if a.id == "ai_native")   # "AI-native workspace"
 WRITTEN = [f"Which AI workspace can draft documents for a team of {n}?" for n in (3, 30, 300)]
 
 
-class Judge:
-    """Labels what the answer says. Brand answers endorse the AI-native claim, verbatim."""
-    model = "test-judge"
-
-    def label(self, probe, answer, attributes, profile):
-        named = profile.name in answer.text
-        quote = "an AI-native workspace"
-        return dict(mentioned=named, recommended=False, negative_mention=False,
-                    competitor_recommendations=[c for c in ("Linear", "Asana", "Coda") if c in answer.text],
-                    evidence_quotes=[answer.text] if named else [], on_topic=True,
-                    attributes=[dict(attribute_id="ai_native", quote=quote, polarity="positive")]
-                    if probe.kind == "named" and quote in answer.text else [])
-
-    def discover(self, profile, attributes, answers):
-        return []
+# Brand answers endorse the AI-native claim, verbatim.
+ENDORSE = ("ai_native", "an AI-native workspace")
 
 
 def run_fronts(monkeypatch, aiming=AIMING, placed_says=lambda n: "Notion fits.", wobble=1,
@@ -52,8 +40,7 @@ def run_fronts(monkeypatch, aiming=AIMING, placed_says=lambda n: "Notion fits.",
                 else "Linear, Asana and Coda lead." if q.startswith("Which companies lead in")
                 else placed_says(asked[q]) if q in placed_qs
                 else "Coda fits." if q in AIM_QS else "Notion is an AI-native workspace for teams.")
-        return {"output": [{"type": "web_search_call"},
-                           {"type": "message", "content": [{"type": "output_text", "text": text}]}]}
+        return openai_reply(text, searched=True)
 
     # ±33 points: six questions frozen a front, four asked first — as many as the injected writer can
     # supply. These tests are about the fronts; test_sampler.py owns how many questions are asked.
@@ -62,7 +49,7 @@ def run_fronts(monkeypatch, aiming=AIMING, placed_says=lambda n: "Notion fits.",
     # unweighted unless asked: a weighted claim holds back a topic of its own (test_every_weighted_claim…)
     attributes = [a if weighted else a.model_copy(update=dict(intended_weight=None)) for a in F.attributes()]
     prov = live.LiveProvider(attributes, F.named_probes(), profile=profile, model="test-model",
-                             transport=transport, evaluator=Judge(), writer=lambda l, d, n: WRITTEN[:n])
+                             transport=transport, evaluator=Judge(endorse=ENDORSE), writer=lambda l, d, n: WRITTEN[:n])
     prov.concurrency = 1
     return graph.execute(graph.new_run(profile, prov, mode="live_api"), prov), asked
 
@@ -180,8 +167,7 @@ def test_missing_front_reasons_reach_the_report_when_no_front_survives(monkeypat
         competitor_recommendations=[], evidence_quotes=[], on_topic=True, attributes=[]))
     profile = F.profile.model_copy(update=dict(core_category=AIMING, category_questions=[]))
     prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="test-model",
-                             transport=lambda *_: {"output": [{"type": "message", "content": [
-                                 {"type": "output_text", "text": "Coda fits."}]}]}, evaluator=Judge())
+                             transport=lambda *_: openai_reply("Coda fits."), evaluator=Judge())
     prov.concurrency = 1
     run = graph.execute(graph.new_run(profile, prov, mode="live_api"), prov)
     assert not any(t.front for t in run.topics)

@@ -1,18 +1,12 @@
 """How to win it back: every kept action points at a page the run read and questions it asked."""
 import json
 
-import graph
 from agents import win_back
 from agents.evaluator_model import ModelEvaluator
 from agents.onboarding_model import build_profile
-from providers import fixture
+from fakes import replay as run_for
 
 PAGE = "https://example.com/demo-source-claim-1"
-
-
-def run_for(scenario="A"):
-    p = fixture.FixtureProvider(scenario)
-    return graph.execute(graph.new_run(p.profile, p), p)
 
 
 MTG3 = "Which meeting notes tool can transcribe and summarize calls without adding a separate bot to every meeting?"

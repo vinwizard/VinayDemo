@@ -9,6 +9,7 @@ Nor does any test read the developer's own settings: a real `.env` — loaded on
 EVALUATOR_MODEL pinned in .env failed `test_health_names_...` while CI passed, which is the wrong
 way round for a check whose whole job is to pin the defaults."""
 import hashlib
+import socket
 
 import pytest
 
@@ -37,6 +38,11 @@ def default_settings(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def no_network(tmp_path, monkeypatch):
+    def blocked(*a, **k):
+        raise OSError("network disabled in tests")
+    monkeypatch.setattr(socket, "create_connection", blocked)
+    monkeypatch.setattr(socket.socket, "connect", blocked)
+
     def refuse(url, accept=None):
         raise OSError(f"no network in tests: {url}")
     monkeypatch.setattr(audit, "get", refuse)

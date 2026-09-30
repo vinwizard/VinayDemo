@@ -5,7 +5,6 @@ answer cannot reach a live score.
 """
 import pytest
 
-import drift
 from agents import evaluation
 from providers import fixture, live
 from schemas import Probe

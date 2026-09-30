@@ -4,6 +4,7 @@ import random
 from collections import Counter
 
 import access
+from fakes import CAT_QS, CATEGORY, Judge, openai_reply
 import graph
 import reports
 import sampler
@@ -13,24 +14,6 @@ from providers import fixture, live
 from scoring import wilson, z_for
 
 F = fixture.FixtureProvider("A")
-CATEGORY = "connected workspace software"
-CAT_QS = [f"Which workspace tool suits a team of {n}?" for n in (5, 10, 20, 50, 100, 200)]
-
-
-class Judge:
-    model = "test-judge"
-
-    def __init__(self, name="Notion"):
-        self.name = name
-
-    def label(self, probe, answer, attributes, profile):
-        named = profile.name in answer.text
-        return dict(mentioned=named, recommended=False, negative_mention=False,
-                    competitor_recommendations=[c for c in ("Linear", "Coda") if c in answer.text],
-                    evidence_quotes=[answer.text] if named else [], on_topic=True, attributes=[])
-
-    def discover(self, profile, attributes, answers):
-        return []
 
 
 def measure(monkeypatch, says, margin="33", profile=None, share=None, budget=None):
@@ -46,14 +29,12 @@ def measure(monkeypatch, says, margin="33", profile=None, share=None, budget=Non
         asked[q] += 1
         text = ("Linear, Coda and Notion lead." if q.startswith("Which companies lead in")
                 else says(q, asked[q]) if q in CAT_QS else "A workspace tool.")
-        return {"output": [{"type": "web_search_call"},
-                           {"type": "message", "content": [{"type": "output_text", "text": text}]}],
-                "usage": {"input_tokens": 1000, "output_tokens": 100}}
+        return openai_reply(text, searched=True, usage={"input_tokens": 1000, "output_tokens": 100})
 
     # no claims fill-in: only the front is sampled, so the counts below are the front's own
     prov = live.LiveProvider([a.model_copy(update=dict(buyer_questions=[])) for a in F.attributes()],
                              F.named_probes(), profile=profile, model="gpt-6-luna", transport=transport,
-                             evaluator=Judge(), share=share)
+                             evaluator=Judge(rivals=("Linear", "Coda")), share=share)
     prov.concurrency = 1
     return graph.execute(graph.new_run(profile, prov, mode="live_api"), prov), asked, prov
 

@@ -44,7 +44,7 @@ from providers.company import CompanyProvider
 from api import admin
 from api import fleet as fleet_api
 from api import why as why_api
-from reports import RUNS, list_companies, load_company, load_run, save_company, save_run
+from reports import list_companies, load_company, load_run, save_company, save_run
 from schemas import Attribute, Company, Evidence
 
 _LOADED = load_env()
@@ -136,7 +136,7 @@ def offline_seed(company_id: str) -> bool:
 def seed_public_runs() -> None:
     """A fresh public deploy has no saved runs (they are gitignored), so replay both bundled
     scenarios once — fixtures only, no model — and History has something to open."""
-    if not public_demo() or any(p.stem not in {SHOWCASE_RUN, *access.RETIRED} for p in RUNS.glob("*.json")):
+    if not public_demo() or any(p.stem not in {SHOWCASE_RUN, *access.RETIRED} for p in reports.RUNS.glob("*.json")):
         return
     for scenario in sorted(fixture.SCENARIOS):
         prov = fixture.FixtureProvider(scenario)
@@ -302,7 +302,7 @@ def stream(scenario: str = "A", mode: str = "demo", company: Optional[str] = Non
 def list_all(request: Request = None):
     """Run history: newest first, with enough detail to pick one for comparison."""
     out, pid = [], pass_id(holder_of(request))
-    for p in sorted(RUNS.glob("*.json")):
+    for p in sorted(reports.RUNS.glob("*.json")):
         if not access.visible("run", p.stem, pid):
             continue
         try:
