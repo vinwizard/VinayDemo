@@ -306,6 +306,26 @@ export const GLOSSARY = {
       + "pages to get found, then sources to address, then what copy cannot move. Each prediction is a replay "
       + "of what AI read, not a measurement; the numbers come straight from the experiment.",
   },
+  added_claim: {
+    term: "A claim your pages never state",
+    def: "A claim you want to be known for but do not make anywhere on the pages we read. It gets zero of "
+      + "them, which is the finding, not missing data. Adding it is itself the intent, so it starts weighted "
+      + "and cannot be weighted away — drag the slider if it matters more or less, or remove it from its row "
+      + "once added if you change your mind.",
+  },
+  measuring: {
+    term: "Measuring",
+    def: "Measuring asks a real AI model, with web search, every question of the run — about six minutes "
+      + "of paid calls. It measures that model through its API at this moment, not the ChatGPT app.",
+  },
+  replay_test: {
+    term: "Replay test",
+    def: "The proof, or disproof, that a suggested rewrite would make AI name the company for one buyer "
+      + "question, before anything is published. We ask the question live and record what the AI read, then "
+      + "ask again many times with web search off, handing it that same reading list: once as it was, once "
+      + "with the rewrite on its page. If the rewrite makes the answer name the company decidedly more often "
+      + "(a 95% range that excludes zero), it works whenever the AI reads that page. It never moves a score.",
+  },
   fix_recheck: {
     term: "Re-check",
     def: "Once you publish a fix: we read the page to see the new copy is there (free), then ask the question "

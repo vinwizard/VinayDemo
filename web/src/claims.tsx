@@ -5,6 +5,7 @@ import type { ClaimCheck, CompanyDetail } from "./api";
 import { deleteAttribute, patchCompany, reaudit } from "./api";
 import { SiteReadability } from "./audit";
 import { statedOn } from "./labels";
+import { intentWord } from "./quickwins";
 import { Term } from "./popover";
 
 interface Added { label: string; description: string; weight: number }
@@ -31,13 +32,13 @@ export function Slider({ value, onChange, id, label, min = 0, disabled }: {
   value: number; onChange: (v: number) => void; id: string; label: string; min?: number;
   disabled?: boolean;
 }) {
+  // The weight in words ("Top priority"), the number beside it for a screen reader and the report
   return (
     <div className="slider">
       <input id={id} type="range" min={min} max={1} step={0.1} value={value} aria-label={label}
+             aria-valuetext={`${intentWord(value)} (${value.toFixed(1)})`}
              disabled={disabled} onChange={(e) => onChange(Number(e.target.value))} />
-      <span className={value === 0 ? "muted" : "weight"}>
-        {value === 0 ? "not intended" : `intent ${value.toFixed(1)}`}
-      </span>
+      <span className={value === 0 ? "muted" : "weight"}>{intentWord(value)}</span>
     </div>
   );
 }
@@ -59,13 +60,13 @@ function HowWeChecked({ checks }: { checks: ClaimCheck[] }) {
   const removed = trimmed.reduce((n, c) => n + c.quotes_removed, 0);
   const left = notFound.length + unchecked.length;
   return (
-    <div className="callout checks">
+    <div className="checks">
       <div className="row checks-head">
         <h4>How we checked these claims</h4>
         <span className="pill landed">{kept.length} verified</span>
         {left > 0 && <span className="pill neutral">{left} left out</span>}
       </div>
-      <p className="muted">
+      <p style={{ margin: 0 }}>
         A claim is kept only if we can quote it word for word from your own site.
       </p>
       {notFound.length > 0 && (
@@ -162,98 +163,104 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
   const locked = saving || running;
   const fixed = locked || company.replay;
 
+  const kept = company.checks.filter((c) => c.kept).length;
+  const left = company.checks.length - kept;
+  const where = company.profile.domain ? `${company.profile.name}'s own pages` : "your documents";
+  const [firstNote, ...moreNotes] = company.warnings;
   return (
-    <div className="stack">
-      <p className="lede">
-        Optional: move the slider on each claim you actually want to be known for. A slider left at
-        zero stays at zero: we never guess an intention you did not state.
-      </p>
-
-      {!company.replay && (
-        <div className="claim category">
-          <div>
-            <label className="claim-label" htmlFor={`cat-${company.id}`}>Core category</label> <Term k="core_category" icon />
-            <p className="muted" style={{ margin: ".2rem 0 .5rem" }}>
-              What a buyer shops for when they need {company.profile.name}: where you aim to be. Half
-              the unbranded questions ask about it; the other half ask about the category AI’s answers
-              about {company.profile.name} already place it in, so the two show side by side. A
-              control question asks AI which companies lead each category, so a low score can be
-              checked. Read from your one-line description — correct it if it is wrong.
-            </p>
-            <input id={`cat-${company.id}`} placeholder="e.g. payroll software for startups" value={category}
-                   maxLength={80} style={{ width: "100%" }} disabled={fixed}
-                   onChange={(e) => { setCategory(e.target.value); setSaved(false); }} />
-            <div className="muted" style={{ marginTop: ".3rem" }}>
-              {!company.profile.core_category
-                ? "No core category saved yet (this company was read before categories existed), so where you aim to be is not asked about. Type one and save to ask about it."
-                : category.trim() !== company.profile.core_category
-                ? "Save to write new unbranded questions for this category."
-                : `${plural(company.profile.category_questions?.length ?? 0, "unbranded question")} ready for this category`}
-            </div>
+    <div className="stack claims-step">
+      <section className="part" aria-labelledby={`p1-${company.id}`}>
+        <h4 id={`p1-${company.id}`}><span className="partno" aria-hidden="true">1</span> Here’s what {where} say</h4>
+        <p>
+          {company.replay ? `${plural(company.attributes.length, "claim")}, authored for the bundled sample.`
+            : <>We read {plural(company.pages.length, "page")} and found {plural(company.attributes.length, "claim")}.
+              {" "}Every one is quoted word for word from those pages.</>}
+        </p>
+        {firstNote && (
+          <div className="note-amber">
+            {firstNote}
+            {moreNotes.length > 0 && (
+              <details>
+                <summary>{plural(moreNotes.length, "more note")}</summary>
+                <ul>{moreNotes.map((w, i) => <li key={i}>{w}</li>)}</ul>
+              </details>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </section>
 
-      <div className="claims">
-        {company.attributes.map((a) => (
-          <div key={a.id} className={`claim ${(weights[a.id] ?? 0) > 0 ? "on" : ""}${a.set_aside ? " aside" : ""}`}>
-            <div>
-              <div className="claim-label">{a.label}</div>
-              {a.description && <div className="desc">{a.description}</div>}
-              <div className="muted">
-                {company.replay
-                  ? `bundled sample: stated on ${statedOn(a.claim_pages, a.claim_pages_total)} in the sample — authored, not read from a site`
-                  : a.claim_pages_total
-                  ? `stated on ${statedOn(a.claim_pages, a.claim_pages_total)}`
-                  : "no page data"}
-                {a.added_by_user && " · added by you"}
-                {a.private_only ? <> · <Term k="private_document" /></> : a.in_documents && " · also in your documents"}
+      <section className="part" aria-labelledby={`p2-${company.id}`}>
+        <h4 id={`p2-${company.id}`}><span className="partno" aria-hidden="true">2</span> Which of these do you want to be known for?</h4>
+        <p>
+          Slide each one to how much it matters to you. Leave it at <strong>Not a goal</strong> if it
+          doesn’t: we never guess an intention you did not state. Optional.
+        </p>
+        <div className="claims">
+          {company.attributes.map((a) => (
+            <div key={a.id} className={`claim ${(weights[a.id] ?? 0) > 0 ? "on" : ""}${a.set_aside ? " aside" : ""}`}>
+              <div>
+                <div className="claim-label">{a.label}</div>
+                {a.description && <div className="desc">{a.description}</div>}
+                {a.claim_quotes[0] ? (
+                  <details className="claim-quote">
+                    <summary>
+                      {company.replay
+                        ? `bundled sample: stated on ${statedOn(a.claim_pages, a.claim_pages_total)} in the sample — authored, not read from a site`
+                        : a.claim_pages_total ? `On ${a.claim_pages} of ${plural(a.claim_pages_total, "page")}` : "no page data"}
+                      {a.added_by_user && " · added by you"}
+                      {" · see the quote"}
+                    </summary>
+                    <p className="quote">
+                      {company.replay && <span className="tag sample">sample</span>} {a.claim_quotes[0]}
+                    </p>
+                  </details>
+                ) : (
+                  <div className="muted">
+                    {a.claim_pages_total ? `stated on ${statedOn(a.claim_pages, a.claim_pages_total)}` : "no page data"}
+                    {a.added_by_user && " · added by you"}
+                  </div>
+                )}
+                {(a.private_only || a.in_documents) && (
+                  <div className="muted">{a.private_only ? <Term k="private_document" /> : "also in your documents"}</div>
+                )}
+                {a.set_aside ? (
+                  <div className="review">
+                    Set aside: kept on file, not measured.{" "}
+                    <button className="linky" disabled={fixed} onClick={() => review(a.id, "keep")}>Restore it</button>
+                  </div>
+                ) : a.review && (
+                  <div className="review">
+                    <strong>Needs your review.</strong> {a.review}{" "}
+                    <button className="linky" disabled={fixed} onClick={() => review(a.id, "keep")}>Keep it</button>
+                    {" · "}
+                    <button className="linky" disabled={fixed} onClick={() => review(a.id, "set_aside")}>Set it aside</button>
+                  </div>
+                )}
+                {a.claim_quotes.length === 0 && (
+                  <p className="muted" style={{ margin: ".3rem 0 0" }}>
+                    {company.replay && <span className="tag sample">sample</span>} {a.note ?? "No quote on their site states this."}
+                  </p>
+                )}
               </div>
-              {a.claim_quotes[0] && (
-                <p className="quote">
-                  {company.replay && <span className="tag sample">sample</span>} {a.claim_quotes[0]}
-                </p>
-              )}
-              {a.set_aside ? (
-                <div className="review">
-                  Set aside: kept on file, not measured.{" "}
-                  <button className="linky" disabled={fixed} onClick={() => review(a.id, "keep")}>Restore it</button>
-                </div>
-              ) : a.review && (
-                <div className="review">
-                  <strong>Needs your review.</strong> {a.review}{" "}
-                  <button className="linky" disabled={fixed} onClick={() => review(a.id, "keep")}>Keep it</button>
-                  {" · "}
-                  <button className="linky" disabled={fixed} onClick={() => review(a.id, "set_aside")}>Set it aside</button>
-                </div>
-              )}
-              {a.claim_quotes.length === 0 && (
-                <p className="muted" style={{ margin: ".3rem 0 0" }}>
-                  {company.replay && <span className="tag sample">sample</span>} {a.note ?? "No quote on their site states this."}
-                </p>
-              )}
+              <div className="stack" style={{ gap: ".3rem", alignItems: "stretch" }}>
+                <Slider id={`w-${company.id}-${a.id}`} label={`How much ${a.label} matters`}
+                        value={weights[a.id] ?? 0} disabled={fixed}
+                        min={a.added_by_user ? ADDED_MIN_WEIGHT : 0}
+                        onChange={(v) => { setWeights((w) => ({ ...w, [a.id]: v })); setSaved(false); }} />
+                {a.added_by_user && (
+                  <button className="linky" disabled={fixed}
+                          onClick={() => remove(a.id)}>Remove this claim</button>
+                )}
+              </div>
             </div>
-            <div className="stack" style={{ gap: ".3rem", alignItems: "flex-end" }}>
-              <Slider id={`w-${company.id}-${a.id}`} label={`Intent for ${a.label}`}
-                      value={weights[a.id] ?? 0} disabled={fixed}
-                      min={a.added_by_user ? ADDED_MIN_WEIGHT : 0}
-                      onChange={(v) => { setWeights((w) => ({ ...w, [a.id]: v })); setSaved(false); }} />
-              {a.added_by_user && (
-                <button className="linky" disabled={fixed}
-                        onClick={() => remove(a.id)}>Remove this claim</button>
-              )}
-            </div>
-          </div>
-        ))}
-
-        <div className="claim add">
-          <div>
-            <div className="claim-label">Add something your copy never states</div>
-            <p className="muted" style={{ margin: ".2rem 0 .5rem" }}>
-              A claim you want to be known for but do not make anywhere on those pages. It gets zero
-              of {company.pages.length} pages, which is the finding, not missing data. Adding it is
-              itself the intent, so it starts weighted and cannot be weighted away — drag the slider
-              if it matters more or less, or remove it from its row once added if you change your mind.
+          ))}
+        </div>
+        <details className="block add-claim" open={!company.attributes.length}>
+          <summary><span className="block-title">+ Something you want to be known for that your pages never say</span></summary>
+          <div className="block-body">
+            <p style={{ margin: 0 }}>
+              None of your {plural(company.pages.length, "page")} says it, and that is the finding, not missing data.{" "}
+              <Term k="added_claim" icon />
             </p>
             <div className="row" style={{ flexWrap: "wrap" }}>
               <input aria-label="Attribute" placeholder="e.g. Secure by default" value={draft.label}
@@ -263,35 +270,67 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
                      value={draft.description} style={{ flex: "1 1 18rem" }} disabled={fixed}
                      onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} />
             </div>
+            <Slider id={`w-${company.id}-new`} label="How much the claim you are adding matters"
+                    min={ADDED_MIN_WEIGHT} value={draft.weight} disabled={fixed}
+                    onChange={(v) => setDraft((d) => ({ ...d, weight: v }))} />
           </div>
-          <Slider id={`w-${company.id}-new`} label="Intent for the claim you are adding"
-                  min={ADDED_MIN_WEIGHT} value={draft.weight} disabled={fixed}
-                  onChange={(v) => setDraft((d) => ({ ...d, weight: v }))} />
-        </div>
-      </div>
+        </details>
+      </section>
 
-      {company.checks.length > 0 && <HowWeChecked checks={company.checks} />}
       {!company.replay && (
-        <SiteReadability audit={company.audit} name={company.profile.name} siteSays={company.profile.one_liner}
-                         onRecheck={() => reaudit(company.id).then(onCompany)} />
+        <section className="part" aria-labelledby={`p3-${company.id}`}>
+          <h4 id={`p3-${company.id}`}><span className="partno" aria-hidden="true">3</span>
+            <label htmlFor={`cat-${company.id}`}>What would a buyer call what you sell?</label></h4>
+          <p>
+            We ask AI the questions a buyer would type about this, without your name, to see if it brings
+            you up: <Term k="where_aiming">where you aim to be</Term>.{" "}
+            <Term k="core_category" icon note={<>Half the unbranded questions ask about it; the other half ask about the
+              category AI’s answers about {company.profile.name} already place it in, so the two show side by side. A
+              control question asks AI which companies lead each category, so a low score can be checked. Read from
+              your one-line description — correct it if it is wrong.</>} />
+          </p>
+          <input id={`cat-${company.id}`} placeholder="e.g. payroll software for startups" value={category}
+                 maxLength={80} style={{ width: "100%" }} disabled={fixed}
+                 onChange={(e) => { setCategory(e.target.value); setSaved(false); }} />
+          <div className="muted">
+            {!company.profile.core_category
+              ? "No core category saved yet (this company was read before categories existed), so where you aim to be is not asked about. Type one and save to ask about it."
+              : category.trim() !== company.profile.core_category
+              ? "Save to write new unbranded questions for this category."
+              : `${plural(company.profile.category_questions?.length ?? 0, "unbranded question")} ready for “${company.profile.core_category}”`}
+          </div>
+        </section>
       )}
 
-      {company.warnings.length > 0 && (
-        <div className="callout warn-box">
-          <h4>Read this before you trust a number</h4>
-          <ul>{company.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
-        </div>
+      {(company.checks.length > 0 || !company.replay) && (
+        <details className="block">
+          <summary>
+            <span className="block-title">How we checked</span>
+            <span className="block-found">
+              {company.checks.length > 0 && `${kept} of ${company.checks.length} claims verified${left ? `, ${left} left out` : ""}`}
+              {company.checks.length > 0 && !company.replay && " · "}
+              {!company.replay && "Can AI read your site?"}
+            </span>
+          </summary>
+          <div className="block-body">
+            {company.checks.length > 0 && <HowWeChecked checks={company.checks} />}
+            {!company.replay && (
+              <SiteReadability audit={company.audit} name={company.profile.name} siteSays={company.profile.one_liner}
+                               onRecheck={() => reaudit(company.id).then(onCompany)} />
+            )}
+          </div>
+        </details>
       )}
 
       {error && <div className="callout error">{error}</div>}
 
-      <div className="actions">
-        <span className="muted">
+      <div className="actions actionbar">
+        <span>
           {nothingToMeasure
             ? "Nothing on their site survived quote validation, so there is nothing to measure yet. Add a claim above to measure it."
             : intended === 0
-            ? "Nothing weighted: measuring compares what your site claims with what AI says. Weights are optional."
-            : `${intended} claim${intended === 1 ? "" : "s"} weighted${saved ? " · saved" : ""}`}
+            ? "Nothing chosen: measuring compares what your site claims with what AI says. Choosing is optional."
+            : `${plural(intended, "claim")} chosen${saved ? " · saved" : ""}`}
         </span>
         <div className="row">
           <button className="ghost" onClick={() => save(false)} disabled={fixed}>
@@ -302,13 +341,12 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
             {running ? "Measuring…" : `Measure ${company.profile.name}`}
           </button>
         </div>
+        <p className="muted actionbar-note">
+          {company.replay
+            ? "Replays the bundled sample's authored answers — no model is asked and nothing is paid."
+            : <>Asks a real AI model, with web search, about six minutes of paid calls. <Term k="measuring" icon /></>}
+        </p>
       </div>
-      <p className="muted" style={{ margin: 0 }}>
-        {company.replay
-          ? "Replays the bundled sample's authored answers — no model is asked and nothing is paid."
-          : <>Measuring asks a real AI model, with web search, every question below — about six minutes of
-            paid calls. It measures that model through its API at this moment, not the ChatGPT app.</>}
-      </p>
     </div>
   );
 }
