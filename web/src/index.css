@@ -901,3 +901,11 @@ table.compact tr.grp td { background: var(--bg); font-weight: 600; color: var(--
   .weight-row, .slider { flex-wrap: wrap; }
   .fronts-head { flex-direction: column; }
 }
+/* On a phone a compact table keeps readable columns and scrolls sideways inside its card, never the page:
+   the global "wrap anywhere" rule for table cells would otherwise squeeze a question to a letter a line. */
+@media (max-width: 600px) {
+  table.compact th, table.compact td { overflow-wrap: normal; }
+  table.compact td:first-child, table.compact th:first-child { min-width: 12rem; }
+  table.compact td:not(:first-child) { min-width: 4.5rem; }
+  .ladder > li { padding-left: .5rem; }
+}
