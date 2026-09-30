@@ -587,7 +587,7 @@ def plan(st: State) -> ActionPlan:
     for w in run.win_back:
         if w.attribute_id not in {i.attribute_id for i in items}:
             items.append(PlanItem(rank=0, attribute_id=w.attribute_id, claim=w.label, fix="untested", page_url=w.page_url,
-                                  rewrite=w.rewrite, hypothetical=True,
+                                  rewrite=w.passage(), hypothetical=True,
                                   text=f"Not tested: the run's suggested rewrite for {why.page_name(w.page_url)}."))
     weight = {a.id: a.intended_weight or 1.0 for a in run.attributes}
 

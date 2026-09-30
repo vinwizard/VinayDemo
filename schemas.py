@@ -453,10 +453,15 @@ class WinBackAction(BaseModel):
     zone: Zone
     page_url: str                       # one of the pages actually read
     current_copy: Optional[str] = None  # verbatim on that page; None = add new copy
-    rewrite: str
+    heading: Optional[str] = None       # the buyer question heading the new passage, verbatim; None on older runs
+    rewrite: str                        # the passage's body: what the company does, in plain facts
     question_ids: list[str] = []        # baseline buyer questions that did not recommend the company
     why: str = ""
     provenance: Provenance
+
+    def passage(self) -> str:
+        """The copy as it would go on the page: the question that heads it, then its answer."""
+        return f"{self.heading}\n{self.rewrite}" if self.heading else self.rewrite
 
 
 class ScoredPassage(BaseModel):
@@ -675,8 +680,12 @@ class Investigation(BaseModel):
     claim: str
     term: Optional[str] = None              # a literal word that counts as stating it; else the evaluator judges
     # What counts as stating it, as the report counts it: "endorsements" (a claim of the company's: only a
-    # positive observation, drift.py's echo) or "mentions" (a perception AI raised, or a literal term)
-    counts: Literal["mentions", "endorsements"] = "mentions"
+    # positive observation, drift.py's echo), "mentions" (a perception AI raised, or a literal term), or
+    # "names" (a buyer question's replay test: does the answer name the company at all)
+    counts: Literal["mentions", "endorsements", "names"] = "mentions"
+    # "claim": a branded question, does AI say the claim. "buyer": a quick win's replay test, does AI
+    # name the company for an unbranded question once it reads the rewrite (why.test_rewrite)
+    kind: Literal["claim", "buyer"] = "claim"
     fleet_id: Optional[str] = None          # the fleet that dispatched it (fleet.py), if any
     model: str
     judge: str
@@ -691,6 +700,7 @@ class Investigation(BaseModel):
     arms: list[WhyArm] = []
     verdicts: list[WhyVerdict] = []
     log: list[str] = []
+    verification: Optional["Verification"] = None   # a buyer replay test's fix, re-checked once it is live
 
 
 # ---------------------------------------------------------------- the investigation fleet (fleet.py)
@@ -753,8 +763,8 @@ class ActionPlan(BaseModel):
 class Verification(BaseModel):
     """A fix re-checked once it is live (verify.py). `live` is measured (live_api); the prediction and
     `control` are replays (counterfactual_replay). They are shown side by side and never pooled."""
-    fleet_id: str
-    rank: int
+    fleet_id: Optional[str] = None           # None: a quick win's replay test, kept on its Investigation
+    rank: Optional[int] = None
     attribute_id: str
     claim: str
     page_url: str
@@ -788,3 +798,6 @@ class FleetEvent(BaseModel):
     task_id: Optional[str] = None
     data: dict = {}
     spent_usd: float = 0.0
+
+
+Investigation.model_rebuild()

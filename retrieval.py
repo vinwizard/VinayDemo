@@ -140,7 +140,7 @@ def simulate(run: Run, embed: Optional[Callable] = None, read: Optional[Callable
     fixes = {}
     for a in run.win_back:
         hit = next((p for p in passages.get(a.page_url, []) if a.current_copy and a.current_copy in p), None)
-        fixes[a.attribute_id] = (a, hit.replace(a.current_copy, a.rewrite) if hit else a.rewrite)
+        fixes[a.attribute_id] = (a, hit.replace(a.current_copy, a.passage()) if hit else a.passage())
 
     queries = {p.id: list(dict.fromkeys([p.text, *(q for a in _answers(run, p.id) for q in a.searches or [])]))
                for p in probes}

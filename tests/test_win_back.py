@@ -15,8 +15,11 @@ def run_for(scenario="A"):
     return graph.execute(graph.new_run(p.profile, p), p)
 
 
+MTG3 = "Which meeting notes tool can transcribe and summarize calls without adding a separate bot to every meeting?"
+
+
 def good(**kw):
-    return {"attribute_id": "ai_native", "page_url": PAGE, "current_copy": None,
+    return {"attribute_id": "ai_native", "page_url": PAGE, "current_copy": None, "heading": MTG3,
             "rewrite": "Notion AI drafts inside your pages and answers from your own docs.",
             "question_ids": ["mtg-3"], "why": "w", **kw}
 
@@ -66,7 +69,7 @@ def test_a_fix_citing_no_question_cites_the_claims_own_unrecommended_questions()
     run.probes.append(Probe(id="ai_native-b1", topic_id="pos-ai_native", kind="blind", phase="baseline",
                             purpose="p", text="Which workspace drafts documents with AI?"))
     run.evaluations.append(QueryEvaluation(probe_id="ai_native-b1", valid=True, strength=0, explanation="x"))
-    kept, dropped = win_back.validate([good(question_ids=[])], run)
+    kept, dropped = win_back.validate([good(question_ids=[], heading="Which workspace drafts documents with AI?")], run)
     assert kept[0].question_ids == ["ai_native-b1"] and not dropped
     assert "its own buyer questions: ai_native-b1" in win_back.build_prompt(run)
 
@@ -74,7 +77,7 @@ def test_a_fix_citing_no_question_cites_the_claims_own_unrecommended_questions()
 def test_verbatim_current_copy_is_kept():
     run = run_for("A")
     kept, _ = win_back.validate([good(current_copy="Illustrative placeholder for the AI product page")], run)
-    assert kept[0].current_copy
+    assert kept[0].current_copy and kept[0].heading == MTG3
 
 
 def test_live_path_uses_the_evaluator_and_a_failed_call_is_stated():
@@ -124,3 +127,56 @@ def test_a_real_sentence_late_on_the_page_and_with_a_dash_can_be_replaced():
     assert sentence in prompt and "\\u2014" not in prompt
     kept, dropped = win_back.validate([good(attribute_id=target, page_url=url, current_copy=sentence)], run)
     assert [k.current_copy for k in kept] == [sentence], dropped
+
+
+# ---------------------------------------------------------------- question-headed rewrites
+# Amgen on gpt-6-luna, 28 Sep 2026: all three suggested rewrites rephrased the sentence already on
+# amgen.com/about. The biologics one kept 11 of its words and added 5; two of the three matched their
+# buyer questions worse than the copy they replaced (retrieval scores 0.56 -> 0.53, 0.50 -> 0.44).
+AMGEN_COPY = "Many of Amgen's medicines are made through a highly complex process involving living cells."
+AMGEN_REWRITE = ("Amgen develops and manufactures biologic medicines using living cells. Many of Amgen's "
+                 "medicines are made through this highly complex process.")
+
+
+def test_a_rewrite_that_repeats_the_copy_it_replaces_is_dropped():
+    assert win_back.repeated(AMGEN_REWRITE, AMGEN_COPY) > win_back.MAX_REPEATED
+    run = run_for("A")
+    copy = "Illustrative placeholder for the AI product page"
+    kept, dropped = win_back.validate([good(current_copy=copy, rewrite=copy + " with drafts.")], run)
+    assert kept == [] and "repeats most of the words of the sentence it replaces" in dropped[0]
+
+
+def test_a_rewrite_must_say_why_it_should_work():
+    kept, dropped = win_back.validate([good(why="  ")], run_for("A"))
+    assert kept == [] and "did not say why it should make AI name Notion" in dropped[0]
+
+
+def test_the_heading_is_one_of_the_buyer_questions_it_answers():
+    run = run_for("A")
+    for heading, reason in ((None, "no buyer question heading it"),
+                            ("How does Notion summarise meetings?", "is not one of the buyer questions it cites")):
+        kept, dropped = win_back.validate([good(heading=heading)], run)
+        assert kept == [] and reason in dropped[0]
+    # copied with different case and spacing, it is that question, and the passage is for it
+    kept, dropped = win_back.validate([good(heading="  which meeting notes tool CAN transcribe and summarize calls "
+                                                    "without adding a separate bot to every meeting ", question_ids=[])], run)
+    assert kept[0].heading == MTG3 and kept[0].question_ids == ["mtg-3"] and not dropped
+
+
+def test_a_heading_of_its_own_is_held_to_the_buyer_question_rules():
+    run = run_for("A")
+    own = dict(attribute_id="enterprise", question_ids=[])
+    for heading, reason in (("Notion SSO and audit logs", "not a question a buyer would ask"),
+                            ("Does Notion offer SAML single sign-on?", "names Notion or addresses the vendor"),
+                            ("Does your platform offer SAML single sign-on?", "names Notion or addresses the vendor")):
+        kept, dropped = win_back.validate([good(heading=heading, **own)], run)
+        assert kept == [] and reason in dropped[0], heading
+    kept, _ = win_back.validate([good(heading="Which workspace tools offer SAML single sign-on?", **own)], run)
+    assert kept[0].heading == "Which workspace tools offer SAML single sign-on?"
+
+
+def test_the_passage_is_the_heading_then_its_answer_wherever_it_is_tested():
+    run = run_for("A")
+    action = next(w for w in run.win_back if w.attribute_id == "ai_native")
+    assert action.passage() == f"{MTG3}\n{action.rewrite}"
+    assert "heading" in win_back.build_prompt(run) and "Not a rephrasing" in win_back.build_prompt(run)
