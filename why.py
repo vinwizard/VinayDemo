@@ -18,6 +18,14 @@ corrected for every look and every arm the investigation could try (Z), so its 9
 investigation, not one lucky arm. Causes can be redundant, so sources are tested as a group and
 bisected, never one guess at a time.
 
+A quick win's rewrite gets the same experiment on a buyer question (test_rewrite): ask it live and
+record what the model read, replay that, then replay it again with the rewrite on its page (leading it
+when AI read the page, added to the search results when it did not) and count the gap the question
+has: whether the answer names the company (a question that did not name it), or recommends it (one
+that named it without recommending it). That is the proof, or the disproof, that a rewrite would
+change what AI says for that question, before anything is published. A question whose replays
+already name or recommend the company nearly every time cannot show a gain, and says so (ceiling).
+
 A replay is an experiment on a recorded reading list, never a measurement: its answers are
 provenance `counterfactual_replay`, live only in the Investigation, and never reach a score.
 Edited or injected text that is not a page's own verbatim text is hypothetical copy and is labelled so. Every call goes through
@@ -44,7 +52,7 @@ from agents import evaluation
 from providers import live
 from schemas import (Answer, Attribute, CompanyProfile, Investigation, Probe, ReadResult, ReadStep,
                      WhyArm, WhyRate, WhyVerdict)
-from scoring import domain_matches, newcombe, wilson, z_for
+from scoring import domain_matches, mentions_alias, newcombe, wilson, z_for
 
 BUDGET_ENV = "WHY_BUDGET_USD"
 DEFAULT_BUDGET = 0.60      # the pilot's mean investigation cost $0.36 (2026-09-28)
@@ -190,6 +198,53 @@ class Judge:
         obs, _ = evaluation.extract_attributes(answer.model_copy(update={"evaluator_labels": labels}), [self.attribute])
         obs = [o for o in obs if o.polarity == "positive" or not self.endorse]
         return (True, obs[0].quote) if obs else (False, None)
+
+
+class NamesJudge:
+    """Whether an answer to a buyer question names the company: any of its names, whole and in its own
+    case, in the answer's body (a name only in a citation is a source it read, not something it said).
+    Free and deterministic, and the same test buyer visibility's mentions rest on (scoring.mentions_alias)."""
+
+    def __init__(self, profile: CompanyProfile):
+        self.names = profile.names()
+        self.name = f"names {profile.name} (any of its names)"
+
+    def __call__(self, text: str) -> tuple[Optional[bool], Optional[str]]:
+        if not text:
+            return None, None
+        body = evaluation.answer_body(text)
+        if not mentions_alias(body, self.names):
+            return False, None
+        m = min((m for n in self.names if (m := re.search(rf"(?<![\w.]){re.escape(n)}(?![\w])", body))),
+                key=lambda m: m.start())
+        return True, sentence_with(body, m)
+
+
+class RecommendsJudge:
+    """Whether an answer to a buyer question recommends the company: the run's evaluator labels it and
+    evaluation.evaluate validates it as it does every scored answer, so a recommendation without a
+    mention in the body, or a label that fails its checks, is not one."""
+
+    def __init__(self, profile: CompanyProfile, probe: Probe, evaluator):
+        self.profile, self.probe, self.evaluator = profile, probe, evaluator
+        self.name = f"recommends {profile.name}, evaluator ({getattr(evaluator, 'model', '?')})"
+
+    def __call__(self, text: str) -> tuple[Optional[bool], Optional[str]]:
+        if not text:
+            return None, None
+        answer = Answer(probe_id=self.probe.id, text=text, provenance="counterfactual_replay", status="ok")
+        labels = self.evaluator.label(self.probe, answer, [], self.profile)
+        if labels is None:
+            return None, None
+        e = evaluation.evaluate(self.probe, answer.model_copy(update={"evaluator_labels": labels}), self.profile)
+        if not e.valid:
+            return None, None
+        return (True, next(iter(e.evidence_quotes), None)) if e.recommended else (False, None)
+
+
+def buyer_judge(run, probe: Probe, counts: str, evaluator=None):
+    """The judge a buyer question's replay test counts with: naming, or recommending when it already named you."""
+    return RecommendsJudge(run.profile, probe, evaluator) if counts == "recommends" else NamesJudge(run.profile)
 
 
 def marker(attribute: Attribute, term: Optional[str], quotes: list[str],
@@ -578,6 +633,124 @@ class Agent:
             self.verdict("undecided", "Your copy may move it, but not decidedly within the asks allowed.", results[0])
 
 
+class RewriteAgent(Agent):
+    """A quick win's replay test: does the rewrite make AI name the company for one buyer question?
+
+    The same loop as a claim's investigation, with a different question and a different count: record
+    the live reading lists, check a replay agrees with live, then test one arm, the rewrite on its page.
+    AI read that page: the rewrite leads it (edit). It did not: the page is added to the search results
+    (inject), and a rise then says the rewrite works once the page is found, which is its own job."""
+
+    @property
+    def said(self) -> str:
+        return "recommended" if self.inv.counts == "recommends" else "named"
+
+    def run(self) -> Investigation:
+        inv = self.inv
+        name, said = self.profile.name, self.said
+        verb = inv.counts
+        try:
+            recorded = self.record()
+            with_reading = [o for o in recorded if o[1]]
+            if not with_reading:
+                self.verdict("not_reproducible", "The model answered without searching, so there is no reading list to test.")
+                return self.finish("complete")
+            self.note(f"Live: {said} {name} in {inv.live.k} of {inv.live.n} answers.")
+            self.prior()
+            # the reading list of an answer that missed the company is the one a fix is for
+            chosen = next((o for o in with_reading if o[2] is False), with_reading[0])
+            inv.reading = chosen[1]
+            base = self.add(WhyArm(id="base", kind="base", label="The recorded reading list, replayed", decided="base"),
+                            inv.reading)
+            self.ask_replays(base, LOOKS[0])
+            live_lo, live_hi = wilson(inv.live.k, inv.live.n)
+            base_lo, base_hi = wilson(base.k, base.n)
+            if inv.live.n and (base_hi < live_lo or base_lo > live_hi):
+                self.verdict("not_reproducible",
+                             f"Replayed, what the model read {verb} {name} in {base.k} of {base.n} answers against "
+                             f"{inv.live.k} of {inv.live.n} live, so the answer depends on more than what it read. "
+                             "No test of the rewrite on the reading list would be fair.")
+                return self.finish("complete")
+            self.ask_replays(base, LOOKS[1])
+            self.note(f"Replayed, the reading list {verb} {name} in {base.k} of {base.n}: close enough to live to test on.")
+            self.test_rewrite()
+            return self.finish("complete")
+        except (OverBudget, access.PurseEmpty) as e:
+            limit = f"the fleet's ${e.limit:.2f} budget" if isinstance(e, access.PurseEmpty) else f"the ${inv.budget_usd:.2f} budget"
+            self.verdict("budget", f"Stopped at {limit} before the rewrite was decided.")
+            return self.finish("stopped")
+        except Cancelled:
+            self.verdict("cancelled", "Stopped at the deadline before the rewrite was decided.")
+            return self.finish("stopped")
+
+    def test_rewrite(self) -> None:
+        inv, name = self.inv, self.profile.name
+        page, copy = self.rewrite
+        read = [u for u in urls_of(inv.reading) if same_page(u, page)]
+        if read:
+            arm = self.add(WhyArm(id=f"a{len(inv.arms)}", kind="edit", urls=[read[0]], text=[copy], hypothetical=True,
+                                  label=f"Your rewrite leads {page_name(read[0])}, a page AI already read"),
+                           lead_with(inv.reading, read[0], copy))
+        else:
+            arm = self.add(WhyArm(id=f"a{len(inv.arms)}", kind="inject", urls=[page], text=[copy], hypothetical=True,
+                                  label=f"Your rewrite on {page_name(page)}, added to what AI's search returned"),
+                           inject(inv.reading, page, name, copy))
+        self.test(arm)
+        rate = f"AI {inv.counts} {name} in {arm.k} of {arm.n} answers against {arm.base_k} of {arm.base_n} without it"
+        if arm.decided == "effect" and arm.effect > 0:
+            span = f"{arm.effect:+.0%} ({arm.interval[0]:+.0%} to {arm.interval[1]:+.0%})"
+            if arm.kind == "edit":
+                self.verdict("copy_fix", f"The rewrite works: with it leading {page_name(arm.urls[0])}, {rate}: "
+                                         f"{span} once the page is re-crawled.", arm, "copy")
+            else:
+                self.verdict("authority_fix", f"The rewrite works once AI reads it: with it on {page_name(page)}, {rate}: "
+                                              f"{span}. But AI's search did not return that page for this question, "
+                                              "so the page also has to be found.", arm, "authority")
+        elif arm.decided == "effect":
+            self.verdict("copy_lowers", f"The rewrite makes it worse: {rate}, {arm.effect:+.0%} "
+                                        f"({arm.interval[0]:+.0%} to {arm.interval[1]:+.0%}). Do not publish it.", arm, "none")
+        elif arm.base_n and 1 - arm.base_k / arm.base_n < NO_EFFECT:
+            self.verdict("ceiling", f"Already {self.said} in {arm.base_k} of {arm.base_n} replays without the rewrite: "
+                                    "this question cannot show a gain.", arm)
+        elif arm.decided == "no_effect":
+            self.verdict("not_movable", f"The rewrite does not change it: {rate}. What it says is not what this "
+                                        f"question needs to {'recommend' if inv.counts == 'recommends' else 'name'} you.",
+                         arm, "none")
+        else:
+            self.verdict("undecided", f"The rewrite may change it, but not decidedly within the asks allowed: {rate}.", arm)
+
+
+def same_page(a: str, b: str) -> bool:
+    key = lambda u: ((urlparse(u).hostname or "").removeprefix("www."), urlparse(u).path.rstrip("/"))
+    return key(a) == key(b)
+
+
+def test_rewrite(run, attribute_id: str, probe_id: str, model: Optional[str] = None, lab: Optional[Lab] = None,
+                 evaluator=None, emit: Callable[[str, dict], None] = lambda kind, payload: None,
+                 budget_usd: Optional[float] = None, cancel: Optional[threading.Event] = None) -> Investigation:
+    """One quick win's replay test: the rewrite for `attribute_id` against the buyer question `probe_id`
+    it was written for. -> the Investigation (kind "buyer"), complete or stopped. It counts the gap the
+    question has: names, or recommends when the question already named the company."""
+    from agents.win_back import verdicts
+    action = next((a for a in run.win_back if a.attribute_id == attribute_id), None)
+    probe = next((p for p in run.probes if p.id == probe_id), None)
+    if action is None or probe is None or probe.kind != "blind" or probe_id not in action.question_ids:
+        raise ValueError("only a suggested rewrite, against a buyer question it was written for, can be tested")
+    lab = lab or Lab(model or live.model_name(), live.search_tool())
+    counts = "recommends" if verdicts(run).get(probe_id) == "named, not recommended" else "names"
+    if counts == "recommends" and evaluator is None:
+        from agents.evaluator_model import ModelEvaluator
+        evaluator = ModelEvaluator(transport=lab.judge_transport)
+    judge = buyer_judge(run, probe, counts, evaluator)
+    inv = Investigation(id=uuid.uuid4().hex[:10], run_id=run.id, company=run.profile.name, question=probe.text,
+                        probe_id=probe_id, attribute_id=attribute_id, claim=action.label, model=lab.model,
+                        judge=judge.name, budget_usd=budget_usd or budget(), counts=counts, kind="buyer")
+    attribute = next((a for a in run.attributes if a.id == attribute_id), None) or Attribute(id=attribute_id, label=action.label)
+    agent = RewriteAgent(inv, lab, judge, attribute, run.profile, rewrite=(action.page_url, action.passage()),
+                         emit=emit, cancel=cancel)
+    return agent.run()
+
+
 # A file the site serves from its media library or as a download (Sitecore's /-/media/, an investor
 # site's /static-files/, a PDF, an .ashx), not a web page: it can be a source the model read, but it is
 # never a page to rewrite or add, and is never called one.
@@ -631,5 +804,5 @@ def start(run, attribute_id: str, question: str, probe_id: Optional[str] = None,
                         model=lab.model, judge=judge.name, budget_usd=budget_usd or budget(),
                         counts="mentions" if term or attribute.discovered else "endorsements")
     agent = Agent(inv, lab, judge, attribute, run.profile,
-                  rewrite=(action.page_url, action.rewrite) if action else None, emit=emit, cancel=cancel)
+                  rewrite=(action.page_url, action.passage()) if action else None, emit=emit, cancel=cancel)
     return agent.run()

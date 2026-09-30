@@ -28,7 +28,8 @@ export interface ActionPlan {
 }
 /** A fix re-checked once it is live: `live` is measured; the prediction and `control` are replays. */
 export interface Verification {
-  fleet_id: string; rank: number; attribute_id: string; claim: string; page_url: string; copy_text: string;
+  /** Null on a quick win's replay test, whose re-check is kept on its investigation. */
+  fleet_id: string | null; rank: number | null; attribute_id: string; claim: string; page_url: string; copy_text: string;
   question: string; investigation_id: string; created_at: string;
   page_has_copy: boolean | null; page_note: string;
   read_by_ai: { k: number; n: number }; live: { k: number; n: number }; live_provenance: "live_api";

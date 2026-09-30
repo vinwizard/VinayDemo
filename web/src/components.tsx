@@ -2,10 +2,15 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 import type {
-  Answer, AttributeScore, Demand, DriftReport, MapPoint, Probe, QueryEvaluation, RetrievalRow, Run, ScoredPassage, SearchTry,
-  WinBackAction, RunSummary, VisibilitySet, Zone,
+  Answer, AttributeScore, Demand, DriftReport, Investigation, MapPoint, Probe, QueryEvaluation, RetrievalRow, Run, ScoredPassage,
+  SearchTry, Verification, WhyVerdict, WinBackAction, RunSummary, VisibilitySet, Zone,
 } from "./api";
-import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_ORDER, ZONES, reaskRun, rescoreRun } from "./api";
+import {
+  GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_ORDER, ZONES, getHealth, getInvestigations, reaskRun, rescoreRun, streamRecheck,
+  streamRewriteTest,
+} from "./api";
+import { MATCH_STEP, checkProblems, matchRows, matchVerdict, missedQuestions, moved, wordDiff, wordsIn } from "./quickwins";
+import type { MatchVerdict } from "./quickwins";
 import { ADDED_MIN_WEIGHT, Slider } from "./claims";
 import {
   PROVENANCE_LABEL, ZONE_LABEL, ZONE_MEANING, claimShare, headline, plain, potentialText, probeLabels,
@@ -113,7 +118,8 @@ const wobbleText = (d: Vis) => (d.tries ?? 1) > 1 && d.repeat_sample && d.visibi
   : null;
 
 /** The one range under the number: where it would land if the whole run were repeated. */
-const rangeText = (iv?: [number, number] | null) => iv ? `could be ${iv[0]}–${iv[1]} if we asked again` : null;
+const rangeText = (iv?: [number, number] | null) => !iv ? null
+  : iv[0] === iv[1] ? `would stay at ${iv[0]} if we asked again` : `could be ${iv[0]}–${iv[1]} if we asked again`;
 
 /** The same sentence for the printed summary, where nothing can be hovered. */
 const printedRange = (d: Vis, iv?: [number, number] | null) =>
@@ -133,8 +139,9 @@ function FrontLabel({ v }: { v: VisibilitySet }) {
   return <Term k={k}>{GLOSSARY[k].term}</Term>;
 }
 
-/** The gap between the two fronts in one plain sentence, or why there is only one. */
-function gapSentence(d: DriftReport, brand: string): string | null {
+/** The gap between the two fronts in one plain sentence, or why there is only one. `short` leaves out the
+ * categories and numbers, for the header, where the strip and its rows already show them. */
+function gapSentence(d: DriftReport, brand: string, short = false): string | null {
   const fronts = frontsOf(d);
   const placed = fronts.find((v) => v.front === "placed"), aiming = fronts.find((v) => v.front === "aiming");
   const both = fronts.find((v) => v.front === "both");
@@ -142,6 +149,11 @@ function gapSentence(d: DriftReport, brand: string): string | null {
   if (placed && aiming) {
     if (d.visibility_gap == null) return null;
     const flagged = placed.low_confidence || aiming.low_confidence ? " (low confidence: see Unbranded questions)" : "";
+    if (short) {
+      return d.visibility_gap > 0 ? `AI brings ${brand} up more where its brand answers place it than where its site aims to be.`
+        : d.visibility_gap < 0 ? `AI brings ${brand} up more where its site aims to be than where its brand answers place it.`
+        : `AI brings ${brand} up as often in both.`;
+    }
     if (d.visibility_gap > 0) {
       return `AI already brings ${brand} up for ${placed.category} (${placed.visibility}) but less for ${aiming.category}, `
         + `where its site aims to be (${aiming.visibility}): a gap of ${d.visibility_gap} points${flagged}.`;
@@ -202,9 +214,7 @@ function Visibility({ d, explain }: { d: Vis; explain?: boolean }) {
   return (
     <>
       {explain ? <Term k="buyer_visibility" note={wobbleText(d)}>{score}</Term> : score}
-      {d.low_confidence && (
-        <Term k="low_confidence" note={d.low_confidence}><span className="tag warn">low confidence</span></Term>
-      )}
+      {d.low_confidence && <> <Confidence note={d.low_confidence} /></>}
     </>
   );
 }
@@ -220,50 +230,144 @@ const modelsOf = (run: Run) => {
 const untapped = (iv?: [number, number] | null): [number, number] | null =>
   iv ? [Math.round((100 - iv[1]) * 10) / 10, Math.round((100 - iv[0]) * 10) / 10] : null;
 
-/** The headline, buyer visibility and the quick wins: pinned above every tab. */
-function Figures({ d, brand, run }: { d: DriftReport; brand: string; run?: Run }) {
+/** One plain sentence per front: what the category is and where it came from. */
+const FRONT_MEANS: Record<"placed" | "aiming" | "both", (brand: string) => string> = {
+  placed: (brand) => `The category AI's own answers about ${brand} put it in.`,
+  aiming: () => "The category your own homepage puts you in.",
+  both: (brand) => `AI's answers about ${brand} put it in the category your homepage aims for.`,
+};
+
+/** What buyer visibility said for a front, in one clause, from its own number. */
+const visSaid = (v: Vis, brand: string) => v.visibility == null ? null
+  : v.visibility === 0 ? `Asked about it without the name, AI never brought ${brand} up.`
+  : `Asked about it without the name, AI brought ${brand} up: ${v.visibility} of 100.`;
+
+/** "Low confidence" in amber, never red: a caution about what the number can say, not an error. */
+function Confidence({ note }: { note: string }) {
+  return <Term k="low_confidence" note={note}><span className="conf">Low confidence</span></Term>;
+}
+
+/**
+ * The two fronts on one 0–100 buyer-visibility line: a numbered marker each, the likely range of
+ * the one that has it shaded, the gap between them dashed. A picture of the rows beneath it, which
+ * carry every number in words, so it is hidden from screen readers.
+ */
+function PositionStrip({ fronts }: { fronts: VisibilitySet[] }) {
+  const shown = fronts.filter((v) => v.visibility != null);
+  if (!shown.length) return null;
+  const at = shown.map((v) => v.visibility as number);
+  const lo = Math.min(...at), hi = Math.max(...at);
+  return (
+    <div className="strip" aria-hidden="true">
+      <div className="strip-track" />
+      {shown.map((v) => v.interval && (
+        <div key={`band-${v.front}`} className={`strip-band ${v.front}`}
+             style={{ left: `${v.interval[0]}%`, width: `${Math.max(1, v.interval[1] - v.interval[0])}%` }} />
+      ))}
+      {shown.length > 1 && hi > lo && (
+        <>
+          <div className="strip-gap" style={{ left: `${lo}%`, width: `${hi - lo}%` }} />
+          <span className="strip-gap-label" style={{ left: `${(lo + hi) / 2}%` }}>gap {Math.round((hi - lo) * 10) / 10}</span>
+        </>
+      )}
+      {shown.map((v, i) => (
+        <span key={v.front} className={`strip-mark ${v.front}`} style={{ left: `${v.visibility}%` }}>{i + 1}</span>
+      ))}
+      {[0, 50, 100].map((t) => <span key={t} className="strip-tick" style={{ left: `${t}%` }}>{t}</span>)}
+    </div>
+  );
+}
+
+/** One front as a row under the strip: its marker, label and category, its score, and what it means. */
+function FrontRow({ v, n, brand, run }: { v: VisibilitySet; n: number; brand: string; run?: Run }) {
+  return (
+    <div className="front-row">
+      <span className={`front-dot ${v.front}`} aria-hidden="true">{n}</span>
+      <div className="front-name"><FrontLabel v={v} />: <strong>{v.category}</strong></div>
+      <span className="front-score"><Visibility d={v} explain /></span>
+      <p className="front-means">
+        {FRONT_MEANS[v.front as "placed" | "aiming" | "both"](brand)} {visSaid(v, brand)}
+        {" "}<Range d={v} iv={v.interval} note={v.interval_note} />
+        {run?.sampler && <> · <FrontMargin run={run} front={v.front} /></>}
+      </p>
+    </div>
+  );
+}
+
+/** The headline, buyer visibility and the quick wins. The whole block scrolls with the page; once it
+ * is out of view a one-line summary pins itself above the tabs (Report). */
+function Figures({ d, brand, run, onQuickWins }: { d: DriftReport; brand: string; run?: Run; onQuickWins?: () => void }) {
   const h = headline(d);
   const wins = d.lost_claims.length + d.unstated_intent.length;  // the Quick wins tab's claims
   const fronts = frontsOf(d);
-  const gap = gapSentence(d, brand);
+  const gap = gapSentence(d, brand, true);
+  const unsure = fronts.filter((v) => v.low_confidence);
   return (
-    <>
     <div className="figures">
-      <div className="fig potential" data-tour="headline">
-        <span className="fig-value">
-          {h.potential == null ? "n/a" : <>{h.potential}%<Ci iv={untapped(d[`${h.field}_interval`])} of="Untapped potential" /></>}
+      <div className="fig-card headline" data-tour="headline">
+        <span className="hero-num">
+          {h.potential == null ? "n/a" : <>{h.potential}%</>}
         </span>
         <span className="fig-label">
-          {h.potential == null ? h.label : <Term k="untapped_potential">untapped potential</Term>}
+          {h.potential == null ? h.label : <Term k="untapped_potential">Untapped potential</Term>}
         </span>
-        <span className="fig-sub">{h.today ?? d.na_reasons?.[h.field]}</span>
-      </div>
-      {fronts.length ? fronts.map((v) => (
-        <div className="fig" key={v.front} data-tour="fronts">
-          <span className="fig-value"><Visibility d={v} explain /></span>
-          <span className="fig-label"><FrontLabel v={v} /></span>
-          <span className="fig-sub">{v.category} · <Range d={v} iv={v.interval} note={v.interval_note} /></span>
-          {run?.sampler && <span className="fig-sub"><FrontMargin run={run} front={v.front} /></span>}
-        </div>
-      )) : (
-        <div className="fig" data-tour="fronts">
-          <span className="fig-value"><Visibility d={d} explain /></span>
-          <span className="fig-label"><Term k="buyer_visibility">buyer visibility</Term></span>
-          <span className="fig-sub">
-            {d.visibility == null ? d.na_reasons?.visibility
-              : <Range d={d} iv={d.visibility_interval} note={d.na_reasons?.visibility_interval} />}
+        <span>{h.today ?? d.na_reasons?.[h.field]}</span>
+        {h.potential != null && untapped(d[`${h.field}_interval`]) && (
+          <span className="muted">Could be <Ci iv={untapped(d[`${h.field}_interval`])} of="Untapped potential" /></span>
+        )}
+        {wins > 0 && (
+          <span className="row" style={{ gap: ".3rem" }}>
+            <button type="button" className="chip-link" onClick={onQuickWins}>{plural(wins, "quick win")} →</button>
+            <Term k="quick_wins" icon />
           </span>
+        )}
+      </div>
+      <div className="fig-card fronts" data-tour="fronts">
+        <div className="fronts-head">
+          <strong>Does AI bring {brand} up when buyers ask?</strong>
+          <span className="muted"><Term k="buyer_visibility">buyer visibility</Term>, 0–100</span>
         </div>
-      )}
-      {wins > 0 && (
-        <div className="fig">
-          <span className="fig-value">{wins}</span>
-          <span className="fig-label"><Term k="quick_wins">{wins === 1 ? "quick win" : "quick wins"}</Term></span>
-        </div>
+        {fronts.length ? (
+          <>
+            <PositionStrip fronts={fronts} />
+            {fronts.map((v, i) => <FrontRow key={v.front} v={v} n={i + 1} brand={brand} run={run} />)}
+            {gap && <p className="gap-line">{gap}<GapVerdict d={d} /></p>}
+            {unsure.length > 0 && (
+              <details className="conf-explain">
+                <summary>What does “low confidence” mean here?</summary>
+                <p>For each category we also ask AI which companies lead it. If {brand} is not among them, a low
+                  score says more about what AI knows than about how buyers see {brand}.</p>
+                {unsure.map((v) => <p key={v.front} className="muted"><strong>{v.category}:</strong> {v.low_confidence}</p>)}
+              </details>
+            )}
+          </>
+        ) : (
+          <div className="front-row">
+            <span className="front-score"><Visibility d={d} explain /></span>
+            <p className="front-means">
+              {d.visibility == null ? d.na_reasons?.visibility
+                : <Range d={d} iv={d.visibility_interval} note={d.na_reasons?.visibility_interval} />}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The one line that stays pinned once the header has scrolled away: the headline and each front. */
+function PinnedLine({ d, run }: { d: DriftReport; run: Run }) {
+  const h = headline(d);
+  const fronts = frontsOf(d).filter((v) => v.visibility != null);
+  return (
+    <div className="pinned-line">
+      <Logo name={run.profile.name} url={run.profile.logo_url} size={22} />
+      <strong>{run.profile.name}</strong>
+      {h.potential != null && <span><strong>{h.potential}%</strong> untapped</span>}
+      {fronts.length > 0 && (
+        <span className="muted">buyer visibility {fronts.map((v) => v.visibility).join(" → ")}</span>
       )}
     </div>
-    {fronts.length > 0 && gap && <p className="gap-line">{gap}<GapVerdict d={d} /></p>}
-    </>
   );
 }
 
@@ -319,7 +423,8 @@ function questionKind(p: Probe, brand: string) {
  * "Brand question 2" as something you can read in place: hover or tap shows the question, whether
  * it counted and why not, and the AI's answer — no trip to another tab.
  */
-function QRef({ id, run }: { id: string; run: Run }) {
+/** A question, opened in place. `text` shows the question itself as the trigger instead of its short name. */
+function QRef({ id, run, text }: { id: string; run: Run; text?: boolean }) {
   const p = run.probes.find((x) => x.id === id);
   const name = probeLabels(run.probes, run.topics)[id] ?? id;
   if (!p) return <>{name}</>;
@@ -327,7 +432,7 @@ function QRef({ id, run }: { id: string; run: Run }) {
   const why = p.phase === "baseline" ? leftOut(a, e, run.profile.name) : null;
   const tab = p.kind === "named" && p.phase === "followup" ? "sources" : "questions";
   return (
-    <Popover wide label={name} className="qref" trigger={name}>
+    <Popover wide label={name} className={text ? "qref qtext" : "qref"} trigger={text ? p.text : name}>
       <strong className="pop-title">{name}</strong>
       <p className="muted">{questionKind(p, run.profile.name)}</p>
       <p><strong>Asked:</strong> {p.text}</p>
@@ -503,6 +608,16 @@ export function Report({ run, onRescored }: {
     if (btn && strip) strip.scrollLeft = btn.offsetLeft - strip.offsetLeft - 16;
   }, [tab, uid]);
   const [nudge, setNudge] = useState(true);
+  // The header scrolls with the page; once it is out of view a one-line summary pins above the tabs.
+  const head = useRef<HTMLDivElement>(null);
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => {
+    const el = head.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => setPinned(!e.isIntersecting && e.boundingClientRect.top < 0));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   const setTab = (t: ReportTab, focus = false) => {
     setNudge(false);
     setTabState(t);
@@ -533,22 +648,23 @@ export function Report({ run, onRescored }: {
 
   return (
     <article className="report">
-      <div className="report-top" ref={top}>
-        <div className="report-head">
-          <div className="row" style={{ minWidth: 0 }}>
-            <Logo name={run.profile.name} url={run.profile.logo_url} size={34} />
-            <div style={{ minWidth: 0 }}>
-              <h2>{run.profile.name}</h2>
-              <div className="muted" title={run.id}>
-                {when(run.created_at)} · {run.mode === "live_api" ? PROVENANCE_LABEL.live_api : "Sample run — authored answers"}
-                {run.mode === "live_api" && modelsOf(run).answered && ` · answered by ${modelsOf(run).answered}`}
-                {run.mode === "live_api" && modelsOf(run).judged && `, judged by ${modelsOf(run).judged}`}
-              </div>
+      <div className="report-head" ref={head}>
+        <div className="row" style={{ minWidth: 0 }}>
+          <Logo name={run.profile.name} url={run.profile.logo_url} size={34} />
+          <div style={{ minWidth: 0 }}>
+            <h2>{run.profile.name}</h2>
+            <div className="muted" title={run.id}>
+              {when(run.created_at)} · {run.mode === "live_api" ? PROVENANCE_LABEL.live_api : "Sample run — authored answers"}
+              {run.mode === "live_api" && modelsOf(run).answered && ` · answered by ${modelsOf(run).answered}`}
+              {run.mode === "live_api" && modelsOf(run).judged && `, judged by ${modelsOf(run).judged}`}
             </div>
           </div>
-          {d && <Figures d={d} brand={run.profile.name} run={run} />}
-          {d && <PrintSummary run={run} />}
         </div>
+        {d && <PrintSummary run={run} />}
+        {d && <Figures d={d} brand={run.profile.name} run={run} onQuickWins={() => setTab("win-back")} />}
+      </div>
+      <div className={`report-top${pinned ? " pinned" : ""}`} ref={top}>
+        {d && pinned && <PinnedLine d={d} run={run} />}
         {d && (
           <div className={`report-tabs${nudge ? " nudge" : ""}`} role="tablist" aria-label="Report sections" onKeyDown={onKey}>
             {TABS.map(([t, label], i) => (
@@ -582,12 +698,12 @@ export function Report({ run, onRescored }: {
               <FleetPanel run={run} />
               <WinBack run={run} />
               <Section title="Where the upside is" found="the biggest open claims first">
-                <GapCards run={run} />
+                <UpsideTable run={run} />
               </Section>
             </>
           )}
           {tab === "questions" && <div className="qboard"><BuyerQuestions run={run} /><BrandQuestions run={run} /></div>}
-          {tab === "why" && <><WhyPanel run={run} /><WhatItSearched run={run} /><WhyAIMisses run={run} /><TestAFix run={run} reasks={reasks} onReasked={reasked} /></>}
+          {tab === "why" && <WhyTab run={run} reasks={reasks} onReasked={reasked} />}
           {tab === "sources" && (
             <>
               <CitationNetwork run={run} />
@@ -605,6 +721,102 @@ export function Report({ run, onRescored }: {
         </>
       )}
     </article>
+  );
+}
+
+type WhySub = "searches" | "fix" | "site" | "ask";
+
+/**
+ * "Why AI misses you": one headline, a summary card per reason, then the detail behind each reason
+ * on its own sub-tab: the AI's searches, the match test, the site check, and the live experiment.
+ */
+function WhyTab({ run, reasks, onReasked }: {
+  run: Run; reasks: Record<string, RetrievalRow["reask"]>; onReasked: (probe: string, got: RetrievalRow["reask"]) => void;
+}) {
+  const uid = useId();
+  const s = run.insights?.searches;
+  const sim = run.retrieval;
+  const subs = ([
+    ["searches", "What the AI searched", !!s], ["fix", "Test a fix", !!sim], ["site", "Site check", true],
+    ["ask", "Ask why (live)", run.mode === "live_api"],
+  ] as [WhySub, string, boolean][]).filter(([, , on]) => on);
+  const [sub, setSub] = useState<WhySub>(subs[0][0]);
+  const open = (t: WhySub, focus = false) => {
+    setSub(t);
+    if (focus) document.getElementById(`${uid}-sub-${t}`)?.focus();
+  };
+  const onKey = (e: KeyboardEvent) => {
+    const i = subs.findIndex(([t]) => t === sub);
+    const to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: subs.length - 1 }[e.key];
+    if (to == null) return;
+    e.preventDefault();
+    open(subs[(to + subs.length) % subs.length][0], true);
+  };
+  const brand = run.profile.name;
+  const buyer = run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline");
+  const recorded = s ? buyer.filter((p) => s.questions[p.id]?.length) : [];
+  const missed = s ? missedQuestions(s.questions, recorded.map((p) => p.id)) : [];
+  const placed = new Set(buyerGroups(run)[0]?.probes.map((p) => p.id));
+  const compared = sim?.rows.filter((r) => r.yours && r.rival) ?? [];
+  const withFix = sim?.rows.filter((r) => r.fixed && r.yours) ?? [];
+  const up = withFix.filter((r) => moved(r.yours!.score, r.fixed!.score) >= MATCH_STEP).length;
+  const down = withFix.filter((r) => moved(r.yours!.score, r.fixed!.score) <= -MATCH_STEP).length;
+  const checks = run.audit ? checkProblems(run.audit.claims) : null;
+  const facts = (source: string) => run.audit?.entities.find((e) => e.source === source)?.status;
+  const card = (t: WhySub, label: string) => (
+    <button type="button" className="linky go" onClick={() => { open(t); document.getElementById(`${uid}-panel`)?.scrollIntoView({ block: "start" }); }}>{label}</button>
+  );
+  return (
+    <>
+      {s && !s.reason && recorded.length > 0 && (
+        <h3 className="why-headline">
+          On {missed.length} of {plural(recorded.length, "buyer question")}, none of the pages AI cited was {brand}'s.
+        </h3>
+      )}
+      <div className="summary-cards">
+        {s && !s.reason && (
+          <div className="card sumcard">
+            <span className="sum-title">Its searches don't reach you</span>
+            <span className="big">{s.owned} <small>of {plural(s.searches.length, "search", "searches")}</small></span>
+            <p>ended in an answer that cited your site.
+              {placed.size > 0 && [...placed].every((id) => missed.includes(id))
+                && <> None of the {placed.size} “<Term k="where_placed">where AI places you</Term>” questions did.</>}</p>
+            {card("searches", "See the searches")}
+          </div>
+        )}
+        {sim && compared.length > 0 && (
+          <div className="card sumcard">
+            <span className="sum-title">Your pages lose the match</span>
+            <span className="big">{compared.filter(behind).length} <small>of {plural(compared.length, "question")}</small></span>
+            <p>Your best page matches the question less closely than the page AI cited.
+              {withFix.length > 0 && ` The suggested rewrites score higher on ${up} of the ${withFix.length} questions they target, lower on ${down}.`}</p>
+            {card("fix", "See the scores")}
+          </div>
+        )}
+        {checks && run.audit!.claims.length > 0 && (
+          <div className="card sumcard">
+            <span className="sum-title">Something in AI's way</span>
+            <span className="big">{checks.pages} <small>of {plural(run.audit!.claims.length, "claim page")}</small></span>
+            <p>{checks.failing.length ? checks.failing.slice(0, 2).map((f) => `${GLOSSARY[f.key].term} fails on ${f.n}`).join("; ") + "." : "Nothing fails."}
+              {facts("Wikidata") === "found" && facts("Wikipedia") === "found" ? ` Wikipedia and Wikidata know ${brand}.`
+                : facts("Wikidata") === "missing" ? " No Wikidata entry." : ""}</p>
+            {card("site", "See the site check")}
+          </div>
+        )}
+      </div>
+      <div className="subtabs" role="tablist" aria-label="Why AI misses you, in detail" onKeyDown={onKey}>
+        {subs.map(([t, label]) => (
+          <button key={t} id={`${uid}-sub-${t}`} type="button" role="tab" aria-selected={sub === t}
+                  aria-controls={`${uid}-panel`} tabIndex={sub === t ? 0 : -1} onClick={() => open(t)}>{label}</button>
+        ))}
+      </div>
+      <div id={`${uid}-panel`} role="tabpanel" aria-labelledby={`${uid}-sub-${sub}`} className="subpanel">
+        {sub === "searches" && <WhatItSearched run={run} />}
+        {sub === "fix" && <TestAFix run={run} reasks={reasks} onReasked={onReasked} />}
+        {sub === "site" && <WhyAIMisses run={run} />}
+        {sub === "ask" && <WhyPanel run={run} />}
+      </div>
+    </>
   );
 }
 
@@ -850,35 +1062,9 @@ function ClaimDetail({ s, run }: { s: AttributeScore; run: Run }) {
   );
 }
 
-function GapCard({ s, run }: { s: AttributeScore; run: Run }) {
-  return (
-    <div className="card">
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <h3>{s.label}</h3>
-        <Term k={s.zone}><span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span></Term>
-      </div>
-      <p style={{ margin: ".4rem 0 0" }}><strong>{OWNER_TITLE[s.owner]}.</strong> {OWNER_TEXT[s.owner]}</p>
-      {s.limitations.filter((l) => l.includes("does not endorse it")).map((l, i) => (
-        <p className="warn" key={i} style={{ margin: ".3rem 0 0" }}>{l}</p>
-      ))}
-      {s.discovered && <p className="muted" style={{ margin: ".3rem 0 0" }}>Discovered from the answers.</p>}
-      <p className="muted" style={{ margin: ".3rem 0 0" }}>
-        Your site: {siteShare(s)} · AI: {aiShare(s)}
-      </p>
-      {s.quotes[0] && <p className="quote">{plain(s.quotes[0])}</p>}
-      {s.owner === "messaging_gap" && (
-        <p className="muted" style={{ marginBottom: 0 }}>
-          Not an AI problem: your own copy does not state this clearly enough to be repeated.
-        </p>
-      )}
-      <div style={{ marginTop: ".4rem" }}>
-        <Popover wide label={s.label} className="linky" trigger="All evidence"><ClaimDetail s={s} run={run} /></Popover>
-      </div>
-    </div>
-  );
-}
-
-function GapCards({ run }: { run: Run }) {
+/** "Where the upside is": the biggest open claims first, one compact row each. The diagnosis they
+ * share is said once; each row opens everything about its claim. */
+function UpsideTable({ run }: { run: Run }) {
   const gaps = run.attribute_scores
     .filter((s) => GAP_ZONES.includes(s.zone))
     .sort((a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.intended_weight ?? 0) - (a.intended_weight ?? 0))
@@ -886,9 +1072,37 @@ function GapCards({ run }: { run: Run }) {
   if (!gaps.length) {
     return <div className="card muted">No open opportunity: every claim has landed or is unweighted.</div>;
   }
+  const owners = [...new Set(gaps.map((s) => s.owner))];
+  const shared = owners.length === 1 ? owners[0] : null;
   return (
-    <div className="gaps">
-      {gaps.map((s) => <GapCard key={s.attribute_id} s={s} run={run} />)}
+    <div className="stack" style={{ gap: ".5rem" }}>
+      {shared && (
+        <p style={{ margin: 0 }}>
+          {gaps.length > 1 ? `All ${gaps.length} are` : "It is"} <strong>{OWNER_TITLE[shared].toLowerCase()}s</strong>: {OWNER_TEXT[shared]}
+          {shared === "messaging_gap" && " Not an AI problem: your own copy does not state this clearly enough to be repeated."}
+        </p>
+      )}
+      <div className="table-scroll">
+        <table className="compact">
+          <thead><tr><th>Claim</th><th>Type</th>{!shared && <th>Why</th>}<th>Your site</th><th>AI</th></tr></thead>
+          <tbody>
+            {gaps.map((s) => (
+              <tr key={s.attribute_id}>
+                <td><Popover wide label={s.label} className="linky row-open" trigger={s.label}><ClaimDetail s={s} run={run} /></Popover>
+                  {s.discovered && <span className="muted"> (AI's own)</span>}
+                  {s.quotes[0] && <p className="quote small-quote">{plain(s.quotes[0])}</p>}
+                  {s.limitations.filter((l) => l.includes("does not endorse it")).map((l, i) => <p className="warn" key={i} style={{ margin: 0 }}>{l}</p>)}
+                </td>
+                <td><Term k={s.zone}><span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span></Term></td>
+                {!shared && <td><strong>{OWNER_TITLE[s.owner]}.</strong> {OWNER_TEXT[s.owner]}</td>}
+                <td>{s.discovered ? "Found in the answers, not on the site" : siteShare(s)}</td>
+                <td>{aiShare(s)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="muted" style={{ margin: 0 }}>Open a claim for AI's own words and all its evidence.</p>
     </div>
   );
 }
@@ -1484,11 +1698,30 @@ function Searched({ run, p }: { run: Run; p: Probe }) {
   );
 }
 
+/** The buyer questions in the three groups the report uses: where AI places you, where you aim to
+ * be, and the questions asked for your own claims. */
+function buyerGroups(run: Run): { title: ReactNode; probes: Probe[] }[] {
+  const topics = new Map(run.topics.map((t) => [t.id, t]));
+  const buyer = run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline");
+  const front = (p: Probe) => topics.get(p.topic_id)?.front ?? null;
+  const label = (f: string) => topics.get(buyer.find((p) => front(p) === f)?.topic_id ?? "")?.label ?? "";
+  const groups: { title: ReactNode; probes: Probe[] }[] = [];
+  const placed = buyer.filter((p) => front(p) === "placed" || front(p) === "both");
+  const aiming = buyer.filter((p) => front(p) === "aiming");
+  if (placed.length) groups.push({ title: <><Term k="where_placed">Where AI places you</Term>: {label(front(placed[0])!)}</>, probes: placed });
+  if (aiming.length) groups.push({ title: <><Term k="where_aiming">Where you aim to be</Term>: {label("aiming")}</>, probes: aiming });
+  const rest = buyer.filter((p) => !placed.includes(p) && !aiming.includes(p));
+  if (rest.length) groups.push({ title: "Your claims", probes: rest });
+  return groups;
+}
+
 /**
- * The model's own web searches for the buyer questions, near-duplicates grouped: a story from one
- * question, then every search with the questions it came from and the pages cited after it.
+ * The model's own web searches for the buyer questions, grouped by the question they came from: does
+ * any answer to it cite a page of yours? One question opens to its searches; the flat list of every
+ * search, near-duplicates grouped, is one click away.
  */
 function WhatItSearched({ run }: { run: Run }) {
+  const [flat, setFlat] = useState(false);
   const s = run.insights?.searches;
   if (!s) return null;
   const replay = run.mode !== "live_api";
@@ -1502,58 +1735,100 @@ function WhatItSearched({ run }: { run: Run }) {
   const found = s.reason ? (s.answers ? "no web searches" : buyer.some((p) => answeredOk(run, p)) ? "not recorded" : "no buyer answers") : `${searcher(run)} ran ${plural(s.searches.length, "different search", "different searches")};`
     + ` your site was cited after ${s.owned ? s.owned : "none"} of them`;
   return (
-    <Block open={!window.matchMedia(PHONE).matches} title="What the AI searched" found={found}>
+    <Section title="What the AI searched" found={found}>
       {s.reason ? <p className="muted" style={{ margin: 0 }}>{s.reason}</p> : (
         <>
-          <p className="muted" style={{ margin: 0 }}>
+          <p style={{ margin: 0 }}>
             {replay && <>{SAMPLE_NOTE} The searches were written by hand too. </>}
             To answer a buyer, the AI first runs a few <Term k="fan_out">web searches</Term> of its own.
-            A search that never leads to your site is where you go missing. Tap one for details.
+            A search that never leads to your site is where you go missing. Open a question for its searches.
           </p>
           {story && (
-            <p className="callout story">
+            <p className="callout story-line">
               {replay && <span className="tag sample">sample</span>}
               When a buyer asked “{story.text}”, {tryStory(first(story)!, searcher(run))}
             </p>
           )}
-          <ul className="search-list">
-            {s.searches.map((g) => (
-              <li key={g.query}>
-                <Popover wide label={`Search: ${g.query}`} className="search-row"
-                         trigger={<>
-                           <span className="search-q">“{g.query}”</span>
-                           <span className="chip-count">{plural(g.answers, "answer")}</span>
-                           {g.owned_pages.length ? <span className="pill landed">your site</span>
-                             : <span className="pill neutral">not you</span>}
-                         </>}>
-                  <strong className="pop-title">“{g.query}”</strong>
-                  {g.variants.length > 0 && (
-                    <p className="muted">Also searched as {quoted(g.variants)}: the same search with another year or spelling.</p>
-                  )}
-                  <h4>Came from</h4>
-                  <p>{refs(g.questions, run)} · run in {plural(g.answers, "answer")}</p>
-                  <h4>Pages cited in {g.answers === 1 ? "that answer" : "those answers"}</h4>
-                  {g.pages.length ? (
-                    <ul className="page-list">
-                      {g.pages.map((u) => (
-                        <li key={u}>{page(u)}{g.owned_pages.includes(u) && <> <span className="pill landed">your site</span></>}</li>
-                      ))}
-                    </ul>
-                  ) : <p className="muted">None.</p>}
-                  <p className="muted">
-                    The AI does not say which search found which page, so this lists every page{" "}
-                    {g.answers === 1 ? "that answer" : "those answers"} cited
-                    {replay && ". Every example.com address is a fictional placeholder"}.
-                  </p>
-                </Popover>
-              </li>
-            ))}
-          </ul>
+          {!flat ? (
+            <div className="table-scroll">
+              <table className="compact">
+                <thead><tr><th>Buyer question</th><th className="num">Searches</th><th>Cited your site?</th></tr></thead>
+                {buyerGroups(run).map((g, gi) => (
+                  <tbody key={gi}>
+                    <tr className="grp"><td colSpan={3}>{g.title} · {g.probes.filter((p) => cited(s.questions[p.id]) === true).length} of {plural(g.probes.length, "question")} cited you</td></tr>
+                    {g.probes.map((p) => {
+                      const tries = s.questions[p.id] ?? [];
+                      const searches = [...new Set(tries.flatMap((t) => t.searches))];
+                      const pages = [...new Set(tries.flatMap((t) => t.pages))];
+                      const yours = cited(tries);
+                      return (
+                        <tr key={p.id}>
+                          <td>
+                            <details className="qsearches">
+                              <summary>{p.text}</summary>
+                              <div className="chips">{searches.map((q) => <span key={q} className="chip-q">{q}</span>)}</div>
+                              <p className="muted" style={{ margin: ".3rem 0 0" }}>
+                                {plural(pages.length, "page")} cited{yours ? `, ${plural(new Set(tries.flatMap((t) => t.owned_pages)).size, "of them", "of them")} yours` : ", none yours"} · <QRef id={p.id} run={run} />
+                              </p>
+                            </details>
+                          </td>
+                          <td className="num">{searches.length}</td>
+                          <td>{yours == null ? <span className="muted">not recorded</span> : yours ? <span className="ok">Yes</span> : "No"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                ))}
+              </table>
+            </div>
+          ) : (
+            <ul className="search-list">
+              {s.searches.map((g) => (
+                <li key={g.query}>
+                  <Popover wide label={`Search: ${g.query}`} className="search-row"
+                           trigger={<>
+                             <span className="search-q">“{g.query}”</span>
+                             <span className="chip-count">{plural(g.answers, "answer")}</span>
+                             {g.owned_pages.length ? <span className="pill landed">your site</span>
+                               : <span className="pill neutral">not you</span>}
+                           </>}>
+                    <strong className="pop-title">“{g.query}”</strong>
+                    {g.variants.length > 0 && (
+                      <p className="muted">Also searched as {quoted(g.variants)}: the same search with another year or spelling.</p>
+                    )}
+                    <h4>Came from</h4>
+                    <p>{refs(g.questions, run)} · run in {plural(g.answers, "answer")}</p>
+                    <h4>Pages cited in {g.answers === 1 ? "that answer" : "those answers"}</h4>
+                    {g.pages.length ? (
+                      <ul className="page-list">
+                        {g.pages.map((u) => (
+                          <li key={u}>{page(u)}{g.owned_pages.includes(u) && <> <span className="pill landed">your site</span></>}</li>
+                        ))}
+                      </ul>
+                    ) : <p className="muted">None.</p>}
+                    <p className="muted">
+                      The AI does not say which search found which page, so this lists every page{" "}
+                      {g.answers === 1 ? "that answer" : "those answers"} cited
+                      {replay && ". Every example.com address is a fictional placeholder"}.
+                    </p>
+                  </Popover>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p style={{ margin: 0 }}>
+            <button type="button" className="linky" onClick={() => setFlat((f) => !f)}>
+              {flat ? "Group the searches by buyer question" : `Show all ${plural(s.searches.length, "search", "searches")} as one list`}
+            </button>
+          </p>
         </>
       )}
-    </Block>
+    </Section>
   );
 }
+
+/** Whether any try of a question cited a page of yours; null when nothing was recorded for it. */
+const cited = (tries?: SearchTry[]) => (tries?.length ? tries.some((t) => t.owned_pages.length > 0) : null);
 
 const score = (x: number) => x.toFixed(2);
 const behind = (r: RetrievalRow) => !!(r.yours && r.rival && r.rival.score > r.yours.score);
@@ -1562,25 +1837,6 @@ const behind = (r: RetrievalRow) => !!(r.yours && r.rival && r.rival.score > r.y
 function biggestFix(run: Run): RetrievalRow | undefined {
   const lift = (r: RetrievalRow) => (r.fixed && r.yours ? r.fixed.score - r.yours.score : -1);
   return (run.retrieval?.rows ?? []).filter((r) => behind(r) && lift(r) > 0).sort((a, b) => lift(b) - lift(a))[0];
-}
-
-/** Your passage, the cited page's and yours with the fix, as three bars on one scale (0 to 1). */
-function ScoreBars({ r }: { r: RetrievalRow }) {
-  const bars = [
-    ["You", r.yours, "var(--muted)"], ["Page AI cited", r.rival, "var(--contested)"],
-    ["With the fix", r.fixed, "var(--landed)"],
-  ] as const;
-  return (
-    <span className="score-bars">
-      {bars.filter(([, p]) => p).map(([label, p, fill]) => (
-        <span key={label} className="score-bar">
-          <span className="score-label">{label}</span>
-          <span className="bar-track thin"><span className="bar" style={{ width: `${Math.max(2, p!.score * 100)}%`, background: fill }} /></span>
-          <span className="score-num">{score(p!.score)}</span>
-        </span>
-      ))}
-    </span>
-  );
 }
 
 /** A passage in place: its page, the words, and which search it matched best. */
@@ -1613,13 +1869,13 @@ function Reask({ run, r, got, onReasked }: {
     <div className="reask">
       {got ? (
         <p style={{ margin: 0 }}>
-          <span className="tag sample">simulation</span>{" "}
+          <span className="tag sample">quick check, not proof</span>{" "}
           Handed the rewritten passage and the cited page as its only sources, {got.model}{" "}
           {got.named ? <strong className="own">named {run.profile.name}.</strong> : <strong>still did not name {run.profile.name}.</strong>}
         </p>
       ) : (
         <button type="button" className="primary" disabled={busy} onClick={ask}>
-          {busy ? "Asking…" : "Ask the AI again with the fix"}
+          {busy ? "Asking…" : "Quick check: 1 ask, not proof"}
         </button>
       )}
       <p className="muted" style={{ margin: 0 }}>
@@ -1630,14 +1886,30 @@ function Reask({ run, r, got, onReasked }: {
   );
 }
 
+/** A retrieval row's result in words: how the rewrite moved your match, else how you compare. */
+function fixResult(r: RetrievalRow): { text: string; tone: string } {
+  if (r.fixed && r.yours) {
+    const d = moved(r.yours.score, r.fixed.score);
+    if (r.rival && r.fixed.score >= r.rival.score) return { text: "Rewrite matches as well as the cited page", tone: "ok" };
+    return d >= MATCH_STEP ? { text: "Rewrite: closer", tone: "ok" } : d <= -MATCH_STEP ? { text: "Rewrite: worse", tone: "worse" }
+      : { text: "Rewrite: no change", tone: "muted" };
+  }
+  if (!r.rival || !r.yours) return { text: "No cited page to compare", tone: "muted" };
+  return behind(r) ? { text: "Cited page matches better", tone: "muted" } : { text: "You match better", tone: "ok" };
+}
+
+const SHOWN_FIX_ROWS = 8;
+
 /**
  * Test a fix: per buyer question, your best passage against the best passage of a page AI cited,
  * and yours again with the win-back rewrite in the page. Similarity only, labelled as a simulation.
+ * One table, rows with a suggested fix first; a question opens its passages and the quick check.
  */
 function TestAFix({ run, reasks, onReasked }: {
   run: Run; reasks: Record<string, RetrievalRow["reask"]>;
   onReasked: (probe: string, got: RetrievalRow["reask"]) => void;
 }) {
+  const [all, setAll] = useState(false);
   const sim = run.retrieval;
   if (!sim) return null;
   const replay = sim.provenance !== "live_api";
@@ -1649,48 +1921,64 @@ function TestAFix({ run, reasks, onReasked }: {
     ? `Your best page is weaker than the page AI cited for ${weaker} of ${plural(compared.length, "unbranded question")}`
     : "no page AI cited could be compared";
   const rows = [...sim.rows].sort((a, b) => Number(!!b.fixed) - Number(!!a.fixed) || Number(behind(b)) - Number(behind(a)));
+  const shown = all ? rows : rows.slice(0, SHOWN_FIX_ROWS);
+  const num = (p: ScoredPassage | null) => (p ? score(p.score) : "–");
   return (
-    <Block open={!window.matchMedia(PHONE).matches} title="Test a fix" found={found}>
-      <p className="muted" style={{ margin: 0 }}>
+    <Section title="Test a fix" found={found}>
+      <p style={{ margin: 0 }}>
         {replay && <>Authored sample, not computed: the passages and scores were written by hand to show this panel. </>}
-        We split your pages and the pages AI cited into short passages and scored how closely each
-        matches the question and the AI's searches for it: a <Term k="retrieval_score">retrieval score</Term> from
-        0 to 1. Then we put the suggested rewrite from “Quick wins” into your page and scored it again.
-        A simulation of what the AI reads first, not a promise of a citation. Tap a question for the passages.
+        A <Term k="retrieval_score">retrieval score</Term> from 0 to 1: how closely a passage of a page matches the
+        question and the AI's searches for it. We scored your pages, the pages AI cited, and your page with the
+        suggested rewrite from Quick wins in it. A simulation of what the AI reads first, not a promise of a citation.
+        Open a question for the passages.
       </p>
-      <ul className="search-list">
-        {rows.map((r) => {
-          const p = probes.get(r.probe_id);
-          const fix = r.fix_attribute_id ? fixes.get(r.fix_attribute_id) : undefined;
-          return (
-            <li key={r.probe_id}>
-              <Popover wide label={`Passages for: ${p?.text ?? r.probe_id}`} className="search-row fix-row"
-                       trigger={<>
-                         <span className="search-q">{p?.text ?? r.probe_id}</span>
-                         <ScoreBars r={r} />
-                       </>}>
-                <strong className="pop-title">{p?.text}</strong>
-                {replay && <p><span className="tag sample">sample</span> Written by hand; example.com pages are fictional.</p>}
-                {r.yours ? <PassageQuote title="Your best passage" p={r.yours} /> : <p className="muted">None of your pages could be read.</p>}
-                {r.rival ? <PassageQuote title="Best passage of a page AI cited" p={r.rival} />
-                  : <p className="muted">No page AI cited for this question could be read.</p>}
-                {r.fixed ? (
-                  <>
-                    <PassageQuote title={`With the fix${fix ? ` for “${fix.label}”` : ""}`} p={r.fixed} />
-                    <p className="muted" style={{ margin: 0 }}>
-                      {r.rival && r.fixed.score >= r.rival.score ? "The rewrite now matches this question at least as closely as the page AI cited."
-                        : r.yours && r.fixed.score > r.yours.score ? "The rewrite closes part of the gap."
-                        : "The rewrite does not match this question more closely than your page already does."}
-                    </p>
-                    <Reask run={run} r={r} got={r.reask ?? reasks[`${run.id}:${r.probe_id}`]} onReasked={onReasked} />
-                  </>
-                ) : <p className="muted">No suggested fix targets this question.</p>}
-                <p className="muted">Scored against {plural(r.queries, "search", "searches")}: the question and the AI's own searches for it; the best match counts.</p>
-              </Popover>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="table-scroll">
+        <table className="compact">
+          <thead><tr><th>Buyer question</th><th className="num">You</th><th className="num">Page AI cited</th>
+            <th className="num">With the fix</th><th>Result</th></tr></thead>
+          <tbody>
+            {shown.map((r) => {
+              const p = probes.get(r.probe_id);
+              const fix = r.fix_attribute_id ? fixes.get(r.fix_attribute_id) : undefined;
+              const res = fixResult(r);
+              return (
+                <tr key={r.probe_id}>
+                  <td>
+                    <Popover wide label={`Passages for: ${p?.text ?? r.probe_id}`} className="linky row-open" trigger={p?.text ?? r.probe_id}>
+                      <strong className="pop-title">{p?.text}</strong>
+                      {replay && <p><span className="tag sample">sample</span> Written by hand; example.com pages are fictional.</p>}
+                      {r.yours ? <PassageQuote title="Your best passage" p={r.yours} /> : <p className="muted">None of your pages could be read.</p>}
+                      {r.rival ? <PassageQuote title="Best passage of a page AI cited" p={r.rival} />
+                        : <p className="muted">No page AI cited for this question could be read.</p>}
+                      {r.fixed ? (
+                        <>
+                          <PassageQuote title={`With the fix${fix ? ` for “${fix.label}”` : ""}`} p={r.fixed} />
+                          <p className="muted" style={{ margin: 0 }}>
+                            {r.rival && r.fixed.score >= r.rival.score ? "The rewrite now matches this question at least as closely as the page AI cited."
+                              : r.yours && r.fixed.score > r.yours.score ? "The rewrite closes part of the gap."
+                              : "The rewrite does not match this question more closely than your page already does."}
+                          </p>
+                          <Reask run={run} r={r} got={r.reask ?? reasks[`${run.id}:${r.probe_id}`]} onReasked={onReasked} />
+                        </>
+                      ) : <p className="muted">No suggested fix targets this question.</p>}
+                      <p className="muted">Scored against {plural(r.queries, "search", "searches")}: the question and the AI's own searches for it; the best match counts.</p>
+                    </Popover>
+                  </td>
+                  <td className="num">{num(r.yours)}</td>
+                  <td className="num">{num(r.rival)}</td>
+                  <td className="num">{num(r.fixed)}</td>
+                  <td className={res.tone}>{res.text}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > SHOWN_FIX_ROWS && (
+        <p style={{ margin: 0 }}><button type="button" className="linky" onClick={() => setAll((x) => !x)}>
+          {all ? "Show fewer" : `Show ${plural(rows.length - SHOWN_FIX_ROWS, "more question")}`}
+        </button></p>
+      )}
       {sim.skipped.length > 0 && (
         <details className="skipped">
           <summary className="muted">What we could not read ({sim.skipped.length})</summary>
@@ -1698,7 +1986,7 @@ function TestAFix({ run, reasks, onReasked }: {
         </details>
       )}
       {!replay && <p className="muted" style={{ margin: 0 }}>{plural(sim.passages, "passage")} from {plural(sim.pages, "page")}, scored with {sim.model}.</p>}
-    </Block>
+    </Section>
   );
 }
 
@@ -1708,7 +1996,7 @@ function FixLine({ run, onOpen }: { run: Run; onOpen: () => void }) {
   if (!r?.yours || !r.rival || !r.fixed) return null;
   const q = run.probes.find((p) => p.id === r.probe_id);
   return (
-    <p className="callout story">
+    <p className="callout story-line">
       {run.retrieval?.provenance !== "live_api" && <span className="tag sample">sample</span>}{" "}
       <strong>Biggest fixable gap:</strong> for “{q?.text}”, your best page scores {score(r.yours.score)} and
       the page AI cited {score(r.rival.score)}. With the suggested rewrite yours scores {score(r.fixed.score)}{" "}
@@ -1954,62 +2242,288 @@ function winBackPlan(run: Run) {
   return { targets, actions: (run.win_back ?? []).filter((a) => zones.has(a.attribute_id)) };
 }
 
-/** One verified fix: the page to change, the suggested rewrite and the buyer questions it serves. */
+/** What a rewrite changes on its page: a word diff when it replaces copy, else the new passage. The
+ * heading is the buyer question the passage answers. */
+function WhatChanges({ a }: { a: WinBackAction }) {
+  const parts = a.current_copy ? wordDiff(a.current_copy, a.rewrite) : null;
+  return (
+    <div className="changes">
+      <h4>What changes on <a href={a.page_url} target="_blank" rel="noreferrer">{shortPage(a.page_url)}</a></h4>
+      {a.heading && <p className="diff-heading"><ins>{a.heading}</ins></p>}
+      {parts ? (
+        <p className="diff">
+          {parts.map((d, i) => d.op === "same" ? <span key={i}>{d.text} </span>
+            : d.op === "add" ? <ins key={i}>{d.text}</ins> : <del key={i}>{d.text}</del>).reduce<ReactNode[]>(
+            (out, el, i) => (i ? [...out, " ", el] : [el]), [])}
+        </p>
+      ) : <p className="diff"><ins>{a.rewrite}</ins></p>}
+      <p className="muted">
+        {parts ? `${plural(wordsIn(parts, "add"), "word")} added, ${wordsIn(parts, "del")} removed`
+          : "A new passage: nothing on the page is replaced"}
+        {a.heading ? ", headed by the buyer's own question." : "."}
+      </p>
+    </div>
+  );
+}
+
+const shortPage = (u: string) => u.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+
+/** Step ① as a table: per targeted question, today's best passage, the page AI cited, and with the
+ * rewrite, from the retrieval simulation (the same scores as Why AI misses you → Test a fix). */
+function MatchTable({ a, run }: { a: WinBackAction; run: Run }) {
+  const rows = matchRows(a, run.retrieval?.rows ?? []);
+  const cited = new Map((run.retrieval?.rows ?? []).map((r) => [r.probe_id, r.rival?.url]));
+  if (!run.retrieval) return <p className="muted">No match scores for this run.</p>;
+  return (
+    <div className="table-scroll">
+      <table className="compact">
+        <thead><tr><th>Buyer question</th><th className="num">Today</th><th className="num">Page AI cited</th>
+          <th className="num">With the rewrite</th><th>Change</th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.probe_id}>
+              <td><QRef id={r.probe_id} run={run} text /></td>
+              <td className="num">{r.today?.toFixed(2) ?? "–"}</td>
+              <td className="num">{r.cited != null
+                ? <span title={cited.get(r.probe_id) ?? undefined}>{r.cited.toFixed(2)}</span> : "–"}</td>
+              <td className="num">{r.fixed?.toFixed(2) ?? "–"}</td>
+              <td>{r.change == null ? <span className="muted">not scored</span>
+                : r.change >= MATCH_STEP ? <span className="ok">closer ({signed(r.change)})</span>
+                : r.change <= -MATCH_STEP ? <span className="worse">worse ({signed(r.change)})</span>
+                : <span className="muted">no change ({signed(r.change)})</span>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const signed = (x: number) => `${x > 0 ? "+" : x < 0 ? "−" : "±"}${Math.abs(x).toFixed(2)}`;
+
+const REPLAY_LABEL: Partial<Record<WhyVerdict["kind"], { label: string; tone: string }>> = {
+  copy_fix: { label: "Proven", tone: "good" }, authority_fix: { label: "Proven once found", tone: "good" },
+  not_movable: { label: "No change", tone: "caution" }, copy_lowers: { label: "Makes it worse", tone: "caution" },
+  not_reproducible: { label: "Could not be tested", tone: "plain" }, undecided: { label: "Not decided", tone: "plain" },
+  budget: { label: "Stopped at budget", tone: "plain" }, cancelled: { label: "Stopped", tone: "plain" },
+  ceiling: { label: "Already at the top", tone: "plain" },
+};
+
+/** Step ② for one buyer question: its latest replay test, or the button that runs one. */
+function ReplayTest({ run, a, probe, inv, budget, onDone }: {
+  run: Run; a: WinBackAction; probe: string; inv?: Investigation; budget: number | null; onDone: (i: Investigation) => void;
+}) {
+  const [log, setLog] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const stop = useRef<(() => void) | null>(null);
+  useEffect(() => () => stop.current?.(), []);
+  const verdict = inv?.verdicts.at(-1);
+  const tag = verdict && REPLAY_LABEL[verdict.kind];
+  const start = () => {
+    setBusy(true); setError(null); setLog([]);
+    stop.current = streamRewriteTest(run.id, a.attribute_id, probe, {
+      onLog: (e) => setLog((l) => [...l, e.text]),
+      onDone: (i) => { setBusy(false); onDone(i); },
+      onError: (e) => { setBusy(false); setError(e.message); },
+    });
+  };
+  return (
+    <div className="replay">
+      <QRef id={probe} run={run} text />
+      {verdict ? (
+        <p>{tag && <span className={`pill ${tag.tone}`}>{tag.label}</span>} {verdict.text}{" "}
+          <span className="muted">({inv!.spent_usd.toFixed(2)} USD, replays with search off; {inv!.judge})</span></p>
+      ) : run.mode === "live_api" ? (
+        <button type="button" className="ghost" disabled={busy} onClick={start}>
+          {busy ? "Testing…" : `Run replay test${budget != null ? ` (up to $${budget.toFixed(2)})` : ""}`}
+        </button>
+      ) : <p className="muted">A sample run cannot be tested: its answers were written by hand.</p>}
+      {busy && log.length > 0 && <ol className="why-log" aria-live="polite">{log.map((l, i) => <li key={i}>{l}</li>)}</ol>}
+      {error && <div className="callout error">{error}</div>}
+    </div>
+  );
+}
+
+/** Step ③: "Mark fix live" on a proven rewrite, once it is published. */
+function LiveCheck({ inv, onChecked }: { inv?: Investigation; onChecked?: (v: Verification) => void }) {
+  const [log, setLog] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const proven = inv && inv.verdicts.some((v) => v.fix === "copy" || v.fix === "authority");
+  if (!inv || !proven) return <p className="muted">Once a replay test proves the rewrite, publish it, then check it here.</p>;
+  const v = inv.verification;
+  const run = () => {
+    setBusy(true); setError(null); setLog([]);
+    streamRecheck(inv.id, {
+      onLog: (e) => setLog((l) => [...l, e.text]),
+      onDone: (x) => { setBusy(false); onChecked?.(x); },
+      onError: (e) => { setBusy(false); setError(e.message); },
+    });
+  };
+  return (
+    <div className="replay">
+      {v && <p><strong>{v.verdict.replace(/_/g, " ")}:</strong> {v.text}</p>}
+      <button type="button" className="ghost" disabled={busy} onClick={run}>
+        {busy ? "Checking…" : v ? "Check again" : "Mark fix live"}
+      </button>
+      <span className="muted"> The page is read first, free; only a published fix is asked about live.</span>
+      {busy && log.length > 0 && <ol className="why-log" aria-live="polite">{log.map((l, i) => <li key={i}>{l}</li>)}</ol>}
+      {error && <div className="callout error">{error}</div>}
+    </div>
+  );
+}
+
+/** One rewrite's verdict line, from the strongest evidence there is: live, replay, then the match check. */
+function rewriteVerdict(match: MatchVerdict, tests: Investigation[]): { text: string; tone: string } {
+  const kinds = tests.map((t) => t.verdicts.at(-1)?.kind);
+  const does = (t: Investigation) => (t.counts === "recommends" ? "recommends" : "names");
+  const confirmed = tests.find((t) => t.verification?.verdict === "confirmed");
+  if (confirmed) return { text: `Confirmed live: AI now ${does(confirmed)} you for it.`, tone: "good" };
+  if (kinds.some((k) => k === "copy_fix" || k === "authority_fix")) return { text: "Proven in replay: publish it, then mark it live.", tone: "good" };
+  const lowers = tests.find((t) => t.verdicts.at(-1)?.kind === "copy_lowers");
+  if (lowers) return { text: `Disproven: in replay it makes AI ${does(lowers) === "recommends" ? "recommend" : "name"} you less. Don't publish it.`, tone: "caution" };
+  const moved = kinds.filter((k) => k !== "ceiling");
+  if (moved.length && moved.every((k) => k === "not_movable")) return { text: "Disproven: in replay it changes nothing. Don't publish it as is.", tone: "caution" };
+  if (tests.length && !moved.length) return { text: `Already at the top: in replay AI already ${does(tests[0])} you for ${tests.length === 1 ? "this question" : "these questions"}, so no rewrite can show a gain.`, tone: "plain" };
+  if (match === "worse") return { text: "Don't publish: it matches the buyer questions worse than today's copy.", tone: "caution" };
+  return { text: "Not proven yet: run a replay test before publishing.", tone: "plain" };
+}
+
+/** One rewrite as a ranked row: a one-line summary, then what changes, why, and its proof. */
+function RewriteRow({ a, rank, run, invs, budget, onInv }: {
+  a: WinBackAction; rank: number | null; run: Run; invs: Investigation[]; budget: number | null;
+  onInv: (i: Investigation) => void;
+}) {
+  const rows = matchRows(a, run.retrieval?.rows ?? []);
+  const m = matchVerdict(rows);
+  const tests = a.question_ids.map((q) => latestTest(invs, a.attribute_id, q)).filter(Boolean) as Investigation[];
+  const verdict = rewriteVerdict(m.verdict, tests);
+  const score = run.attribute_scores.find((s) => s.attribute_id === a.attribute_id);
+  const one = rows.length === 1 && rows[0].change != null;
+  return (
+    <li>
+      <details open={rank === 1}>
+        <summary>
+          <span className="rank">{rank ?? "–"}</span>
+          <span className="r-title">{a.label}</span>
+          <span className="chev" aria-hidden="true">▸</span>
+          <span className="r-meta">
+            <span className={`pill ${m.verdict === "worse" ? "caution" : m.verdict === "closer" ? "good" : "plain"}`}>
+              {one ? `Match ${rows[0].today?.toFixed(2)} → ${rows[0].fixed?.toFixed(2)}`
+                : m.verdict === "not_scored" ? "Match not scored"
+                : `Match: closer on ${m.closer} of ${m.scored}, worse on ${m.worse}`}
+            </span>
+            <span className={`pill ${tests.length ? verdict.tone : "plain"}`}>{tests.length ? `Replay: ${tests.length} of ${a.question_ids.length} tested` : "Replay: not tested"}</span>
+            <span>{plural(a.question_ids.length, "buyer question")}</span>
+          </span>
+        </summary>
+        <div className="x-body">
+          <WhatChanges a={a} />
+          <div>
+            <h4>Why this rewrite</h4>
+            <p>{a.why || "No reason was given."}</p>
+          </div>
+          <div className="proof">
+            <h4>Proof</h4>
+            <ol className="ladder">
+              <li className={m.verdict === "worse" ? "bad-step" : ""}>
+                <strong>① <Term k="retrieval_score">Match check</Term></strong> <span className="muted">free, already done</span>
+                <MatchTable a={a} run={run} />
+              </li>
+              <li>
+                <strong>② <Term k="replay_test">Replay test</Term></strong> <span className="muted">before you publish</span>
+                {a.question_ids.map((q) => (
+                  <ReplayTest key={q} run={run} a={a} probe={q} inv={latestTest(invs, a.attribute_id, q)} budget={budget}
+                              onDone={onInv} />
+                ))}
+              </li>
+              <li>
+                <strong>③ <Term k="fix_recheck">Live check</Term></strong> <span className="muted">after you publish</span>
+                {tests.filter((t) => t.verdicts.some((v) => v.fix === "copy" || v.fix === "authority")).map((t) => (
+                  <LiveCheck key={t.id} inv={t} onChecked={(v) => onInv({ ...t, verification: v })} />
+                ))}
+                {!tests.some((t) => t.verdicts.some((v) => v.fix === "copy" || v.fix === "authority")) && <LiveCheck />}
+              </li>
+            </ol>
+          </div>
+          <p className={`verdict-line ${verdict.tone}`}><strong>Verdict:</strong> {verdict.text}</p>
+          {score && <div><Popover wide label={a.label} className="linky" trigger="All evidence"><ClaimDetail s={score} run={run} /></Popover></div>}
+        </div>
+      </details>
+    </li>
+  );
+}
+
+const latestTest = (invs: Investigation[], attribute: string, probe: string) =>
+  invs.filter((i) => i.kind === "buyer" && i.attribute_id === attribute && i.probe_id === probe)
+    .sort((x, y) => y.created_at.localeCompare(x.created_at))[0];
+
+/** A fix inside a claim's popover: the rewrite and where it goes, briefly. The proof lives on Quick wins. */
 function FixCard({ a, run }: { a: WinBackAction; run: Run }) {
   const zone = run.attribute_scores.find((s) => s.attribute_id === a.attribute_id)?.zone ?? a.zone;
-  const probes = new Map(run.probes.map((p) => [p.id, p]));
   return (
     <div className="question">
       <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
         <strong>{a.label}</strong>
         <span className={`pill ${zone}`}>{ZONE_LABEL[zone]}</span>
       </div>
-      <span className="muted">
-        Page to change: <a href={a.page_url} target="_blank" rel="noreferrer">{a.page_url}</a>
-        {a.current_copy ? " · replace:" : " · add new copy"}
-      </span>
-      {a.current_copy && <p className="quote">{a.current_copy}</p>}
-      <p style={{ margin: 0 }}>
-        {run.mode !== "live_api" && <span className="tag sample">sample</span>}{" "}
-        <strong>Suggested rewrite:</strong> {a.rewrite}
-      </p>
-      {a.question_ids.length ? (
-        <ul style={{ margin: 0 }}>
-          {a.question_ids.map((q) => (
-            // the question first: a long question name is a button, and a wrapped button sits above its bullet
-            <li key={q}>{probes.get(q)?.text} <span className="muted">(<QRef id={q} run={run} />)</span></li>
-          ))}
-        </ul>
-      ) : (
-        <span className="muted">No unbranded question in this run asks for this — add one to the next run to measure it.</span>
-      )}
+      {run.mode !== "live_api" && <span className="tag sample">sample</span>}
+      <WhatChanges a={a} />
+      {a.question_ids.length ? <p className="muted" style={{ margin: 0 }}>For {refs(a.question_ids, run)}.</p>
+        : <span className="muted">No unbranded question in this run asks for this — add one to the next run to measure it.</span>}
       {a.why && <span className="muted">{a.why}</span>}
+      <a href="#report-win-back">Its proof is on Quick wins</a>
     </div>
   );
 }
 
 function WinBack({ run }: { run: Run }) {
   const { targets, actions } = winBackPlan(run);
+  const [invs, setInvs] = useState<Investigation[]>([]);
+  const [budget, setBudget] = useState<number | null>(null);
+  const live = run.mode === "live_api";
+  useEffect(() => {
+    if (!live) return;
+    getInvestigations(run.id).then(setInvs).catch(() => {});
+    getHealth().then((h) => setBudget(h.why_budget_usd ?? null)).catch(() => {});
+  }, [run.id, live]);
   if (!targets.length) return null;
+  const onInv = (i: Investigation) => setInvs((xs) => [i, ...xs.filter((x) => x.id !== i.id)]);
   const planned = new Set(actions.map((a) => a.attribute_id));
   const unplanned = targets.filter((s) => !planned.has(s.attribute_id));
   const questions = new Set(actions.flatMap((a) => a.question_ids)).size;
+  const verdicts = new Map(actions.map((a) => [a.attribute_id, matchVerdict(matchRows(a, run.retrieval?.rows ?? [])).verdict]));
+  const stand = actions.filter((a) => verdicts.get(a.attribute_id) !== "worse");
+  const fall = actions.filter((a) => verdicts.get(a.attribute_id) === "worse");
+  const proven = actions.filter((a) => invs.some((i) => i.kind === "buyer" && i.attribute_id === a.attribute_id
+    && i.verdicts.some((v) => v.fix === "copy" || v.fix === "authority"))).length;
   return (
     <Section title={<Term k="quick_wins">Quick wins</Term>}
            found={`${plural(targets.length, "claim")} with room to grow · `
-             + (actions.length ? `${plural(actions.length, "fix", "fixes")} ready to check`
+             + (actions.length ? `${proven} of ${plural(actions.length, "rewrite")} proven`
                  + (questions ? ` · ${plural(questions, "unbranded question")} to win` : "")
                : "no suggested fix passed our checks yet")}>
-      <p className="muted" style={{ margin: 0 }}>
-        For each claim with room to grow: the page of yours to change, a suggested rewrite, and
-        the unbranded questions that did not recommend {run.profile.name} which it should help with. A
-        draft — check every statement against the product before publishing, then measure again.
-        It changes no number in this report.
+      <p style={{ margin: 0 }}>
+        For each claim with room to grow: a new passage for one of your pages, headed by a buyer's own question,
+        why it should make AI name {run.profile.name}, and its proof. A draft — check every statement against the
+        product before publishing. It changes no number in this report.
       </p>
       {actions.length > 0 && (
-        <div className="questions">
-          {actions.map((a) => <FixCard key={a.attribute_id} a={a} run={run} />)}
-        </div>
+        <>
+          <p className="ladder-legend muted">
+            <span>① <Term k="retrieval_score">Match check</Term>: free, already done</span>
+            <span>② <Term k="replay_test">Replay test</Term>: before you publish{budget != null ? `, up to $${budget.toFixed(2)} a question` : ""}</span>
+            <span>③ <Term k="fix_recheck">Live check</Term>: after you publish</span>
+          </p>
+          <ul className="ranked">
+            {stand.map((a, i) => <RewriteRow key={a.attribute_id} a={a} rank={i + 1} run={run} invs={invs} budget={budget} onInv={onInv} />)}
+            {fall.length > 0 && (
+              <li className="sep">Rewrites we could not stand behind ({fall.length}): our own match check says they match the buyer questions worse than today's copy</li>
+            )}
+            {fall.map((a) => <RewriteRow key={a.attribute_id} a={a} rank={null} run={run} invs={invs} budget={budget} onInv={onInv} />)}
+          </ul>
+        </>
       )}
       {unplanned.length > 0 && (
         <p className="muted" style={{ margin: 0 }}>
@@ -2018,14 +2532,17 @@ function WinBack({ run }: { run: Run }) {
         </p>
       )}
       {(run.win_back_notes ?? []).length > 0 && (
-        <>
-          <h4>Suggestions we could not confirm</h4>
-          <p className="muted" style={{ margin: 0 }}>
-            A suggestion is shown only if the page it names is one we read, the sentence it replaces is on
-            that page word for word, and the new copy states facts, not marketing words.
-          </p>
-          <ul>{run.win_back_notes!.map((n, i) => <li key={i}>{n}</li>)}</ul>
-        </>
+        <details className="block">
+          <summary><span className="block-title">Suggestions we could not confirm</span>
+            <span className="block-found">{plural(run.win_back_notes!.length, "reason")}</span></summary>
+          <div className="block-body">
+            <p className="muted" style={{ margin: 0 }}>
+              A suggestion is shown only if the page it names is one we read, it is headed by a buyer's question,
+              it says why it should work, it does not mostly repeat the copy it replaces, and it states facts, not marketing words.
+            </p>
+            <ul>{run.win_back_notes!.map((n, i) => <li key={i}>{n}</li>)}</ul>
+          </div>
+        </details>
       )}
     </Section>
   );

@@ -17,6 +17,7 @@ const VERDICT_LABEL: Record<string, string> = {
   not_in_reading: "Not from a page", not_said: "Not said", copy_fix: "Fix: copy", authority_fix: "Fix: authority",
   not_movable: "Not movable by copy", copy_lowers: "Copy lowers it", not_reproducible: "Not reproducible",
   undecided: "Undecided", budget: "Stopped at budget", cancelled: "Stopped at deadline",
+  ceiling: "Already at the top",
 };
 const CHALLENGE_LABEL: Record<Challenge["kind"], string> = {
   thin: "Thin", ceiling: "Ceiling", floor: "Not said here", not_reproducible: "Not reproducible",

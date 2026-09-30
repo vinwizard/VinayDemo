@@ -3,20 +3,28 @@
 Runs once, after scoring, over what the run already saved — the crawled pages on the profile, the
 buyer questions and how each was answered — so it asks nothing new of the measured model and moves
 no number. The proposer (the evaluator model live, authored fixture output in replay) suggests, per
-claim, which of the company's own pages to change, the copy there to replace, a short rewrite and
-the buyer questions it should help with. This code keeps an action only when every reference in it
-checks out, and says why whenever it drops one.
+claim, which of the company's own pages to change, a new passage headed by the buyer's own question
+and answering it in plain facts, why it should make AI name the company, and the buyer questions it
+should help with. This code keeps an action only when every reference in it checks out, and says why
+whenever it drops one.
+
+A rephrasing of the sentence already on the page is not a fix: it changes little of what AI reads
+(Amgen, 2026-09-28: the three rewrites kept most of their original words, and two matched their buyer
+questions worse than the copy they replaced). So a passage is headed by the question it answers, and
+one that repeats most of the words it would replace is dropped.
 """
 import json
 from typing import Optional
 
-from agents.evaluation import quoted_in, real
+from agents.ana import brand_leaks, vendor_address
+from agents.evaluation import content_words, quoted_in, real
 from agents.onboarding_model import MARKETING
 from labels import probe_name
 from schemas import Run, WinBackAction
 
 TARGET_ZONES = ("lost_claim", "unstated_intent")  # "claim to win back", "claim to amplify"
 MAX_REWRITE_WORDS = 60
+MAX_REPEATED = 0.5   # the most of a rewrite's content words that may already be in the copy it replaces
 
 PROMPT = """You advise {name} on its own website copy. AI answer engines are not repeating some of what
 {name} says about itself. For each claim below, propose ONE concrete fix to {name}'s own pages.
@@ -30,18 +38,25 @@ Claims to fix:
 Buyer questions that were asked without naming {name}, and what happened:
 {questions}
 
-For each claim return one action:
-  * page_url: the ONE page above to change, copied exactly
-  * current_copy: words copied character for character from that page's text that the rewrite
-    replaces, or null to add new copy
-  * rewrite: at most {max_words} words of plain copy stating what {name} concretely does for this
-    claim. Only facts the claim and pages above support — never invent a feature, number or
-    customer. No marketing adjectives (seamless, powerful, intuitive, modern and the like)
+For each claim return one action: a NEW passage for one of {name}'s pages that answers a buyer's
+question directly, the way an answer engine quotes a page. Not a rephrasing of a sentence already
+there: AI already read that sentence and did not name {name}.
+  * page_url: the ONE page above to add the passage to, copied exactly
+  * heading: the buyer question the passage answers, copied exactly from the list below (one where
+    {name} was not recommended). Only if none of them asks for this claim, write the question a
+    buyer would type, without {name}'s name and without "your platform"
+  * rewrite: the passage's body, 2 or 3 sentences and at most {max_words} words, answering the
+    heading in the buyer's own words: what {name} concretely does, for whom, and how. Only facts the
+    claim and pages above support — never invent a feature, number or customer. No marketing
+    adjectives (seamless, powerful, intuitive, modern and the like)
+  * current_copy: null to add the passage; or words copied character for character from that
+    page's text that it replaces, only when they answer the same question badly
   * question_ids: ids of the buyer questions above this should help {name} be named for; only
     questions where {name} was not already recommended; [] if none of them asks for this claim
-  * why: one sentence tying the rewrite to the questions
+  * why: one sentence on why this should make AI name {name} for that question: what the question
+    asks that {name}'s pages do not say today
 
-Return ONLY JSON: {{"actions": [{{"attribute_id": string, "page_url": string,
+Return ONLY JSON: {{"actions": [{{"attribute_id": string, "page_url": string, "heading": string,
   "current_copy": string|null, "rewrite": string, "question_ids": [string], "why": string}}]}}"""
 
 
@@ -73,6 +88,45 @@ def own_questions(run: Run, attribute_id: str) -> list[str]:
     asked = verdicts(run)
     return [p.id for p in run.probes if p.topic_id == f"pos-{attribute_id}"
             and asked.get(p.id) in ("not named", "named, not recommended")]
+
+
+def repeated(rewrite: str, copy: str) -> float:
+    """The share of the rewrite's content words that the copy it replaces already has."""
+    words = content_words(rewrite)
+    return len(words & content_words(copy)) / len(words) if words else 1.0
+
+
+def _norm(q: str) -> str:
+    return " ".join(q.split()).rstrip("?").strip().casefold()
+
+
+def question_for(heading: str, run: Run) -> Optional[str]:
+    """The baseline buyer question a heading copies, or None."""
+    return next((p.id for p in run.probes if p.kind == "blind" and p.phase == "baseline"
+                 and _norm(p.text) == _norm(heading)), None)
+
+
+def heading_problem(heading, question_ids, run: Run) -> Optional[str]:
+    """Why a passage's heading cannot stand, or None. It copies one of the run's buyer questions; only
+    when the action cites none may it be a question of its own, and then it is held to what makes a
+    buyer question (ana): it never names the company and never addresses the vendor."""
+    if not real(heading):
+        return "the new passage had no buyer question heading it, so it could not be checked against one."
+    heading = " ".join(heading.split())
+    if q := question_for(heading, run):
+        asked = verdicts(run).get(q)
+        if asked == "recommended":
+            return f"its heading “{heading}” is a buyer question AI already recommends {run.profile.name} for."
+        if asked == "excluded":
+            return f"its heading “{heading}” is a buyer question whose answer was excluded from the scores."
+        return None
+    if [q for q in question_ids if isinstance(q, str)]:
+        return f"its heading “{heading}” is not one of the buyer questions it cites, copied exactly."
+    if not heading.endswith("?"):
+        return f"its heading “{heading}” is not a question a buyer would ask."
+    if leaks := brand_leaks(heading, run.profile) or vendor_address(heading):
+        return f"its heading “{heading}” names {run.profile.name} or addresses the vendor ({', '.join(leaks)})."
+    return None
 
 
 def build_prompt(run: Run) -> str:
@@ -124,8 +178,18 @@ def validate(raw, run: Run) -> tuple[list[WinBackAction], list[str]]:
         elif vague := sorted({m.group(0).lower() for m in MARKETING.finditer(rewrite)}):
             dropped.append(f"{label}: the new copy uses marketing words no answer could repeat as a "
                            f"fact ({', '.join(vague)}).")
+        elif copy is not None and repeated(rewrite, copy) > MAX_REPEATED:
+            dropped.append(f"{label}: the new copy repeats most of the words of the sentence it replaces "
+                           f"({repeated(rewrite, copy):.0%}), so it would barely change what AI reads.")
+        elif not real(a.get("why")):
+            dropped.append(f"{label}: the suggestion did not say why it should make AI name {run.profile.name}.")
+        elif (problem := heading_problem(a.get("heading"), a.get("question_ids") or [], run)):
+            dropped.append(f"{label}: {problem}")
         else:
+            heading = " ".join(a["heading"].split())
             qids = [q for q in a.get("question_ids") or [] if isinstance(q, str)]
+            if (hq := question_for(heading, run)) and hq not in qids:
+                qids.append(hq)   # the question that heads the passage is one it is for
             for q in qids:
                 if q not in asked:
                     dropped.append(f"{label}: it cited {q}, which is not an unbranded question in this run.")
@@ -138,6 +202,7 @@ def validate(raw, run: Run) -> tuple[list[WinBackAction], list[str]]:
             cited = cited or own_questions(run, aid)
             kept[aid] = WinBackAction(
                 attribute_id=aid, label=s.label, zone=s.zone, page_url=url, current_copy=copy,
+                heading=probes[hq].text if hq else heading,
                 rewrite=rewrite, question_ids=cited,
                 why=a.get("why").strip() if real(a.get("why")) else "", provenance=provenance)
     return list(kept.values()), dropped

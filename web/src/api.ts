@@ -1,6 +1,6 @@
 // Typed client for the Python engine's HTTP API. Mirrors schemas.py — keep in sync.
 // VITE_API lets a second checkout run beside the first without fighting over port 8000.
-import type { FleetEvent } from "./fleetlog.ts";
+import type { FleetEvent, Verification } from "./fleetlog.ts";
 
 export const API: string = import.meta.env.VITE_API ?? "http://127.0.0.1:8000";
 
@@ -184,6 +184,9 @@ export interface WinBackAction {
   page_url: string;
   /** Verbatim on that page; null means add new copy. */
   current_copy: string | null;
+  /** The buyer question heading the new passage, verbatim; absent on runs from before headings. */
+  heading?: string | null;
+  /** The passage's body. */
   rewrite: string;
   question_ids: string[];
   why: string;
@@ -631,15 +634,22 @@ export interface WhyArm {
 }
 export interface WhyVerdict {
   kind: "caused_by" | "over_determined" | "prior_belief" | "not_in_reading" | "not_said" | "copy_fix"
-    | "authority_fix" | "not_movable" | "copy_lowers" | "not_reproducible" | "undecided" | "budget" | "cancelled";
+    | "authority_fix" | "not_movable" | "copy_lowers" | "not_reproducible" | "undecided" | "budget" | "cancelled"
+    | "ceiling";
   text: string; arm_id: string | null; fix: "copy" | "authority" | "none" | null;
 }
 /** Why AI says (or does not say) one claim to one branded question, and what changes it. */
 export interface Investigation {
   id: string; run_id: string; created_at: string; company: string; question: string; probe_id: string | null;
   attribute_id: string; claim: string; term: string | null; model: string; judge: string;
-  /** What counted as saying it: a claim's endorsements, or any mention (a perception AI raised, a literal term). */
-  counts?: "mentions" | "endorsements";
+  /** What counted as saying it: a claim's endorsements, any mention (a perception AI raised, a literal
+   * term), or, for a quick win's replay test, whether the answer names the company, or recommends it
+   * where the question already named it. */
+  counts?: "mentions" | "endorsements" | "names" | "recommends";
+  /** "buyer": a quick win's replay test on an unbranded question (why.test_rewrite). */
+  kind?: "claim" | "buyer";
+  /** A proven rewrite, re-checked live once published. */
+  verification?: Verification | null;
   /** The investigation fleet that dispatched it, if one did. */
   fleet_id?: string | null;
   provenance: "counterfactual_replay"; budget_usd: number; spent_usd: number;
@@ -665,6 +675,24 @@ export const streamWhy = (runId: string, q: { attribute: string; probe?: string;
                     { start: h.onStart, log: h.onLog, arm: h.onArm, verdict: h.onVerdict, done: h.onDone },
                     "done", h.onError);
 };
+
+/** A quick win's replay test: its rewrite against one buyer question it was written for. */
+export const streamRewriteTest = (runId: string, attribute: string, probe: string, h: {
+    onStart?: (e: { budget_usd: number; question: string; model: string }) => void;
+    onLog?: (e: { text: string; spent_usd: number }) => void;
+    onDone?: (e: Investigation) => void;
+    onError?: (e: { message: string }) => void;
+  }) =>
+  openStream(`/api/runs/${runId}/rewrite-test/stream?${new URLSearchParams({ attribute, probe })}`,
+             { start: h.onStart, log: h.onLog, done: h.onDone }, "done", h.onError);
+
+/** "Mark fix live" on a rewrite its replay test proved: the page first (free), then live asks. */
+export const streamRecheck = (invId: string, h: {
+    onLog?: (e: { text: string }) => void;
+    onDone?: (e: Verification) => void;
+    onError?: (e: { message: string }) => void;
+  }) =>
+  openStream(`/api/investigations/${invId}/verify/stream`, { log: h.onLog, done: h.onDone }, "done", h.onError);
 
 // ---------------------------------------------------------------- the investigation fleet (fleet.py)
 // Its records live in fleetlog.ts, which the node unit tests read without this file's Vite globals.

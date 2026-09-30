@@ -80,6 +80,7 @@ const VERDICT: Record<WhyVerdict["kind"], { label: string; tone: string }> = {
   undecided: { label: "Undecided", tone: "neutral" },
   budget: { label: "Stopped at budget", tone: "neutral" },
   cancelled: { label: "Stopped at deadline", tone: "neutral" },
+  ceiling: { label: "Already at the top", tone: "neutral" },
 };
 
 const VERDICT_TERM: Partial<Record<WhyVerdict["kind"], TermKey>> = {

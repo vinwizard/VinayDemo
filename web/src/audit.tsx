@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { AuditCheck, AuditStatus, Run, SiteAudit } from "./api";
 import { GLOSSARY } from "./glossary";
 import { day } from "./labels";
+import { checkProblems } from "./quickwins";
 import { Popover, Term } from "./popover";
 
 const MARK: Record<AuditStatus, string> = { pass: "✓", fail: "✕", unknown: "?" };
@@ -42,29 +43,17 @@ function auditFinding(a: SiteAudit): string {
   return claims + (wd === "missing" ? "; no Wikidata entry" : wd === "found" ? "; Wikidata knows you" : "");
 }
 
-function Check({ c, page }: { c: AuditCheck; page?: string | null }) {
+function Check({ c, page, bare }: { c: AuditCheck; page?: string | null; bare?: boolean }) {
   const g = GLOSSARY[c.key];
   return (
-    <Popover label={g.term} className={`check ${c.status}`}
-             trigger={<><span aria-hidden="true">{MARK[c.status]}</span>{SHORT[c.key]}
+    <Popover label={g.term} className={`check ${c.status}${bare ? " bare" : ""}`}
+             trigger={<><span aria-hidden="true">{MARK[c.status]}</span>{bare ? <span className="sr-only">{SHORT[c.key]}</span> : SHORT[c.key]}
                <span className="sr-only">: {SAID[c.status]}</span></>}>
       <strong className="pop-title">{g.term}: {SAID[c.status]}</strong>
       <p>{c.detail}</p>
       {page && <p className="muted">Page checked: <a href={page} target="_blank" rel="noreferrer">{path(page)}</a></p>}
       <h4>What this checks</h4>
       <p className="muted">{g.def}</p>
-    </Popover>
-  );
-}
-
-/** A claim with nothing in AI's way reads as one green mark; each check's reason is still one tap away. */
-function AllPass({ checks, page }: { checks: AuditCheck[]; page?: string | null }) {
-  return (
-    <Popover label="Every check passes" className="check pass"
-             trigger={<><span aria-hidden="true">✓</span>All {checks.length} checks pass</>}>
-      <strong className="pop-title">Nothing in AI’s way</strong>
-      {checks.map((k) => <p key={k.key}><strong>{GLOSSARY[k.key].term}.</strong> {k.detail}</p>)}
-      {page && <p className="muted">Page checked: <a href={page} target="_blank" rel="noreferrer">{path(page)}</a></p>}
     </Popover>
   );
 }
@@ -86,85 +75,140 @@ function Source({ e, siteSays, name }: { e: SiteAudit["entities"][number]; siteS
   );
 }
 
-/** The whole section. `open` false shows only the header sentence: details are one tap away. */
-export function SiteReadability({ audit, name, siteSays, open, onRecheck }: {
-  audit: SiteAudit | null; name?: string; siteSays?: string | null; open?: boolean; onRecheck?: () => Promise<unknown>;
+/** Advice lines said once each, with how many claim pages they are for. */
+const advice = (a: SiteAudit) => {
+  const seen = new Map<string, number>();
+  for (const c of a.claims) for (const line of c.advice ?? []) seen.set(line, (seen.get(line) ?? 0) + 1);
+  return [...seen];
+};
+
+/** The body: problems first, then every mark in one grid (each still opens its reason), the whole
+ * site, and where else AI gets its facts. */
+function AuditBody({ audit, name, siteSays, recheck, busy }: {
+  audit: SiteAudit | null; name?: string; siteSays?: string | null; recheck?: (() => void) | null; busy: boolean;
+}) {
+  if (!audit) {
+    return (
+      <>
+        <p className="muted" style={{ margin: 0 }}>This company was read before this check existed.</p>
+        {recheck && <p className="muted audit-foot"><button className="linky" disabled={busy} onClick={recheck}>{busy ? "Checking…" : "Check now"}</button></p>}
+      </>
+    );
+  }
+  const { failing, passing } = checkProblems(audit.claims);
+  const keys = [...new Set(audit.claims.flatMap((c) => c.checks.map((k) => k.key)))];
+  const n = audit.claims.length;
+  return (
+    <>
+      <p style={{ margin: 0 }}>
+        We read each page that states a claim the way AI crawlers do: plain HTML, no JavaScript. Problems first;
+        tap a mark for its reason.
+      </p>
+      {n > 0 && (
+        <ul className="audit-summary">
+          {failing.map((f) => (
+            <li key={f.key}><span className="mark-warn" aria-hidden="true">!</span> <Term k={f.key}>{GLOSSARY[f.key].term}</Term>: fails on {f.n} of {n} claim {n === 1 ? "page" : "pages"}.</li>
+          ))}
+          {audit.site.filter((k) => k.status === "fail").map((k) => (
+            <li key={k.key}><span className="mark-warn" aria-hidden="true">!</span> <Term k={k.key}>{GLOSSARY[k.key].term}</Term>: {k.detail}</li>
+          ))}
+          {passing.length > 0 && (
+            <li><span className="mark-ok" aria-hidden="true">✓</span> Passing on every claim page: {passing.map((k, i) => (
+              <span key={k}>{i ? ", " : ""}<Term k={k}>{SHORT[k]}</Term></span>))}.</li>
+          )}
+        </ul>
+      )}
+      {advice(audit).map(([line, count]) => (
+        <p key={line} style={{ margin: 0 }}><strong>Advice{count > 1 ? ` for ${count} pages` : ""}:</strong> {line}</p>
+      ))}
+      {n > 0 && (
+        <div className="table-scroll">
+          <table className="compact checkgrid">
+            <thead><tr><th>Claim · page</th>{keys.map((k) => <th key={k}>{SHORT[k]}</th>)}</tr></thead>
+            <tbody>
+              {audit.claims.map((c) => (
+                <tr key={c.attribute_id}>
+                  <td><strong>{c.label}</strong>{c.page_url && <span className="audit-page">{path(c.page_url)}</span>}</td>
+                  {keys.map((k) => {
+                    const check = c.checks.find((x) => x.key === k);
+                    return <td key={k}>{check ? <Check c={check} page={c.page_url} bare /> : "–"}</td>;
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="audit-rows">
+        <div><strong>Whole site</strong></div>
+        <div className="checks-row">{audit.site.map((k) => <Check key={k.key} c={k} />)}</div>
+        <div><strong><Term k="fact_sources" /></strong></div>
+        <div className="checks-row">{audit.entities.map((e) => <Source key={e.source} e={e} siteSays={siteSays} name={name} />)}</div>
+      </div>
+      <p className="muted audit-foot">
+        Checked {day(audit.checked_at)} with plain web requests; no AI was asked, nothing is estimated.{" "}
+        {recheck && <button className="linky" disabled={busy} onClick={recheck}>{busy ? "Checking…" : "Check again"}</button>}
+      </p>
+    </>
+  );
+}
+
+/** The whole section. Folded (the claims step) it shows only its one-line finding; `flat` (a report
+ * sub-tab) it is a titled section with everything showing. */
+export function SiteReadability({ audit, name, siteSays, open, flat, onRecheck }: {
+  audit: SiteAudit | null; name?: string; siteSays?: string | null; open?: boolean; flat?: boolean;
+  onRecheck?: () => Promise<unknown>;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const recheck = onRecheck && (() => {
+  const recheck = onRecheck ? () => {
     setBusy(true); setError(null);
     onRecheck().catch((e: Error) => setError(e.message)).finally(() => setBusy(false));
-  });
+  } : null;
+  const body = (
+    <>
+      <AuditBody audit={audit} name={name} siteSays={siteSays} recheck={recheck} busy={busy} />
+      {error && <div className="callout error">{error}</div>}
+    </>
+  );
+  if (flat) {
+    return (
+      <section className="panel-sec audit">
+        <div className="panel-sec-head">
+          <h3>Can AI read your site?</h3>
+          <span className="block-found">{audit ? auditFinding(audit) : "Not checked yet"}</span>
+        </div>
+        {body}
+      </section>
+    );
+  }
   return (
     <details className="block audit" open={open}>
       <summary>
         <span className="block-title">Can AI read your site?</span>
         <span className="block-found">{audit ? auditFinding(audit) : "Not checked yet"}</span>
       </summary>
-      <div className="block-body">
-        {audit ? (
-          <>
-            <p className="muted" style={{ margin: 0 }}>
-              We read each page that states a claim the way AI crawlers do: plain HTML, no JavaScript.
-              Tap a mark for the reason.
-            </p>
-            <ul className="audit-rows">
-              {audit.claims.map((c) => (
-                <li key={c.attribute_id}>
-                  <div><strong>{c.label}</strong>{c.page_url && <span className="audit-page">{path(c.page_url)}</span>}</div>
-                  <div className="checks-row">
-                    {c.checks.every((k) => k.status === "pass") ? <AllPass checks={c.checks} page={c.page_url} />
-                      : c.checks.map((k) => <Check key={k.key} c={k} page={c.page_url} />)}
-                  </div>
-                  {c.advice?.length ? <ul className="audit-advice">{c.advice.map((a) => <li key={a}>{a}</li>)}</ul> : null}
-                </li>
-              ))}
-              <li>
-                <div><strong>Whole site</strong></div>
-                <div className="checks-row">{audit.site.map((k) => <Check key={k.key} c={k} />)}</div>
-              </li>
-              <li>
-                <div><strong><Term k="fact_sources" /></strong></div>
-                <div className="checks-row">{audit.entities.map((e) => <Source key={e.source} e={e} siteSays={siteSays} name={name} />)}</div>
-              </li>
-            </ul>
-          </>
-        ) : (
-          <p className="muted" style={{ margin: 0 }}>
-            This company was read before this check existed.
-          </p>
-        )}
-        <p className="muted audit-foot">
-          {audit && <>Checked {day(audit.checked_at)} with plain web requests; no AI was asked, nothing is estimated. </>}
-          {recheck && <button className="linky" disabled={busy} onClick={recheck}>{busy ? "Checking…" : audit ? "Check again" : "Check now"}</button>}
-        </p>
-        {error && <div className="callout error">{error}</div>}
-      </div>
+      <div className="block-body">{body}</div>
     </details>
   );
 }
 
-const phone = () => window.matchMedia("(max-width: 600px)").matches;
-
 /** The report tab's diagnosis sections. */
 export function WhyAIMisses({ run }: { run: Run }) {
   if (run.audit) {
-    return <SiteReadability audit={run.audit} name={run.profile.name} siteSays={run.profile.positioning_points?.[0]?.text} open={!phone()} />;
+    return <SiteReadability audit={run.audit} name={run.profile.name} siteSays={run.profile.positioning_points?.[0]?.text} flat />;
   }
   return (
-    <details className="block audit">
-      <summary>
-        <span className="block-title">Can AI read your site?</span>
+    <section className="panel-sec audit">
+      <div className="panel-sec-head">
+        <h3>Can AI read your site?</h3>
         <span className="block-found">Not checked for this run</span>
-      </summary>
-      <div className="block-body">
-        <p className="muted" style={{ margin: 0 }}>
-          {run.mode === "demo_replay"
-            ? "A sample run has no real site to read."
-            : "This run was measured before the site check existed. Check the site again from the company’s claims step, then measure: the next run carries the result."}
-        </p>
       </div>
-    </details>
+      <p className="muted" style={{ margin: 0 }}>
+        {run.mode === "demo_replay"
+          ? "A sample run has no real site to read."
+          : "This run was measured before the site check existed. Check the site again from the company’s claims step, then measure: the next run carries the result."}
+      </p>
+    </section>
   );
 }

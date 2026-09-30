@@ -18,7 +18,6 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import copy_context
 from typing import Callable, Optional
-from urllib.parse import urlparse
 
 import access
 import audit
@@ -71,11 +70,6 @@ def check_page(url: str, copy: str) -> tuple[Optional[bool], str]:
     return False, f"{name} does not carry the new copy word for word yet."
 
 
-def same_page(a: str, b: str) -> bool:
-    key = lambda u: ((urlparse(u).hostname or "").removeprefix("www."), urlparse(u).path.rstrip("/"))
-    return key(a) == key(b)
-
-
 def conclude(v: Verification) -> tuple[str, str]:
     """Where the live rate's 95% interval puts it: at the prediction and away from the old rate, or the
     reverse, or not yet either. A moved control overrides both."""
@@ -111,8 +105,40 @@ def verify(fleet_id: str, rank: int, resolve: Callable[[], object], emit: Callab
     v = Verification(fleet_id=fleet_id, rank=rank, attribute_id=attribute.id, claim=inv.claim, page_url=item.page_url,
                      copy_text=copy, question=inv.question, investigation_id=inv.id, budget_usd=budget(),
                      predicted=WhyRate(k=arm.k, n=arm.n), base=WhyRate(k=arm.base_k, n=arm.base_n))
-    if item.fix == "copy" or arm.hypothetical:
-        v.page_has_copy, v.page_note = check_page(item.page_url, copy)
+
+    def judge_for(evaluator):
+        return why.Judge(attribute, run.profile, inv.question, inv.term, evaluator, endorse=inv.counts == "endorsements")
+    return recheck(v, inv, arm, item.fix, judge_for, resolve, emit, lab, evaluator, needs_evaluator=not inv.term)
+
+
+def verify_investigation(inv_id: str, resolve: Callable[[], object], emit: Callable[[str], None] = lambda text: None,
+                         lab: Optional[why.Lab] = None, evaluator=None) -> Verification:
+    """Re-checks a quick win's rewrite that its replay test proved (why.test_rewrite): the page first,
+    free, then the buyer question live, counting what its replay test counted (names or recommends)."""
+    inv = reports.load_investigation(inv_id)
+    verdict = next((x for x in inv.verdicts if x.fix in ("copy", "authority") and x.arm_id), None)
+    if inv.kind != "buyer" or verdict is None:
+        raise ValueError("only a rewrite its replay test proved can be re-checked")
+    run = reports.load_run(inv.run_id)
+    arm = next(a for a in inv.arms if a.id == verdict.arm_id)
+    v = Verification(attribute_id=inv.attribute_id, claim=inv.claim, page_url=arm.urls[0], copy_text=arm.text[0],
+                     question=inv.question, investigation_id=inv.id, budget_usd=budget(),
+                     predicted=WhyRate(k=arm.k, n=arm.n), base=WhyRate(k=arm.base_k, n=arm.base_n))
+    probe = next(p for p in run.probes if p.id == inv.probe_id)
+    needs = inv.counts == "recommends"
+    if needs and lab is not None and evaluator is None:
+        from agents.evaluator_model import ModelEvaluator
+        evaluator = ModelEvaluator(transport=lab.judge_transport)
+    return recheck(v, inv, arm, verdict.fix, lambda ev: why.buyer_judge(run, probe, inv.counts, ev), resolve, emit,
+                   lab, evaluator, needs_evaluator=needs)
+
+
+def recheck(v: Verification, inv, arm, fix: str, judge_for: Callable, resolve: Callable[[], object],
+            emit: Callable[[str], None], lab: Optional[why.Lab], evaluator, needs_evaluator: bool) -> Verification:
+    """The page (free), then live asks in looks, then the old reading list replayed as a control."""
+    copy = v.copy_text
+    if fix == "copy" or arm.hypothetical:
+        v.page_has_copy, v.page_note = check_page(v.page_url, copy)
         emit(v.page_note)
     if v.page_has_copy is False:
         v.verdict, v.text = "not_published", f"Not published: {v.page_note} Nothing was asked, so this check cost nothing."
@@ -121,9 +147,9 @@ def verify(fleet_id: str, rank: int, resolve: Callable[[], object], emit: Callab
         from agents.evaluator_model import ModelEvaluator
         resolved = resolve()
         lab = why.Lab(resolved.model, resolved.tool)
-        evaluator = None if inv.term else ModelEvaluator(model=resolved.judge, transport=lab.judge_transport)
-    judge = why.Judge(attribute, run.profile, inv.question, inv.term, evaluator, endorse=inv.counts == "endorsements")
-    read_it = ((lambda r: carries(copy, r.text)) if item.fix == "copy" else (lambda r: same_page(r.url, item.page_url)))
+        evaluator = ModelEvaluator(model=resolved.judge, transport=lab.judge_transport) if needs_evaluator else None
+    judge = judge_for(evaluator)
+    read_it = ((lambda r: carries(copy, r.text)) if fix == "copy" else (lambda r: why.same_page(r.url, v.page_url)))
 
     def pmap(fn, n):   # contexts copied here, in this thread, so the pass and purse reach the calls
         with ThreadPoolExecutor(why.CONCURRENCY) as pool:
@@ -151,7 +177,7 @@ def verify(fleet_id: str, rank: int, resolve: Callable[[], object], emit: Callab
             if look == LOOKS[0] and not v.read_by_ai.k:
                 v.verdict = "not_crawled"
                 v.text = (f"Not crawled yet: none of {v.read_by_ai.n} live answers read "
-                          + ("the new copy" if item.fix == "copy" else why.page_name(item.page_url))
+                          + ("the new copy" if fix == "copy" else why.page_name(v.page_url))
                           + ". Check again once search has picked it up.")
                 v.spent_usd = round(lab.spent, 4)
                 return v

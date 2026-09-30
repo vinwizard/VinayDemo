@@ -1464,6 +1464,7 @@
   {
    "attribute_id": "ai_native",
    "page_url": "https://example.com/demo-source-claim-1",
+   "heading": "Which meeting notes tool can transcribe and summarize calls without adding a separate bot to every meeting?",
    "current_copy": null,
    "rewrite": "Notion AI is part of every workspace: it drafts and edits inside your pages, summarises meeting notes, and answers questions from your team's own docs with links to the pages it read. No separate add-on to buy.",
    "question_ids": [
@@ -1475,6 +1476,7 @@
   {
    "attribute_id": "replaces_stack",
    "page_url": "https://example.com/demo-source-claim-2",
+   "heading": "What task tracker keeps docs and tasks in one workspace for under $10 per user per month?",
    "current_copy": null,
    "rewrite": "One Notion workspace holds your docs, task tracker and team wiki, so a team can cancel three or four single-purpose subscriptions. Tasks live beside the briefs and specs they belong to.",
    "question_ids": [
@@ -1487,6 +1489,7 @@
   {
    "attribute_id": "enterprise",
    "page_url": "https://example.com/demo-source-claim-2",
+   "heading": "Which workspace tools offer SAML single sign-on and audit logs for a company-wide rollout?",
    "current_copy": null,
    "rewrite": "For company-wide rollout, Notion supports SAML single sign-on, audit logging, granular page and workspace permissions, and admin controls for IT.",
    "question_ids": [],

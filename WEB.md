@@ -384,7 +384,9 @@ is $0.04 on perplexity.ai (four searches, only when the site turns us away); ext
 | `POST /api/access/exchange` · `GET /api/access` | access passes on the hosted demo (`access.py`): `{code}` from a personal link `/?pass=<code>` becomes an HttpOnly session cookie; `GET` is the holder's meter (`{pass: {label, spent_usd, cap_usd, capped}}` or `{pass: null}`). With a pass, live runs and onboarding are allowed on the public demo, charged to the pass, every run it makes (replay or live) is saved under `DATA_DIR`, and runs and companies are listed only to the pass that made them — a pass sees none of the shared preloaded ones. `/admin` (behind `ADMIN_PASSWORD`) creates passes, shows each link once, and tops up or revokes. Cookies are same-origin, so passes work on the production build, not across the Vite dev port |
 | `POST /api/companies/{id}/audit` | checks again whether AI can read the site (`audit.py`) and saves it on the company; the same check runs once during onboarding. Plain fetches, no model and no key: robots.txt for the AI crawlers, the claim's words in the no-JavaScript HTML, schema.org JSON-LD, headings, load time and llms.txt, on every page that states each claim, plus Wikidata/Wikipedia (tied to the company only by Wikidata's official website on its domain) and the Crunchbase, G2 and LinkedIn pages the site itself links to. Anything that cannot be reached, or whose robots.txt turns automated tools away, is "could not check", never a guess. A company read from documents only (no pages, no domain) is refused with 400. A run copies the company's audit when it starts |
 | `GET /api/runs/{id}/why/stream?attribute=&probe=` or `&question=`, optional `&term=` | the why agent (`api/why.py`) as SSE: `start` (its budget), `log`, `arm` (one experiment, decided), `verdict`, `done` (the investigation, saved under `DATA_DIR/investigations/`), `error`. Live runs only; refused on the public demo without a pass, without a key, or with a model that cannot search. The question must name the company and not the claim |
-| `GET /api/runs/{id}/why` · `GET /api/investigations/{id}` | a run's investigations, newest first, and one in full. The run itself is never changed |
+| `GET /api/runs/{id}/rewrite-test/stream?attribute=&probe=` | a Quick wins rewrite's **replay test** (`why.test_rewrite`): the same SSE events as the why agent, for the claim's rewrite against one buyer question it was written for, counting the gap the question has: whether the answer names the company, or, for a question that named it without recommending it, whether it recommends it. The investigation is saved with `kind: "buyer"` and `counts: "names"` or `"recommends"`. Refused as the why agent is, and for a question the rewrite was not written for |
+| `GET /api/investigations/{id}/verify/stream` | "Mark fix live" on a rewrite its replay test proved (`verify.verify_investigation`): `log` lines, then `done` with the Verification, which is kept on the investigation. The page is read first, free; an unpublished rewrite asks nothing |
+| `GET /api/runs/{id}/why` · `GET /api/investigations/{id}` | a run's investigations (claims' and rewrites'), newest first, and one in full. The run itself is never changed |
 | `POST /api/runs/{id}/fleet` | starts an investigation fleet on a live run ("Investigation fleet" above) and returns `{id}` at once. Refused on the public demo without a pass, on a sample run, with nothing to investigate, while another fleet is running on the run, and without a model that can search |
 | `GET /api/runs/{id}/fleets` | a run's fleets, newest first (`status`, `spent_usd`, `wall_s`), and what a new one would cost (`estimate`: shortlist size, picks, dollars, minutes) |
 | `GET /api/fleets/{id}/stream?after=` | the fleet's log as SSE: one `fleet` event per `FleetEvent` (with its number as the SSE id, so a reconnect resumes after `after` or `Last-Event-ID`), then `end` once it is done |
@@ -434,21 +436,34 @@ Tests: `web/src/tour.test.ts`.
   these claims" panel listing each extracted claim once: left out because no quote was found on
   their pages, left out for another reason, or kept with some quotes removed; a claim whose
   statement leans on marketing words is never dropped for them: it is kept, measured and marked
-  "Needs your review", and the customer keeps it or sets it aside, and can restore one set aside), optionally choose what you want to be known for (the zero-floor intent
-  sliders and the add-your-own row), ask buyer questions, ask brand questions, follow up on products AI named, and
+  "Needs your review", and the customer keeps it or sets it aside, and can restore one set aside), optionally choose what you want to be known for (one compact
+  step asking three plain questions: what the company's own pages say, with the first note from
+  reading them in amber and the rest folded; which claims you want to be known for, each a
+  zero-floor slider whose value reads in words — Not a goal (0), Nice to have (under 0.5), Important
+  (under 0.9), Top priority — over the same 0–1 weight, its page count opening to the quote, and the
+  add-your-own row folded under them; and what a buyer would call what you sell, the core category.
+  "How we checked" folds the claim checks and the site check into one row, and Save and Measure sit in
+  a bar pinned to the bottom of the step), ask buyer questions, ask brand questions, follow up on products AI named, and
   score. Each stage is driven by the stream's events, shows what it actually did, and lists every
   answer as it arrives; a finished stage folds to a one-line summary. The report appears beneath
   the stages when scoring finishes. Previously onboarded companies can be reopened from step 1
 - **Report** (inline after a run, and from History) — a product view, not one long page. A summary
-  pinned at the top while you move around: the company's own website icon beside its name (captured
+  at the top: the company's own website icon beside its name (captured
   at onboarding from the homepage already fetched: `apple-touch-icon`, then any icon link, then
   `/favicon.ico`, stored as `profile.logo_url`; the first letter in a coloured square when there is
   none or it fails to load — never an external logo service), the run date and whether it was
   measured live or is a sample, the headline framed as upside — **untapped potential** (100 minus
   the score) with the real score beside it ("AI says 21.4% of what you want to be known for
-  today") — buyer visibility (on a live run, side by side: **Where AI places you** and **Where you
-  aim to be**, each with its category, range, 95% confidence interval and any low-confidence badge, then
-  one plain gap sentence ending in whether the gap is real), the count of claims to win back, and **Download summary (PDF)**.
+  today") in its own card with the count of quick wins, which opens that tab — and buyer visibility
+  in a second card. On a live run that card shows **Where AI places you** and **Where you aim to be**
+  as two numbered markers on one 0–100 line, the likely range shaded and the gap between them dashed
+  (a picture only: the rows beneath carry every number in words), then a row per front with its
+  category, one plain sentence on what it is ("The category AI's own answers about Amgen put it in";
+  "The category your own homepage puts you in"), its score, range and an amber **Low confidence**
+  chip whose hover gives the reason, a short gap sentence ending in whether the gap is real, and a
+  "What does low confidence mean here?" expander with each front's control-question result. Then
+  **Download summary (PDF)**. The summary scrolls with the page; once it is out of view one line pins
+  above the tabs (the headline and each front's visibility), so a phone keeps its screen.
   Below it, five tabs, each badge saying what it counts in words ("3 claims", "31 questions") and
   never a bare 0 (`web/src/badge.ts`: a tick where nothing is left to fix, else no badge;
   `role=tablist`, arrow keys, Home/End; the tab is kept in the URL
@@ -476,16 +491,46 @@ Tests: `web/src/tour.test.ts`.
     opens its definition from `web/src/glossary.ts`, the one place those definitions live. Hover
     opens it on a desktop, a tap pins it, Enter moves focus into it, Esc closes it; on a phone it is
     a bottom sheet.
-  - **Quick wins** (the tab once called Win it back; its badge and the pinned figure count the
-    claims with room to grow: claims to win back plus claims to amplify) — the action plan (per claim, the page of theirs to
-    change, a suggested rewrite and the buyer questions that did not recommend them which it should
-    help with, or when the proposer names none, the claim's own buyer questions that did not
-    recommend them — one evaluator-model call at the end of a live run over the saved answers and pages,
-    authored and labelled sample in replay; `agents/win_back.py` drops any action whose page was
-    not read, whose replaced copy is not verbatim on it, whose rewrite is marketing language, or
-    whose question was not asked, and says why in a plain sentence under "Suggestions we could not
-    confirm"; it moves no number), then "where the upside is"
-    cards for the biggest open claims. On a live run it opens with **Investigate the gaps**
+  - **Quick wins** (the tab once called Win it back; its badge and the summary's figure count the
+    claims with room to grow: claims to win back plus claims to amplify) — the action plan: per claim,
+    a new passage for one of the company's pages, headed by a buyer's own question and answering it in
+    two or three factual sentences, why it should make AI name the company, and the buyer questions
+    it is for (or when the proposer names none, the claim's own buyer questions that did not
+    recommend them) — one evaluator-model call at the end of a live run over the saved answers and pages,
+    authored and labelled sample in replay. `agents/win_back.py` drops any action whose page was
+    not read, whose replaced copy is not verbatim on it, whose rewrite is marketing language, that
+    gives no reason, whose heading is not one of the buyer questions it cites (a heading of its own is
+    allowed only when it cites none, and then may not name the company or address the vendor) or is a
+    buyer question AI already recommended the company for or whose answer was excluded, whose
+    rewrite repeats more than half the words of the copy it replaces (Amgen, 2026-09-28: all three
+    rewrites rephrased the sentence already on /about, and two matched their questions worse), or whose
+    question was not asked, and says why in a plain sentence under "Suggestions we could not confirm";
+    it moves no number. Each rewrite is a row that opens to **what changes** (a word diff when it
+    replaces copy, else the new passage under its heading), **why this rewrite**, and a three-step
+    **proof**: ① the match check, the retrieval scores of "Test a fix" per question it targets (today,
+    the page AI cited, with the rewrite, and the change, where a move under 0.02 is no change);
+    ② the **replay test** (`why.test_rewrite`, `GET /api/runs/{id}/rewrite-test/stream`): the buyer
+    question asked live 3 times recording what the model read and 3 times with search off, the reading
+    list replayed, then replayed with the rewrite on its page — leading it when the model read that
+    page, added to the search results when it did not — 6, 18, then 36 times each, counting the gap
+    the question has: whether the answer names the company (`why.NamesJudge`, the body only, as buyer
+    visibility counts a mention), or, where the baseline answer named it without recommending it,
+    whether it recommends it (`why.RecommendsJudge`, the run's evaluator, validated as a scored answer
+    is), until the effect's corrected 95% interval decides it: proven (`copy_fix`), proven once
+    the page is found (`authority_fix`), no change (`not_movable`), makes it worse (`copy_lowers`),
+    not reproducible, or undecided, within `WHY_BUDGET_USD`. When the replays without the rewrite
+    already name or recommend the company in more than four in five answers, no rise could show, and
+    the verdict is `ceiling` ("Already at the top"), never a disproof; ③ the **live check**, "Mark fix live" on a
+    proven rewrite (`verify.verify_investigation`), which reads the page first for free and only then
+    asks live, kept on the investigation. One verdict line says what to do. A rewrite whose match check
+    is worse on more of its questions than it is closer sits under "Rewrites we could not stand
+    behind", with its reason; nothing is hidden. On Amgen (2026-09-30), the question-headed rewrites
+    matched their buyer questions far better than the copy before them (0.55 → 0.84, 0.48 → 0.76), and
+    the replay test still disproved both it ran: with the rewrite among what the model read, it named
+    Amgen in 0 of 36 answers against 0 of 36 without it. A closer match is a reason to test, not proof.
+    Then **where the upside is**: the biggest open claims
+    as one compact table (claim, type, why when their diagnoses differ, site share, AI share, AI's own
+    words), the shared diagnosis said once above it, each claim opening to all its evidence. On a live run it opens with **Investigate the gaps**
     (`web/src/fleet.tsx`, "Investigation fleet" above): a button with the fleet's estimate, then, as
     the fleet's log streams in, the coordinator's picks with its reasons (and any calls our code
     refused), one lane per investigator on one clock with its status, experiments, spend and verdict,
@@ -511,8 +556,11 @@ Tests: `web/src/tour.test.ts`.
     "web_search_call.results"]`, `live.INCLUDE`), at no extra charge; a run keeps each result's first
     600 characters. Each front's header gives its rate of "named you" with its **margin** and how many
     of its frozen questions it took.
-  - **Why AI misses you** — diagnosis sections, each headed by one finding sentence and collapsed
-    on a phone. **Why AI says it** (the why agent, `why.py`, live runs only): pick a claim and a
+  - **Why AI misses you** — one headline (on how many buyer questions none of the pages AI cited was
+    the company's), a summary card per reason (its searches don't reach you; your pages lose the match,
+    with how the suggested rewrites moved; something in AI's way on the claim pages), then the detail
+    on sub-tabs (`role=tablist`, arrow keys): What the AI searched, Test a fix, Site check, and Ask why
+    (live), last because it spends. **Why AI says it** (the why agent, `why.py`, live runs only): pick a claim and a
     branded question — one of the run's, or your own that names the company and not the claim — and
     optionally a word that counts as saying it (otherwise the evaluator judges, quote verified, and
     counts what the report counts: only answers that endorse a claim of the company's, any mention of
@@ -540,12 +588,17 @@ Tests: `web/src/tour.test.ts`.
     **What the AI searched** (`insights.searches`): the web searches the measured model
     ran for the buyer questions (every try), read from the Responses API's `web_search_call` items
     into `Answer.searches` and grouped when they differ only by case, a year or punctuation; one
-    question told as a sentence, then each search with the questions it came from and the pages
-    cited in those answers, the brand's own marked. The API does not say which search found which
+    question told as a sentence, then the buyer questions grouped under where AI places you, where
+    you aim to be and your claims, each with how many searches it ran and whether any answer to it
+    cited the brand's own page, opening to its searches; "Show all searches as one list" gives each
+    search with the questions it came from and the pages cited in those answers, the brand's own marked. The API does not say which search found which
     page, so pages belong to the answer. Runs saved before searches were kept say "not recorded";
     the bundled samples carry authored searches, labelled sample, that move no score.
-    **Can AI read your site?** is a red/green mark per check for each claim's page (AI crawlers, text without JavaScript,
-    structured data, headings, speed; a claim that passes all five is one green mark). The page
+    **Can AI read your site?** says the problems first — each failing check once, with how many
+    claim pages it fails on, and the checks every page passes — then each advice line once with how
+    many pages it is for, then one grid, a mark per check for each claim's page (AI crawlers, text
+    without JavaScript, structured data, headings, speed), in amber and green text rather than filled
+    red and green pills. The page
     checked is the first that states the claim and AI can read; any other page that states it but
     blocks an AI crawler or is an empty script shell is listed under the claim as advice ("It is also on
     /pricing, but robots.txt blocks GPTBot there"), never as a failure. Headings pass on a main
@@ -567,9 +620,10 @@ Tests: `web/src/tour.test.ts`.
     by cosine similarity against the question and its fan-out searches. Per question: your best
     passage, the best passage of a page AI cited, and — where a "Quick wins" fix targets the
     question — the rewrite spliced into its page (in place of the copy it replaces, else as a new
-    passage) and scored again; tap a row for the passages. Every number is labelled a
+    passage) and scored again: one table, rows with a fix first, a Result column in words ("Rewrite:
+    worse", "Cited page matches better"); open a question for the passages. Every number is labelled a
     **retrieval score**, a similarity-based simulation, never a guarantee of citation, and moves no
-    score. On a live run, "Ask the AI again with the fix" asks the buyer question once with the
+    score. On a live run, "Quick check: 1 ask, not proof" asks the buyer question once with the
     rewritten passage and the cited page as the only sources and says whether the brand is named:
     one metered call, off until pressed, refused without a pass. Pages not read are listed with the
     reason. The bundled samples carry an authored sample, labelled as such. Overview gets one line

@@ -62,7 +62,8 @@ def test_simulation_compares_your_best_passage_with_the_cited_one_and_re_scores_
     assert pt1.rival.url == "https://example.com/demo-source-5"   # a page AI cited for this question
     assert "claim" in pt1.yours.url and pt1.rival.score > pt1.yours.score   # one of your pages
     assert pt1.fix_attribute_id == "replaces_stack"               # the win-back fix that targets pt-1
-    assert pt1.fixed.text == next(a.rewrite for a in run.win_back if a.attribute_id == "replaces_stack")
+    # the passage as it would go on the page: the buyer question heading it, then its answer
+    assert pt1.fixed.text == next(a.passage() for a in run.win_back if a.attribute_id == "replaces_stack")
     assert pt1.fixed.score > pt1.yours.score                      # the rewrite talks about tasks
     assert rows["kb-1"].fixed is None                             # no fix targets it
     assert pt1.queries == 3 and pt1.rival.query in ["What are good project tracking tools for small teams?",

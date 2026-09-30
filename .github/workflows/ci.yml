@@ -10,9 +10,10 @@
 # committed companies and runs. tests/test_audit.py replays recorded pages, robots.txt and
 # Wikidata/Wikipedia answers for the site audit; tests/conftest.py refuses every audit fetch otherwise.
 # What they do NOT cover: TestClient is in-process, so a real uvicorn server, proxy buffering and
-# the CORS policy are untested. The only web/src behaviour CI executes is the positioning map's label
-# placement and the report tab badges (web/src/*.test.ts, `node --test`); the rest — including the stream client in
-# web/src/api.ts — is only typechecked and linted.
+# the CORS policy are untested. The only web/src behaviour CI executes is in web/src/*.test.ts (`node --test`):
+# the positioning map's label placement, the report tab badges, the tour, the fleet log, and the Quick wins and
+# site-check arithmetic (quickwins.ts); the rest — including the stream client in web/src/api.ts — is only
+# typechecked and linted.
 # Live model behaviour is not tested and must not be: CI has no key, the live path runs only
 # under an injected transport, and no real provider is ever called.
 name: CI
