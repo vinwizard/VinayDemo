@@ -314,3 +314,18 @@ def test_no_question_assumes_the_company_sells_software():
     assert ana.control_probe(profile, "biologic medicines").text == "Which companies lead in biologic medicines?"
     shaped = ("200-person", "day to day", "never used", "team")
     assert not [t for t in onboarding.NAMED_TEMPLATES if any(s in t for s in shaped)]
+
+
+# --- malformed JSON from the model -------------------------------------------
+def test_malformed_json_is_asked_again_once():
+    """Live extraction sometimes returns broken JSON; one retry, metered like any call."""
+    replies = iter(['{"name": "Acme", "attributes": [,]}', payload()])
+    calls = []
+    a = OnboardingAgent(model="test", transport=lambda *args: calls.append(args) or next(replies))
+    _, attrs, _, _ = a.run("Acme", "example.com", PAGES)
+    assert len(calls) == 2 and attrs[0].id == "enterprise_ready"
+
+
+def test_malformed_json_twice_says_so_plainly():
+    with pytest.raises(ValueError, match="could not read twice"):
+        agent('{"attributes": [,]}').run("Acme", "example.com", PAGES)

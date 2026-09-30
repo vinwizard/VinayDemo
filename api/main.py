@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Iterator, Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -26,6 +27,8 @@ import audit
 import sampler
 from why import budget as why_budget
 import demand
+import discovery
+import documents
 import fetching
 import graph
 import reports
@@ -43,7 +46,7 @@ from api import admin
 from api import fleet as fleet_api
 from api import why as why_api
 from reports import RUNS, list_companies, load_company, load_run, save_company, save_run
-from schemas import Attribute, Company
+from schemas import Attribute, Company, Evidence
 
 _LOADED = load_env()
 print(f"[config] {redacted_status(_LOADED)}")  # names only; a key value is never printed
@@ -428,6 +431,16 @@ def set_category(company: Company, category: Optional[str]) -> list[str]:
     return []
 
 
+def source_payload(e: Evidence) -> dict:
+    """What one source is, for the page list: read directly, a search copy, an uploaded document."""
+    return dict(url=e.url, title=e.title, kind=e.source_type, saved=e.saved, private=e.private)
+
+
+def sources_of(pages: list[tuple[str, str]], meta: list[dict]) -> list[dict]:
+    return [source_payload(Evidence(**{"id": "s", "url": u, "excerpt": "", "source_type": "page_fetch", **m}))
+            for (u, _), m in zip(pages, meta)]
+
+
 def company_payload(c: Company) -> dict:
     p = c.profile
     return dict(
@@ -439,72 +452,135 @@ def company_payload(c: Company) -> dict:
                      category_questions=p.category_questions,
                      warnings=p.warnings),
         pages=c.pages,
+        sources=[source_payload(e) for e in p.evidence],
+        third_party=[dict(url=e.url, title=e.title) for e in c.third_party],
         attributes=[dict(id=a.id, label=a.label, description=a.description, aliases=a.aliases,
                          claim_quotes=a.claim_quotes, claim_pages=a.claim_pages,
                          claim_pages_total=a.claim_pages_total,
                          buyer_questions=a.buyer_questions, intended_weight=a.intended_weight,
                          added_by_user=a.added_by_user, note=a.note,
-                         review=a.review, set_aside=a.set_aside)
+                         review=a.review, set_aside=a.set_aside, private_only=a.private_only,
+                         in_documents=a.in_documents)
                     for a in c.attributes],
         warnings=c.warnings, checks=[k.model_dump() for k in c.checks], replay=offline_seed(c.id),
         audit=c.audit.model_dump() if c.audit else None)
 
 
-def onboard_steps(url: str, name: str, holder: Holder = None) -> Iterator[tuple[str, dict]]:
-    """Agent 1: crawl a company's own pages, extract the CLAIMED layer, and save the company.
+MIN_DIRECT_PAGES = 3  # fewer own pages than this read directly: fill up with what a search finds
 
-    Yields ("pages", fetched URLs) once the crawl lands, then ("company", payload). The payload has
+
+def read_site(url: str, name: str, holder: Holder) -> tuple[str, list, list[dict], list, Optional[str], Optional[str]]:
+    """-> (domain, pages, what each page is, third-party pages, icon, why the site could not be read).
+
+    The plain crawl first; when it reads fewer than MIN_DIRECT_PAGES, one web search fills up with
+    the company's own pages, read directly where they let us and as search copies where they do not
+    (discovery.gather). perplexity.ai turns every automated reader away, so it needs the search."""
+    try:
+        domain = fetching.validate(url)[1].lower().removeprefix("www.")
+        try:
+            pages, logo, problem = *fetching.fetch_site(url, max_pages=CRAWL_PAGES), None
+        except fetching.FetchError as e:
+            pages, logo, problem = [], None, str(e)
+    except fetching.UnsafeURL as e:
+        raise HTTPException(400, f"Refused: {e}")
+    meta, others = [{} for _ in pages], []
+    if len(pages) < MIN_DIRECT_PAGES:
+        try:
+            with access.spending(pass_id(holder)):
+                found, how, others = discovery.gather(name or domain, domain, CRAWL_PAGES - len(pages),
+                                                      [u for u, _ in pages])
+            pages, meta = pages + found, meta + how
+        except access.Refused as e:
+            raise HTTPException(403, e.message)
+        except discovery.SearchFailed as e:
+            problem = f"{problem}. {e}" if problem else str(e)
+    return domain, pages, meta, others, logo, problem
+
+
+def onboard_steps(url: str, name: str, holder: Holder = None, docs: tuple[str, ...] = (),
+                  only_docs: bool = False) -> Iterator[tuple[str, dict]]:
+    """Agent 1: read a company's own pages and any documents it uploaded, extract the CLAIMED layer,
+    and save the company.
+
+    Yields ("pages", sources read) once they are in, then ("company", payload). The payload has
     claimed attributes with descriptions, verbatim quotes and page counts DERIVED from those
     quotes. Intent weights are deliberately absent — what a company wants to be known for is the
     customer's input, arrives only through PATCH, and is not derivable from their own marketing copy.
+    `url` is the website the customer typed or confirmed from the search (`/api/onboard/find`); with
+    `only_docs`, or with no website at all, only the uploaded documents are read.
     """
     refuse_in_public("onboarding a new company", holder)
     if not live.available():
         raise HTTPException(400, f"Onboarding needs {live.KEY_ENV} for the extraction model.")
+    url, name = (url or "").strip(), (name or "").strip()
+    if not url and not docs:
+        raise HTTPException(400, "Give the company's website, find it by name, or upload documents about it.")
+    if only_docs and not docs:
+        raise HTTPException(400, "Upload at least one document, or read the website as well.")
     try:
-        pages, logo = fetching.fetch_site(url, max_pages=CRAWL_PAGES)
-    except fetching.UnsafeURL as e:
-        raise HTTPException(400, f"Refused: {e}")
-    except fetching.FetchError as e:
-        raise HTTPException(502, f"Could not fetch: {e}")
-    yield "pages", {"pages": [u for u, _ in pages]}
-    domain = fetching.validate(url)[1].removeprefix("www.")
+        uploaded = documents.load(pass_id(holder), list(docs))
+    except documents.Unreadable as e:
+        raise HTTPException(400, str(e))
+    domain, pages, meta, others, logo, problem = "", [], [], [], None, None
+    if url and only_docs:
+        domain = discovery.domain_of(url) or ""
+    elif url:
+        domain, pages, meta, others, logo, problem = read_site(url, name, holder)
+        if not pages and not uploaded:
+            raise HTTPException(502, f"Could not read {domain}: {problem or 'no page of it says what the company does'}. "
+                                     "Upload documents about the company instead.")
+    web = [u for u, _ in pages]
+    pages += [(f"uploaded document: {d['filename']}", d["text"]) for d in uploaded]
+    meta += [dict(source_type="uploaded_document", url=None, title=d["filename"], private=True,
+                  retrieved_at=d["created_at"][:10]) for d in uploaded]
+    yield "pages", {"pages": web, "sources": sources_of(pages, meta)}
     try:
         with access.spending(pass_id(holder)):
-            profile, attrs, warnings, checks = OnboardingAgent().run(name, domain, pages)
+            profile, attrs, warnings, checks = OnboardingAgent().run(name, domain, pages, meta)
             company = Company(id=uuid.uuid4().hex[:10], profile=profile, attributes=attrs,
-                              pages=[u for u, _ in pages], checks=checks)
+                              pages=web, checks=checks, third_party=others)
             warnings += set_category(company, profile.core_category)
     except access.Refused as e:                     # capped mid-extraction: nothing is saved
         raise HTTPException(403, e.message)
     except ValueError as e:
         raise HTTPException(502, f"Extraction failed: {e}")
     profile.logo_url = logo
+    if copies := sum(m.get("source_type") == "search_copy" for m in meta):
+        warnings.append(f"{copies} of the pages read are search copies, the text a search engine saved of "
+                        f"your own page, because {problem or f'{domain} let us read too few pages itself'}. "
+                        "If your site turns our reader away it may turn AI crawlers away too: the site "
+                        "check shows which.")
     if len(attrs) < MIN_CLAIMS:
         # The company is saved either way — discarding a paid crawl to refuse a thin site is the
         # wrong trade. Withhold confidence in the numbers, not the company.
-        warnings.insert(0, f"Only {len(attrs)} claim(s) on {domain} survived quote validation across "
-                           f"{len(pages)} page(s), below the {MIN_CLAIMS} this needs. The site states too "
+        where = f"on {domain}" if domain and not uploaded else "in what we read"
+        warnings.insert(0, f"Only {len(attrs)} claim(s) {where} survived quote validation across "
+                           f"{len(pages)} source(s), below the {MIN_CLAIMS} this needs. What we read states too "
                            "little for a reliable claim percentage — read every page share with care.")
     warnings += vet_questions(profile, attrs)
     company.warnings = warnings
-    company.audit = audit.run(company)   # plain fetches, no model: never raises, never billed
+    company.audit = audit.run(company) if web else None  # plain fetches, no model: never raises, never billed
     save_company(company)
     if holder:
         access.own("company", company.id, holder["id"], profile.name)
-        access.log(holder["id"], f"onboarded {domain}")
+        access.log(holder["id"], f"onboarded {domain or profile.name}")
     yield "company", company_payload(company)
 
 
+def doc_ids(docs: str) -> tuple[str, ...]:
+    return tuple(d for d in (docs or "").split(",") if d)
+
+
 @app.get("/api/onboard")
-def onboard(url: str, name: str = "", request: Request = None):
-    return dict(onboard_steps(url, name, holder_of(request)))["company"]
+def onboard(url: str = "", name: str = "", docs: str = "", only_docs: bool = False, request: Request = None):
+    return dict(onboard_steps(url, name, holder_of(request), doc_ids(docs), only_docs))["company"]
 
 
-def onboard_events(url: str, name: str, holder: Holder = None) -> Iterator[str]:
+def onboard_events(url: str, name: str, holder: Holder = None, docs: tuple[str, ...] = (),
+                   only_docs: bool = False) -> Iterator[str]:
     """The same onboarding as SSE, so the browser can show the crawl finish before extraction does."""
     try:
-        for kind, payload in onboard_steps(url, name, holder):
+        for kind, payload in onboard_steps(url, name, holder, docs, only_docs):
             yield sse(kind, payload)
     except HTTPException as e:
         yield sse("error", {"message": str(e.detail)})
@@ -514,9 +590,48 @@ def onboard_events(url: str, name: str, holder: Holder = None) -> Iterator[str]:
 
 
 @app.get("/api/onboard/stream")
-def onboard_stream(url: str, name: str = "", request: Request = None):
-    return StreamingResponse(onboard_events(url, name, holder_of(request)), media_type="text/event-stream",
+def onboard_stream(url: str = "", name: str = "", docs: str = "", only_docs: bool = False,
+                   request: Request = None):
+    return StreamingResponse(onboard_events(url, name, holder_of(request), doc_ids(docs), only_docs),
+                             media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.get("/api/onboard/find")
+def find_company(name: str, hint: str = "", request: Request = None):
+    """Which company a name means: up to three candidates from one web search, for the customer to
+    confirm before anything is read. The customer always confirms: asked about a name no company
+    has, the search still returns near-misses (discovery.find)."""
+    holder = holder_of(request)
+    refuse_in_public("searching for a company", holder)
+    if not name.strip():
+        raise HTTPException(400, "Type the company's name.")
+    if not live.available():
+        raise HTTPException(400, f"Searching needs {live.KEY_ENV}. Enter the company's website instead.")
+    try:
+        with access.spending(pass_id(holder)):
+            return discovery.find(name[:200], hint[:300] or None)
+    except access.Refused as e:
+        raise HTTPException(403, e.message)
+    except discovery.SearchFailed as e:
+        raise HTTPException(502, f"{e} Enter the company's website, or upload documents about it.")
+
+
+@app.post("/api/onboard/documents")
+async def upload_document(request: Request, filename: str):
+    """One document, as the raw request body. Only its text is kept, in this pass's own folder
+    (documents.py); the file itself is never stored. -> {id, filename, chars}."""
+    holder = holder_of(request)
+    refuse_in_public("uploading documents", holder)
+    data = bytearray()
+    async for chunk in request.stream():
+        data += chunk
+        if len(data) > documents.MAX_BYTES:
+            raise HTTPException(413, f"{filename} is larger than {documents.MAX_BYTES // (1024 * 1024)} MB.")
+    try:
+        return await run_in_threadpool(documents.save, pass_id(holder), filename, bytes(data))
+    except documents.Unreadable as e:
+        raise HTTPException(422, str(e))
 
 
 ADDED_MIN_WEIGHT = 0.1
@@ -673,7 +788,7 @@ def companies(request: Request = None):
         except Exception:
             continue
         out.append(dict(id=c.id, name=c.profile.name, domain=c.profile.domain,
-                        created_at=c.created_at, pages=len(c.pages),
+                        created_at=c.created_at, pages=len(c.profile.evidence) or len(c.pages),
                         attributes=len(c.attributes),
                         intended=sum(1 for a in c.attributes if a.intended)))
     return out
@@ -786,6 +901,8 @@ def reaudit(company_id: str, request: Request = None):
         raise HTTPException(400, OFFLINE_FIXED)
     refuse_unowned(company_id, holder)
     c = _company(company_id)
+    if not c.pages and not c.profile.domain:
+        raise HTTPException(400, "This company has no website to check: it was read from documents only.")
     c.audit = audit.run(c)
     save_company(c)
     return company_payload(c)

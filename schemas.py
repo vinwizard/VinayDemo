@@ -17,8 +17,14 @@ class Evidence(BaseModel):
     url: Optional[str] = None
     excerpt: str
     retrieved_at: Optional[str] = None
-    # illustrative | web_research_snapshot | user_provided | page_fetch
+    # illustrative | web_research_snapshot | user_provided | page_fetch | search_copy |
+    # uploaded_document | third_party. A search_copy is the company's own page as a search engine
+    # saved it, read when the page itself turns us away; third_party is about the company, never by
+    # it, and never counts as a claim (discovery.py).
     source_type: str
+    title: Optional[str] = None       # an uploaded document's file name, or a page's title
+    saved: Optional[str] = None       # a search copy's age as the search engine gave it: "3 days ago"
+    private: bool = False             # an uploaded document: nothing AI can read, unlike a public page
 
 
 class PositioningPoint(BaseModel):
@@ -74,7 +80,8 @@ class CompanyProfile(BaseModel):
     category_questions: list[str] = []  # blind buyer questions for the core category; vetted like any
 
     def all_domains(self) -> list[str]:
-        return sorted({self.domain, *self.owned_domains})
+        # A company onboarded from documents alone has no domain: "" would match every URL
+        return sorted({d for d in (self.domain, *self.owned_domains) if d})
 
     def names(self) -> list[str]:
         """Every name that counts as a mention. The name itself always does: onboarding asks for
@@ -110,8 +117,12 @@ class Attribute(BaseModel):
     # words, onboarding_model.marketing_words), or None. Flagged claims are kept and measured.
     review: Optional[str] = None
     set_aside: bool = False                  # the customer set it aside: kept on file, never measured
-    claim_pages: int = 0                     # DERIVED: pages whose text contains a validated quote
-    claim_pages_total: int = 0               # DERIVED: pages actually fetched
+    claim_pages: int = 0                     # DERIVED: public pages whose text contains a validated quote
+    claim_pages_total: int = 0               # DERIVED: public pages read (own pages and search copies)
+    # DERIVED: every validated quote is in a private uploaded document and on no public page. AI
+    # cannot read those, so a claim it does not repeat is a messaging gap, never an authority gap.
+    private_only: bool = False
+    in_documents: bool = False               # DERIVED: a validated quote is also in an uploaded document
     # The buyer questions this claim implies, with no brand name anywhere. If the positioning were
     # landing, the company should surface for these. This is the placebo test.
     buyer_questions: list[str] = []
@@ -567,7 +578,9 @@ class Company(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
     profile: CompanyProfile
     attributes: list[Attribute] = []
-    pages: list[str] = []      # the URLs actually fetched; claim_pages_total counts these
+    pages: list[str] = []      # the URLs read (directly or as search copies); the audit re-reads these
+    # Pages about the company by someone else (Wikipedia, news), shown apart and never extracted
+    third_party: list[Evidence] = []
     warnings: list[str] = []
     checks: list[ClaimCheck] = []
     audit: Optional[SiteAudit] = None  # None: onboarded before the audit existed

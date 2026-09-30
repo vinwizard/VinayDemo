@@ -8,7 +8,9 @@ to be. That gap is the product. Everything else serves it.
 
 - **Intended** — what the company wants to be known for. Stated by the customer, aspirational, never
   counted as product fit.
-- **Claimed** — what its own public pages actually say. Evidence-backed, with verbatim quotes.
+- **Claimed** — what its own public pages actually say. Evidence-backed, with verbatim quotes. Read
+  directly, or as a dated search copy when the site turns us away, plus documents it uploads
+  (private: a claim only there is a messaging gap). Third-party pages are kept apart, never claimed.
 - **Perceived** — what AI says when asked. Measured by probes.
 
 Claimed vs perceived is an *authority gap* (they say it, AI does not repeat it). Intended vs claimed

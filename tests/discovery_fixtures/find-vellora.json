@@ -1,0 +1,174 @@
+{
+ "output": [
+  {
+   "type": "web_search_call",
+   "action": {
+    "type": "search",
+    "queries": [
+     "\"Vellora Analytics\" company",
+     "Vellora Analytics official website",
+     "Vellora Analytics"
+    ],
+    "query": "\"Vellora Analytics\" company",
+    "sources": [
+     {
+      "type": "url",
+      "url": "https://velloralabs.com/"
+     },
+     {
+      "type": "url",
+      "url": "https://app.vellora.ai/terms-of-service"
+     },
+     {
+      "type": "url",
+      "url": "https://vellora.co/"
+     },
+     {
+      "type": "url",
+      "url": "https://app.vellora.ai/cookie-policy"
+     },
+     {
+      "type": "url",
+      "url": "https://vellora.co/pages/about-us"
+     },
+     {
+      "type": "url",
+      "url": "https://app.vellora.ai/privacy-policy"
+     },
+     {
+      "type": "url",
+      "url": "https://vellora.app.br/"
+     },
+     {
+      "type": "url",
+      "url": "https://velloraonline.com/checkout"
+     },
+     {
+      "type": "url",
+      "url": "https://www.vellorahub.org/"
+     },
+     {
+      "type": "url",
+      "url": "https://vellora.co/collections"
+     },
+     {
+      "type": "url",
+      "url": "https://app.vellora.ai/"
+     },
+     {
+      "type": "url",
+      "url": "https://getvellora.app/vellora-privacy"
+     },
+     {
+      "type": "url",
+      "url": "https://www.valoraanalitik.com/wp-content/uploads/2022/07/Ranking-de-Startups.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://www.pappers.fr/entreprise/vellora-942097734/documents/VELLORA%20-%20Copie%20des%20statuts%20mis%20%C3%A0%20jour%2028-09-2025.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://news.northeastern.edu/wp-content/uploads/2025/05/2025-NEU-GRAD-CommProg-Proof-4-FINAL-INTERACTIVE.pdf"
+     },
+     {
+      "type": "url",
+      "url": "https://keralapsc.gov.in/sites/default/files/2024-01/adv-21-11-23-state.pdf"
+     }
+    ]
+   },
+   "results": [
+    {
+     "url": "https://velloralabs.com/",
+     "title": "Vellora Labs \u2014 Agentic AI for decision intelligence",
+     "text": "\ue200cite\ue202turn0search0\ue201 [wordlim: 200] Crawled: today; VELLORA \u00b7 LABS ... hello@vellora.ai\nVELLORA \u00b7 LABS\n\nVellora Labs\u00b7Decision Intelligence\u00b7Electron \u2192 Product\n\nWe build agentic AI systems that turn live data into decisions people can act on \u2014 on a stack we own from the silicon to the product.\n\nSee the productsElectron \u2192 Product\n\nProducts\n\n## Agents that decide, in production.\n\nOptamax Decision intelligence for energy 01 A global intelligence and decision-analysis AI system, designed for the downstream value chain of energy majors. Agents watch the signals, weigh the options and put a ranked decision with its evidence in front of the people who own it. Runs on the Dragon core.optamax.ioDragon Code Terminal coding agent 02 A frontier coding agent for the terminal. It works across your codebase on the same Dragon core that routes across more than 1,000 models.mws.run\n\n### TokenMax\n\nOn-device AI \u00b7 iOS\n\n03\n\nPrivate AI chat that never leaves your phone. Falcon 3 models on Metal-tuned llama.cpp, with on-device vision, voice, retrieval and tools.\n\nDecision intelligence\n\n## One agent loop. Every decision.\n\n  1. Sense\n\n### Watch the signals\n\nAgents ingest live operational, market and sensor data and keep the source of every fact.\n\n  2. Weigh\n\n### Model the options\n\nModels on the Dragon core compare scenarios, costs and risks, and show their reasoning.\n\n  3. Decide\n\n### Keep people in charge\n\nA ranked recommendation with evidence goes to the person who owns the call. Every step is logged.\n\nElectron \u2192 Product\n\n## We own every layer between an electron and a decision.\n\nDecisions are only as fast, cheap and trustworthy as the stack under them. So we build all of it.\n\n  1. L0\u2192\n\n### Silicon\n\nGPUs, wafer-scale chips and Apple Silicon. Where the electrons move.\n\n  2. L1\u2192\n\n### Kernels\n\nCUDA, Metal and llama.cpp tuned for speed per watt.\n\n  3. L2\u2192\n\n### Models\n\nFrontier and open models, or the ones the customer approves.\n\n  4. L3\u2192\n\n### Dragon core\n\nRoutes each request across more than 1,000 models.\n\n  5. L4\u2192\n\n### Agents\n\nPlan, use tools, remember and explain every step.\n\n  6. L5\n\n### Product\n\nA decision a person can act on: Optamax, Dragon Code, TokenMax.\n\n## Put an agent on your hardest decision.\n\nhello@vellora.ai"
+    },
+    {
+     "url": "https://app.vellora.ai/terms-of-service",
+     "title": "Terms of Service",
+     "text": "\ue200cite\ue202turn0search1\ue201 [wordlim: 200] Published: 7 months ago; Crawled: last month; If you are registering on behalf of a company or organization, you represent that you have full authority to bind that entity to these Terms. ... Customer authorizes Vellora AI to use trusted subprocessors (e.g., cloud hosting, analytics, storage) as necessary to provide the Services. ... If you provide your mobile phone number and expressly consent to receive follow-up communications, you agree that Vellora AI may send you transactional SMS (text) messages using automated technology, including reminders, scheduling confirmations, onboarding links, task notifications, service updates, or customer support communications.\n\n# Terms of Service\n\n## Our terms and conditions\n\n# VELLORA AI TERMS OF SERVICE\n\nEffective Date: May 1, 2025\n\nLast Updated: February 17, 2026\n\nWelcome to Vellora AI, operated by Vellora AI, Inc., a Delaware corporation (\"Vellora,\" \"we,\" \"our,\" or \"us\"). These Terms of Service (\"Terms\") form a binding agreement between you (\"you,\" \"your,\" \"User,\" or \"Organization\") and Vellora governing your use of our software, APIs, websites, mobile applications, and related systems (collectively, the \"Services\").\n\nBy clicking \"I Agree,\" creating an account, or using the Services, you accept these Terms and agree to comply with all applicable laws and regulations. If you do not agree, do not access or use the Services.\n\n## 1. Service Overview\n\nVellora provides cloud-based AI tools designed to capture, transcribe, summarize, and analyze communications (\"AI Note-Taking Tools\"), along with other automation software. Vellora only provides software tools. We do not monitor, initiate, or control how users deploy these tools, and we have no ability to determine whether your use complies with applicable recording or consent laws.\n"
+    },
+    {
+     "url": "https://vellora.co/",
+     "title": "Vellora | Lash & Brow Serums for Effortlessly Bold Beauty",
+     "text": "\ue200cite\ue202turn0search2\ue201 [wordlim: 200] Crawled: today; Image: woman holding vellora brow and lash serum ... Naturally dramatic, better-looking lashes \u2014 no extensions required.\"}]}]},\"buybox_product_subtitle\":{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Visibly Thicker, Longer Lashes\"}]}]},\"buybox_ugc_carousel_heading\":{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Visible Results, Backed by Real Use\",\"bold\":true}]}]},\"buybox_ugc_carousel_id\":\"zeuQzCxnJpUm0IM\",\"buybox_usps_list_item_1\":{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Noticeably\u00a0\"},{\"type\":\"text\",\"value\":\"longer, fuller lashes\",\"bold\":true}]}]},\"buybox_usps_list_item_2\":{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Strengthens lashes\",\"bold\":true},{\"type\":\"text\",\"value\":\"\u00a0to reduce shedding and breakage\"}]}]},\"buybox_usps_list_item_3\":{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Conditions \\u0026 hydrates\",\"bold\":true},{\"type\":\"text\",\"value\":\"\u00a0for soft, flexible lashes\"}]}]},\"faqs\":\"gid:\\/\\/shopify\\/Metaobject\\/166497091776\",\"home_product_display\":{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Supports your natural lash cycle for visibly longer, fuller lashes by nourishing at the source.\"}]}]}} content.badges: null badges.value: null FINAL VALUES: show_badges: text_badge: image_badge: image_badge_url: ALL METAFIELDS: {\"product_content\":\"gid:\\/\\/shopify\\/Metaobject\\/166497026240\"} DEBUG INFO: product.metafields.custom.product_content: {\"error\":\"json not allowed for this object\"} content: {\"buybox_icon_list_image_1\":\"gid:\\/\\/shopify\\/MediaImage\\/37278885511360\",\"buybox_icon_list_image_2\":\"gid:\\/\\/shopify\\/MediaImage\\/37278885544128\",\"buybox_icon_list_image_3\":\"gid:\\/\\/shopify\\/MediaImage\\/37278885609664\",\"buybox_icon_list_image_4\":\"gid:\\/\\/shopify\\/MediaImage\\/37278885478592\",\"buybox_icon_list_text_1\":{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Lengthens\"}]}]},\"buybox_icon_list_text_2\":{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Thickens\"}]}]},\"buybox_icon_list_text_3\":{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Revives\"}]}]},\"buybox_icon_list_text_4\":{\"type\":\"root\",\"children\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"value\":\"Strengthens\"}]}]},\"buybox_product_d"
+    },
+    {
+     "url": "https://app.vellora.ai/cookie-policy",
+     "title": "Cookie Policy",
+     "text": "\ue200cite\ue202turn0search3\ue201 [wordlim: 200] Published: 1.1 years ago; Crawled: last month; This policy applies to vellora.ai and the Vellora app. ... We do not use analytics, advertising, or social tracking cookies.\n\n# Cookie Policy\n\n## Our cookie policy and how we use them\n\n# Vellora Cookie Policy\n\nEffective date: August 20, 2025\n\nWho we are: Vellora, Inc. (\"Vellora,\" \"we,\" \"us,\" or \"our\"). This policy applies to vellora.ai and the Vellora app.\n\n## Our simple stance\n\nWe use only essential cookies needed for the site and app to work. We do not use analytics, advertising, or social tracking cookies. We do not sell or share cookie data.\n\n## What essential cookies do\n\nEssential cookies enable core functions such as:\n\n  * Authentication & sessions \u2013 keeping you signed in and securing your account.\n  * Security & fraud prevention \u2013 e.g., CSRF protection and abuse detection.\n  * Performance & availability \u2013 load balancing and uptime features.\n\nWithout these cookies, Vellora will not function properly. Because they are strictly necessary, consent is not requested for them.\n\n## What we store (at a high level)\n\nWe may store a session identifier, a CSRF token, and limited configuration needed to deliver features you turn on. We do not store or read third\u2011party tracking identifiers.\n\n## How long they last\n\nEssential cookies are session\u2011based or short\u2011lived. Most expire when you sign out or close your browser. Some may last a little longer (e.g., up to 30 days) to remember essential settings.\n\n## Your choices\n\nYou can block cookies in your browser settings, but Vellora may not work correctly without essential cookies. If we ever add non\u2011essential cookies (e.g., analytics), we will update this page and request your consent where required.\n\n## Changes\n\nWe may update this policy. We will post changes here and update the Effective date.\n\n## Contact\n\nQuestions? Email hello@vellora.ai."
+    },
+    {
+     "url": "https://vellora.co/pages/about-us",
+     "title": "About Us \u2013 Vellora",
+     "text": "\ue200cite\ue202turn0search4\ue201 [wordlim: 200] Crawled: today; Vellora was founded from the belief that ALL women regardless of age, life experience, or how they envision their beauty\u2013deserve to feel radiant.\n"
+    },
+    {
+     "url": "https://app.vellora.ai/privacy-policy",
+     "title": "Privacy Policy",
+     "text": "\ue200cite\ue202turn0search5\ue201 [wordlim: 200] Published: 7 months ago; Crawled: last month;   * Service Providers and Subprocessors (e.g., Supabase, analytics or infrastructure vendors) who process data under written confidentiality agreements; ...   * Your use of LinkedIn through Vellora AI remains subject to LinkedIn's User Agreement and Privacy Policy; ... Vellora AI is not responsible for the privacy practices, data collection, or security measures of Third-Party Services.\n"
+    },
+    {
+     "url": "https://vellora.app.br/",
+     "title": "Vellora \u2014 Storefront",
+     "text": "\ue200cite\ue202turn0search6\ue201 [wordlim: 200] Crawled: last month; Vellora combines artificial intelligence and predictive analytics to elevate real estate operations to a new level of sophistication and precision. ... Vellora redefines high-end real estate operations with AI and predictive analytics \u2014 every interaction engineered as an asset.\n"
+    },
+    {
+     "url": "https://velloraonline.com/checkout",
+     "title": "Checkout | Vellora",
+     "text": "\ue200cite\ue202turn0search7\ue201 [wordlim: 200] Crawled: last month; # Checkout | Vellora\n"
+    },
+    {
+     "url": "https://www.vellorahub.org/",
+     "title": "Vellora | The Value of the Journey",
+     "text": "\ue200cite\ue202turn0search8\ue201 [wordlim: 200] Crawled: 5 months ago; Image: Vellora analytics page screenshot\n"
+    },
+    {
+     "url": "https://vellora.co/collections",
+     "title": "Collections \u2013 Vellora",
+     "text": "\ue200cite\ue202turn0search9\ue201 [wordlim: 200] Crawled: today; Image: Vellora\n"
+    },
+    {
+     "url": "https://app.vellora.ai/",
+     "title": "Vellora AI",
+     "text": "\ue200cite\ue202turn0search10\ue201 [wordlim: 200] Crawled: last month; Vellora\u00b7Always Online ...   * Advanced analytics\n"
+    },
+    {
+     "url": "https://getvellora.app/vellora-privacy",
+     "title": "Privacy Policy \u2014 Vellora",
+     "text": "\ue200cite\ue202turn0search11\ue201 [wordlim: 200] Crawled: last week; Vellora (\"we\", \"us\", \"our\") is a personal finance assistant delivered via WhatsApp, operated by Vellora. ... This website uses minimal, privacy-friendly analytics cookies only (no advertising or cross-site tracking cookies). ... Vellora uses the following third-party services to operate:\n"
+    },
+    {
+     "url": "https://www.valoraanalitik.com/wp-content/uploads/2022/07/Ranking-de-Startups.pdf",
+     "title": "We should note that our team applies additional filters to Unicorns and Exits, as we disregard entities that are corporate spin-offs or that were created by governments.",
+     "text": "\ue200cite\ue202turn0search12\ue201 [wordlim: 200] Published: 4.3 years ago; In some cases a particular ecosystem might not be the current official headquarters of the startup.\n"
+    },
+    {
+     "url": "https://www.pappers.fr/entreprise/vellora-942097734/documents/VELLORA%20-%20Copie%20des%20statuts%20mis%20%C3%A0%20jour%2028-09-2025.pdf",
+     "title": "VELLORA - Actes du 14-03-2025.docx",
+     "text": "\ue200cite\ue202turn0search13\ue201 [wordlim: 200] Published: last year; Handwritten note at top: \u201cCertifi\u00e9 conforme \u00e0 l\u2019original\u201d with a signature/initials to the right. ... VELLORA\n"
+    },
+    {
+     "url": "https://news.northeastern.edu/wp-content/uploads/2025/05/2025-NEU-GRAD-CommProg-Proof-4-FINAL-INTERACTIVE.pdf",
+     "title": "Kate Silverman",
+     "text": "\ue200cite\ue202turn0search14\ue201 [wordlim: 200] Published: 1.4 years ago; Business Analytics ... Nayana Vellora Madathil\n"
+    },
+    {
+     "url": "https://keralapsc.gov.in/sites/default/files/2024-01/adv-21-11-23-state.pdf",
+     "title": "WEBSITE: www.keralapsc.gov.in",
+     "text": "\ue200cite\ue202turn0search15\ue201 [wordlim: 200] Published: 7 months ago; 116 421 | Name, Address & Community of Candidate ANEESHAMOL V S EDAKKADU VEEDU MAVILAKKADAVU THIRUVANANTHAPURAM VENKADAMPU P O 695506 Communication Address EDAKKADU VEEDU MAVILAKKADAVU KULATHOOR THIRUVANANTHAPURAM UCHAKKADA P O 695506 (LC/AI-LATIN CATHOLICS) | Rank No. ... 118 423 | Name, Address & Community of Candidate NISHA N C PATTAMMADATH HOUSE KOYIPRA, VELLORA, MATHAMANGALAM VELLORA, 670306 KANNUR Communication Address PATTAMMADATH HOUSE KOYIPRA, VELLORA, MATHAMANGALAM KANNUR VELLORA, 670306 (OBC-KULALA) | Rank No.\n"
+    }
+   ]
+  },
+  {
+   "type": "message",
+   "content": [
+    {
+     "type": "output_text",
+     "text": "{\"candidates\":[{\"name\":\"Vellora AI, Inc.\",\"domain\":\"vellora.ai\",\"what\":\"Provides AI tools to capture, transcribe, summarize, and analyze communications.\"},{\"name\":\"Vellora Labs\",\"domain\":\"velloralabs.com\",\"what\":\"Builds agentic AI systems for decision intelligence and data-driven decisions.\"}]}",
+     "annotations": []
+    }
+   ]
+  }
+ ]
+}

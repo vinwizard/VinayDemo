@@ -313,6 +313,23 @@ export const GLOSSARY = {
       + "experiment predicted, the fix is confirmed. We also replay the old reading list to catch the model "
       + "itself changing.",
   },
+  search_copy: {
+    term: "Search copy",
+    def: "The text of the company's own page as a search engine last saved it, with how long ago it was "
+      + "saved. Used when the site turns our reader away or shows no text without script. It is still the "
+      + "company's own words, so its claims count, and every quote is checked against it word for word.",
+  },
+  third_party: {
+    term: "Others about you",
+    def: "Pages someone else wrote about the company, such as Wikipedia, news or forums. Shown so you can see "
+      + "what AI may read about you. Never read for claims and never counted as something you say.",
+  },
+  private_document: {
+    term: "Only in your documents",
+    def: "A claim found only in documents you uploaded, not on any public page. AI cannot read a private "
+      + "file, so if it does not repeat this claim the report calls it a messaging gap: you have not said "
+      + "it in public yet.",
+  },
 } satisfies Record<string, { term: string; def: string }>;
 
 export type TermKey = keyof typeof GLOSSARY;

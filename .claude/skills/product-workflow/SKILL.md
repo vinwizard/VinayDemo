@@ -46,6 +46,8 @@ Demo implementation: load a bundled profile with explicit provenance. Permit fac
 
 Optional fetching: homepage plus up to seven same-origin pages chosen by what they are (about, mission, offer, newsroom — `fetching.positioning_links`); 10-second timeout, 1 MiB per response, 12,000 extracted characters/page, at most two redirects. Use a safe public-URL fetcher that blocks private, local and metadata destinations, validates each redirect, and prevents DNS rebinding. If safe retrieval is not ready, keep URL fetching disabled and use pasted text or bundled snapshots.
 
+From a name alone: `discovery.find` names up to three candidate companies from one web search and the customer confirms one; when the crawl reads fewer than three pages, `discovery.gather` fills up with the company's own pages (read directly, else as dated search copies) and keeps third-party pages apart. Uploaded documents (`documents.py`) are read as private sources. WEB.md "Onboarding" has the rules; the evidence-modes skill has what may count as claimed.
+
 ### Agent 2 — AnA: Assimilate and Attack
 
 **Goal:** build and explore the company's relevant buyer-question search space.

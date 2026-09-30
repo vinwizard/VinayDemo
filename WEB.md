@@ -322,6 +322,49 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 
 `node` and `npm` come from the `visexp` conda env — nothing is installed system-wide.
 
+## Onboarding
+
+Only the company's name is needed (`web/src/find.tsx`, `discovery.py`, `documents.py`).
+
+1. **Find.** One web search on the measured model's search tool (`live.SEARCH_TOOL`, metered like
+   every call) returns up to three companies the name could mean. A candidate is kept only when its
+   domain came back in a search result, never from the model's own knowledge. The customer always
+   confirms, because a made-up name still comes back with confident near-misses: those are offered
+   as not an exact match, with a warning. "No, it's a different company" searches again with what
+   the customer adds. A website typed under "I know the website" skips the search.
+2. **Read.** The plain crawl (`fetching.fetch_site`) comes first. When it reads fewer than three pages
+   (`MIN_DIRECT_PAGES`), one more search fills up with the company's own pages: each is read directly
+   when it lets us (a subdomain often does when the main site will not), else its **search copy**
+   is used, the text the search engine saved, with its age ("saved 3 days ago"). perplexity.ai turns
+   every automated reader away with Cloudflare's "verify you are human" check, and a real Chrome
+   window gets the same, so there is no headless browser: search copies are the fallback.
+3. **What counts as claimed.** An own page is on the confirmed domain or a subdomain **and** names the
+   company (perplexity.ai also hosts other companies' SEC filings). Pages in another language are
+   skipped, and tracking query strings dropped. Everything else that names the company is
+   **third-party** (Wikipedia, news, forums): stored as `Company.third_party`, listed as "Others
+   about you", never extracted and never counted.
+4. **Documents.** PDF (text layer only, via `pypdf`; a scan is refused, there is no OCR), Word .docx
+   (standard library), text and Markdown, or pasted text. Up to 5 files, 10 MB each, 30,000
+   characters kept each. Only the text is kept, as JSON under `DATA_DIR/uploads/<hash of the pass>/`;
+   the file is never stored, and a document is only ever loaded from the caller's own folder.
+   Documents add to the pages read, or with "Use only my documents" replace them; with no website
+   they are the only source. Quotes are checked word for word against their text like a page's.
+   A document is private: it never counts toward "stated on N% of your pages", which is over public
+   pages only (own pages and search copies); a claim also in documents says so. A claim found only
+   in documents is `private_only`, and if AI does not
+   repeat it, `drift.classify` calls it a **messaging gap** (the company has not said it in public),
+   never an authority gap. The site audit skips such claims and does not run with no website.
+
+Every source keeps its kind through to the saved company (`Evidence.source_type`: `page_fetch`,
+`search_copy`, `uploaded_document`) and the page lists it with its label. A fetch that fails says
+why in plain words (`fetching._plain`, `fetching.status_problem`): "did not answer within 10 seconds",
+"has a security certificate that is not valid", "turns automated readers away (HTTP 403)", "there is
+no website at …", "shows no text until script runs".
+
+Cost, measured on 2026-09-28 with `gpt-6-luna`: a find is $0.011 (one search); filling up from search
+is $0.04 on perplexity.ai (four searches, only when the site turns us away); extraction on
+`gpt-4.1-mini` is about $0.005–0.02. About 2¢ for a site that can be read, about 7¢ for one that cannot.
+
 ## API
 
 | Endpoint | Purpose |
@@ -332,12 +375,14 @@ VISEXP_OFFLINE_REPLAY=1 VISEXP_DEV_DELAY=1 ~/miniconda3/envs/visexp/bin/python -
 | `GET /api/runs/{id}` | one full run, including the drift report and its `insights` (share of voice, cited sources and the brands each was cited beside, searches); the stream's `done` event and `rescore` return the same shape |
 | `POST /api/runs/{id}/reask` | test a fix: `{probe_id}` asks that buyer question once more, with the rewritten passage and the cited page's passage as the only sources, and saves whether the brand was named on its retrieval row. One metered model call; live runs only, refused on the public demo without a pass. A simulation that moves no score |
 | `POST /api/runs/{id}/rescore` | lens 2 after the fact: `{weights: {id: 0..1}}` sets intent on a finished run and re-scores its saved answers — no provider is built and no model is asked. Unnamed weights keep their value; 0 unweights; with nothing weighted the run reads through the claim lens again. Saved in place, except in the public demo (`VISEXP_PUBLIC_DEMO`) and for the committed live example (`SHOWCASE_RUN`) |
-| `GET /api/onboard/stream?url=&name=` | the same onboarding as SSE: `pages` (the URLs the crawl fetched) as soon as the crawl lands, then `company` once extraction is saved, or `error`. The page uses this one |
-| `GET /api/onboard?url=&name=` | Agent 1: crawl up to 8 of a company's own pages (`CRAWL_PAGES`), extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. Needs the same key as live mode. A company is always saved, never refused: a site where fewer than three claims survive quote validation carries a prominent warning that it states too little for a reliable claim percentage, and the existing insufficient-evidence rules withhold the scores rather than the company |
+| `GET /api/onboard/find?name=&hint=` | which company a name means: one web search, up to three `candidates` (`name`, `domain`, `what`, `exact`) and whether any is an exact match (`discovery.find`). The customer confirms one before anything is read; "No, it's a different company" asks again with a `hint`. Needs the key; refused on the public demo without a pass |
+| `POST /api/onboard/documents?filename=` | one document as the raw request body (PDF, .docx, .txt, .md; 10 MB) → `{id, filename, chars}`. Only its text is kept, in the pass's own folder (`documents.py`); 413 when too large, 422 with the reason when it cannot be read |
+| `GET /api/onboard/stream?url=&name=&docs=&only_docs=` | the same onboarding as SSE: `pages` (`pages`, the web URLs read, and `sources`, each with how it was read) as soon as everything is read, then `company` once extraction is saved, or `error`. The page uses this one |
+| `GET /api/onboard?url=&name=&docs=&only_docs=` | Agent 1: read up to 8 of a company's own pages (`CRAWL_PAGES`; search copies when the site turns us away) and any uploaded documents (`docs`, comma-separated ids; `only_docs=true` skips the website), extract the **claimed** layer (attributes, verbatim quotes, derived page counts) and **save** the company. `url` may be empty when documents are given. Needs the same key as live mode. A company is always saved, never refused: one where fewer than three claims survive quote validation carries a prominent warning that it states too little for a reliable claim percentage, and the existing insufficient-evidence rules withhold the scores rather than the company. The company carries `sources` and `third_party` ("Onboarding" above) |
 | `GET /api/companies` · `GET /api/companies/{id}` | onboarded companies, newest first, and one in full |
 | `PATCH /api/companies/{id}` | the customer's own input: `{weights: {id: 0..1}, added: [{label, description, intended_weight}]}`. Intent arrives only here (or on `rescore`) — never derived from their copy, and a weight of 0 leaves an extracted attribute unintended. Weights are optional: a company measured with none runs the claim lens. An **added** claim is intended by construction, so its weight cannot go below 0.1 |
 | `POST /api/access/exchange` · `GET /api/access` | access passes on the hosted demo (`access.py`): `{code}` from a personal link `/?pass=<code>` becomes an HttpOnly session cookie; `GET` is the holder's meter (`{pass: {label, spent_usd, cap_usd, capped}}` or `{pass: null}`). With a pass, live runs and onboarding are allowed on the public demo, charged to the pass, every run it makes (replay or live) is saved under `DATA_DIR`, and runs and companies are listed only to the pass that made them — a pass sees none of the shared preloaded ones. `/admin` (behind `ADMIN_PASSWORD`) creates passes, shows each link once, and tops up or revokes. Cookies are same-origin, so passes work on the production build, not across the Vite dev port |
-| `POST /api/companies/{id}/audit` | checks again whether AI can read the site (`audit.py`) and saves it on the company; the same check runs once during onboarding. Plain fetches, no model and no key: robots.txt for the AI crawlers, the claim's words in the no-JavaScript HTML, schema.org JSON-LD, headings, load time and llms.txt, on every page that states each claim, plus Wikidata/Wikipedia (tied to the company only by Wikidata's official website on its domain) and the Crunchbase, G2 and LinkedIn pages the site itself links to. Anything that cannot be reached, or whose robots.txt turns automated tools away, is "could not check", never a guess. A run copies the company's audit when it starts |
+| `POST /api/companies/{id}/audit` | checks again whether AI can read the site (`audit.py`) and saves it on the company; the same check runs once during onboarding. Plain fetches, no model and no key: robots.txt for the AI crawlers, the claim's words in the no-JavaScript HTML, schema.org JSON-LD, headings, load time and llms.txt, on every page that states each claim, plus Wikidata/Wikipedia (tied to the company only by Wikidata's official website on its domain) and the Crunchbase, G2 and LinkedIn pages the site itself links to. Anything that cannot be reached, or whose robots.txt turns automated tools away, is "could not check", never a guess. A company read from documents only (no pages, no domain) is refused with 400. A run copies the company's audit when it starts |
 | `GET /api/runs/{id}/why/stream?attribute=&probe=` or `&question=`, optional `&term=` | the why agent (`api/why.py`) as SSE: `start` (its budget), `log`, `arm` (one experiment, decided), `verdict`, `done` (the investigation, saved under `DATA_DIR/investigations/`), `error`. Live runs only; refused on the public demo without a pass, without a key, or with a model that cannot search. The question must name the company and not the claim |
 | `GET /api/runs/{id}/why` · `GET /api/investigations/{id}` | a run's investigations, newest first, and one in full. The run itself is never changed |
 | `POST /api/runs/{id}/fleet` | starts an investigation fleet on a live run ("Investigation fleet" above) and returns `{id}` at once. Refused on the public demo without a pass, on a sample run, with nothing to investigate, while another fleet is running on the run, and without a model that can search |
@@ -366,7 +411,7 @@ headline gap with one identity AI gave the company unasked, and the first Quick 
 each quote came from. Its last button opens that report, and a five-step spotlight tour takes over:
 the headline, buyer visibility, the claim groups, the Questions tab, and Quick wins, which the last
 step opens. A pass holder, who cannot read the showcase run, gets the welcome alone, which hands over to three steps
-on Onboard (the site form, the optional weights, the measuring stages); the report tour follows on
+on Onboard (the name form, the optional weights, the measuring stages); the report tour follows on
 their first finished report. Each part starts on its own once per browser
 (`localStorage["offmessage.tour.v1"]`; blocked storage means once per page load). Skip, Esc or
 finishing ends a part; skipping the story skips the report tour too, and skipping the welcome alone
@@ -379,7 +424,8 @@ motion the story is a still strip of all five scenes and the spotlight jumps ins
 Tests: `web/src/tour.test.ts`.
 
 - **Onboard your own company** — one workflow on one screen, seven stages that complete in order:
-  read their site (the homepage and up to seven same-site pages chosen by what they are — about,
+  find the company and read its pages (from its name, confirmed by the customer, or a website
+  typed; "Onboarding" above), which reads the homepage and up to seven same-site pages chosen by what they are — about,
   mission and values, what it offers, "why us", the newsroom's own page, then customers, pricing,
   enterprise — from the homepage's links and their words, topped up from `/sitemap.xml`; never a
   story, blog post, campaign, careers or legal page: `fetching.positioning_links`), extract what they

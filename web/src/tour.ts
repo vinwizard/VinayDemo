@@ -172,8 +172,8 @@ export const REPORT_STEPS: Step[] = [
 ];
 
 export const ONBOARD_STEPS: Step[] = [
-  { anchor: "onboard-form", title: "Start with a website",
-    text: "Give a company name and its website. We read its own pages and keep only claims we can quote word for word." },
+  { anchor: "onboard-form", title: "Start with a name",
+    text: "Type a company's name. We find its website, you confirm it, and we read its own pages (or documents you upload), keeping only claims we can quote word for word." },
   { anchor: "onboard-intent", title: "Your priorities",
     text: "Optional: mark what you want to be known for. Skip it and we measure what the site already says." },
   { anchor: "onboard-measure", title: "Then we measure",

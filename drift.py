@@ -82,7 +82,9 @@ def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float],
     `unstated_intent` (you want it, your site never says it) exists only once weights are set.
     """
     echoed = echo_rate is not None and echo_rate >= ECHO_THRESHOLD
-    stated = cs is not None and cs >= CLAIM_THRESHOLD
+    # Said only in a private document the customer uploaded: AI cannot have read it, so AI not
+    # repeating it is the company not having said it in public yet, never AI failing to listen.
+    stated = cs is not None and cs >= CLAIM_THRESHOLD and not a.private_only
     contested = negative_rate is not None and negative_rate >= CONTESTED_MIN
     claimed = bool(a.claim_evidence_ids) or (cs is not None and cs > 0)
     target = claimed if claim_lens else a.intended
@@ -168,6 +170,9 @@ def score_attributes(attributes: list[Attribute], probes: list[Probe], answers: 
         if zone in ("lost_claim", "unstated_intent") and mr is not None and mr >= ECHO_THRESHOLD:
             limits.append(f"AI mentions this in {echoes} of {n} answers but does not endorse it: "
                           f"only {pos} endorsed it.")
+        if a.private_only:
+            limits.append("Stated only in documents you uploaded, which AI cannot read. Until one of "
+                          "your public pages says it, AI not repeating it is a messaging gap.")
         if n < MIN_NAMED:
             limits.append(f"Only {n} eligible brand-question answer(s); perception is not measurable.")
         if a.intended and cs is None:

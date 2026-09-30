@@ -373,6 +373,21 @@ export interface ClaimedAttribute {
   set_aside?: boolean;
   /** Found in the answers by the discovery pass; present on a run's attributes, absent on a company's. */
   discovered?: boolean;
+  /** Every quote is in an uploaded document and on no public page: a gap is a messaging gap. */
+  private_only?: boolean;
+  /** A quote is also in an uploaded document; claim_pages counts public pages only. */
+  in_documents?: boolean;
+}
+
+/** One thing onboarding read. Mirrors api.main.source_payload. */
+export interface Source {
+  url: string | null;
+  title: string | null;
+  /** page_fetch: read from the site · search_copy: as a search engine saved it · uploaded_document */
+  kind: string;
+  /** A search copy's age as the search engine gave it: "3 days ago". */
+  saved: string | null;
+  private: boolean;
 }
 
 /** How one extracted claim fared against the company's own pages. Mirrors schemas.ClaimCheck. */
@@ -394,6 +409,10 @@ export interface CompanyDetail {
              /** What a buyer shops for; null on companies saved before categories existed. */
              core_category?: string | null; category_questions?: string[] };
   pages: string[];
+  /** What was read and how; absent on companies saved before it existed (their pages were all read directly). */
+  sources?: Source[];
+  /** Pages others wrote about the company: shown, never read for claims. */
+  third_party?: { url: string; title: string | null }[];
   attributes: ClaimedAttribute[];
   warnings: string[];
   checks: ClaimCheck[];   // empty for companies saved before checks existed: their notes are in warnings
@@ -574,13 +593,27 @@ export const streamRun = (companyId: string, h: StreamHandlers) =>
   openStream(`/api/stream?company=${encodeURIComponent(companyId)}&mode=live`,
              { node: h.onNode, answer: h.onAnswer, done: h.onDone }, "done", h.onError);
 
-/** Onboarding as it happens: the crawl's page list first, then the saved company. */
+/** Onboarding as it happens: what was read first, then the saved company. `docs` are uploaded
+ *  document ids; `onlyDocs` reads them instead of the website. */
 export const streamOnboard = (url: string, name: string, h: {
-  onPages?: (e: { pages: string[] }) => void;
+  onPages?: (e: { pages: string[]; sources: Source[] }) => void;
   onCompany?: (c: CompanyDetail) => void;
   onError?: (e: { message: string }) => void;
-}) => openStream(`/api/onboard/stream?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`,
-                 { pages: h.onPages, company: h.onCompany }, "company", h.onError);
+}, docs: string[] = [], onlyDocs = false) =>
+  openStream(`/api/onboard/stream?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`
+             + `&docs=${docs.map(encodeURIComponent).join(",")}${onlyDocs ? "&only_docs=true" : ""}`,
+             { pages: h.onPages, company: h.onCompany }, "company", h.onError);
+
+/** A company a name could mean, from one web search. `exact`: its name is the name searched for. */
+export interface Candidate { name: string; domain: string; what: string; exact: boolean }
+export interface Found { candidates: Candidate[]; exact: boolean }
+export const findCompany = (name: string, hint?: string) =>
+  json<Found>(`/api/onboard/find?name=${encodeURIComponent(name)}${hint ? `&hint=${encodeURIComponent(hint)}` : ""}`);
+
+/** An uploaded document: only its text is kept, on the server, for this pass alone. */
+export interface UploadedDoc { id: string; filename: string; chars: number }
+export const uploadDocument = (body: Blob, filename: string) =>
+  json<UploadedDoc>(`/api/onboard/documents?filename=${encodeURIComponent(filename)}`, { method: "POST", body });
 
 /** One experiment on the recorded reading list (why.py). */
 export interface WhyArm {
