@@ -1,20 +1,17 @@
 """The why agent over HTTP (why.py): one investigation per claim and branded question, or one replay
 test of a quick win's rewrite per buyer question, streamed as it runs, then kept beside the run it
 examined, with its live re-check once the fix is published. The run itself is never changed."""
-import queue
-import threading
 import traceback
 from typing import Callable, Iterator, Optional
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse
 
 import access
 import reports
 import verify
 import why
 from agents.ana import attribute_leaks, brand_leaks
-from providers import live
+from api.fleet import live_run, resolve
 
 router = APIRouter()
 MAX_QUESTION, MAX_TERM = 200, 40
@@ -46,38 +43,6 @@ def investigation(inv_id: str, request: Request = None):
         return reports.load_investigation(inv_id).model_dump()
     except (FileNotFoundError, ValueError):
         raise HTTPException(404, f"investigation {inv_id} not found")
-
-
-def live_run(run_id: str, holder, what: str):
-    """The live run an experiment is on, or the refusal: public demo, not visible, not live."""
-    from api import main
-    main.refuse_in_public(what, holder)
-    if not access.visible("run", run_id, main.pass_id(holder)):
-        raise HTTPException(404, f"run {run_id} not found")
-    try:
-        run = reports.load_run(run_id)
-    except (FileNotFoundError, ValueError):
-        raise HTTPException(404, f"run {run_id} not found")
-    if run.mode != "live_api":
-        raise HTTPException(400, "Only a live run can be investigated: a sample run's answers were written by hand.")
-    return run
-
-
-def resolve(holder, what: str):
-    """The live model pair, preflighted on the holder's pass; a model that cannot search is refused."""
-    from api import main
-    if not live.available():
-        raise HTTPException(400, f"{what} needs {live.KEY_ENV}. {live.status()}")
-    try:
-        with access.spending(main.pass_id(holder)):
-            resolved = live.preflight()
-    except access.Refused as e:
-        raise HTTPException(403, e.message)
-    except live.PreflightFailed as e:
-        raise HTTPException(400, str(e))
-    if resolved.tool is None:
-        raise HTTPException(400, f"{what} needs a model that can search the web, and this account's cannot.")
-    return resolved
 
 
 def prepare(run_id: str, attribute: str, probe: Optional[str], question: Optional[str], term: Optional[str],
@@ -120,32 +85,25 @@ def streamed(setup: Callable[[], tuple], holder) -> Iterator[str]:
         traceback.print_exc()
         yield main.sse("error", {"message": f"Setup failed: {type(e).__name__}"})
         return
-    q: queue.Queue = queue.Queue()
     pid = main.pass_id(holder)
     yield main.sse("start", start)
 
-    def work():
+    def work(put):
         access.SPENDER.set(pid)
         try:
-            inv = experiment(lambda kind, payload: q.put((kind, payload)))
+            inv = experiment(lambda kind, payload: put((kind, payload)))
             reports.save_investigation(inv)
             if pid:
                 access.own("investigation", inv.id, pid, run.profile.name)
                 access.log(pid, f"{'tested a rewrite for' if inv.kind == 'buyer' else 'asked why about'} {run.profile.name}")
-            q.put(("done", inv.model_dump()))
+            put(("done", inv.model_dump()))
         except access.Refused as e:
-            q.put(("error", {"message": e.message}))
+            put(("error", {"message": e.message}))
         except Exception as e:
             traceback.print_exc()
-            q.put(("error", {"message": f"The investigation failed: {type(e).__name__}"}))
-        finally:
-            q.put((None, None))
+            put(("error", {"message": f"The investigation failed: {type(e).__name__}"}))
 
-    threading.Thread(target=work, daemon=True).start()
-    while True:
-        kind, payload = q.get()
-        if kind is None:
-            return
+    for kind, payload in main.threaded(work):
         yield main.sse(kind, payload)
 
 
@@ -182,9 +140,7 @@ def rewrite_events(run_id: str, attribute: str, probe: str, holder=None) -> Iter
 @router.get("/api/runs/{run_id}/rewrite-test/stream")
 def rewrite_stream(run_id: str, attribute: str, probe: str, request: Request = None):
     from api import main
-    return StreamingResponse(rewrite_events(run_id, attribute, probe, main.holder_of(request)),
-                             media_type="text/event-stream",
-                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return main.sse_response(rewrite_events(run_id, attribute, probe, main.holder_of(request)))
 
 
 def recheck_events(inv_id: str, holder=None) -> Iterator[str]:
@@ -204,46 +160,36 @@ def recheck_events(inv_id: str, holder=None) -> Iterator[str]:
     except HTTPException as e:
         yield main.sse("error", {"message": str(e.detail)})
         return
-    q: queue.Queue = queue.Queue()
     pid = main.pass_id(holder)
 
-    def work():
+    def work(put):
         with access.spending(pid):
             try:
                 v = verify.verify_investigation(inv_id, lambda: resolve(holder, "Re-checking a fix"),
-                                                emit=lambda text: q.put(("log", {"text": text})))
+                                                emit=lambda text: put(("log", {"text": text})))
                 inv.verification = v
                 reports.save_investigation(inv)
-                q.put(("done", v.model_dump()))
+                put(("done", v.model_dump()))
             except HTTPException as e:
-                q.put(("error", {"message": str(e.detail)}))
+                put(("error", {"message": str(e.detail)}))
             except access.Refused as e:
-                q.put(("error", {"message": e.message}))
+                put(("error", {"message": e.message}))
             except Exception as e:
                 traceback.print_exc()
-                q.put(("error", {"message": f"The re-check failed: {type(e).__name__}"}))
-            finally:
-                q.put((None, None))
+                put(("error", {"message": f"The re-check failed: {type(e).__name__}"}))
 
-    threading.Thread(target=work, daemon=True).start()
-    while True:
-        kind, payload = q.get()
-        if kind is None:
-            return
+    for kind, payload in main.threaded(work):
         yield main.sse(kind, payload)
 
 
 @router.get("/api/investigations/{inv_id}/verify/stream")
 def recheck_stream(inv_id: str, request: Request = None):
     from api import main
-    return StreamingResponse(recheck_events(inv_id, main.holder_of(request)), media_type="text/event-stream",
-                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return main.sse_response(recheck_events(inv_id, main.holder_of(request)))
 
 
 @router.get("/api/runs/{run_id}/why/stream")
 def why_stream(run_id: str, attribute: str, probe: Optional[str] = None, question: Optional[str] = None,
                term: Optional[str] = None, request: Request = None):
     from api import main
-    return StreamingResponse(why_events(run_id, attribute, probe, question, term, main.holder_of(request)),
-                             media_type="text/event-stream",
-                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return main.sse_response(why_events(run_id, attribute, probe, question, term, main.holder_of(request)))
