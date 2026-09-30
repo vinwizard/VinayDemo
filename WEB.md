@@ -500,7 +500,8 @@ Tests: `web/src/tour.test.ts`.
     authored and labelled sample in replay. `agents/win_back.py` drops any action whose page was
     not read, whose replaced copy is not verbatim on it, whose rewrite is marketing language, that
     gives no reason, whose heading is not one of the buyer questions it cites (a heading of its own is
-    allowed only when it cites none, and then may not name the company or address the vendor), whose
+    allowed only when it cites none, and then may not name the company or address the vendor) or is a
+    buyer question AI already recommended the company for or whose answer was excluded, whose
     rewrite repeats more than half the words of the copy it replaces (Amgen, 2026-09-28: all three
     rewrites rephrased the sentence already on /about, and two matched their questions worse), or whose
     question was not asked, and says why in a plain sentence under "Suggestions we could not confirm";
