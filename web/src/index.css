@@ -909,3 +909,13 @@ table.compact tr.grp td { background: var(--bg); font-weight: 600; color: var(--
   table.compact td:not(:first-child) { min-width: 4.5rem; }
   .ladder > li { padding-left: .5rem; }
 }
+@media (max-width: 600px) {
+  .claims-step .part { padding: .75rem .7rem; }
+  .actions.actionbar { padding: .55rem .65rem; gap: .4rem; }
+  .actions.actionbar > span { font-size: .9rem; }
+  .actions.actionbar > .row { width: 100%; }
+  .actions.actionbar > .row > button { flex: 1; min-width: 0; white-space: normal; }
+  .actionbar-note { font-size: .82rem; }
+}
+/* On a phone the bar would take a quarter of the screen: it sits at the end of the step instead. */
+@media (max-width: 600px) { .actions.actionbar { position: static; box-shadow: none; } }
