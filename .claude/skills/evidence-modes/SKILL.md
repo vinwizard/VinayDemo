@@ -12,7 +12,7 @@ Moved verbatim from agents.md section 2 and the execution limits in section 8. W
 | Mode | Source | What works | Required label |
 | --- | --- | --- | --- |
 | Demo replay — default | Authored deterministic fixtures | Entire interactive workflow, graph routing, scores, follow-up selection, report and exports | Synthetic demo; no live chatbot measurements |
-| Research snapshot — optional | Claude Code's available WebSearch/WebFetch tools during development; saved source records imported into app | Real company research and a saved search snapshot | Claude Code research snapshot; not cross-model chatbot visibility |
+| Research snapshot — optional | Claude Code's available WebSearch/WebFetch tools during development; saved source records | Real company research and a saved search snapshot | Claude Code research snapshot; not cross-model chatbot visibility |
 | Live API — optional adapter | Explicitly configured official provider API | Fresh neutral probes and model-powered agent decisions | Actual provider/model, timestamp, grounding status |
 
 ### Rules for free calls and Claude Code research
@@ -30,7 +30,7 @@ Moved verbatim from agents.md section 2 and the execution limits in section 8. W
 
 Every displayed record carries provenance. Show a permanent mode banner, add mode labels to exports and screenshots, and never label fixture results “live.” A why-agent replay (`counterfactual_replay`) is an experiment on a reading list the model really read, never a measurement; copy it edits or injects that is not a page's own verbatim text is labelled hypothetical wherever it appears. A fleet's plan cites those replays as predictions; its verifier's live asks after a fix is published are `live_api` but live only in a `Verification` record, never on a run or in a score, and are shown beside the prediction, never pooled with it. Simulated baseline and adaptive results may demonstrate the intended product behavior, but the app must state that model judgment is simulated in replay mode.
 
-For arbitrary companies with no key: allow pasted facts and manual profile/topic edits, then show a research plan. Do not reuse Notion answers under a different company's name. Only bundled companies have replay results. Explain when generating new answers requires credentials or an imported research file.
+For arbitrary companies with no key: allow pasted facts and manual profile/topic edits, then show a research plan. Do not reuse Notion answers under a different company's name. Only bundled companies have replay results. Explain when generating new answers requires credentials.
 
 
 ### Onboarding sources: what may count as claimed
