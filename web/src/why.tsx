@@ -107,7 +107,7 @@ function EffectBar({ a }: { a: WhyArm }) {
 }
 
 /** The claim card the why agent produces: what AI says, why, whether it believes it, what fixes it. */
-export function InvestigationCard({ inv }: { inv: Investigation }) {
+function InvestigationCard({ inv }: { inv: Investigation }) {
   const base = inv.arms.find((a) => a.kind === "base");
   const fix = inv.verdicts.find((v) => v.fix);
   const cause = inv.verdicts.find((v) => !v.fix);

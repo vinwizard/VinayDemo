@@ -72,12 +72,6 @@ export const plain = (md: string) => md
   .replace(/^([ \t]*)[-*+][ \t]+/gm, "$1• ")
   .replace(/\*+|__|`+/g, "");
 
-/** `Probe.kind`: what the question does, not what the enum is called. */
-export const PROBE_KIND_LABEL: Record<string, string> = {
-  named: "names your brand",
-  blind: "buyer search",
-};
-
 /** The number a probe id already carries: np-3 -> 3, ai_native-b1 -> 1, kb-f2 -> 2. */
 const idNumber = (id: string): number | null => {
   const m = /(\d+)$/.exec(id);
@@ -164,8 +158,6 @@ export function headline(d: { lens?: string | null; alignment: number | null; cl
     field: claim ? "claim_echo" : "alignment",
   };
 }
-
-export const pctText = (x: number | null | undefined) => (x == null ? "n/a" : `${x}%`);
 
 /** "78.6% untapped potential", or "n/a" when the server withheld the score. */
 export const potentialText = (h: Headline) =>

@@ -1138,7 +1138,7 @@ function mention(text: string, name: string): [string, string, string] | null {
  * measured behaviour is believed over the banner at the top of the page, and this product's whole
  * claim is that it never presents authored evidence as measured evidence.
  */
-export function Competitors({ run }: { run: Run }) {
+function Competitors({ run }: { run: Run }) {
   const replay = run.mode !== "live_api";
   const topicOf = new Map(run.topics.map((t) => [t.id, t.label]));
   const answers = new Map(run.answers.map((a) => [a.probe_id, a]));

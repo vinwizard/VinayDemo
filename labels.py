@@ -6,7 +6,7 @@ same job for identifiers the browser already has in hand.
 """
 import re
 
-from schemas import Evidence, Probe, Topic
+from schemas import Probe, Topic
 
 
 PROVENANCE_LABEL = {"synthetic": "Sample data", "demo_replay": "Sample run",
@@ -34,18 +34,6 @@ def probe_name(probe: Probe) -> str:
     if probe.phase == "followup":
         return f"Follow-up question {n}"
     return f"Unbranded question {n}"
-
-
-def source_names(evidence: list[Evidence]) -> dict[str, str]:
-    """`ev2` -> "Source 2 — notion.com/product", or where it came from when there is no URL.
-
-    Numbering follows the profile's own evidence order, so a source keeps its name across exports.
-    """
-    out = {}
-    for i, e in enumerate(evidence, start=1):
-        where = re.sub(r"^https?://(www\.)?", "", e.url) if e.url else spoken(e.source_type)
-        out[e.id] = f"Source {i} — {where}"
-    return out
 
 
 def probe_names(probes: list[Probe], topics: list[Topic] = ()) -> dict[str, str]:

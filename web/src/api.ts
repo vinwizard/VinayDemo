@@ -320,8 +320,7 @@ export const OWNER_TITLE: Record<Owner, string> = {
   none: "Aligned",
 };
 
-// Why each gap is whose problem. Mirrors drift.OWNER_TEXT, except messaging_gap: drift's "does not
-// clearly say it either" reads as absolute beside a nonzero page count, so the web says it relatively.
+// Why each gap is whose problem, said relatively: a messaging gap can sit beside a nonzero page count.
 export const OWNER_TEXT: Record<Owner, string> = {
   authority_gap: "You state this clearly and the models are not repeating it.",
   messaging_gap: "AI does not say it, and neither do enough of your own pages.",
@@ -696,7 +695,7 @@ export const streamRecheck = (invId: string, h: {
 
 // ---------------------------------------------------------------- the investigation fleet (fleet.py)
 // Its records live in fleetlog.ts, which the node unit tests read without this file's Vite globals.
-export type { ActionPlan, Challenge, FleetEvent, FleetTask, PlanItem, Verification } from "./fleetlog.ts";
+export type { Challenge, PlanItem, Verification } from "./fleetlog.ts";
 export interface FleetSummary {
   id: string; run_id: string; created_at: string; status: "running" | "complete" | "stopped";
   spent_usd: number; wall_s: number | null; tasks: number; planned: boolean;

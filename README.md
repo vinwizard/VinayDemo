@@ -18,7 +18,7 @@ sharing.py    shared answer cache
 schemas.py    shared data types
 other *.py    supporting modules: site checks, scoring, reports, access passes, config
 fixtures/     bundled sample scenarios for offline demos and tests
-data/         saved companies, runs and research snapshots
+data/         saved companies and runs
 tests/        Python test suite (offline, no network)
 ```
 

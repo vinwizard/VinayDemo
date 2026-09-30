@@ -689,8 +689,7 @@ No engine identifier is the only name a reader gets: where a raw id is still sho
 it follows the words it stands for, as in "Unbranded question 3 — Project tracking (`pt-3`)".
 `web/src/labels.ts` names everything the browser holds (probe ids, run ids, provenance, probe kinds);
 `labels.py` names the ids the engine bakes into strings it hands over whole (exclusion reasons, the
-follow-up rationale, gap findings, the Markdown export), and `reports.py` names strengths and topic
-statuses where the Markdown export prints them.
+follow-up rationale, gap findings).
 Change a word in one of those label modules, not in a component. The ids themselves are untouched — the
 JSON export, `data/runs/` and the baseline hash are exactly what they were.
 
