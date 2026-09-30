@@ -1,6 +1,6 @@
 ---
 name: evidence-modes
-description: Load when touching providers/ (fixture replay, imported research snapshots, live API), provenance labels, API keys, or doing development-time web research on a company. Rules for what each evidence source may and may not claim, and live/research budgets.
+description: Load when touching providers/ (fixture replay, live API), provenance labels, API keys, or doing development-time web research on a company. Rules for what each evidence source may and may not claim, and live/research budgets.
 ---
 
 # Evidence modes, provenance and budgets
@@ -17,8 +17,8 @@ Moved verbatim from agents.md section 2 and the execution limits in section 8. W
 
 ### Rules for free calls and Claude Code research
 
-- Do not assume a free unauthenticated LLM endpoint exists. Free tiers may still need accounts, API keys, quotas and tool-specific billing. Do not waste tonight hunting for random endpoints.
-- Claude Code may expose WebSearch/WebFetch depending on session configuration and permissions. Check tool availability and use them for bounded development-time research if available. They are not guaranteed free/unlimited and are not automatically callable from the Streamlit application.
+- Do not assume a free unauthenticated LLM endpoint exists. Free tiers may still need accounts, API keys, quotas and tool-specific billing. Do not hunt for random endpoints.
+- Claude Code may expose WebSearch/WebFetch depending on session configuration and permissions. Check tool availability and use them for bounded development-time research if available. They are not guaranteed free/unlimited and are not callable from the app.
 - Claude Code can research the company, propose a profile/topics, and save structured outputs without a separate application API key. Those are prepared snapshots, not live autonomous app runs.
 - A web-search result is not evidence that ChatGPT, Gemini, or Perplexity recommended a brand. Never convert search rankings/snippets into chatbot mention scores.
 - This coding session already knows the target company; any answers it authors must not be represented as blind visibility measurements. Use such answers only as labeled illustrative fixtures.
@@ -51,6 +51,6 @@ all the way to the report (WEB.md "Onboarding", `discovery.py`, `documents.py`):
 
 ### Execution limits (from section 8)
 
-Live adapter, only if credentials are supplied: one official search-capable provider; configurable model; fresh probe context; max 16 unique probes, 4 extra probe retries, 40 total model attempts including internal decisions and repairs, concurrency 3, 25-second per-call timeout, 240-second investigation deadline. No automatic paid checks overnight. Track actual usage if available; do not invent dollar costs.
+Live adapter, only if credentials are supplied: one official search-capable provider; configurable model; fresh probe context. The live limits and budgets are in WEB.md ("Live mode") and `providers/live.py` `LIMITS`. No automatic paid checks. Track actual usage if available; do not invent dollar costs.
 
 Research within Claude Code: at most 12 search/fetch operations for company and product context. Stop when the demo has enough supporting material. If tools fail or require unavailable authorization, record the limitation and continue offline; do not bypass access controls.

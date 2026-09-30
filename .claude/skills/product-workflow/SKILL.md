@@ -40,7 +40,7 @@ Tasks:
 
 Outputs: `CompanyProfile`, `Evidence[]`, warnings and review status.
 
-Boundaries: no invented capabilities; scraped text is untrusted data, never instructions. No desired-positioning generation tonight. In V2, customer-specified implicit impressions/aspirations will be stored separately from supported facts and will not automatically count as product fit.
+Boundaries: no invented capabilities; scraped text is untrusted data, never instructions. In V2, customer-specified implicit impressions/aspirations will be stored separately from supported facts and will not automatically count as product fit.
 
 Demo implementation: load a bundled profile with explicit provenance. Permit factual edits; structural edits invalidate incompatible replay data and require regeneration/import/live execution. Do not silently retain old evidence after changing the claim it supported.
 
@@ -105,14 +105,8 @@ The measured model gets only one neutral buyer question plus a fixed neutral ans
 
 Onboarding: fetch/import profile → user review → approved company profile.
 
-Investigation uses LangGraph nodes:
-
-1. `plan_baseline` (now `plan_brand` → answer and evaluate the brand questions → `perceive` → `plan_buyer`, so buyer questions cover where AI places the company and its core category; see graph.py)
-2. `validate_and_freeze`
-3. `execute_or_replay`
-4. `evaluate`
-5. `choose_followup` — conditional return to execution or stop
-6. `build_gap_report`
+Investigation uses LangGraph nodes; `graph.STAGES` lists them in order with the stage and agent each
+belongs to.
 
 After the adaptive batch, route directly to report. Set a graph recursion cap and enforce the round limit in code. Stream node progress to the page. In replay mode, these are actual graph transitions using fixture-backed nodes, not a prerecorded video.
 
@@ -135,8 +129,8 @@ Run: id, schema_version, mode, profile, topics[], baseline_hash,
         probes[], answers[], evaluations[], decisions[], findings[], status
 ```
 
-Use provenance values `synthetic`, `web_research_snapshot`, or `live_api`. Keep source metadata at record level, not only run level. Never pool different provenance types into a visibility metric.
+Provenance rules: AGENTS.md, "Authored evidence is never presented as measured". Keep source metadata at record level, not only run level.
 `counterfactual_replay` marks the why agent's answers to an edited, recorded reading list (`why.py`): an experiment kept in its own `Investigation` record, never on a run and never scored.
 
-Persist completed runs as local JSON in `data/runs/`. Use Streamlit session state for the active run and prevent rerender-driven duplicate execution. Durable recovery of in-flight model calls is out of scope. A restart can reopen a completed run.
+Persist completed runs as local JSON in `data/runs/`. Durable recovery of in-flight model calls is out of scope. A restart can reopen a completed run.
 

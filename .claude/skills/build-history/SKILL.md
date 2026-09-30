@@ -237,3 +237,11 @@ Use current official documentation for exact APIs. These references establish ca
 
 ## Next task
 Nothing required for the demo. Optional next: implement `providers/live.py` against one official search-grounded API once a key exists.
+
+## Why the React app replaced Streamlit
+
+`st.status` can only render when a graph **node** returns. `execute_or_replay` answers the whole batch
+inside one node call, so the page froze for the entire batch with no feedback — 24 seconds at 1s/answer,
+and 50–130s with a real search-grounded provider. The API runs the graph on a worker thread and pushes an
+SSE event per **answer** as well as per node; measured with `VISEXP_DEV_DELAY=1`, events arrive once per
+second throughout the batch instead of all at the end. That is the whole reason for the move.

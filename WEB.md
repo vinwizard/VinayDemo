@@ -1,17 +1,9 @@
 # Web frontend (React + FastAPI)
 
-The product UI. It replaced a Streamlit app, since deleted. The Python engine — `graph.py`,
-`drift.py`, `agents/`, `scoring.py` and the fixtures — is imported, not reimplemented.
-
-## Why not Streamlit
-
-`st.status` can only render when a graph **node** returns. `execute_or_replay` answers the whole batch
-inside one node call, so the page froze for the entire batch with no feedback — 24 seconds at 1s/answer,
-and 50–130s with a real search-grounded provider.
-
-The API runs the graph on a worker thread and pushes an SSE event per **answer** as well as per node.
-Measured with `VISEXP_DEV_DELAY=1`, events arrive once per second throughout the batch instead of all at
-the end. That is the whole reason for the move; Three.js and other rendering choices are irrelevant to it.
+The product UI. The Python engine — `graph.py`, `drift.py`, `agents/`, `scoring.py` and the fixtures —
+is imported, not reimplemented. The API runs the graph on a worker thread and pushes an SSE event per
+**answer** as well as per node, so the browser sees progress while a long batch is still running (why it
+replaced a Streamlit app: `.claude/skills/build-history`).
 
 ## Run it
 
@@ -75,6 +67,7 @@ Everything else has a working default. The full list, and what each one changes:
 | `VISEXP_PUBLIC_DEMO` | unset | Hosted demo: saved replays for everyone, live runs only for a pass holder. |
 | `SESSION_SECRET`, `ADMIN_PASSWORD`, `CONTACT_EMAIL` | — | Access passes and the admin page: "Deploy to Render" below. |
 | `VISEXP_OFFLINE_REPLAY` | unset | Measuring the preloaded company replays the bundled sample instead of calling a model. |
+| `VISEXP_DEV_DELAY` | `0` | Development only: seconds of pause per replayed answer, to watch the stages move ("Run it" below). |
 
 `MEASURED_MODEL` replaced `LIVE_MODEL`, which is no longer read: an old `.env` that still pins
 `LIVE_MODEL=gpt-4o-mini` would otherwise have kept the model that named obscure tools for a category
@@ -783,4 +776,3 @@ curl localhost:8000/ && curl localhost:8000/api/companies
   this one open
 - `/api/onboard` and `PATCH /api/companies/{id}` are unauthenticated, like the rest of the API
 - Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)
-- Production: `VITE_API= npm run build` makes a same-origin build in `web/dist`, which FastAPI serves when it exists (the `Dockerfile` and `render.yaml` do this — see "Deploy to Render" above)

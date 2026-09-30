@@ -29,7 +29,7 @@ Per-query strength: 0 = absent or negative-only; 1 = descriptive mention; 2 = po
 
 Live eligible answers: successful, on-topic, search-grounded, validly evaluated. Exclude timeouts, missing grounding and needs-review records from the denominator. Display their counts explicitly.
 
-Demo eligible answers: valid synthetic observations within the demo dataset, used only for **simulated** scores. Never mark `search_executed=true` on a fixture to satisfy live validation. Research snapshots do not have chatbot visibility scores unless independently imported, provenance-validated chatbot observations exist; tonight use them for sourced company/context research only.
+Demo eligible answers: valid synthetic observations within the demo dataset, used only for **simulated** scores. Never mark `search_executed=true` on a fixture to satisfy live validation. Research snapshots do not have chatbot visibility scores unless independently imported, provenance-validated chatbot observations exist; use them for sourced company/context research only.
 
 For each topic and phase separately:
 

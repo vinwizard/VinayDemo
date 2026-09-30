@@ -1,7 +1,7 @@
 # Off Message
 
-Give it a company's website and it shows how AI assistants describe that company, compared with
-what the company wants to be known for.
+Give it a company's name or website and it shows how AI assistants describe that company, compared
+with what the company wants to be known for.
 
 ## Code map
 

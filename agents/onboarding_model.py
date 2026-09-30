@@ -253,8 +253,8 @@ _FOLD = {**dict.fromkeys("'‘’`´", "['‘’`´]"), **dict.fromkeys('"“”
 
 def page_span(quote: str, text: str) -> Optional[str]:
     """The page's own words that `quote` copies, or None. Case, apostrophes, quotation marks,
-    dashes and whitespace may differ — the same leniency answer quotes get (evaluation.quoted_in) —
-    and nothing else: a changed, added or missing word still fails. Returns the page's spelling,
+    dashes and whitespace may differ — more than answer quotes get (evaluation.quoted_in folds only
+    case and emphasis) — and nothing else: a changed, added or missing word still fails. Returns the page's spelling,
     so a stored quote is always verbatim on the page it came from."""
     parts = [r"\s+" if ch.isspace() else _FOLD.get(ch) or re.escape(ch) for ch in " ".join(quote.split())]
     m = re.search("".join(parts), text, re.I) if parts else None

@@ -1,8 +1,7 @@
 """HTTP API over the existing Python engine. The engine is not modified — only observed.
 
-Streamlit could only render progress when a graph NODE returned, so `execute_or_replay` froze the
-page for the whole batch. Here the graph runs on a worker thread and pushes an event per ANSWER as
-well as per node, so the browser sees real progress while a long batch is still running.
+The graph runs on a worker thread and pushes an event per ANSWER as well as per node, so the browser
+sees real progress while a long batch is still running.
 """
 import json
 import os
