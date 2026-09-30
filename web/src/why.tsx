@@ -3,7 +3,7 @@ import type { Answer, Investigation, ReadStep, Run, WhyArm, WhyVerdict } from ".
 import { getHealth, getInvestigations, streamWhy } from "./api";
 import { latestPerClaim } from "./investigations";
 import type { TermKey } from "./glossary";
-import { PROVENANCE_LABEL } from "./labels";
+import { PROVENANCE_LABEL, money, plural, signed } from "./labels";
 import { Term } from "./popover";
 
 const host = (u?: string | null) => (u ?? "").replace(/^https?:\/\/(www\.)?/, "").split("/")[0];
@@ -17,7 +17,6 @@ const pageText = (t: string) => t
 
 const STEP: Record<ReadStep["kind"], string> = { search: "Searched", open_page: "Opened", find_in_page: "Looked up" };
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /**
  * What the answering model read before it answered, in order: each search and the snippets it
@@ -89,7 +88,6 @@ const VERDICT_TERM: Partial<Record<WhyVerdict["kind"], TermKey>> = {
 };
 
 const share = (k: number, n: number) => (n ? `${Math.round((100 * k) / n)}%` : "n/a");
-const signed = (x: number) => `${x > 0 ? "+" : x < 0 ? "−" : ""}${Math.abs(Math.round(x * 100))}`;
 
 /** One experiment's effect as a dot and its interval on a −100…+100 axis. */
 function EffectBar({ a }: { a: WhyArm }) {
@@ -186,7 +184,7 @@ function InvestigationCard({ inv }: { inv: Investigation }) {
       </details>}
       <p className="muted why-foot">
         {PROVENANCE_LABEL.counterfactual_replay}: it never moves a score. {inv.model}, judged by {inv.judge} ·
-        spent ${inv.spent_usd.toFixed(2)} of ${inv.budget_usd.toFixed(2)}
+        spent {money(inv.spent_usd)} of {money(inv.budget_usd)}
         {inv.status === "stopped" && " · stopped at its budget"}
       </p>
     </article>
@@ -241,7 +239,7 @@ export function WhyPanel({ run }: { run: Run }) {
         Pick a claim and a branded question. We ask it live and record <Term k="what_ai_read">what AI read</Term>, ask
         it with web search off, then change one thing at a time in what it read and ask again until the change is
         clear: which page makes AI say it, and whether your copy or your authority would change it.
-        {budget != null && ` Each investigation spends at most $${budget.toFixed(2)}.`}
+        {budget != null && ` Each investigation spends at most ${money(budget)}.`}
       </p>
       <form className="why-form" onSubmit={(e) => { e.preventDefault(); start(); }}>
         <label>Claim

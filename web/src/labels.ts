@@ -162,3 +162,10 @@ export function headline(d: { lens?: string | null; alignment: number | null; cl
 /** "78.6% untapped potential", or "n/a" when the server withheld the score. */
 export const potentialText = (h: Headline) =>
   h.potential == null ? "n/a" : `${h.potential}% untapped potential`;
+
+export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** A share (0.12) as signed points: "+12", "−5", "0". */
+export const signed = (x: number) => `${x > 0 ? "+" : x < 0 ? "−" : ""}${Math.abs(Math.round(x * 100))}`;
+export const money = (x: number) => `$${x.toFixed(2)}`;
+/** A page's address as a reader says it: no scheme, no www., no trailing slash. */
+export const address = (u?: string | null) => (u ?? "").replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");

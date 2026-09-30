@@ -14,7 +14,7 @@ import type { MatchVerdict } from "./quickwins";
 import { ADDED_MIN_WEIGHT, Slider } from "./claims";
 import {
   PROVENANCE_LABEL, ZONE_LABEL, ZONE_MEANING, claimShare, headline, plain, potentialText, probeLabels,
-  provenanceLabel, runLabels, when,
+  address, plural, provenanceLabel, runLabels, when,
 } from "./labels";
 import { tabBadge } from "./badge";
 import { GLOSSARY } from "./glossary";
@@ -38,7 +38,6 @@ const ZONE_FILL: Record<Zone, string> = {
 
 const pct = (x: number | null) => (x == null ? 0 : Math.round(x * 100));
 const endorsed = (s: AttributeScore) => Math.round((s.echo_rate ?? 0) * s.n);
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** "n/a — <why>", with the why always the server's own words. A run saved before the server
  * supplied reasons says only "n/a" rather than a guess. */
@@ -1655,7 +1654,6 @@ function DemandBadge({ d }: { d: Demand }) {
 }
 
 /** A cited page without its scheme, "www." or trailing slash. */
-const page = (u: string) => u.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
 
 /** Searches as “a”, “b” and “c”. */
 const quoted = (qs: string[]) => qs.map((q, i) => (
@@ -1802,7 +1800,7 @@ function WhatItSearched({ run }: { run: Run }) {
                     {g.pages.length ? (
                       <ul className="page-list">
                         {g.pages.map((u) => (
-                          <li key={u}>{page(u)}{g.owned_pages.includes(u) && <> <span className="pill landed">your site</span></>}</li>
+                          <li key={u}>{address(u)}{g.owned_pages.includes(u) && <> <span className="pill landed">your site</span></>}</li>
                         ))}
                       </ul>
                     ) : <p className="muted">None.</p>}
@@ -1844,7 +1842,7 @@ function PassageQuote({ title, p }: { title: string; p: ScoredPassage }) {
   return (
     <>
       <h4>{title} · {score(p.score)}</h4>
-      <p className="muted" style={{ margin: 0 }}>{page(p.url)} · closest to “{p.query}”</p>
+      <p className="muted" style={{ margin: 0 }}>{address(p.url)} · closest to “{p.query}”</p>
       <p className="quote">{p.text}</p>
     </>
   );

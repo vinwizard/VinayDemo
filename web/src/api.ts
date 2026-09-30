@@ -357,6 +357,10 @@ async function json<T>(path: string, init?: RequestInit): Promise<T> {
   return r.json();
 }
 
+/** A JSON body sent with `method`; the reply read like any other. */
+const send = <T,>(path: string, method: "POST" | "PATCH", body: unknown) =>
+  json<T>(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
 // ---------------------------------------------------------------- onboarding
 export interface ClaimedAttribute {
   id: string;
@@ -463,11 +467,7 @@ export const patchCompany = (
           core_category?: string;
           /** A flagged claim reviewed: keep it (and restore one set aside), or set it aside. */
           review?: Record<string, "keep" | "set_aside"> },
-) => json<CompanyDetail>(`/api/companies/${id}`, {
-  method: "PATCH",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(body),
-});
+) => send<CompanyDetail>(`/api/companies/${id}`, "PATCH", body);
 
 export interface Health {
   ok: boolean;
@@ -510,11 +510,7 @@ export const getHealth = () => json<Health>("/api/health");
 export interface PassStatus { label: string; spent_usd: number; cap_usd: number; capped: boolean }
 
 /** Trades a personal link's code for an HttpOnly session cookie. Throws the server's plain message. */
-export const exchangePass = (code: string) => json<{ pass: PassStatus }>("/api/access/exchange", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ code }),
-});
+export const exchangePass = (code: string) => send<{ pass: PassStatus }>("/api/access/exchange", "POST", { code });
 /** The meter. `visit` records a page load in the owner's visit log. */
 export const getPass = (visit = false) =>
   json<{ pass: PassStatus | null }>(`/api/access${visit ? "?visit=1" : ""}`);
@@ -523,19 +519,11 @@ export const getRun = (id: string) => json<Run>(`/api/runs/${id}`);
 
 /** Asks one buyer question again with the rewritten passage as a source: one metered model call. */
 export const reaskRun = (id: string, probe_id: string) =>
-  json<Run>(`/api/runs/${id}/reask`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ probe_id }),
-  });
+  send<Run>(`/api/runs/${id}/reask`, "POST", { probe_id });
 
 /** Re-scores a finished run's saved answers with intent weights. No model is asked. */
 export const rescoreRun = (id: string, weights: Record<string, number>) =>
-  json<Run>(`/api/runs/${id}/rescore`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ weights }),
-  });
+  send<Run>(`/api/runs/${id}/rescore`, "POST", { weights });
 
 /** One answer, the moment the model returns it. `answer` is the first few hundred characters. */
 export interface StreamAnswer {
