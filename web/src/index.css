@@ -894,3 +894,10 @@ table.compact tr.grp td { background: var(--bg); font-weight: 600; color: var(--
 .checks p { margin: 0; }
 .checks .block > summary { padding: .55rem .85rem; }
 .checks ul.block-body { margin: 0; padding: .6rem .85rem .7rem 2rem; gap: .3rem; }
+@media (max-width: 600px) {
+  .front-row { grid-template-columns: 1.6rem minmax(0, 1fr); }
+  .front-score, .front-means { grid-column: 2; text-align: left; }
+  .front-score { font-size: 1.2rem; }
+  .weight-row, .slider { flex-wrap: wrap; }
+  .fronts-head { flex-direction: column; }
+}
