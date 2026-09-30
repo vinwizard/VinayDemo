@@ -2306,6 +2306,7 @@ const REPLAY_LABEL: Partial<Record<WhyVerdict["kind"], { label: string; tone: st
   not_movable: { label: "No change", tone: "caution" }, copy_lowers: { label: "Makes it worse", tone: "caution" },
   not_reproducible: { label: "Could not be tested", tone: "plain" }, undecided: { label: "Not decided", tone: "plain" },
   budget: { label: "Stopped at budget", tone: "plain" }, cancelled: { label: "Stopped", tone: "plain" },
+  ceiling: { label: "Already at the top", tone: "plain" },
 };
 
 /** Step ② for one buyer question: its latest replay test, or the button that runs one. */
@@ -2376,10 +2377,15 @@ function LiveCheck({ inv, onChecked }: { inv?: Investigation; onChecked?: (v: Ve
 /** One rewrite's verdict line, from the strongest evidence there is: live, replay, then the match check. */
 function rewriteVerdict(match: MatchVerdict, tests: Investigation[]): { text: string; tone: string } {
   const kinds = tests.map((t) => t.verdicts.at(-1)?.kind);
-  if (tests.some((t) => t.verification?.verdict === "confirmed")) return { text: "Confirmed live: AI now names you for it.", tone: "good" };
+  const does = (t: Investigation) => (t.counts === "recommends" ? "recommends" : "names");
+  const confirmed = tests.find((t) => t.verification?.verdict === "confirmed");
+  if (confirmed) return { text: `Confirmed live: AI now ${does(confirmed)} you for it.`, tone: "good" };
   if (kinds.some((k) => k === "copy_fix" || k === "authority_fix")) return { text: "Proven in replay: publish it, then mark it live.", tone: "good" };
-  if (kinds.some((k) => k === "copy_lowers")) return { text: "Disproven: in replay it makes AI name you less. Don't publish it.", tone: "caution" };
-  if (tests.length && kinds.every((k) => k === "not_movable")) return { text: "Disproven: in replay it changes nothing. Don't publish it as is.", tone: "caution" };
+  const lowers = tests.find((t) => t.verdicts.at(-1)?.kind === "copy_lowers");
+  if (lowers) return { text: `Disproven: in replay it makes AI ${does(lowers) === "recommends" ? "recommend" : "name"} you less. Don't publish it.`, tone: "caution" };
+  const moved = kinds.filter((k) => k !== "ceiling");
+  if (moved.length && moved.every((k) => k === "not_movable")) return { text: "Disproven: in replay it changes nothing. Don't publish it as is.", tone: "caution" };
+  if (tests.length && !moved.length) return { text: `Already at the top: in replay AI already ${does(tests[0])} you for ${tests.length === 1 ? "this question" : "these questions"}, so no rewrite can show a gain.`, tone: "plain" };
   if (match === "worse") return { text: "Don't publish: it matches the buyer questions worse than today's copy.", tone: "caution" };
   return { text: "Not proven yet: run a replay test before publishing.", tone: "plain" };
 }

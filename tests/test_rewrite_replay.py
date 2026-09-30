@@ -18,14 +18,15 @@ NAMED = "Amgen and Regeneron both develop cell-grown biologics."
 MISSED = "Regeneron, Genentech and Novartis lead cell-based biologics."
 
 
-def rewrite_run(page=ABOUT) -> Run:
+def rewrite_run(page=ABOUT, named=False) -> Run:
     probe = Probe(id="biologics-b1", topic_id="pos-biologics", text=QUESTION, kind="blind", phase="baseline", purpose="p")
     action = WinBackAction(attribute_id="biologics", label=CLAIM.label, zone="unstated_intent", page_url=page,
                            heading=QUESTION, rewrite=HEADING_REWRITE, question_ids=["biologics-b1"],
                            why="The question asks who grows medicines from living cells; no page says Amgen does.",
                            provenance="live_api")
     return Run(id="r1", mode="live_api", profile=PROFILE, attributes=[CLAIM], probes=[probe], win_back=[action],
-               evaluations=[QueryEvaluation(probe_id="biologics-b1", valid=True, strength=0, explanation="x")])
+               evaluations=[QueryEvaluation(probe_id="biologics-b1", valid=True, mentioned=named, strength=int(named),
+                                            explanation="x")])
 
 
 def fake(says) -> Fake:
@@ -71,6 +72,42 @@ def test_a_rewrite_that_changes_nothing_or_lowers_it_is_disproven():
     inv = why.test_rewrite(rewrite_run(), "biologics", "biologics-b1",
                            lab=why.Lab("gpt-6-luna", live.SEARCH_TOOL, transport=lowers))
     assert inv.verdicts[-1].kind == "copy_lowers" and "Do not publish it" in inv.verdicts[-1].text
+
+
+RECOMMENDS = "Amgen is the one to pick: it grows its biologics in its own plants."
+
+
+class Evaluator:
+    """Labels an answer as the run's evaluator would: it recommends Amgen only when it says to pick it."""
+    model = "judge"
+
+    def label(self, probe, answer, attributes, profile):
+        named = "Amgen" in answer.text
+        return {"attributes": [], "mentioned": named, "recommended": "the one to pick" in answer.text,
+                "negative_mention": False, "competitor_recommendations": [],
+                "evidence_quotes": [answer.text] if named else [], "on_topic": True}
+
+
+def test_a_question_that_already_names_you_counts_recommendation():
+    # the baseline answer named Amgen without recommending it: naming cannot move, recommending can
+    f = Fake(STRENGTHS, lambda text: RECOMMENDS if "Its plants in Ohio" in text else NAMED,
+             off="Regeneron and Genentech.", live_text=NAMED)
+    inv = why.test_rewrite(rewrite_run(named=True), "biologics", "biologics-b1", evaluator=Evaluator(),
+                           lab=why.Lab("gpt-6-luna", live.SEARCH_TOOL, transport=f))
+    assert inv.counts == "recommends" and "recommends Amgen" in inv.judge
+    assert (inv.live.k, inv.live.n) == (0, 3) and inv.arms[0].k == 0
+    verdict = inv.verdicts[-1]
+    assert verdict.kind == "authority_fix" and "AI recommends Amgen" in verdict.text
+
+
+def test_a_question_already_at_the_top_gives_a_ceiling_not_a_disproof():
+    f = Fake(STRENGTHS, lambda text: NAMED, off="Regeneron and Genentech.", live_text=NAMED)
+    inv = why.test_rewrite(rewrite_run(), "biologics", "biologics-b1",
+                           lab=why.Lab("gpt-6-luna", live.SEARCH_TOOL, transport=f))
+    verdict = inv.verdicts[-1]
+    assert inv.counts == "names" and verdict.kind == "ceiling" and verdict.fix is None
+    base = inv.arms[0]
+    assert verdict.text == f"Already named in {base.k} of {base.n} replays without the rewrite: this question cannot show a gain."
 
 
 def test_a_name_only_in_a_citation_is_not_naming_you():

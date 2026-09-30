@@ -113,7 +113,12 @@ def heading_problem(heading, question_ids, run: Run) -> Optional[str]:
     if not real(heading):
         return "the new passage had no buyer question heading it, so it could not be checked against one."
     heading = " ".join(heading.split())
-    if question_for(heading, run):
+    if q := question_for(heading, run):
+        asked = verdicts(run).get(q)
+        if asked == "recommended":
+            return f"its heading “{heading}” is a buyer question AI already recommends {run.profile.name} for."
+        if asked == "excluded":
+            return f"its heading “{heading}” is a buyer question whose answer was excluded from the scores."
         return None
     if [q for q in question_ids if isinstance(q, str)]:
         return f"its heading “{heading}” is not one of the buyer questions it cites, copied exactly."

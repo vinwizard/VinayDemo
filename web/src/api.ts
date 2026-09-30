@@ -634,7 +634,8 @@ export interface WhyArm {
 }
 export interface WhyVerdict {
   kind: "caused_by" | "over_determined" | "prior_belief" | "not_in_reading" | "not_said" | "copy_fix"
-    | "authority_fix" | "not_movable" | "copy_lowers" | "not_reproducible" | "undecided" | "budget" | "cancelled";
+    | "authority_fix" | "not_movable" | "copy_lowers" | "not_reproducible" | "undecided" | "budget" | "cancelled"
+    | "ceiling";
   text: string; arm_id: string | null; fix: "copy" | "authority" | "none" | null;
 }
 /** Why AI says (or does not say) one claim to one branded question, and what changes it. */
@@ -642,8 +643,9 @@ export interface Investigation {
   id: string; run_id: string; created_at: string; company: string; question: string; probe_id: string | null;
   attribute_id: string; claim: string; term: string | null; model: string; judge: string;
   /** What counted as saying it: a claim's endorsements, any mention (a perception AI raised, a literal
-   * term), or, for a quick win's replay test, whether the answer names the company. */
-  counts?: "mentions" | "endorsements" | "names";
+   * term), or, for a quick win's replay test, whether the answer names the company, or recommends it
+   * where the question already named it. */
+  counts?: "mentions" | "endorsements" | "names" | "recommends";
   /** "buyer": a quick win's replay test on an unbranded question (why.test_rewrite). */
   kind?: "claim" | "buyer";
   /** A proven rewrite, re-checked live once published. */

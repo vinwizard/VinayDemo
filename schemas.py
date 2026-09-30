@@ -658,7 +658,7 @@ class WhyArm(BaseModel):
 class WhyVerdict(BaseModel):
     kind: Literal["caused_by", "over_determined", "prior_belief", "not_in_reading", "not_said", "copy_fix",
                   "authority_fix", "not_movable", "copy_lowers", "not_reproducible", "undecided", "budget",
-                  "cancelled"]
+                  "cancelled", "ceiling"]
     text: str
     arm_id: Optional[str] = None
     fix: Optional[Literal["copy", "authority", "none"]] = None
@@ -681,8 +681,9 @@ class Investigation(BaseModel):
     term: Optional[str] = None              # a literal word that counts as stating it; else the evaluator judges
     # What counts as stating it, as the report counts it: "endorsements" (a claim of the company's: only a
     # positive observation, drift.py's echo), "mentions" (a perception AI raised, or a literal term), or
-    # "names" (a buyer question's replay test: does the answer name the company at all)
-    counts: Literal["mentions", "endorsements", "names"] = "mentions"
+    # "names" / "recommends" (a buyer question's replay test: does the answer name the company, or, where
+    # it already did, recommend it)
+    counts: Literal["mentions", "endorsements", "names", "recommends"] = "mentions"
     # "claim": a branded question, does AI say the claim. "buyer": a quick win's replay test, does AI
     # name the company for an unbranded question once it reads the rewrite (why.test_rewrite)
     kind: Literal["claim", "buyer"] = "claim"

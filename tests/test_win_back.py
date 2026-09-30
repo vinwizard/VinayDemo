@@ -163,6 +163,17 @@ def test_the_heading_is_one_of_the_buyer_questions_it_answers():
     assert kept[0].heading == MTG3 and kept[0].question_ids == ["mtg-3"] and not dropped
 
 
+def test_a_heading_that_copies_a_question_already_won_or_excluded_is_dropped():
+    run = run_for("A")
+    kb1 = next(p.text for p in run.probes if p.id == "kb-1")
+    assert win_back.verdicts(run)["kb-1"] == "recommended"
+    kept, dropped = win_back.validate([good(heading=kb1, question_ids=[])], run)
+    assert kept == [] and "AI already recommends Notion for" in dropped[0]
+    next(e for e in run.evaluations if e.probe_id == "mtg-3").valid = False
+    kept, dropped = win_back.validate([good()], run)
+    assert kept == [] and "excluded from the scores" in dropped[0]
+
+
 def test_a_heading_of_its_own_is_held_to_the_buyer_question_rules():
     run = run_for("A")
     own = dict(attribute_id="enterprise", question_ids=[])

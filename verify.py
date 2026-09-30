@@ -112,9 +112,9 @@ def verify(fleet_id: str, rank: int, resolve: Callable[[], object], emit: Callab
 
 
 def verify_investigation(inv_id: str, resolve: Callable[[], object], emit: Callable[[str], None] = lambda text: None,
-                         lab: Optional[why.Lab] = None) -> Verification:
+                         lab: Optional[why.Lab] = None, evaluator=None) -> Verification:
     """Re-checks a quick win's rewrite that its replay test proved (why.test_rewrite): the page first,
-    free, then the buyer question live, counting whether AI names the company."""
+    free, then the buyer question live, counting what its replay test counted (names or recommends)."""
     inv = reports.load_investigation(inv_id)
     verdict = next((x for x in inv.verdicts if x.fix in ("copy", "authority") and x.arm_id), None)
     if inv.kind != "buyer" or verdict is None:
@@ -124,8 +124,13 @@ def verify_investigation(inv_id: str, resolve: Callable[[], object], emit: Calla
     v = Verification(attribute_id=inv.attribute_id, claim=inv.claim, page_url=arm.urls[0], copy_text=arm.text[0],
                      question=inv.question, investigation_id=inv.id, budget_usd=budget(),
                      predicted=WhyRate(k=arm.k, n=arm.n), base=WhyRate(k=arm.base_k, n=arm.base_n))
-    return recheck(v, inv, arm, verdict.fix, lambda _: why.NamesJudge(run.profile), resolve, emit, lab, None,
-                   needs_evaluator=False)
+    probe = next(p for p in run.probes if p.id == inv.probe_id)
+    needs = inv.counts == "recommends"
+    if needs and lab is not None and evaluator is None:
+        from agents.evaluator_model import ModelEvaluator
+        evaluator = ModelEvaluator(transport=lab.judge_transport)
+    return recheck(v, inv, arm, verdict.fix, lambda ev: why.buyer_judge(run, probe, inv.counts, ev), resolve, emit,
+                   lab, evaluator, needs_evaluator=needs)
 
 
 def recheck(v: Verification, inv, arm, fix: str, judge_for: Callable, resolve: Callable[[], object],
