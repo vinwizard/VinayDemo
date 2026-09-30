@@ -47,6 +47,7 @@ from api import fleet as fleet_api
 from api import why as why_api
 from reports import list_companies, load_company, load_run, save_company, save_run
 from schemas import Attribute, Company, Evidence
+from scoring import exclusion
 
 _LOADED = load_env()
 print(f"[config] {redacted_status(_LOADED)}")  # names only; a key value is never printed
@@ -55,8 +56,15 @@ app = FastAPI(title="Off Message API")
 
 
 def run_payload(run) -> dict:
-    """The run as the browser reads it, plus the panels derived from its saved answers."""
-    return {**json.loads(run.model_dump_json()), "insights": insights(run)}
+    """The run as the browser reads it, plus the panels derived from its saved answers. Each answer
+    carries `excluded`: why scoring left it out (scoring.exclusion), "missing" with no evaluation."""
+    out = {**json.loads(run.model_dump_json()), "insights": insights(run)}
+    evs = {(e.probe_id, e.try_no): e for e in [*run.evaluations, *run.repeat_evaluations]}
+    for field in ("answers", "repeat_answers"):
+        for a, sent in zip(getattr(run, field), out[field]):
+            e = evs.get((a.probe_id, a.try_no))
+            sent["excluded"] = "missing" if e is None else exclusion(a, e)
+    return out
 
 # Any loopback port, because Vite silently moves to 5174/5175 when 5173 is taken and a pinned
 # origin then fails as an opaque "TypeError: Failed to fetch" in the browser.

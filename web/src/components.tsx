@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 import type {
-  Answer, AttributeScore, Demand, DriftReport, Investigation, MapPoint, Probe, QueryEvaluation, RetrievalRow, Run, ScoredPassage,
+  Answer, AttributeScore, Demand, DriftReport, Exclusion, Investigation, MapPoint, Probe, QueryEvaluation, RetrievalRow, Run, ScoredPassage,
   SearchTry, Verification, WhyVerdict, WinBackAction, RunSummary, VisibilitySet, Zone,
 } from "./api";
 import {
@@ -388,23 +388,25 @@ function Explain({ d, brand }: { d: DriftReport; brand: string }) {
 }
 
 /**
- * Why an answer is left out of the scores, in words a reader can follow, or null when it counts.
- * Mirrors scoring.eligible, rule for rule; `counts` below is its yes/no.
+ * Why an answer is left out of the scores, in words a reader can follow, or null when it counts. The
+ * rule is scoring.exclusion's, applied on the server (`Answer.excluded`); this only words it.
  */
 function leftOut(a: Answer | undefined, e: QueryEvaluation | undefined, brand: string): string | null {
   if (!a || !e) return "no answer came back";
-  if (a.provenance === "web_research_snapshot") return "it came from a web research snapshot, not an AI answer";
-  if (a.status !== "ok") return "the AI call failed";
-  if (a.provenance === "live_api" && !a.search_executed) return "the AI answered from memory instead of searching the web";
-  if (!e.valid) {
-    return e.warnings?.includes("Off-topic answer.") ? `the AI answered about something other than ${brand}`
-      : "our checker could not confirm what the answer said";
-  }
-  return null;
+  const words: Record<Exclusion, string> = {
+    missing: "no answer came back",
+    snapshot: "it came from a web research snapshot, not an AI answer",
+    replay: "it is a why-agent experiment on a replayed reading list, not a measurement",
+    failed: "the AI call failed",
+    ungrounded: "the AI answered from memory instead of searching the web",
+    off_topic: `the AI answered about something other than ${brand}`,
+    unconfirmed: "our checker could not confirm what the answer said",
+  };
+  return a.excluded ? words[a.excluded] : null;
 }
 
-/** Mirrors scoring.eligible: only an answer that counts toward the scores can name anything here. */
-const counts = (a: Answer, e: QueryEvaluation) => leftOut(a, e, "") == null;
+/** scoring.exclusion's yes/no: only an answer that counts toward the scores can name anything here. */
+const counts = (a: Answer) => !a.excluded;
 
 /** What a reader needs to know about one kind of question, in one sentence. */
 function questionKind(p: Probe, brand: string) {
@@ -1146,7 +1148,7 @@ function Competitors({ run }: { run: Run }) {
                                    where: [string, string, string] | null }>();
   for (const p of run.probes.filter((x) => x.kind === "blind" && x.phase === "baseline")) {
     const a = answers.get(p.id), e = evals.get(p.id);
-    if (!a || !e || !counts(a, e)) continue;
+    if (!a || !e || !counts(a)) continue;
     for (const name of new Set(e.competitor_recommendations)) {
       const row = named.get(name.toLowerCase());
       if (row) row.count += 1;
@@ -2052,10 +2054,10 @@ function BuyerQuestions({ run }: { run: Run }) {
       .map((e) => [repeatAnswers.get(`${p.id}#${e.try_no}`), e] as const),
   ];
   const countedTries = (p: Probe) => triesOf(p)
-    .filter(([a, e]) => a && e && counts(a, e)).map(([, e]) => e!);
+    .filter(([a, e]) => a && e && counts(a)).map(([, e]) => e!);
   const counted = (p: Probe) => {
     const a = answers.get(p.id), e = evals.get(p.id);
-    return a && e && counts(a, e) ? e : null;
+    return a && e && counts(a) ? e : null;
   };
   const all = base.flatMap(countedTries);
   const namedIn = all.filter((e) => e.mentioned).length;
@@ -2079,7 +2081,7 @@ function BuyerQuestions({ run }: { run: Run }) {
     return <span className="pill lost_claim">did not name you yet</span>;
   };
   const tryWord = (a?: Answer, e?: QueryEvaluation) =>
-    !a || !e || !counts(a, e) ? "excluded" : e.recommended ? "recommended you" : e.mentioned ? "named you" : "did not name you";
+    !a || !e || !counts(a) ? "excluded" : e.recommended ? "recommended you" : e.mentioned ? "named you" : "did not name you";
   // who AI named in the answer, on the card itself: the rival a buyer was shown instead
   const others = (p: Probe) => {
     const e = evals.get(p.id), named = e?.competitor_recommendations ?? [];
@@ -2200,7 +2202,7 @@ function Control({ run, p, v }: { run: Run; p: Probe; v: Vis }) {
   const a = run.answers.find((x) => x.probe_id === p.id);
   const e = run.evaluations.find((x) => x.probe_id === p.id);
   const flag = v.low_confidence;
-  const ok = a && e && counts(a, e);
+  const ok = a && e && counts(a);
   const found = !ok ? "could not be scored"
     : `named ${plural(e.competitor_recommendations.length + (e.mentioned ? 1 : 0), "company", "companies")}`
       + ` · ${e.mentioned ? `including ${run.profile.name}` : `not ${run.profile.name}`}`;
@@ -2554,7 +2556,7 @@ function BrandQuestions({ run }: { run: Run }) {
   const evals = new Map(run.evaluations.map((e) => [e.probe_id, e]));
   const excluded = (id: string) => {
     const a = answers.get(id), e = evals.get(id);
-    return !a || !e || !counts(a, e);
+    return !a || !e || !counts(a);
   };
   const raised = new Map<string, AttributeScore[]>();
   for (const s of run.attribute_scores) {

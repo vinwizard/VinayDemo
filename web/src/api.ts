@@ -146,7 +146,11 @@ export interface Answer {
   try_no?: number;
   /** What the answering model read, step by step; absent when not recorded. */
   trace?: ReadStep[] | null;
+  /** Why scoring left this answer out (scoring.exclusion, set by the server), or null when it counts. */
+  excluded?: Exclusion | null;
 }
+
+export type Exclusion = "snapshot" | "replay" | "failed" | "ungrounded" | "off_topic" | "unconfirmed" | "missing";
 
 /** One thing the model read: a search snippet, an opened page's lines or a find-in-page hit. */
 export interface ReadResult { url: string; title: string | null; text: string; crawled: string | null }

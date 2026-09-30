@@ -10,7 +10,7 @@ from agents.ana import brand_leaks
 from labels import probe_names, with_ids
 from schemas import (Answer, Attribute, AttributeObservation, CompanyProfile, GapFinding, Probe,
                      QueryEvaluation, Topic, TopicEvaluation)
-from scoring import PRIORITY_LABEL, domain_matches, mentions_alias
+from scoring import OFF_TOPIC, PRIORITY_LABEL, domain_matches, mentions_alias
 
 # Reviewed configuration table (.claude/skills/evaluation-and-scoring): the next step each kind of gap suggests.
 ACTIONS = {
@@ -108,7 +108,7 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
         warnings.append(f"Citation-only name(s) dropped, not named in the answer body: {cited}")
         competitors = [c for c in competitors if c not in cited]
     if not labels.get("on_topic", True):
-        warnings.append("Off-topic answer.")
+        warnings.append(OFF_TOPIC)
     owned = any(domain_matches(c, profile.all_domains()) for c in answer.citations)
     deceptive = [c for c in answer.citations if not domain_matches(c, profile.all_domains())
                  and any(d in c.lower() for d in profile.all_domains())]

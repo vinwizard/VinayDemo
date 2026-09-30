@@ -17,7 +17,8 @@ import api.main as main
 import reports
 from agents import onboarding_model
 from providers import live
-from fakes import seeded_data, sse_events
+from fakes import replay, seeded_data, sse_events
+from scoring import eligible
 
 SENTINEL = "sk-SENTINEL-do-not-leak-7f3a9c"
 CO = "abcdef0123"            # a copy of the seed company under an id with no offline special case
@@ -355,3 +356,14 @@ def test_rescoring_the_showcase_never_rewrites_the_committed_file(client):
     claim = client.get(f"/api/runs/{main.SHOWCASE_RUN}").json()["attributes"][0]["id"]
     r = client.post(f"/api/runs/{main.SHOWCASE_RUN}/rescore", json={"weights": {claim: 0.5}})
     assert r.status_code == 200 and saved.read_bytes() == SHOWCASE.read_bytes()
+
+
+def test_the_report_is_told_which_answers_scoring_left_out_and_why():
+    """The page words `excluded`; it no longer re-derives the rule. Regression: its old copy of the
+    rule counted a why-agent replay (counterfactual_replay) as a measured answer."""
+    run = replay("A")
+    run.answers[0] = run.answers[0].model_copy(update={"provenance": "counterfactual_replay"})
+    sent = main.run_payload(run)["answers"]
+    assert sent[0]["excluded"] == "replay"
+    ev = {e.probe_id: e for e in run.evaluations}
+    assert [x["excluded"] is None for x in sent] == [eligible(a, ev[a.probe_id])[0] for a in run.answers]
