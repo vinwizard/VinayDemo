@@ -19,8 +19,9 @@ jobs:
 
       - name: Lines added per area (report only)
         if: github.event_name == 'pull_request'
+        # Maintained lines only: data and fixtures (png, json, lock) are not counted.
         run: |
-          git diff --numstat HEAD^1 HEAD -- . ':!*.png' ':!*.json' ':!*.lock' |
+          git diff --numstat --no-renames HEAD^1 HEAD -- . ':!*.png' ':!*.json' ':!*.lock' |
           awk '{ f=$3; a = (f ~ /^tests\// || f ~ /\.test\.tsx?$/) ? "tests" : f ~ /^web\// ? "web" : (f ~ /\.md$/ || f ~ /^\.claude\//) ? "docs" : f ~ /\.py$/ ? "backend" : "other";
                  add[a]+=$1; del[a]+=$2; ta+=$1; td+=$2 }
                END { print "| area | added | removed | net |"; print "|---|---|---|---|";

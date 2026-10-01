@@ -1,8 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent } from "react";
 import type { RetrievalRow, Run } from "../api";
-import { PROVENANCE_LABEL, when } from "../labels";
-import { tabBadge } from "../badge";
+import { PROVENANCE_LABEL, tabBadge, when } from "../labels";
 import { GLOSSARY } from "../glossary";
 import { FleetPanel } from "../fleet";
 import { modelsOf, TABS, tabKey, winBackPlan } from "./util";

@@ -2,7 +2,7 @@
 // the log from its first line lands exactly where the live stream left off.
 // The fleet's records, mirroring schemas.py (FleetTask, Challenge, PlanItem, ActionPlan, Verification,
 // FleetEvent) — keep in sync. They live here, not in api.ts, so `node --test` can type-check this file.
-import { instant } from "./time.ts";
+import { instant } from "./labels.ts";
 
 /** One investigator's job, as the coordinator (or code, when it could not) dispatched it. */
 export interface FleetTask {
@@ -26,7 +26,7 @@ export interface PlanItem {
   notes: string[];
 }
 export interface ActionPlan {
-  items: PlanItem[]; provenance: "counterfactual_replay"; notes: string[];
+  items: PlanItem[]; written_by?: string; provenance: "counterfactual_replay"; notes: string[];
 }
 /** A fix re-checked once it is live: `live` is measured; the prediction and `control` are replays. */
 export interface Verification {

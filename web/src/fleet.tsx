@@ -264,7 +264,7 @@ export function FleetPanel({ run }: { run: Run }) {
           </ol>
           <p className="muted why-foot">
             Predictions are replays of what AI read ({PROVENANCE_LABEL.counterfactual_replay.toLowerCase()}); a re-check
-            is measured live. Lines written by our templates.
+            is measured live. Lines {!view.plan.written_by || view.plan.written_by === "template" ? "written by our templates" : `worded by ${view.plan.written_by}, checked by our code`}.
             {view.plan.notes.map((n) => ` ${n}`)}
           </p>
         </>

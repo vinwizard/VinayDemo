@@ -2,7 +2,6 @@
 // Nothing here changes stored data: ids, provenance values and strengths keep their names in the
 // JSON exports and saved runs. This module only decides how they are SPOKEN on screen.
 import type { Probe, RunSummary, Topic, WhyVerdict, Zone } from "./api";
-import { instant } from "./time.ts";
 
 // Zone names are spoken as the opportunity each one is, not as a loss: the zone keys, counts and
 // every number behind them are unchanged — only the words on screen are. Each label reads alone on a
@@ -192,3 +191,13 @@ export const WHY_VERDICT: Record<WhyVerdict["kind"], { label: string; tone: stri
   cancelled: { label: "Stopped at deadline", tone: "neutral" },
   ceiling: { label: "Already at the top", tone: "neutral" },
 };
+
+/** A stored time, which is UTC: one saved before the offset was written down has none, and is UTC
+ * too, so it is not read as the viewer's local time. Shown in the viewer's local time (when). */
+export const instant = (iso: string) => new Date(/T\d\d:\d\d(:\d\d(\.\d+)?)?$/.test(iso) ? `${iso}Z` : iso);
+
+/** A report tab's badge: what it counts, in words ("3 claims"), never a bare 0 that reads as a
+ * grade ("Win it back 0" did). `none` is what a tab with nothing to count shows: a tick where empty
+ * is good news, else no badge at all. */
+export const tabBadge = (n: number | undefined, one: string, none?: string) =>
+  n == null ? undefined : n ? `${n} ${n === 1 ? one : `${one}s`}` : none;

@@ -1,7 +1,7 @@
 // The first-visit guide: a short "how it works" story. This module holds what can be tested without
 // a browser: whether the story has been seen (kept per browser) and what it shows (picked from a
 // real run, never written here).
-import { instant } from "./time.ts";
+import { instant } from "./labels.ts";
 
 /** Bump the version to show a rewritten guide again to browsers that saw the old one. */
 export const STORAGE_KEY = "offmessage.tour.v1";

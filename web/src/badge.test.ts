@@ -1,7 +1,7 @@
 // Report tab badges, run by `node --test` (CI: web unit tests).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { tabBadge } from "./badge.ts";
+import { tabBadge } from "./labels.ts";
 
 test("a tab badge says what it counts, and is never a bare 0", () => {
   // Amgen, 22 Sep 2026: the tab read "Win it back 0", and a first-time reader took it for a score.
