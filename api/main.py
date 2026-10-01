@@ -67,12 +67,20 @@ def run_payload(run) -> dict:
             sent["excluded"] = "missing" if e is None else exclusion(a, e)
     return out
 
+UNREADABLE = "X-Unreadable-Files"     # how many saved files a listing skipped (unreadable)
+
 # Any loopback port, because Vite silently moves to 5174/5175 when 5173 is taken and a pinned
 # origin then fails as an opaque "TypeError: Failed to fetch" in the browser.
 # DEV ONLY: tighten this to the real origin before deploying anywhere.
 LOOPBACK_ORIGIN = r"http://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?"
 app.add_middleware(CORSMiddleware, allow_origin_regex=LOOPBACK_ORIGIN,
-                   allow_methods=["*"], allow_headers=["*"])
+                   allow_methods=["*"], allow_headers=["*"], expose_headers=[UNREADABLE])
+
+
+def unreadable(kind: str, name: str, e: Exception) -> None:
+    """A saved file a listing could not read: named on the server console and counted in the
+    UNREADABLE header, so the list says something is missing instead of quietly being shorter."""
+    print(f"[{kind}] could not read {name}: {type(e).__name__}: {e}", flush=True)
 
 
 def sse(event: str, payload: dict) -> str:
@@ -341,15 +349,17 @@ def stream(scenario: str = "A", mode: str = "demo", company: Optional[str] = Non
 
 
 @app.get("/api/runs")
-def list_all(request: Request = None):
+def list_all(request: Request = None, response: Response = None):
     """Run history: newest first, with enough detail to pick one for comparison."""
-    out, pid = [], pass_id(holder_of(request))
+    out, pid, skipped = [], pass_id(holder_of(request)), 0
     for p in sorted(reports.RUNS.glob("*.json")):
         if not access.visible("run", p.stem, pid):
             continue
         try:
             r = load_run(p.stem)
-        except Exception:
+        except Exception as e:
+            unreadable("runs", p.name, e)
+            skipped += 1
             continue
         d = r.drift
         out.append(dict(id=r.id, created_at=r.created_at, scenario=r.scenario, status=r.status, mode=r.mode,
@@ -366,6 +376,8 @@ def list_all(request: Request = None):
                         unprioritised=len(d.unprioritised) if d else 0,
                         na_reasons=d.na_reasons if d else
                         {"headline": "This run finished without a report."}))
+    if response is not None:
+        response.headers[UNREADABLE] = str(skipped)
     return sorted(out, key=lambda r: r["created_at"], reverse=True)
 
 
@@ -796,19 +808,23 @@ def reask_run(run_id: str, req: ReaskRequest, request: Request = None):
 
 
 @app.get("/api/companies")
-def companies(request: Request = None):
-    out, pid = [], pass_id(holder_of(request))
+def companies(request: Request = None, response: Response = None):
+    out, pid, skipped = [], pass_id(holder_of(request)), 0
     for path in list_companies():
         if not access.visible("company", path.stem, pid):
             continue
         try:
             c = _company(path.stem)
-        except Exception:
+        except Exception as e:
+            unreadable("companies", path.name, e)
+            skipped += 1
             continue
         out.append(dict(id=c.id, name=c.profile.name, domain=c.profile.domain,
                         created_at=c.created_at, pages=len(c.profile.evidence) or len(c.pages),
                         attributes=len(c.attributes),
                         intended=sum(1 for a in c.attributes if a.intended)))
+    if response is not None:
+        response.headers[UNREADABLE] = str(skipped)
     return out
 
 

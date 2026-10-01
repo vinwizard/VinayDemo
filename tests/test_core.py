@@ -1,5 +1,6 @@
 """Offline acceptance checks (.claude/skills/evaluation-and-scoring) for the engine. Run: python -m pytest"""
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -389,3 +390,15 @@ def test_secrets_not_exported_or_committed(monkeypatch):
     r = run_scenario("A")
     assert secret not in to_json(r) and secret not in live.status()
     assert ".env" in (ROOT / ".gitignore").read_text().split()
+
+
+def test_every_stored_time_is_utc_with_its_offset_written():
+    # A run's created_at was local time while its answers' collected_at was UTC: the same moment
+    # 4 hours apart in one file, and the browser read the bare one as the viewer's local time.
+    from schemas import Investigation, utc_now
+    assert utc_now().endswith("+00:00")
+    assert Investigation.model_fields["created_at"].default_factory is utc_now
+    root = Path(__file__).resolve().parent.parent
+    for f in [root / "data" / p for p in ("companies/5eed0001.json", "companies/b5aced577f.json", "runs/cb67186167.json")]:
+        for key, stamp in re.findall(r'"(created_at|checked_at|collected_at)": "([^"]+)"', f.read_text()):
+            assert stamp.endswith("+00:00"), (f.name, key, stamp)

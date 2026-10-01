@@ -251,10 +251,13 @@ export function WinBack({ run }: { run: Run }) {
   const { targets, actions } = winBackPlan(run);
   const [invs, setInvs] = useState<Investigation[]>([]);
   const [budget, setBudget] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const live = run.mode === "live_api";
   useEffect(() => {
     if (!live) return;
-    getInvestigations(run.id).then(setInvs).catch(() => {});
+    getInvestigations(run.id).then(setInvs)
+      .catch((e: Error) => setLoadError(`Could not load the investigations already run: ${e.message}`));
+    // without a health reading the budget line is left out; the server still enforces the budget
     getHealth().then((h) => setBudget(h.why_budget_usd ?? null)).catch(() => {});
   }, [run.id, live]);
   if (!targets.length) return null;
@@ -278,6 +281,7 @@ export function WinBack({ run }: { run: Run }) {
         why it should make AI name {run.profile.name}, and its proof. A draft — check every statement against the
         product before publishing. It changes no number in this report.
       </p>
+      {loadError && <div className="callout error">{loadError}</div>}
       {actions.length > 0 && (
         <>
           <p className="ladder-legend muted">

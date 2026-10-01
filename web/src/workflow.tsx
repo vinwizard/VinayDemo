@@ -12,7 +12,7 @@ import type { ReadRequest } from "./find";
 import { FindCompany, SourceList } from "./find";
 import { Report } from "./report/Report";
 import { Logo } from "./report/ui";
-import { PROVENANCE_LABEL, headline, plain, plural, potentialText, streamingProbeLabel } from "./labels";
+import { PROVENANCE_LABEL, headline, plain, plural, potentialText, streamingProbeLabel, unreadableNote } from "./labels";
 
 type StageState = "pending" | "active" | "done" | "skipped" | "failed";
 
@@ -103,13 +103,18 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
   const [target, setTarget] = useState("");   // what is being read: a website, or "your documents"
   const [onb, setOnb] = useState<Onboarding>({ phase: "idle", sources: [] });
   const [known, setKnown] = useState<CompanySummary[]>([]);
+  const [knownNote, setKnownNote] = useState<string | null>(null);   // companies that could not be listed
   const [running, setRunning] = useState(false);
   const [p, setP] = useState<Progress>(NO_PROGRESS);
   const closer = useRef<(() => void) | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
+  const listKnown = () => getCompanies()
+    .then((r) => { setKnown(r.items); setKnownNote(unreadableNote(r.unreadable, "company", "companies")); })
+    .catch((e: Error) => setKnownNote(`Could not load the companies onboarded before: ${e.message}`));
+
   useEffect(() => {
-    getCompanies().then(setKnown).catch(() => {});
+    listKnown();
     return () => closer.current?.(); // abort an in-flight stream if the tab unmounts
   }, []);
 
@@ -132,7 +137,7 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
   const startOver = () => {
     closer.current?.();
     setCompany(null); setP(NO_PROGRESS); setRunning(false); setOnb({ phase: "idle", sources: [] });
-    getCompanies().then(setKnown).catch(() => {});
+    listKnown();
   };
 
   const measure = (c: CompanyDetail) => {
@@ -261,6 +266,7 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
                 ))}
               </p>
             )}
+            {knownNote && !reading && <div className="callout warn-box">{knownNote}</div>}
           </div>
         )}
       </Stage>

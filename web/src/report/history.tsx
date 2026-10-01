@@ -1,5 +1,5 @@
 import type { RunSummary } from "../api";
-import { PROVENANCE_LABEL, headline, potentialText, runLabels } from "../labels";
+import { PROVENANCE_LABEL, headline, potentialText, runLabels, when } from "../labels";
 import { Term } from "../popover";
 
 export function History({ runs, onOpen }: { runs: RunSummary[]; onOpen: (id: string) => void }) {
@@ -26,7 +26,7 @@ export function History({ runs, onOpen }: { runs: RunSummary[]; onOpen: (id: str
               <tr key={r.id} className="pick" onClick={() => onOpen(r.id)}>
                 <td data-label="Run" title={r.id}>{names[r.id]?.short ?? r.id}</td>
                 <td data-label="Company"><strong>{r.company}</strong></td>
-                <td data-label="When" className="muted">{r.created_at.replace("T", " ")}</td>
+                <td data-label="When" className="muted">{when(r.created_at)}</td>
                 <td data-label="Source">
                   {r.mode === "live_api"
                     ? <span className="pill live">{PROVENANCE_LABEL.live_api}</span>

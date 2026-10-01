@@ -352,13 +352,26 @@ export const ZONE_ORDER: Record<Zone, number> = {
 };
 
 /** FastAPI puts the readable reason in `detail`; the bare status line is useless to a reader. */
-async function json<T>(path: string, init?: RequestInit): Promise<T> {
+async function ok(path: string, init?: RequestInit): Promise<Response> {
   const r = await fetch(`${API}${path}`, init);
   if (!r.ok) {
+    // an error body that is not JSON leaves only the status line, which is said instead
     const detail = await r.json().then((b) => b?.detail).catch(() => null);
     throw new Error(typeof detail === "string" ? detail : `${r.status} ${r.statusText} for ${path}`);
   }
-  return r.json();
+  return r;
+}
+
+async function json<T>(path: string, init?: RequestInit): Promise<T> {
+  return (await ok(path, init)).json();
+}
+
+/** A saved-file listing, and how many files the API could not read (it names them on its console). */
+export interface Listed<T> { items: T[]; unreadable: number }
+
+async function listed<T>(path: string): Promise<Listed<T>> {
+  const r = await ok(path);
+  return { items: await r.json(), unreadable: Number(r.headers.get("X-Unreadable-Files")) || 0 };
 }
 
 /** A JSON body sent with `method`; the reply read like any other. */
@@ -455,7 +468,7 @@ export interface CompanySummary {
   pages: number; attributes: number; intended: number;
 }
 
-export const getCompanies = () => json<CompanySummary[]>("/api/companies");
+export const getCompanies = () => listed<CompanySummary>("/api/companies");
 
 /** Removes a claim the customer typed. Extracted claims are evidence and cannot be deleted. */
 export const deleteAttribute = (companyId: string, attributeId: string) =>
@@ -518,7 +531,7 @@ export const exchangePass = (code: string) => send<{ pass: PassStatus }>("/api/a
 /** The meter. `visit` records a page load in the owner's visit log. */
 export const getPass = (visit = false) =>
   json<{ pass: PassStatus | null }>(`/api/access${visit ? "?visit=1" : ""}`);
-export const getRuns = () => json<RunSummary[]>("/api/runs");
+export const getRuns = () => listed<RunSummary>("/api/runs");
 export const getRun = (id: string) => json<Run>(`/api/runs/${id}`);
 
 /** Asks one buyer question again with the rewritten passage as a source: one metered model call. */
