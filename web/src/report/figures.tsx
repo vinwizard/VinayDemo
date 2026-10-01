@@ -144,7 +144,7 @@ export function Figures({ d, brand, run, onQuickWins }: { d: DriftReport; brand:
   const unsure = fronts.filter((v) => v.low_confidence);
   return (
     <div className="figures">
-      <div className="fig-card headline" data-tour="headline">
+      <div className="fig-card headline">
         <span className="hero-num">
           {h.potential == null ? "n/a" : <>{h.potential}%</>}
         </span>
@@ -162,7 +162,7 @@ export function Figures({ d, brand, run, onQuickWins }: { d: DriftReport; brand:
           </span>
         )}
       </div>
-      <div className="fig-card fronts" data-tour="fronts">
+      <div className="fig-card fronts">
         <div className="fronts-head">
           <strong>Does AI bring {brand} up when buyers ask?</strong>
           <span className="muted"><Term k="buyer_visibility">buyer visibility</Term>, 0–100</span>

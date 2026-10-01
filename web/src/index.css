@@ -618,8 +618,8 @@ details.skipped ul { margin: .2rem 0 0; padding-left: 1.1rem; font-size: .85rem;
 .front-margin .warn { color: var(--lost); }
 
 /* ---------------------------------------------------------------- first-visit guide (guide.tsx)
-   The story and the spotlight sit under popovers (z-index 50), so a glossary term in a caption
-   still opens its definition above them. Nothing here moves under reduced motion. */
+   The story sits under popovers (z-index 50), so a glossary term in it still opens its
+   definition above it. Nothing here moves under reduced motion. */
 .topbar-end { display: flex; align-items: flex-end; gap: .6rem; flex-wrap: wrap; }
 button.ghost.how { margin-bottom: .45rem; padding: .3rem .75rem; font-size: .85rem; color: var(--accent); border-color: var(--accent); }
 .pill.live { background: #e8f6ec; border-color: #a8d5b5; color: #1e5b33; }
@@ -691,27 +691,7 @@ table.runs .open-cell { text-align: right; white-space: nowrap; }
 @keyframes story-grow { from { width: 0; } }
 @keyframes story-strike { from { text-decoration-color: transparent; } }
 
-.tour-block { position: fixed; inset: 0; z-index: 44; }
-.tour-spot { position: fixed; z-index: 45; border-radius: 10px; pointer-events: none;
-  box-shadow: 0 0 0 9999px rgb(15 20 30 / 58%); outline: 2px solid #fff; }
-.tour-spot.none { left: 50%; top: 50%; width: 0; height: 0; outline: none; }
-.tour-cap { position: fixed; z-index: 46; width: min(340px, calc(100vw - 16px)); background: var(--surface);
-  border-radius: 12px; padding: .85rem .95rem .75rem; box-shadow: 0 12px 32px rgb(0 0 0 / 30%); font-size: .92rem; }
-.tour-cap h4 { font-size: .98rem; margin: 0 0 .25rem; }
-.tour-cap p { margin: 0; }
-.tour-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-top: .7rem; }
-.tour-skip { color: var(--muted) !important; font-size: .84rem !important; text-decoration: none !important; }
-.tour-dots { display: flex; gap: 4px; }
-.tour-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
-.tour-dots i.on { background: var(--accent); }
-.tour-nav { margin-left: auto; display: flex; gap: .4rem; white-space: nowrap; }
-.tour-nav button { padding: .35rem .8rem; }
-@media (prefers-reduced-motion: no-preference) {
-  .tour-spot { transition: left .3s ease, top .3s ease, width .3s ease, height .3s ease; }
-}
 @media (max-width: 600px) {
-  .tour-cap { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto; border-radius: 14px 14px 0 0;
-    padding-bottom: max(.9rem, env(safe-area-inset-bottom)); }
   .story .scene h3 { padding-right: 0; margin-top: 1.6rem; }
   .guide-backdrop { padding: .5rem; }
 }

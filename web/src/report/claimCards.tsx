@@ -19,7 +19,7 @@ export function ZoneChips({ run }: { run: Run }) {
   const sorted = sortClaims(run.attribute_scores);
   return (
     <Section title="Your claims, grouped by what AI does with them" found="hover or tap a group to see its claims">
-      <div className="chips" role="list" data-tour="zones">
+      <div className="chips" role="list">
         {ZONES.map((z) => {
           const rows = sorted.filter((s) => s.zone === z);
           return (

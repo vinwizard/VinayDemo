@@ -5,9 +5,8 @@ import { Report } from "./report/Report";
 import { History } from "./report/history";
 import { CompanyWorkflow } from "./workflow";
 import { Guide } from "./guide";
-import { requestTour } from "./guideBus";
 import { headline, money, unreadableNote } from "./labels";
-import { pickStory, replayPart } from "./tour";
+import { pickStory } from "./tour";
 
 type Tab = "onboard" | "history";
 
@@ -69,9 +68,7 @@ export default function App() {
       setHealth(h);
       // The public demo cannot onboard without a pass, so its visitors land on the saved runs.
       if (h.public_demo && !p) setTab("history");
-      // A pass holder's first visit: a short tour of onboarding (once per browser).
-      else if (p) requestTour("onboard", true);
-      // A pass holder cannot read the showcase run, by design: the tour is then told without it.
+      // A pass holder cannot read the showcase run, by design: the guide then shows the welcome alone.
       if (h.showcase?.run) getRun(h.showcase.run).then(setShowcase).catch(() => {});
     })
       .catch(() => setError(`Could not reach the API at ${API}. Start it first — see WEB.md.`));
@@ -107,10 +104,7 @@ export default function App() {
               </button>
             ))}
           </nav>
-          {health && <button type="button" className="ghost how" onClick={() => {
-            if (replayPart(!!story, tab === "history" && !!opened) === "onboard" && tabs.some(([t]) => t === "onboard")) setTab("onboard");
-            setReplay((n) => n + 1);
-          }}>How it works</button>}
+          {health && <button type="button" className="ghost how" onClick={() => setReplay((n) => n + 1)}>How it works</button>}
         </div>
       </header>
 
@@ -169,7 +163,7 @@ export default function App() {
 
       <footer className="foot">Independent portfolio demo.</footer>
       <Guide story={story} vars={storyVars} replay={replay}
-             autoStory={!!health?.public_demo && !pass && tab === "history" && !opened}
+             auto={!!health && (!!pass || (!!story && !!health.public_demo && tab === "history" && !opened))}
              onOpenShowcase={() => {
                if (!showcase) return;
                window.history.replaceState(null, "", window.location.pathname + window.location.search);
