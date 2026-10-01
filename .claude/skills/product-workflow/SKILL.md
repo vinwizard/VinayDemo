@@ -6,7 +6,7 @@ description: Load when changing the engine's agents (onboarding, AnA, evaluation
 # Product workflow, agent scopes and state
 
 Agent boundaries from the original brief. Where this disagrees with the code, README.md or WEB.md, the code
-wins. The state contracts are `schemas.py`; the node order is `graph.STAGES`.
+wins. The state contracts are `schemas.py`; the node order is `graph.build_graph`.
 
 ## Agent scopes
 
@@ -53,8 +53,8 @@ The measured model gets only one neutral buyer question plus a fixed neutral ans
 
 ## Workflow and state
 
-Investigation uses LangGraph nodes, listed in order by `graph.STAGES`. Set a graph recursion cap and
-enforce round limits in code. Stream node progress to the page. In replay mode, these are actual graph
+Investigation uses LangGraph nodes, wired in `graph.build_graph`. Set a graph recursion cap
+(`RECURSION_LIMIT`). Stream node progress to the page. In replay mode, these are actual graph
 transitions using fixture-backed nodes, not a prerecorded video.
 
 Provenance rules: AGENTS.md, "Authored evidence is never presented as measured". Keep source metadata at record level, not only run level.

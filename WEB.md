@@ -252,7 +252,7 @@ reason from `na_reasons`; no external logo service (the logo is the site's own i
 - **Report** (`web/src/report/`): a summary of untapped potential (100 minus the score) and each
   front's visibility with its range and confidence (`margin.tsx`), **Download summary (PDF)**
   (`print.tsx`: print CSS, no PDF library, no server call), then five tabs kept in the URL hash, each
-  badge counting in words (`badge.ts`). One popover (`popover.tsx`) explains every question reference
+  badge counting in words (`labels.tabBadge`). One popover (`popover.tsx`) explains every question reference
   and every invented term, from `glossary.ts`, the one place definitions live.
   - **Overview** — where the answers came from, a chip per zone opening its claims, the optional
     **weights** (`rescore`), and **How we checked this report** (`drift.limitations`).
