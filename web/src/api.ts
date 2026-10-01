@@ -116,9 +116,9 @@ export interface Topic {
 export interface Demand {
   /** The real search, verbatim: the question asked. */
   phrase: string;
-  source: "autocomplete" | "reddit";
+  source: "autocomplete";
   /** Every real phrasing grouped with it, the phrase included. */
-  phrasings: { text: string; source: "autocomplete" | "reddit" }[];
+  phrasings: { text: string; source: "autocomplete" }[];
 }
 
 export interface Probe {

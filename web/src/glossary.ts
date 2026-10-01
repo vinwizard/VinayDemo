@@ -75,7 +75,7 @@ export const GLOSSARY = {
   real_demand: {
     term: "Real demand",
     def: "An unbranded question taken from what people actually search, not written by AI: Google's "
-      + "autocomplete suggestions for the category (and Reddit threads, when Reddit allows it). Similar "
+      + "autocomplete suggestions for the category. Similar "
       + "searches are grouped by meaning and the biggest groups are asked first. It shows the questions "
       + "are real, not how many people search them.",
   },

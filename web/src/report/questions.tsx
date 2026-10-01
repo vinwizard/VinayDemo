@@ -54,7 +54,6 @@ export function Linked({ text, run }: { text: string; run: Run }) {
   return <>{parts.map((t, i) => (i % 2 ? <QRef key={i} id={byName.get(t)!} run={run} /> : t))}</>;
 }
 
-const SOURCE = { autocomplete: "Google", reddit: "Reddit" } as const;
 
 /** "real demand · Google": the question is a real search; the popover lists its group's phrasings. */
 function DemandBadge({ d }: { d: Demand }) {
@@ -62,16 +61,14 @@ function DemandBadge({ d }: { d: Demand }) {
   return (
     // inside a <summary>: a tap on the badge opens the popover, not the answer
     <span className="demand" onClick={(e) => e.preventDefault()}>
-      <Popover label="Real demand" className="demand-badge" trigger={<>real demand · {SOURCE[d.source]}</>}>
+      <Popover label="Real demand" className="demand-badge" trigger={<>real demand · Google</>}>
         <strong className="pop-title">{GLOSSARY.real_demand.term}</strong>
-        <p>
-          People {d.source === "reddit" ? "ask exactly this on Reddit" : "search exactly this on Google"}.
-        </p>
+        <p>People search exactly this on Google.</p>
         {n > 1 && (
           <>
             <p className="muted">{n} real searches that mean the same, grouped together:</p>
             <ul className="demand-list">
-              {d.phrasings.map((ph) => <li key={ph.text}>{ph.text} <span className="muted">· {SOURCE[ph.source]}</span></li>)}
+              {d.phrasings.map((ph) => <li key={ph.text}>{ph.text}</li>)}
             </ul>
           </>
         )}
