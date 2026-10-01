@@ -26,11 +26,11 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import ContextVar, copy_context
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 import reports
+from schemas import utc_now
 
 KEY_ENV = "OPENAI_API_KEY"
 PUBLIC_ENV = "VISEXP_PUBLIC_DEMO"
@@ -111,39 +111,28 @@ def contact_email() -> str:
     return os.environ.get(CONTACT_ENV) or CONTACT_DEFAULT
 
 
-def now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
 def db_path() -> Path:
     return reports.DATA / "access.db"
 
 
 @contextlib.contextmanager
 def db():
-    path = db_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, timeout=10)
-    conn.row_factory = sqlite3.Row
-    try:
-        with conn:
-            conn.executescript("""
-                CREATE TABLE IF NOT EXISTS passes (id TEXT PRIMARY KEY, label TEXT NOT NULL,
-                    cap_usd REAL NOT NULL, code_hash TEXT UNIQUE, revoked INTEGER NOT NULL DEFAULT 0,
-                    created_at TEXT NOT NULL);
-                CREATE TABLE IF NOT EXISTS ledger (pass_id TEXT NOT NULL, at TEXT NOT NULL,
-                    model TEXT, input_tokens INTEGER, output_tokens INTEGER, searches INTEGER,
-                    usd REAL NOT NULL, estimated INTEGER NOT NULL);
-                CREATE TABLE IF NOT EXISTS visits (pass_id TEXT NOT NULL, label TEXT NOT NULL,
-                    event TEXT NOT NULL, at TEXT NOT NULL);
-                CREATE TABLE IF NOT EXISTS owned (kind TEXT NOT NULL, item_id TEXT NOT NULL,
-                    pass_id TEXT NOT NULL, name TEXT, at TEXT NOT NULL, PRIMARY KEY (kind, item_id));
-            """)
-            if "code" not in {r["name"] for r in conn.execute("PRAGMA table_info(passes)")}:
-                conn.execute("ALTER TABLE passes ADD COLUMN code TEXT")   # databases made before it
-            yield conn
-    finally:
-        conn.close()
+    with reports.sqlite(db_path(), """
+            CREATE TABLE IF NOT EXISTS passes (id TEXT PRIMARY KEY, label TEXT NOT NULL,
+                cap_usd REAL NOT NULL, code_hash TEXT UNIQUE, revoked INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS ledger (pass_id TEXT NOT NULL, at TEXT NOT NULL,
+                model TEXT, input_tokens INTEGER, output_tokens INTEGER, searches INTEGER,
+                usd REAL NOT NULL, estimated INTEGER NOT NULL);
+            CREATE TABLE IF NOT EXISTS visits (pass_id TEXT NOT NULL, label TEXT NOT NULL,
+                event TEXT NOT NULL, at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS owned (kind TEXT NOT NULL, item_id TEXT NOT NULL,
+                pass_id TEXT NOT NULL, name TEXT, at TEXT NOT NULL, PRIMARY KEY (kind, item_id));
+            """) as conn:
+        conn.row_factory = sqlite3.Row
+        if "code" not in {r["name"] for r in conn.execute("PRAGMA table_info(passes)")}:
+            conn.execute("ALTER TABLE passes ADD COLUMN code TEXT")   # databases made before it
+        yield conn
 
 
 def storage() -> dict:
@@ -183,14 +172,14 @@ def seed_passes(path: Path = SEED_FILE) -> None:
         for p in json.loads(path.read_text()):
             c.execute("INSERT INTO passes (id, label, cap_usd, created_at) VALUES (?, ?, ?, ?) "
                       "ON CONFLICT(id) DO UPDATE SET label = excluded.label",
-                      (p["id"], p["label"], float(p["cap_usd"]), now()))
+                      (p["id"], p["label"], float(p["cap_usd"]), utc_now()))
 
 
 def create_pass(label: str, cap_usd: float) -> str:
     pass_id = secrets.token_hex(4)
     with db() as c:
         c.execute("INSERT INTO passes (id, label, cap_usd, created_at) VALUES (?, ?, ?, ?)",
-                  (pass_id, label, cap_usd, now()))
+                  (pass_id, label, cap_usd, utc_now()))
     return pass_id
 
 
@@ -244,7 +233,7 @@ def recent_visits(limit: int = 50) -> list[dict]:
 def log(pass_id: str, event: str) -> None:
     p = get_pass(pass_id)
     with db() as c:
-        c.execute("INSERT INTO visits VALUES (?, ?, ?, ?)", (pass_id, p["label"] if p else "?", event, now()))
+        c.execute("INSERT INTO visits VALUES (?, ?, ?, ?)", (pass_id, p["label"] if p else "?", event, utc_now()))
 
 
 def status(p: dict) -> dict:
@@ -326,7 +315,7 @@ def admin_login(password: str) -> Optional[str]:
 # ---------------------------------------------------------------- ownership
 def own(kind: str, item_id: str, pass_id: str, name: str) -> None:
     with db() as c:
-        c.execute("INSERT OR REPLACE INTO owned VALUES (?, ?, ?, ?, ?)", (kind, item_id, pass_id, name, now()))
+        c.execute("INSERT OR REPLACE INTO owned VALUES (?, ?, ?, ?, ?)", (kind, item_id, pass_id, name, utc_now()))
 
 
 def owner(kind: str, item_id: str) -> Optional[str]:
@@ -356,12 +345,17 @@ def visible(kind: str, item_id: str, pass_id: Optional[str]) -> bool:
 
 # ---------------------------------------------------------------- metering
 @contextlib.contextmanager
-def spending(pass_id: Optional[str]):
-    token = SPENDER.set(pass_id)
+def _bound(var: ContextVar, value):
+    """`var` set to `value` in this thread's context for the block, then back as it was."""
+    token = var.set(value)
     try:
-        yield
+        yield value
     finally:
-        SPENDER.reset(token)
+        var.reset(token)
+
+
+def spending(pass_id: Optional[str]):
+    return _bound(SPENDER, pass_id)
 
 
 def check(pass_id: Optional[str], in_flight: float = 0.0) -> None:
@@ -530,7 +524,7 @@ def charge(pass_id: str, model: str, response) -> float:
     usd, f = cost(model, response)
     with db() as c:
         c.execute("INSERT INTO ledger VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                  (pass_id, now(), f["model"], f["input_tokens"], f["output_tokens"], f["searches"],
+                  (pass_id, utc_now(), f["model"], f["input_tokens"], f["output_tokens"], f["searches"],
                    usd, f["estimated"]))
     return usd
 
@@ -641,13 +635,8 @@ class Purse:
 PURSE: ContextVar[Optional[Purse]] = ContextVar("purse", default=None)
 
 
-@contextlib.contextmanager
 def drawing(purse: Optional[Purse]):
-    token = PURSE.set(purse)
-    try:
-        yield purse
-    finally:
-        PURSE.reset(token)
+    return _bound(PURSE, purse)
 
 
 def estimate(kwargs: dict) -> float:

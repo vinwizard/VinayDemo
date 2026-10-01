@@ -1,6 +1,8 @@
 """Persistence and import: runs, companies and investigations as local JSON."""
+import contextlib
 import os
 import re
+import sqlite3
 from pathlib import Path
 
 from agents.ana import baseline_hash
@@ -14,6 +16,19 @@ COMPANIES = DATA / "companies"
 INVESTIGATIONS = DATA / "investigations"   # the why agent's experiments (why.py), one file each
 FLEETS = DATA / "fleets"                   # each investigation fleet's event log (fleet.py), one JSONL file each
 ID = re.compile(r"[0-9a-f]{6,32}")
+
+
+@contextlib.contextmanager
+def sqlite(path: Path, schema: str):
+    """The SQLite file at `path`, its tables made if missing; one transaction, committed on success."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path, timeout=10)
+    try:
+        with conn:
+            conn.executescript(schema)
+            yield conn
+    finally:
+        conn.close()
 
 def to_json(run: Run) -> str:
     return run.model_dump_json(indent=2)

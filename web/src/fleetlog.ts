@@ -26,7 +26,7 @@ export interface PlanItem {
   notes: string[];
 }
 export interface ActionPlan {
-  items: PlanItem[]; written_by: string; provenance: "counterfactual_replay"; notes: string[];
+  items: PlanItem[]; provenance: "counterfactual_replay"; notes: string[];
 }
 /** A fix re-checked once it is live: `live` is measured; the prediction and `control` are replays. */
 export interface Verification {

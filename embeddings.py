@@ -5,10 +5,8 @@ Every call goes through `access.openai_embedding`, so a pass pays for it and the
 without a pass is refused. A vector is cached on disk by a hash of (model, text), so a re-run of the
 same pages costs nothing.
 """
-import contextlib
 import hashlib
 import math
-import sqlite3
 from array import array
 
 import access
@@ -27,17 +25,8 @@ def _path():
     return reports.DATA / "embeddings.db"
 
 
-@contextlib.contextmanager
 def _cache():
-    path = _path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, timeout=10)
-    try:
-        with conn:
-            conn.execute("CREATE TABLE IF NOT EXISTS vectors (key TEXT PRIMARY KEY, v BLOB NOT NULL)")
-            yield conn
-    finally:
-        conn.close()
+    return reports.sqlite(_path(), "CREATE TABLE IF NOT EXISTS vectors (key TEXT PRIMARY KEY, v BLOB NOT NULL)")
 
 
 def _vector(item) -> list[float]:

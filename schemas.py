@@ -158,14 +158,14 @@ class Topic(BaseModel):
 
 class DemandPhrase(BaseModel):
     text: str                                    # verbatim, as the source returned it
-    source: Literal["autocomplete", "reddit"]
+    source: Literal["autocomplete"]
 
 
 class Demand(BaseModel):
     """Where a buyer question came from when it is grounded in real demand (demand.py): the real
     search phrase it asks and every real phrasing grouped with it. Not search volume."""
     phrase: str                     # the group's most central real phrase, verbatim
-    source: Literal["autocomplete", "reddit"]
+    source: Literal["autocomplete"]
     phrasings: list[DemandPhrase]   # the whole group, the phrase included; its size is the weight
 
 
@@ -704,7 +704,7 @@ class PlanItem(BaseModel):
     attribute_id: str
     claim: str
     fix: Literal["copy", "authority", "source", "none", "thin", "untested"]
-    text: str                                # the writer's line once checked, else the template's
+    text: str                                # the template's line
     page_url: Optional[str] = None
     rewrite: Optional[str] = None
     hypothetical: bool = False               # the copy is not on the page today
@@ -725,7 +725,6 @@ class PlanItem(BaseModel):
 class ActionPlan(BaseModel):
     """The ranked plan Quick wins shows once a fleet has run. Its predictions are replays."""
     items: list[PlanItem] = []
-    written_by: str = "template"
     provenance: Literal["counterfactual_replay"] = "counterfactual_replay"
     notes: list[str] = []
 
