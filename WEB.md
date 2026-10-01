@@ -125,7 +125,8 @@ Two differences follow from asking the aimed front first: a question both fronts
 the aimed front, and when AI places the company in its own category the aimed set becomes the one
 shared set as asked, without topping it up from the placed questions. Under concurrency a pass's cap
 counts the estimated cost of its calls under way; a call that would pass the cap with them waits for
-them to be charged, so a pass stops where it always did, about one call past its cap. With 16 at
+them to be charged — in the dispatcher's queue, not on a shared worker (`access.start`), so other runs
+go on — and a pass stops where it always did, about one call past its cap. With 16 at
 once a live Amgen run (`TARGET_MARGIN=33`, 28–30 asks) took 192 s against 325 s at 3.
 
 Before a live run the API makes one trivial preflight call, so a broken setup fails once with one
