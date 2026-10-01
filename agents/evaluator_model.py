@@ -31,6 +31,12 @@ MODEL_ENV = "EVALUATOR_MODEL"
 # /api/health raises `same_model_warning` for it, and setting EVALUATOR_MODEL to anything else
 # (gpt-4.1-mini is the tested one) removes both the warning and the self-preference bias.
 DEFAULT_MODEL = "gpt-6-luna"
+# The judge thinks at "low" effort, as the measured model does (live.reasoning_for). Re-labelling 93
+# saved Amgen answers, low agreed with the saved labels as closely as the default did on a re-run
+# (named 98.9%, recommended 92.5% against 95.7%, competitors' Jaccard 0.79 against 0.78) in 5 s
+# against 7 s, and the one discovery call over the brand answers took 10-16 s against 28-68 s with the
+# same themes. "none" (2.5 s) dropped "recommended" agreement to 84%, and gpt-4.1-mini (3 s, 89%)
+# costs four times as much: neither replaced it (WEB.md "Why a run takes the time it does").
 
 QUOTE_RULES = """Every quote is COPIED, never written: 3 to 12 consecutive words from inside ONE numbered line,
 character for character. Keep every capital letter as it is — if the line says "Its features are",
@@ -119,7 +125,8 @@ def build_prompt(probe: Probe, answer: Answer, attributes: list[Attribute],
 def default_transport(prompt: str, model: str, timeout: int) -> str:
     import access  # metered: refused at a pass's cap, charged to it after
     from providers import live
-    r = access.openai_response(timeout, model=model, input=prompt)
+    extra = {"reasoning": r} if (r := live.reasoning_for(model)) else {}
+    r = access.openai_response(timeout, model=model, input=prompt, **extra)
     return getattr(r, "output_text", None) or live.parse_response(r)[0]
 
 

@@ -54,7 +54,7 @@ Everything else has a working default. The full list, and what each one changes:
 | --- | --- | --- |
 | `OPENAI_API_KEY` | — | The only required one. Without it live mode errors rather than replaying fixtures. |
 | `MEASURED_MODEL` | `gpt-6-luna` | The model that ANSWERS the buyer and brand questions: the one being measured. It must accept the Responses API `web_search` tool. The default is the cheapest current model that does ($0.10/$0.50 per 1M tokens, knowledge to May 2026). `gpt-4.1` was the old default and its training stops in 2024, so it answered about brands it had never heard of. |
-| `EVALUATOR_MODEL` | `gpt-6-luna` | The separate model that grades those answers. It is sent no tools at all — it reads text it is handed. It defaults to the same model as the measured side, so both halves of a run are priced the same; that means one model grades its own answers, which `/api/health` surfaces as `same_model_warning`. Set it to something else (`gpt-4.1-mini` is the tested one) to remove the self-preference bias. |
+| `EVALUATOR_MODEL` | `gpt-6-luna` | The separate model that grades those answers. It is sent no tools at all — it reads text it is handed — and thinks at reasoning effort "low", as the answering model does ("Why a run takes the time it does"). It defaults to the same model as the measured side, so both halves of a run are priced the same; that means one model grades its own answers, which `/api/health` surfaces as `same_model_warning`. Set it to something else (`gpt-4.1-mini` is the tested one) to remove the self-preference bias. |
 | `ONBOARDING_MODEL` | `gpt-4.1-mini` | Reads a company's own pages and extracts what they claim, and writes buyer questions for a category. |
 | `TARGET_MARGIN` | `20` | The margin each buyer front aims for, in points of "named you", at 95% (`sampler.py`). It sets how many questions a front freezes and asks: 10 first, and the rest of 23 only where those are not clear yet. `15` means 16 then 43 — about 2.5× the buyer calls on a mid-range brand. Clamped to 5–50. |
 | `RUN_BUDGET_USD` | unset | The most one run's measured calls may spend. A front whose look 2 would pass it stops at look 1, and its margin is reported as not met. Unset: look 2's size is the cap. |
@@ -128,6 +128,23 @@ counts the estimated cost of its calls under way; a call that would pass the cap
 them to be charged — in the dispatcher's queue, not on a shared worker (`access.start`), so other runs
 go on — and a pass stops where it always did, about one call past its cap. With 16 at
 once a live Amgen run (`TARGET_MARGIN=33`, 28–30 asks) took 192 s against 325 s at 3.
+
+**Why a run takes the time it does.** A run is a chain of stages, each as slow as its slowest ask:
+the brand questions, the discovery call over their answers, the placed front, its look 2, the
+comparison question, the action plan. The judge already grades each answer on the worker that
+fetched it, the moment it lands, while the other asks go on (`LiveProvider._labelled`). Both models
+think at reasoning effort "low" (`live.REASONING`). On 2026-10-01 at `TARGET_MARGIN=33` that took a
+live Amgen run from 211 s and $0.77 to 87 s and $0.41, and a second Amgen run reusing 13 of its 28
+answers took 71 s and $0.26. Measured before choosing:
+
+| | latency | agreement with the saved answers or labels |
+| --- | --- | --- |
+| answering model, effort "low" | 9 s mean against 15–17 s; 60% of the cost | companies named 0.49 against 0.51 for a re-ask at the default; claim verdicts 0.20 against 0.21 (26 buyer, 11 brand questions) |
+| answering model, effort "none" | no faster (it searched more) | — |
+| `search_context_size: "low"` | no faster, no cheaper | — |
+| judge, effort "low" | 5 s against 7 s; discovery 10–16 s against 28–68 s | named 98.9%, recommended 92.5% (95.7% for the default re-run), competitors' Jaccard 0.79 (0.78) on 93 answers |
+| judge, effort "none" | 2.5 s | recommended 83.9%: rejected |
+| judge, gpt-4.1-mini | 3 s, four times the price | recommended 89.2%: rejected |
 
 Before a live run the API makes one trivial preflight call, so a broken setup fails once with one
 message rather than once per question. It is classified on the HTTP status, never the error text: a
@@ -217,14 +234,42 @@ things make the buyer number trustworthy anyway:
   (`scoring.visibility_by_question`). The report shows each front's rate of "named you" with its
   margin and how many of the frozen questions it took (`run.sampler.fronts`). A replayed sample has
   one authored answer per question, no sampler and no wobble, and its numbers do not move.
-- **Buyer answers are shared across brands in one category** (`sharing.py`). A buyer question
-  never names a brand, so the same question asked of the same model on the same UTC day is the same
-  measurement whichever brand it is scored for. The pool a front was planned with is kept per
-  category and day, so the next brand in that category asks the same questions (vetted again for
-  it), and each grounded buyer answer is reused, flagged `shared`, and judged again for the brand it
-  now scores: tracking a brand and five rivals pays for the buyer calls once. Brand questions and
-  re-asks are never shared. On the public demo nothing is shared across access passes. Kept in
-  `DATA_DIR/shared.db`.
+- **Answer reuse** (`sharing.py`, `LiveProvider.plan_reuse`). Every fresh grounded live answer is
+  kept for 24 hours with its question, its reading trace and the mode it was asked in (model, search
+  tool, reasoning effort); a buyer question is kept with its text-embedding-3-small vector. A later
+  run's first ask of the same question, or of a buyer question at cosine 0.90 or more
+  (`sharing.SIMILARITY`), in the same mode, reuses that answer instead of asking: the text, citations
+  and trace are kept, the labels are made again for this run, and the report says "reused from
+  <time>", plus "answered for a near-identical question: …" for a near one. Within a pass any
+  question may be reused (with no pass set, everything is one pass); another pass's answer only for a
+  buyer question the app's writer wrote itself, never one from the customer's own text or
+  documents. **Fresh run** (the checkbox by Measure, `?fresh=true`) reuses nothing. Which asks reuse
+  is decided on the graph thread as they are submitted, so it never depends on timing. A stored
+  answer is reused at most once a run and never within the run that asked it, a reused answer is
+  never stored again and a wobble re-ask is always fresh, so no answer counts twice in a margin; at
+  most half of a run's first asks are reused (`sharing.MAX_SHARE`), so every run samples fresh. The
+  pool a front was planned with is also kept per category and UTC day, so the next brand in that
+  category asks the same questions (vetted again for it). Kept in `DATA_DIR/shared.db` (SQLite, WAL);
+  several instances would need a shared store behind the same `Store` methods.
+
+  The threshold was calibrated on 2026-10-01. Asked twice, 12 saved buyer questions named the same
+  companies at a Jaccard of 0.55. For each, a trivial rewording, a free rewording and a related but
+  different need were asked fresh:
+
+  | cosine to the original | pairs | companies' Jaccard | sharing none |
+  | --- | --- | --- | --- |
+  | ≥ 0.80 | 38 | 0.46 | 21% |
+  | ≥ 0.85 | 30 | 0.52 | 10% |
+  | ≥ 0.88 | 24 | 0.55 | 4% |
+  | **≥ 0.90** | 22 | 0.57 | 4.5% |
+  | ≥ 0.98 | 10 | 0.73 | 10% |
+  | same question twice | 12 | 0.55 | 8% |
+
+  Free rewordings reached 0.90 at most and different needs 0.83, so at 0.90 only trivial rewordings
+  are reused, and they agree as well as asking again does. Pairs found in the saved runs never
+  passed 0.85 and averaged 0.33 at 0.80 and above. On a live Pfizer run right after two Amgen runs,
+  no Pfizer question came closer than 0.64 to an Amgen one (its questions were about vaccines and
+  everyday medicines), so nothing was reused, which is correct at any safe threshold.
 - **Every number says how sure it is.** `scoring` bootstraps a 95% confidence interval (2,000
   resamples, fixed seed, so a saved run always shows the same interval) and the report shows it as a
   small low–high range beside the number (the headline's in untapped-potential terms, 100 minus the
@@ -378,7 +423,7 @@ is $0.04 on perplexity.ai (four searches, only when the site turns us away); ext
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /api/health` | liveness, whether live mode is usable for this browser (`live_available`) and whether a key is set on the server at all (`key_configured` — on the public demo a visitor without a pass sees the second true and the first false, and the page asks them to open their pass link rather than reporting a missing key), and `seed_company` — the id of the preloaded company, `showcase` — the company and run ids of the committed live example in History, and `contact_email` — where to ask for a pass or a higher cap (`CONTACT_EMAIL`), and `storage` — whether the pass database survives a redeploy ("Deploy to Render" below) |
-| `GET /api/stream?company=<id>` or `?scenario=A&mode=demo` | SSE while the graph runs: `node` (with `planned` question counts per stage, discovered `competitors` and the run `mode`), `answer` (the question, the first 320 characters of its answer, provenance and whether a web search ran), `done` (the full run), `error`. A company is always `mode=live`, apart from the offline fallback above. The page only ever measures companies; `?scenario=` remains for the fixture path |
+| `GET /api/stream?company=<id>` or `?scenario=A&mode=demo` | `&fresh=true` reuses no earlier answer ("Answer reuse"). SSE while the graph runs: `node` (with `planned` question counts per stage, discovered `competitors` and the run `mode`), `answer` (the question, the first 320 characters of its answer, provenance and whether a web search ran), `done` (the full run), `error`. A company is always `mode=live`, apart from the offline fallback above. The page only ever measures companies; `?scenario=` remains for the fixture path |
 | `GET /api/runs` | run history, newest first; each row's `mode` (`live_api` for a measured run) lets History mark it measured live or a sample. A saved file that cannot be read is named on the API console and counted in the `X-Unreadable-Files` header, which History says beside the list |
 | `GET /api/runs/{id}` | one full run, including the drift report and its `insights` (share of voice, cited sources and the brands each was cited beside, searches); the stream's `done` event and `rescore` return the same shape |
 | `POST /api/runs/{id}/reask` | test a fix: `{probe_id}` asks that buyer question once more, with the rewritten passage and the cited page's passage as the only sources, and saves whether the brand was named on its retrieval row. One metered model call; live runs only, refused on the public demo without a pass. A simulation that moves no score |

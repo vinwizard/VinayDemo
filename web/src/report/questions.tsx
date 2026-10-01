@@ -32,6 +32,7 @@ export function QRef({ id, run, text }: { id: string; run: Run; text?: boolean }
       <h4>The AI’s answer</h4>
       <p className="muted long-answer">
         {a && run.mode !== "live_api" && <span className="tag sample">sample</span>}
+        <Reused a={a} />
         {a ? plain(a.text) : "no answer"}
       </p>
       <a href={`#report-${tab}`}>Open in the {TABS.find(([t]) => t === tab)![1]} tab</a>
@@ -100,6 +101,17 @@ function Searched({ run, p }: { run: Run; p: Probe }) {
   );
 }
 
+/** An answer reused from an earlier run says so, and for which question when it was a near-identical one. */
+function Reused({ a }: { a?: Answer }) {
+  if (!a?.shared) return null;
+  const when = a.collected_at ? new Date(a.collected_at).toLocaleString() : "an earlier run";
+  return (
+    <span className="tag">
+      {a.reused_question && <>answered for a near-identical question: “{a.reused_question}” · </>}reused from {when}
+    </span>
+  );
+}
+
 /** One question as a compact row; opening it shows the full answer and what the scorer made of it. */
 export function QuestionRow({ p, name, answer, verdict, tags, note, replay, after, sub }: {
   p: Probe; name: string; answer?: Answer; verdict?: ReactNode; tags?: ReactNode; note?: ReactNode;
@@ -117,6 +129,7 @@ export function QuestionRow({ p, name, answer, verdict, tags, note, replay, afte
         {note}
         <p className="muted long-answer">
           {answer && replay && <span className="tag sample">sample</span>}
+          <Reused a={answer} />
           {answer ? plain(answer.text) : "no answer"}
         </p>
         <WhatItRead a={answer} />

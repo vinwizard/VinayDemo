@@ -110,13 +110,14 @@ def rival():
 
 
 def test_a_second_brand_in_the_category_asks_the_same_questions_and_pays_once(monkeypatch, tmp_path):
+    monkeypatch.setattr(sharing, "MAX_SHARE", 1)
     store = sharing.Store(tmp_path / "shared.db")
     first, asked, _ = measure(monkeypatch, lambda q, n: "Coda fits.", share=store)
     paid = sum(asked[q] for q in CAT_QS)
     second, asked2, prov = measure(monkeypatch, lambda q, n: "Coda fits.", profile=rival(), share=store)
     firsts = [a for a in second.answers if a.probe_id.startswith("cat-b")]
     assert {p.text for p in second.probes if p.id.startswith("cat-b")} <= set(CAT_QS)   # the shared pool
-    assert all(a.shared for a in firsts) and prov.shared == len(firsts) + 1          # + the control
+    assert all(a.shared for a in firsts) and prov.shared == sum(a.shared for a in second.answers)
     assert sum(asked2[q] for q in CAT_QS) == 1 < paid      # only the wobble re-ask is asked again
     assert not any(a.shared for a in second.repeat_answers)
     # the same answer, judged again for the brand it now scores: "Coda fits." names Coda, not Notion
@@ -128,6 +129,7 @@ def test_nothing_is_shared_across_access_passes(monkeypatch, tmp_path):
     monkeypatch.setattr(reports, "DATA", tmp_path)            # the access database
     pass_a, pass_b = access.create_pass("a", 5), access.create_pass("b", 5)
     store = sharing.Store(tmp_path / "shared.db")
+    monkeypatch.setattr(sharing, "MAX_SHARE", 1)
     with access.spending(pass_a):
         first, _, _ = measure(monkeypatch, lambda q, n: "Coda fits.", share=store)
     with access.spending(pass_b):
@@ -140,21 +142,3 @@ def test_nothing_is_shared_across_access_passes(monkeypatch, tmp_path):
     with access.spending(pass_a):
         _, _, again = measure(monkeypatch, lambda q, n: "Coda fits.", share=store, profile=rival())
     assert again.shared > 0
-
-
-def test_only_a_grounded_live_answer_is_shared(tmp_path):
-    from schemas import Answer
-    store = sharing.Store(tmp_path / "s.db")
-    store.save_answer("q", Answer(probe_id="x", text="t", provenance="live_api", model="m", search_executed=False))
-    assert store.answer("q", "m") is None
-    store.save_answer("q", Answer(probe_id="x", text="t", provenance="live_api", model="m", search_executed=True))
-    got = store.answer("Q ", "m")
-    assert got.text == "t" and got.evaluator_labels is None and store.answer("q", "other-model") is None
-
-
-def test_brand_questions_are_never_shared(monkeypatch, tmp_path):
-    store = sharing.Store(tmp_path / "shared.db")
-    measure(monkeypatch, lambda q, n: "Coda fits.", share=store)
-    second, _, _ = measure(monkeypatch, lambda q, n: "Coda fits.", share=store)
-    assert not any(a.shared for a in second.answers if a.probe_id.startswith("np-"))
-    assert ana.set_questions() == 6
