@@ -17,12 +17,12 @@ import io
 import json
 import uuid
 import zipfile
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from xml.etree import ElementTree
 
 import reports
+from schemas import utc_now
 
 MAX_BYTES = 10 * 1024 * 1024   # per file
 MAX_FILES = 5                  # per onboarding
@@ -109,7 +109,7 @@ def save(pass_id: Optional[str], filename: str, data: bytes) -> dict:
     name = Path(filename or "document").name[:120] or "document"
     text = extract(name, data)
     doc = dict(id=uuid.uuid4().hex[:10], filename=name, chars=len(text), text=text,
-               created_at=datetime.now().isoformat(timespec="seconds"))
+               created_at=utc_now())
     folder(pass_id).mkdir(parents=True, exist_ok=True)
     (folder(pass_id) / f"{doc['id']}.json").write_text(json.dumps(doc))
     return {k: doc[k] for k in ("id", "filename", "chars")}

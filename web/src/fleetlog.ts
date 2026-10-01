@@ -2,6 +2,8 @@
 // the log from its first line lands exactly where the live stream left off.
 // The fleet's records, mirroring schemas.py (FleetTask, Challenge, PlanItem, ActionPlan, Verification,
 // FleetEvent) — keep in sync. They live here, not in api.ts, so `node --test` can type-check this file.
+import { instant } from "./time.ts";
+
 /** One investigator's job, as the coordinator (or code, when it could not) dispatched it. */
 export interface FleetTask {
   id: string; attribute_id: string; claim: string; probe_id: string; question: string; term: string | null;
@@ -85,7 +87,7 @@ export const emptyView = (id: string): FleetView => ({
   done: null, stopped: null, spent: 0, seq: 0,
 });
 
-const time = (at: string) => Date.parse(at);
+const time = (at: string) => instant(at).getTime();
 
 /** Pure: the same log always gives the same view, so a reload replays to where the stream left off. */
 export function fold(v: FleetView, e: FleetEvent): FleetView {

@@ -1,6 +1,7 @@
 // The first-visit guide: a short "how it works" story, then a spotlight tour of the screen. This
 // module holds what can be tested without a browser: which parts have been seen (kept per browser),
 // what the story shows (picked from a real run, never written here), and the tour's copy.
+import { instant } from "./time.ts";
 
 /** The three parts that can start on their own, once per browser. */
 export type Part = "story" | "report" | "onboard";
@@ -95,7 +96,7 @@ function locate(answer: string, quote: string): { at: number; text: string } | n
 
 const day = (iso: string | null | undefined) => {
   if (!iso) return null;
-  const d = new Date(iso);
+  const d = instant(iso);
   return Number.isNaN(d.getTime()) ? null
     : d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 };

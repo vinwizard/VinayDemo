@@ -5,6 +5,8 @@ import json
 from itertools import count
 from pathlib import Path
 
+import pytest
+
 import why
 from fakes import openai_reply
 from providers import live
@@ -287,6 +289,43 @@ def test_the_default_calls_go_through_the_metered_path(monkeypatch):
     monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.append(kw) or message("Amgen."))
     why.Lab("gpt-6-luna").off("What is Amgen?")
     assert sent and sent[0]["model"] == "gpt-6-luna"
+
+
+def test_a_failed_call_the_ledger_charged_counts_against_the_why_budget(monkeypatch):
+    import access
+    monkeypatch.setenv(access.KEY_ENV, "k")
+
+    def boom(timeout, **kw):
+        raise TimeoutError("took too long")
+
+    monkeypatch.setattr(access, "_create", boom)
+    lab = why.Lab("gpt-6-luna")
+    with pytest.raises(TimeoutError):
+        lab.off("What is Amgen?")
+    assert lab.spent == access.cost("gpt-6-luna", None)[0] > 0
+
+
+def test_a_live_ask_that_did_not_search_is_asked_once_more():
+    # The no-search retry a run's asks get (LiveProvider._ask); the why agent and verify ask through here.
+    sent = []
+    lab = why.Lab("m", transport=lambda **kw: sent.append(kw) or openai_reply(f"Answer {len(sent)}.", searched=len(sent) > 1))
+    assert live.parse_response(lab.live("What is Amgen?"))[:3:2] == ("Answer 2.", True) and len(sent) == 2
+
+    sent.clear()
+    lab = why.Lab("m", transport=lambda **kw: sent.append(kw) or openai_reply("Unsearched."))
+    assert live.parse_response(lab.live("What is Amgen?"))[0] == "Unsearched." and len(sent) == 2
+
+    sent.clear()                 # preflight's last step-down: no tool at all, so nothing to retry for
+    lab = why.Lab("m", tool=None, transport=lambda **kw: sent.append(kw) or openai_reply("Unsearched."))
+    lab.live("What is Amgen?")
+    assert len(sent) == 1 and "tools" not in sent[0]
+
+    # replays and search-off asks are search-off by design: never retried
+    sent.clear()
+    lab = why.Lab("m", transport=lambda **kw: sent.append(kw) or openai_reply("Off."))
+    lab.off("What is Amgen?")
+    lab.replay("What is Amgen?", [])
+    assert len(sent) == 2
 
 
 def test_every_call_is_charged_to_the_pass_that_asked():

@@ -520,6 +520,8 @@ class LiveProvider:
         try:
             raw = self._transport(measured_prompt(probe), self.model, LIMITS["per_call_timeout_s"])
         except Exception as e:                      # surfaced as a failed answer, never swallowed
+            with self._spent_lock:                  # what the ledger charged for it counts here too
+                self.spent += getattr(e, "billed_usd", 0.0)
             return None, e
         import access
         cost = access.cost(self.model, raw)[0]

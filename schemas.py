@@ -1,6 +1,6 @@
 """Pydantic state contracts (.claude/skills/product-workflow)."""
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
@@ -10,6 +10,11 @@ SCHEMA_VERSION = 1
 # experiment, never a measurement: it lives only in an Investigation and is never scored.
 Provenance = Literal["synthetic", "web_research_snapshot", "live_api", "counterfactual_replay"]
 SYNTHETIC_PROVIDERS = {None, "fixture"}
+
+
+def utc_now() -> str:
+    """Every stored time is UTC with its offset written; the browser shows it in local time."""
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 class Evidence(BaseModel):
@@ -564,7 +569,7 @@ class SiteAudit(BaseModel):
 
     Plain fetches and parsing (audit.py), no model: every line is a deterministic check.
     """
-    checked_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
+    checked_at: str = Field(default_factory=utc_now)
     site: list[AuditCheck] = []
     claims: list[ClaimAudit] = []
     entities: list[EntitySource] = []
@@ -580,7 +585,7 @@ class Company(BaseModel):
     """
     id: str
     schema_version: int = SCHEMA_VERSION
-    created_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
+    created_at: str = Field(default_factory=utc_now)
     profile: CompanyProfile
     attributes: list[Attribute] = []
     pages: list[str] = []      # the URLs read (directly or as search copies); the audit re-reads these
@@ -596,7 +601,7 @@ class Run(BaseModel):
     schema_version: int = SCHEMA_VERSION
     mode: Literal["demo_replay", "live_api"]
     scenario: Optional[str] = None
-    created_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
+    created_at: str = Field(default_factory=utc_now)
     profile: CompanyProfile
     topics: list[Topic] = []
     baseline_hash: Optional[str] = None
@@ -672,7 +677,7 @@ class Investigation(BaseModel):
     id: str
     schema_version: int = SCHEMA_VERSION
     run_id: str
-    created_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
+    created_at: str = Field(default_factory=utc_now)
     company: str
     question: str
     probe_id: Optional[str] = None
@@ -772,7 +777,7 @@ class Verification(BaseModel):
     copy_text: str
     question: str
     investigation_id: str
-    created_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
+    created_at: str = Field(default_factory=utc_now)
     page_has_copy: Optional[bool] = None     # None: the page could not be read
     page_note: str = ""
     read_by_ai: WhyRate = WhyRate()          # live answers whose reading list carried the fix

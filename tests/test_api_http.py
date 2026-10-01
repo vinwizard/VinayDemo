@@ -95,6 +95,15 @@ def test_runs_list_is_empty_with_no_saved_runs(client):
     assert r.status_code == 200 and r.json() == []
 
 
+def test_unreadable_files_are_counted_not_silently_dropped(client, capsys):
+    (reports.RUNS / "0123456789.json").write_text("{not json")
+    (reports.COMPANIES / "0123456789.json").write_text("{not json")
+    runs, companies = client.get("/api/runs"), client.get("/api/companies")
+    assert runs.status_code == 200 and runs.json() == [] and runs.headers[main.UNREADABLE] == "1"
+    assert companies.headers[main.UNREADABLE] == "1" and [c["id"] for c in companies.json()] == [CO]
+    assert "could not read 0123456789.json" in capsys.readouterr().out
+
+
 def test_unknown_run_is_404(client):
     assert client.get("/api/runs/0123456789").status_code == 404
 
@@ -109,6 +118,7 @@ def test_companies_list_and_get(client):
     r = client.get("/api/companies")
     assert r.status_code == 200
     [row] = r.json()
+    assert r.headers[main.UNREADABLE] == "0"
     assert row["id"] == CO and row["name"] == "Notion" and row["intended"] == 4
 
     got = client.get(f"/api/companies/{CO}")

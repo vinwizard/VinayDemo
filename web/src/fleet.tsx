@@ -3,7 +3,7 @@ import type { Challenge, FleetEstimate, FleetSummary, PlanItem, Run, Verificatio
 import { getFleets, getHealth, startFleet, streamFleet, streamVerify } from "./api";
 import type { FleetView, Lane } from "./fleetlog";
 import { emptyView, fold } from "./fleetlog";
-import { PROVENANCE_LABEL, address, money, plural, signed } from "./labels";
+import { PROVENANCE_LABEL, address, money, plural, signed, when } from "./labels";
 import { Term } from "./popover";
 
 const minutes = (s: number) => (s >= 90 ? `${(s / 60).toFixed(1)} min` : `${Math.round(s)} s`);
@@ -170,17 +170,19 @@ export function FleetPanel({ run }: { run: Run }) {
   const follow = useCallback((id: string, after = 0) => {
     stop.current?.();
     stop.current = streamFleet(id, after, (e) => setView((v) => fold(v ?? emptyView(id), e)),
-      () => getFleets(run.id).then((r) => setFleets(r.fleets)).catch(() => {}),
+      () => getFleets(run.id).then((r) => setFleets(r.fleets))
+        .catch((e: Error) => setError(`Could not refresh the list of fleets: ${e.message}`)),
       (e) => setError(e.message));
   }, [run.id]);
 
   useEffect(() => {
     if (!live) return;
+    // without a health reading live stays off, so no fleet is offered that the API could not start
     getHealth().then((h) => setLiveOk(!!h.live_available)).catch(() => {});
     getFleets(run.id).then((r) => {
       setFleets(r.fleets); setEstimate(r.estimate);
       if (r.fleets[0]) { setView(emptyView(r.fleets[0].id)); follow(r.fleets[0].id); }
-    }).catch(() => {});
+    }).catch((e: Error) => setError(`Could not load this run's fleets: ${e.message}`));
     return () => stop.current?.();
   }, [run.id, live, follow]);
 
@@ -279,7 +281,7 @@ export function FleetPanel({ run }: { run: Run }) {
           Other fleets on this run:{" "}
           {fleets.filter((f) => f.id !== view?.id).map((f) => (
             <button key={f.id} type="button" className="linky" onClick={() => { setView(emptyView(f.id)); follow(f.id); }}>
-              {(f.created_at ?? "").replace("T", " ").slice(0, 16)} · {plural(f.tasks, "task")} · {money(f.spent_usd)}
+              {f.created_at ? when(f.created_at) : ""} · {plural(f.tasks, "task")} · {money(f.spent_usd)}
             </button>
           ))}
         </p>

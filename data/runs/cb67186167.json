@@ -3,7 +3,7 @@
   "schema_version": 1,
   "mode": "live_api",
   "scenario": null,
-  "created_at": "2026-09-28T02:57:01",
+  "created_at": "2026-09-28T06:57:01+00:00",
   "profile": {
     "name": "Amgen",
     "domain": "amgen.com",
@@ -4881,7 +4881,7 @@
     ]
   },
   "audit": {
-    "checked_at": "2026-09-28T02:56:43",
+    "checked_at": "2026-09-28T06:56:43+00:00",
     "site": [
       {
         "key": "llms_txt",

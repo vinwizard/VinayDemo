@@ -14,7 +14,7 @@ FIXTURES = Path(__file__).parent / "discovery_fixtures"
 
 def recorded(name: str):
     response = json.loads((FIXTURES / f"{name}.json").read_text())
-    return lambda prompt, model, timeout: response
+    return lambda prompt, model, timeout, tool: response
 
 
 def blocked(url):
@@ -59,6 +59,20 @@ def test_a_domain_that_no_search_result_showed_is_never_offered():
     found = discovery.find("Acme", transport=lambda *a: response(
         search_result("https://acme.example/?trk=ad", "Acme makes anvils."), answer=answer))
     assert [c["domain"] for c in found["candidates"]] == ["acme.example"]
+
+
+def test_discovery_searches_with_what_preflight_stepped_down_to(monkeypatch):
+    from providers import live
+    sent = []
+    spy = lambda prompt, model, timeout, tool: sent.append((model, tool)) or recorded("find-perplexity")(prompt, model, timeout, tool)
+    monkeypatch.setattr(live, "_fallback", "the configured model was refused")
+    discovery.find("Perplexity", transport=spy)
+    assert sent == [(live.FALLBACK_MODEL, live.FALLBACK_TOOL)]
+
+    monkeypatch.setattr(live, "_search", False)    # no search at all: nothing to find with, so not asked
+    with pytest.raises(discovery.SearchFailed, match="the configured model was refused"):
+        discovery.find("Perplexity", transport=spy)
+    assert len(sent) == 1
 
 
 def test_a_search_that_fails_says_so_in_plain_words():

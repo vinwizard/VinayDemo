@@ -6,7 +6,7 @@ import { History } from "./report/history";
 import { CompanyWorkflow } from "./workflow";
 import { Guide } from "./guide";
 import { requestTour } from "./guideBus";
-import { headline, money } from "./labels";
+import { headline, money, unreadableNote } from "./labels";
 import { pickStory, replayPart } from "./tour";
 
 type Tab = "onboard" | "history";
@@ -37,6 +37,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [pass, setPass] = useState<PassStatus | null>(null);
   const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [runsNote, setRunsNote] = useState<string | null>(null);   // runs that could not be listed
   const [opened, setOpened] = useState<Run | null>(null);
   // The committed live run the "how it works" story is told with; a pass holder cannot read it.
   const [showcase, setShowcase] = useState<Run | null>(null);
@@ -48,7 +49,9 @@ export default function App() {
   }, [showcase]);
 
   const refreshRuns = useCallback(() => {
-    getRuns().then(setRuns).catch(() => {});
+    getRuns().then((r) => { setRuns(r.items); setRunsNote(unreadableNote(r.unreadable, "run")); })
+      .catch((e: Error) => setRunsNote(`Could not load the saved runs: ${e.message}`));
+    // The meter keeps its last reading; it is read again every 10 seconds while a pass is open.
     getPass().then((p) => setPass(p.pass)).catch(() => {});
   }, []);
 
@@ -56,6 +59,7 @@ export default function App() {
     // Everything else waits for the session: runs and companies are listed per pass.
     const signIn = PASS_CODE
       ? exchangePass(PASS_CODE).then((r) => r.pass).catch((e: Error) => { setError(e.message); return null; })
+      // no session reads as no pass; an API that cannot be reached is reported by getHealth below
       : getPass(true).then((r) => r.pass).catch(() => null);
     signIn.then((p) => {
       setPass(p);
@@ -67,6 +71,7 @@ export default function App() {
       if (h.public_demo && !p) setTab("history");
       // A pass holder's first visit: a short tour of onboarding (once per browser).
       else if (p) requestTour("onboard", true);
+      // A pass holder cannot read the showcase run, by design: the tour is then told without it.
       if (h.showcase?.run) getRun(h.showcase.run).then(setShowcase).catch(() => {});
     })
       .catch(() => setError(`Could not reach the API at ${API}. Start it first — see WEB.md.`));
@@ -77,6 +82,7 @@ export default function App() {
   // The meter moves while a run is spending, so it is re-read while a pass is open.
   useEffect(() => {
     if (!pass) return;
+    // a missed reading keeps the last one until the next tick, 10 seconds on
     const t = window.setInterval(() => getPass().then((p) => setPass(p.pass)).catch(() => {}), 10000);
     return () => window.clearInterval(t);
   }, [pass]);
@@ -156,7 +162,10 @@ export default function App() {
           <button className="linky back" onClick={() => setOpened(null)}>← All runs</button>
           <Report run={opened} onRescored={(r) => { setOpened(r); refreshRuns(); }} />
         </div>
-      ) : <History runs={runs} onOpen={openRun} />)}
+      ) : <>
+        {runsNote && <div className="callout warn-box">{runsNote}</div>}
+        <History runs={runs} onOpen={openRun} />
+      </>)}
 
       <footer className="foot">Independent portfolio demo.</footer>
       <Guide story={story} vars={storyVars} replay={replay}

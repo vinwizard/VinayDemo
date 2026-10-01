@@ -24,7 +24,6 @@ import time
 import uuid
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextvars import copy_context
-from datetime import datetime
 from typing import Callable, Optional
 
 import access
@@ -36,7 +35,7 @@ from agents.evaluator_model import json_object
 from agents.onboarding_model import MARKETING
 from providers import live
 from scoring import domain_matches
-from schemas import (ActionPlan, Challenge, FleetEvent, FleetTask, Investigation, PlanItem, Run)
+from schemas import (ActionPlan, Challenge, FleetEvent, FleetTask, Investigation, PlanItem, Run, utc_now)
 
 BUDGET_ENV, DEFAULT_BUDGET = "FLEET_BUDGET_USD", 3.00
 CONCURRENCY_ENV, DEFAULT_CONCURRENCY = "FLEET_CONCURRENCY", 3
@@ -60,10 +59,6 @@ def concurrency() -> int:
     return min(6, config.setting(CONCURRENCY_ENV, DEFAULT_CONCURRENCY, 1))
 
 
-def now() -> str:
-    return datetime.now().isoformat(timespec="seconds")
-
-
 # ---------------------------------------------------------------- the event log
 class EventLog:
     """DATA_DIR/fleets/<fleet id>.jsonl: one FleetEvent a line, numbered from 1. While the fleet runs its
@@ -85,7 +80,7 @@ class EventLog:
             key = str(self.path)
             if key not in EventLog._next:
                 EventLog._next[key] = len(self.read()) + 1
-            event = FleetEvent(seq=EventLog._next[key], at=now(), kind=kind, task_id=task_id, data=data,
+            event = FleetEvent(seq=EventLog._next[key], at=utc_now(), kind=kind, task_id=task_id, data=data,
                                spent_usd=round(self.spent(), 4))
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with self.path.open("a") as f:

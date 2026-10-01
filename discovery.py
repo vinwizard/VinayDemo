@@ -16,7 +16,7 @@ What counts as the company's own words is decided here, in code, never by the mo
   * anything else that names the company is third-party: shown to the user apart, never extracted
 """
 import re
-from datetime import date
+from datetime import datetime, timezone
 from typing import Callable, Optional
 from urllib.parse import urlparse
 
@@ -60,8 +60,12 @@ default_transport = live.default_transport
 
 
 def _search(prompt: str, transport: Optional[Callable]):
+    # the model and search tool the last preflight proved, not the configured pair it stepped down from
+    tool = live.search_tool()
+    if tool is None:
+        raise SearchFailed(f"Web search is not available right now: {live.fallback_reason()}")
     try:
-        return (transport or default_transport)(prompt, live.configured_model(), TIMEOUT)
+        return (transport or default_transport)(prompt, live.model_name(), TIMEOUT, tool)
     except Exception as e:  # a model or network failure; a spending refusal (BaseException) goes up
         raise SearchFailed(f"Web search is not available right now ({live.safe_error(e)}).") from e
 
@@ -161,7 +165,7 @@ def gather(name: str, domain: str, limit: int, have: list[str] = (), transport: 
     response = _search(GATHER_PROMPT.format(name=name.strip(), domain=domain), transport)
     names = names_of(name, domain)
     done = {_key(u) for u in have}
-    today = date.today().isoformat()
+    today = datetime.now(timezone.utc).date().isoformat()
     turned_away: set[str] = set()   # one refusal per host is enough: the rest would only time out too
     pages, meta, others, own = [], [], [], []
     for r in results(response):

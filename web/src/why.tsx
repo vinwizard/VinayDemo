@@ -212,7 +212,9 @@ export function WhyPanel({ run }: { run: Run }) {
 
   useEffect(() => {
     if (!live) return;
-    getInvestigations(run.id).then(setPast).catch(() => {});
+    getInvestigations(run.id).then(setPast)
+      .catch((e: Error) => setError(`Could not load the investigations already run: ${e.message}`));
+    // without a health reading the budget line is left out; the server still enforces the budget
     getHealth().then((h) => setBudget(h.why_budget_usd ?? null)).catch(() => {});
     return () => stop.current?.();
   }, [run.id, live]);

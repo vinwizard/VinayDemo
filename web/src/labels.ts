@@ -2,6 +2,7 @@
 // Nothing here changes stored data: ids, provenance values and strengths keep their names in the
 // JSON exports and saved runs. This module only decides how they are SPOKEN on screen.
 import type { Probe, RunSummary, Topic, Zone } from "./api";
+import { instant } from "./time.ts";
 
 // Zone names are spoken as the opportunity each one is, not as a loss: the zone keys, counts and
 // every number behind them are unchanged — only the words on screen are. Each label reads alone on a
@@ -105,10 +106,10 @@ export function streamingProbeLabel(probeId: string, kind: string, phase: string
 }
 
 export const day = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  instant(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
 export const when = (iso: string) =>
-  new Date(iso).toLocaleString(undefined, {
+  instant(iso).toLocaleString(undefined, {
     day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
   });
 
@@ -166,6 +167,11 @@ export const potentialText = (h: Headline) =>
 export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 /** A share (0.12) as signed points: "+12", "−5", "0". */
 export const signed = (x: number) => `${x > 0 ? "+" : x < 0 ? "−" : ""}${Math.abs(Math.round(x * 100))}`;
+/** "1 saved run could not be read …", or null when every file was read. */
+export const unreadableNote = (n: number, one: string, many?: string) => n
+  ? `${plural(n, `saved ${one}`, many && `saved ${many}`)} could not be read and ${n === 1 ? "is" : "are"} not listed. `
+    + `The API's console names ${n === 1 ? "it" : "them"}.`
+  : null;
 export const money = (x: number) => `$${x.toFixed(2)}`;
 /** A page's address as a reader says it: no scheme, no www., no trailing slash. */
 export const address = (u?: string | null) => (u ?? "").replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
