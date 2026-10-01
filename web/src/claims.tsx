@@ -7,6 +7,7 @@ import { SiteReadability } from "./audit";
 import { plural, statedOn } from "./labels";
 import { intentWord } from "./quickwins";
 import { Term } from "./popover";
+import { Block } from "./report/ui";
 
 interface Added { label: string; description: string; weight: number }
 
@@ -293,23 +294,17 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
       )}
 
       {(company.checks.length > 0 || !company.replay) && (
-        <details className="block">
-          <summary>
-            <span className="block-title">How we checked</span>
-            <span className="block-found">
-              {company.checks.length > 0 && `${kept} of ${company.checks.length} claims verified${left ? `, ${left} left out` : ""}`}
-              {company.checks.length > 0 && !company.replay && " · "}
-              {!company.replay && "Can AI read your site?"}
-            </span>
-          </summary>
-          <div className="block-body">
-            {company.checks.length > 0 && <HowWeChecked checks={company.checks} />}
-            {!company.replay && (
-              <SiteReadability audit={company.audit} name={company.profile.name} siteSays={company.profile.one_liner}
-                               onRecheck={() => reaudit(company.id).then(onCompany)} />
-            )}
-          </div>
-        </details>
+        <Block title="How we checked" found={<>
+          {company.checks.length > 0 && `${kept} of ${company.checks.length} claims verified${left ? `, ${left} left out` : ""}`}
+          {company.checks.length > 0 && !company.replay && " · "}
+          {!company.replay && "Can AI read your site?"}
+        </>}>
+          {company.checks.length > 0 && <HowWeChecked checks={company.checks} />}
+          {!company.replay && (
+            <SiteReadability audit={company.audit} name={company.profile.name} siteSays={company.profile.one_liner}
+                             onRecheck={() => reaudit(company.id).then(onCompany)} />
+          )}
+        </Block>
       )}
 
       {error && <div className="callout error">{error}</div>}

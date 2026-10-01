@@ -5,6 +5,7 @@ import { latestPerClaim } from "./investigations";
 import type { TermKey } from "./glossary";
 import { PROVENANCE_LABEL, WHY_VERDICT, money, plural, signed } from "./labels";
 import { Term } from "./popover";
+import { Section } from "./report/ui";
 
 const host = (u?: string | null) => (u ?? "").replace(/^https?:\/\/(www\.)?/, "").split("/")[0];
 
@@ -215,11 +216,8 @@ export function WhyPanel({ run }: { run: Run }) {
     });
   };
   return (
-    <section className="panel-sec why-panel">
-      <div className="panel-sec-head">
-        <h3><Term k="why_investigation">Why AI says it</Term></h3>
-        <span className="block-found">{past.length ? `${plural(latestPerClaim(past).length, "claim")} investigated on this run` : "experiments on what AI read"}</span>
-      </div>
+    <Section className="why-panel" title={<Term k="why_investigation">Why AI says it</Term>}
+             found={past.length ? `${plural(latestPerClaim(past).length, "claim")} investigated on this run` : "experiments on what AI read"}>
       <p className="muted" style={{ margin: 0 }}>
         Pick a claim and a branded question. We ask it live and record <Term k="what_ai_read">what AI read</Term>, ask
         it with web search off, then change one thing at a time in what it read and ask again until the change is
@@ -266,7 +264,7 @@ export function WhyPanel({ run }: { run: Run }) {
           )}
         </div>
       ))}
-    </section>
+    </Section>
   );
 }
 

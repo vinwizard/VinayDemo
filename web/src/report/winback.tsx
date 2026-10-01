@@ -7,7 +7,7 @@ import type { MatchVerdict } from "../quickwins";
 import { ZONE_LABEL, address, plural } from "../labels";
 import { Popover, Term } from "../popover";
 import { refs, winBackPlan } from "./util";
-import { Section } from "./ui";
+import { Block, Section } from "./ui";
 import { QRef } from "./questions";
 import { ClaimDetail } from "./claimCards";
 
@@ -304,17 +304,13 @@ export function WinBack({ run }: { run: Run }) {
         </p>
       )}
       {(run.win_back_notes ?? []).length > 0 && (
-        <details className="block">
-          <summary><span className="block-title">Suggestions we could not confirm</span>
-            <span className="block-found">{plural(run.win_back_notes!.length, "reason")}</span></summary>
-          <div className="block-body">
-            <p className="muted" style={{ margin: 0 }}>
-              A suggestion is shown only if the page it names is one we read, it is headed by a buyer's question,
-              it says why it should work, it does not mostly repeat the copy it replaces, and it states facts, not marketing words.
-            </p>
-            <ul>{run.win_back_notes!.map((n, i) => <li key={i}>{n}</li>)}</ul>
-          </div>
-        </details>
+        <Block title="Suggestions we could not confirm" found={plural(run.win_back_notes!.length, "reason")}>
+          <p className="muted" style={{ margin: 0 }}>
+            A suggestion is shown only if the page it names is one we read, it is headed by a buyer's question,
+            it says why it should work, it does not mostly repeat the copy it replaces, and it states facts, not marketing words.
+          </p>
+          <ul>{run.win_back_notes!.map((n, i) => <li key={i}>{n}</li>)}</ul>
+        </Block>
       )}
     </Section>
   );
