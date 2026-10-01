@@ -292,7 +292,7 @@ def test_mixed_provenance_named_answers_are_refused():
     run.probes = f.named_probes()
     run.answers = [prov.answer(run.probes[0])] + [f.answer(p) for p in run.probes[1:]]
     with pytest.raises(graph.ValidationError, match="mix provenance"):
-        graph.measure_drift({"run": run, "provider": prov, "rounds": 0})
+        graph.measure_drift({"run": run, "provider": prov})
 
 
 def test_fixture_answers_never_claim_search_executed():
