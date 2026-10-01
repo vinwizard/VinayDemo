@@ -1,10 +1,13 @@
 """Fakes more than one test module builds: the wire formats the app reads and writes, a judge, a category."""
 import json
 
+from fastapi.testclient import TestClient
+
+import access
 import api.main as main
 import graph
 import reports
-from providers import fixture
+from providers import fixture, live
 
 CATEGORY = "connected workspace software"
 CAT_QS = [f"Which workspace tool suits a team of {n}?" for n in (5, 10, 20, 50, 100, 200)]
@@ -49,6 +52,20 @@ def seeded_data(tmp_path, monkeypatch, company_id: str) -> None:
     monkeypatch.setattr(reports, "DATA", tmp_path)
     monkeypatch.setattr(reports, "COMPANIES", companies)
     monkeypatch.setattr(reports, "RUNS", runs)
+
+
+def why_client(tmp_path, monkeypatch, runs, model) -> TestClient:
+    """The why routes over HTTP: every file under tmp_path, `runs` saved, a preflight that passes, and
+    `model` (a fake Responses call) behind the metered path."""
+    for name, value in (("DATA", tmp_path), ("RUNS", tmp_path / "runs"), ("INVESTIGATIONS", tmp_path / "investigations")):
+        monkeypatch.setattr(reports, name, value)
+    (tmp_path / "runs").mkdir()
+    for run in runs:
+        reports.save_run(run)
+    monkeypatch.setenv(live.KEY_ENV, "test-key")
+    monkeypatch.setattr(live, "preflight", lambda: live.Resolved("gpt-6-luna", live.SEARCH_TOOL, "gpt-6-luna", None))
+    monkeypatch.setattr(access, "_create", lambda timeout, **kw: model(**kw))
+    return TestClient(main.app, raise_server_exceptions=False)
 
 
 class Judge:

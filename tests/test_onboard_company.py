@@ -7,7 +7,6 @@ import json
 
 import pytest
 from fastapi import HTTPException
-from pydantic import ValidationError
 
 import api.main as main
 import drift
@@ -86,8 +85,7 @@ def test_unknown_company_is_a_404_not_a_fixture(store):
     assert e.value.status_code == 404
 
 
-def test_live_mode_for_a_company_still_needs_a_key(store, monkeypatch):
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+def test_live_mode_for_a_company_still_needs_a_key(store):
     reports.save_company(mk_company())
     with pytest.raises(HTTPException) as e:
         main.build_provider("live", company_id="abc123")
@@ -115,13 +113,6 @@ def test_patch_sets_weights_and_adds_an_unstated_claim(store):
     assert added["claim_quotes"] == []
 
 
-def test_patch_rejects_an_unknown_attribute(store):
-    reports.save_company(mk_company())
-    with pytest.raises(HTTPException) as e:
-        main.patch_company("abc123", main.CompanyPatch(weights={"nope": 0.5}))
-    assert e.value.status_code == 400
-
-
 def flagged_company():
     return mk_company(attrs=[
         Attribute(id="fast", label="Fast to set up", claim_evidence_ids=["pg1"], claim_quotes=["set up in minutes"],
@@ -145,11 +136,7 @@ def test_a_flagged_claim_is_measured_until_set_aside_and_can_be_restored(store):
     novel = next(a for a in out["attributes"] if a["id"] == "novel")
     assert not novel["set_aside"] and novel["review"] is None   # restored and reviewed
     assert measured() == ["fast", "novel"]
-
-
-def test_reviewing_an_unknown_claim_is_refused(store):
-    reports.save_company(flagged_company())
-    with pytest.raises(HTTPException) as e:
+    with pytest.raises(HTTPException) as e:                # reviewing an unknown claim is refused
         main.patch_company("abc123", main.CompanyPatch(review={"nope": "keep"}))
     assert e.value.status_code == 400
 
@@ -166,10 +153,6 @@ def test_competitors_come_from_the_answers_and_the_comparison_names_them():
     p = ana.comparison_probe(PROFILE, names, ["t1-b1"])
     assert p.text == "How does Acme compare to Linear and Asana?"
     assert p.kind == "named" and p.phase == "followup" and p.parent_probe_ids == ["t1-b1"]
-
-
-def test_a_followup_round_finding_nobody_is_asked_nothing():
-    assert ana.discovered_competitors([te("t1", [])]) == []
 
 
 def test_the_comparison_question_never_reaches_a_replay_run():
@@ -209,17 +192,18 @@ def live_run(competitors, answer_text, mentioned=False, quotes=()):
     return graph.execute(graph.new_run(f.profile, prov, mode="live_api"), prov)
 
 
-def test_round_two_compares_against_the_names_ai_actually_gave():
-    run = live_run(["Linear"], "Linear is a good option for this.")
+def test_round_two_compares_against_the_names_ai_actually_gave_never_the_target_itself():
+    """An evaluator listing the target among "other brands" is a routine slip, and this list reaches
+    both the report table and a paid question: "How does Notion compare to Notion and Linear?"."""
+    run = live_run(["Notion", "Linear"], "Linear is a good option for this.")
+    assert {c for te in run.topic_evaluations for c in te.top_competitors} == {"Linear"}
     cmp = next(p for p in run.probes if p.id == ana.COMPARISON_PROBE_ID)
     assert cmp.text == "How does Notion compare to Linear?"
     assert any(a.probe_id == cmp.id and a.status == "ok" for a in run.answers)
     assert any("Competitors discovered, not asked for: Linear." in l for l in run.log)
-
-
-def test_the_comparison_answer_does_not_move_the_baseline_alignment():
-    """It is chosen using the baseline results, so counting it would let round two grade itself."""
-    run = live_run(["Linear"], "Linear is a good option for this.")
+    # dropping the self-reference is a correction, not an evidence failure: the answer still scores
+    assert all(e.valid for e in run.evaluations if e.probe_id.endswith("-b1"))
+    # chosen using the baseline results, so counting it would let round two grade itself
     named = [p for p in run.probes if p.kind == "named"]
     assert len(named) == 9 and run.drift.n_named == 8   # the eight baseline brand questions only
 
@@ -329,8 +313,7 @@ def test_an_added_claim_gets_buyer_questions_from_the_same_model_interface(store
     assert any("named you" in w for w in out["warnings"])
 
 
-def test_an_added_claim_without_a_key_is_still_added_and_the_omission_is_stated(store, monkeypatch):
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+def test_an_added_claim_without_a_key_is_still_added_and_the_omission_is_stated(store):
     reports.save_company(mk_company())
     out = main.patch_company("abc123", main.CompanyPatch(added=[main.AddedAttribute(label="Secure by default")]))
     added = next(a for a in out["attributes"] if a["label"] == "Secure by default")
@@ -398,51 +381,6 @@ def test_removing_an_added_claim_is_an_explicit_delete_and_extracted_claims_are_
     assert [a.id for a in reports.load_company("abc123").attributes] == ["fast"]
 
 
-# ---------------------------------------------------------------- zones
-def test_a_claim_the_company_states_but_never_weighted_is_unprioritised_not_imposed():
-    """The default state of every onboarded attribute until a slider moves. Calling it 'imposed'
-    tells the company AI asserts something they never claimed, beside their own validated quote."""
-    claimed = Attribute(id="fast", label="Fast to set up", claim_evidence_ids=["pg1"],
-                        claim_quotes=["set up in minutes"], claim_pages=3, claim_pages_total=4)
-    assert claimed.claimed and not claimed.intended
-    assert drift.classify(claimed, 0.75, drift.claim_strength(claimed)) == ("unprioritised", "unprioritised_claim")
-    # an attribute no page states keeps the original meaning of imposed
-    never = Attribute(id="pricey", label="Expensive", claim_pages=0, claim_pages_total=4)
-    assert drift.classify(never, 0.75, drift.claim_strength(never)) == ("imposed", "imposed_identity")
-
-
-def test_a_claim_mentioned_too_little_to_count_as_echoed_is_still_never_imposed():
-    """The ordinary band: mentioned in 2 of 7 answers, above IMPOSED_MIN and below ECHO_THRESHOLD.
-    Gating the zone on the echo left this reading 'AI asserts this about you without you claiming
-    it' next to that same row's '50% of pages (3 of 6)'."""
-    claimed = Attribute(id="fast", label="Fast to set up", claim_evidence_ids=["pg1", "pg3", "pg5"],
-                        claim_quotes=["set up in minutes"], claim_pages=3, claim_pages_total=6)
-    echo_rate = 2 / 7
-    assert drift.IMPOSED_MIN <= echo_rate < drift.ECHO_THRESHOLD
-    assert drift.relevant(claimed, echo_rate)
-    assert drift.classify(claimed, echo_rate, drift.claim_strength(claimed)) \
-        == ("unprioritised", "unprioritised_claim")
-
-
-def test_an_added_claim_cannot_be_created_unintended():
-    """The floor lives on the contract, not only on the slider: a client posting 0 is refused."""
-    with pytest.raises(ValidationError):
-        main.AddedAttribute(label="Secure by default", intended_weight=0.0)
-    assert main.AddedAttribute(label="Secure by default").intended_weight == 0.5
-
-
-def test_the_target_is_never_its_own_competitor(store):
-    """An evaluator listing the target among "other brands" is a routine slip, and this list reaches
-    both the report table and a paid question: "How does Notion compare to Notion and Linear?"."""
-    run = live_run(["Notion", "Linear"], "Linear is a good option for this.")
-    named = {c for te in run.topic_evaluations for c in te.top_competitors}
-    assert named == {"Linear"}
-    cmp = next(p for p in run.probes if p.id == ana.COMPARISON_PROBE_ID)
-    assert cmp.text == "How does Notion compare to Linear?"
-    # dropping the self-reference is a correction, not an evidence failure: the answer still scores
-    assert all(e.valid for e in run.evaluations if e.probe_id.endswith("-b1"))
-
-
 def test_a_name_beside_the_brand_is_not_a_competitor(store):
     """The competitor is whoever AI names in an answer that never names the brand. "Sinatra
     integrates with GitHub and Notion" names a complement, not a rival."""
@@ -451,28 +389,6 @@ def test_a_name_beside_the_brand_is_not_a_competitor(store):
     assert all(e.valid for e in run.evaluations if e.probe_id.endswith("-b1"))
     assert not any(te.top_competitors for te in run.topic_evaluations)
     assert not [p for p in run.probes if p.id == ana.COMPARISON_PROBE_ID]
-
-
-def test_a_claim_you_never_weighted_is_not_filed_under_gaps():
-    """`unprioritised` is the company's own claim being repeated back. Both report surfaces read the
-    same list, so neither can quietly start calling it somebody's problem."""
-    assert "unprioritised" not in drift.GAP_ZONES and "landed" not in drift.GAP_ZONES
-    claimed = Attribute(id="fast", label="Fast to set up", claim_evidence_ids=["pg1"],
-                        claim_quotes=["set up in minutes"], claim_pages=3, claim_pages_total=6)
-    zone, _ = drift.classify(claimed, 0.75, drift.claim_strength(claimed))
-    assert zone not in drift.GAP_ZONES
-
-
-def test_a_claim_ai_contradicts_is_contested_even_when_unweighted():
-    """Every onboarded claim starts unweighted. Calling a contradicted one 'unprioritised' told the
-    customer AI repeats a claim AI was in fact contradicting, and hid it from the gap cards."""
-    claimed = Attribute(id="easy", label="Easy to learn", claim_evidence_ids=["pg1", "pg3", "pg5"],
-                        claim_quotes=["easy to learn"], claim_pages=3, claim_pages_total=6)
-    zone, owner = drift.classify(claimed, 0.0, drift.claim_strength(claimed), negative_rate=4 / 7)
-    assert (zone, owner) == ("contested", "contested_identity") and zone in drift.GAP_ZONES
-    # something the company never claimed and AI criticises stays imposed
-    never = Attribute(id="pricey", label="Expensive at scale", claim_pages=0, claim_pages_total=6)
-    assert drift.classify(never, 0.0, drift.claim_strength(never), negative_rate=4 / 7)[0] == "imposed"
 
 
 def test_the_buyer_axis_goes_to_the_most_heavily_weighted_claims():

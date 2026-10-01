@@ -154,7 +154,7 @@ def test_a_claim_also_in_a_document_is_shared_over_public_pages_only(env, monkey
     assert drift.classify(a.model_copy(update={"intended_weight": 1.0}), 0.0, drift.claim_strength(a))[1] == "messaging_gap"
 
 
-def test_a_documents_only_company_has_no_site_to_check_again(env, monkeypatch):
+def test_a_documents_only_company_has_no_site_to_check_again(env):
     doc = main.documents.save(None, "positioning.txt", f"{DOC_QUOTE}.".encode())
     out = main.onboard(url="", name="Harbor Loom", docs=doc["id"])
     assert out["attributes"][0]["claim_pages_total"] == 0 and out["attributes"][0]["private_only"]

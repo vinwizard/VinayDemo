@@ -54,16 +54,14 @@ def run_fronts(monkeypatch, aiming=AIMING, placed_says=lambda n: "Notion fits.",
     return graph.execute(graph.new_run(profile, prov, mode="live_api"), prov), asked
 
 
-def test_brand_answers_are_answered_before_buyer_questions_are_planned(monkeypatch):
+def test_two_fronts_are_measured_side_by_side_with_the_gap(monkeypatch):
     run, _ = run_fronts(monkeypatch)
+    # the brand answers come first: where AI places it is planned from them
     log = "\n".join(run.log)
     assert log.index("brand answers") < log.index("Where AI places Notion: AI-native workspace")
     assert "(endorsed in 8 of 8 brand answers)" in log
     assert "Where it aims to be: connected workspace software" in log
-
-
-def test_two_fronts_are_measured_side_by_side_with_the_gap(monkeypatch):
-    run, _ = run_fronts(monkeypatch)
+    assert run.drift.missing_fronts == {}
     d = run.drift
     # every answer on a front agreed, so each stopped at look 1: four of its six frozen questions
     assert [(s.front, s.category, s.questions) for s in d.sets] == [
@@ -98,10 +96,9 @@ def test_every_weighted_claim_gets_its_own_buyer_questions_before_the_fronts_sha
     assert len(buyer) <= graph.max_baseline()
 
 
-def test_three_weighted_claims_leave_each_front_its_look_2_pool_at_the_default_margin(monkeypatch):
+def test_three_weighted_claims_leave_each_front_its_look_2_pool_at_the_default_margin():
     # Amgen, three weighted claims at ±20: each front was cut to 18 questions, short of the 23 that
     # look 2 needs, so a 50% front could never reach ±20 however many of them were asked.
-    monkeypatch.delenv(sampler.MARGIN_ENV, raising=False)
     n2 = sampler.looks()[1]
     profile = F.profile.model_copy(update=dict(core_category=AIMING, category_questions=[
         f"Which workspace tool suits a team of {n}?" for n in range(1, n2 + 1)]))
@@ -149,22 +146,17 @@ def test_the_placed_front_cites_only_its_own_claim_evidence():
     assert all(t.positioning_point_ids for t in aiming)   # the site's own category keeps its homepage
 
 
-def test_a_front_with_no_questions_says_why_not_that_its_category_is_missing(monkeypatch):
+def test_a_front_with_no_questions_says_why_not_that_its_category_is_missing():
     profile = F.profile.model_copy(update=dict(core_category=AIMING, category_questions=[]))
     _, _, _, missing = ana.blind_probes_for_fronts(profile, PLACED, WRITTEN, F.attributes())
     assert list(missing) == ["aiming"] and "no unbranded questions are saved" in missing["aiming"]
     _, _, _, missing = ana.blind_probes_for_fronts(
         F.profile.model_copy(update=dict(core_category=AIMING, category_questions=AIM_QS)), PLACED, [])
     assert list(missing) == ["placed"] and "Where AI places Notion was not measured" in missing["placed"]
-    run, _ = run_fronts(monkeypatch)
-    assert run.drift.missing_fronts == {}
 
 
-def test_missing_front_reasons_reach_the_report_when_no_front_survives(monkeypatch):
+def test_missing_front_reasons_reach_the_report_when_no_front_survives():
     # a category saved without questions and no endorsement: only the claims are asked
-    monkeypatch.setattr(Judge, "label", lambda self, probe, answer, attributes, profile: dict(
-        mentioned=profile.name in answer.text, recommended=False, negative_mention=False,
-        competitor_recommendations=[], evidence_quotes=[], on_topic=True, attributes=[]))
     profile = F.profile.model_copy(update=dict(core_category=AIMING, category_questions=[]))
     prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="test-model",
                              transport=lambda *_: openai_reply("Coda fits."), evaluator=Judge())

@@ -3,6 +3,7 @@ reading list (tests/cassettes) and a fake model that names Amgen only when the r
 reads, so a working rewrite, a useless one and a harmful one each have to be told apart by the loop."""
 import pytest
 
+from fakes import why_client
 import verify
 import why
 from providers import live
@@ -157,21 +158,8 @@ def test_an_unproven_rewrite_cannot_be_rechecked(monkeypatch):
 # ---------------------------------------------------------------- over HTTP (api/why.py)
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    import access
-    import api.main as main
-    import reports
-    from fastapi.testclient import TestClient
-    runs, invs = tmp_path / "runs", tmp_path / "investigations"
-    runs.mkdir()
-    for mod, name, value in ((reports, "DATA", tmp_path), (reports, "RUNS", runs),
-                             (reports, "INVESTIGATIONS", invs)):
-        monkeypatch.setattr(mod, name, value)
-    reports.save_run(rewrite_run().model_copy(update={"id": "a1b2c3d4e5", "status": "complete"}))
-    monkeypatch.setenv(live.KEY_ENV, "test-key")
-    monkeypatch.setattr(live, "preflight", lambda: live.Resolved("gpt-6-luna", live.SEARCH_TOOL, "gpt-6-luna", None))
-    f = fake(rewrite_named)
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: f(**kw))
-    return TestClient(main.app, raise_server_exceptions=False)
+    return why_client(tmp_path, monkeypatch, [rewrite_run().model_copy(update={"id": "a1b2c3d4e5", "status": "complete"})],
+                      fake(rewrite_named))
 
 
 def test_a_rewrite_test_streams_and_is_kept_then_rechecked_for_free_while_unpublished(client, monkeypatch):

@@ -56,9 +56,7 @@ def test_the_committed_live_example_is_what_the_code_makes_of_its_saved_answers(
     assert run.drift.claim_echo and run.drift.alignment   # AI does repeat some of what Amgen claims
 
 
-def test_without_the_env_var_the_seed_never_falls_back_to_fixtures(monkeypatch):
-    monkeypatch.delenv(main.OFFLINE_ENV, raising=False)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+def test_without_the_env_var_the_seed_never_falls_back_to_fixtures():
     with pytest.raises(HTTPException) as e:
         main.build_provider("live", company_id=main.SEED_COMPANY)
     assert "OPENAI_API_KEY" in e.value.detail
@@ -66,7 +64,6 @@ def test_without_the_env_var_the_seed_never_falls_back_to_fixtures(monkeypatch):
 
 def test_offline_env_replays_the_seed_and_every_event_says_so(monkeypatch, tmp_path):
     monkeypatch.setenv(main.OFFLINE_ENV, "1")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)     # no key, no network: still demoable
     monkeypatch.setattr(reports, "RUNS", tmp_path)
     out = events(main.run_events("A", "live", main.SEED_COMPANY))
 
@@ -103,8 +100,7 @@ def test_onboarding_streams_the_crawl_before_the_extraction(monkeypatch, tmp_pat
     assert out[1][1]["attributes"][0]["id"] == "fast"
 
 
-def test_an_onboarding_failure_is_streamed_as_an_error_event(monkeypatch):
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+def test_an_onboarding_failure_is_streamed_as_an_error_event():
     out = events(main.onboard_events("https://acme.example/", "Acme"))
     assert [k for k, _ in out] == ["error"]
     assert "OPENAI_API_KEY" in out[0][1]["message"]
@@ -112,7 +108,6 @@ def test_an_onboarding_failure_is_streamed_as_an_error_event(monkeypatch):
 
 def test_offline_seed_shows_exactly_the_claims_it_scores_and_cannot_be_edited(monkeypatch, tmp_path):
     monkeypatch.setenv(main.OFFLINE_ENV, "1")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setattr(reports, "RUNS", tmp_path)
     seed_file = reports.COMPANIES / f"{main.SEED_COMPANY}.json"
     before = seed_file.read_bytes()

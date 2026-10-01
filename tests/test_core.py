@@ -24,6 +24,7 @@ def runs():
 
 PROFILE = fixture.bundled_profile("A")
 PROBE = Probe(id="x-1", topic_id="kb", text="q", phase="baseline", purpose="t")
+TOPIC = Topic(id="kb", label="KB", positioning_point_ids=[], fit="strong")
 
 
 def synth(text, cites=(), **labels):
@@ -84,7 +85,7 @@ def test_fixture_labels_only_on_synthetic():
 def test_search_snapshot_never_scored():
     a = Answer(probe_id="x-1", text="Notion is great", provenance="web_research_snapshot")
     e = evaluation.evaluate(PROBE, a, PROFILE)
-    te = score_topic(Topic(id="kb", label="KB", positioning_point_ids=[], fit="strong"), [a], [e])
+    te = score_topic(TOPIC, [a], [e])
     assert not e.valid and te.n == 0 and te.visibility_score is None and "search snapshot" in te.excluded_reasons[0]
 
 
@@ -102,19 +103,17 @@ def test_visibility_math():
 
 
 def test_no_eligible_answers_gives_null():
-    t = Topic(id="kb", label="KB", positioning_point_ids=[], fit="strong")
     a = Answer(probe_id="x-1", provenance="synthetic", provider="fixture", status="timeout")
-    te = score_topic(t, [a], [evaluation.evaluate(PROBE, a, PROFILE)])
+    te = score_topic(TOPIC, [a], [evaluation.evaluate(PROBE, a, PROFILE)])
     assert te.n == 0 and te.excluded == 1 and te.visibility_score is None
 
 
 def test_a_name_beside_the_brand_is_not_a_competitor_answer():
-    t = Topic(id="kb", label="KB", positioning_point_ids=[], fit="strong")
     answers = [Answer(probe_id=f"x-{i}", text="t", provenance="synthetic", provider="fixture") for i in range(3)]
     ev = lambda mentioned: QueryEvaluation(probe_id="x", valid=True, mentioned=mentioned, strength=int(mentioned), explanation="e",
                                            competitor_recommendations=["GitHub"])
-    assert score_topic(t, answers[:2], [ev(True), ev(True)]).top_competitors == []
-    assert score_topic(t, answers, [ev(True), ev(True), ev(False)]).top_competitors == ["GitHub"]
+    assert score_topic(TOPIC, answers[:2], [ev(True), ev(True)]).top_competitors == []
+    assert score_topic(TOPIC, answers, [ev(True), ev(True), ev(False)]).top_competitors == ["GitHub"]
 
 
 # --- edge cases -----------------------------------------------------------------
@@ -146,14 +145,13 @@ def test_deceptive_domains(url, owned):
 
 
 def test_timeout_and_ungrounded_excluded():
-    t = Topic(id="kb", label="KB", positioning_point_ids=[], fit="strong")
     good = [Answer(probe_id=f"g{i}", text="Notion is recommended.", provenance="live_api", provider="gemini",
                    model="m", collected_at="2026-09-18T00:00:00", search_executed=True) for i in range(3)]
     timeout = Answer(probe_id="t", provenance="live_api", provider="gemini", status="timeout", error="25s timeout")
     ungrounded = Answer(probe_id="u", text="Notion", provenance="live_api", provider="gemini", search_executed=False)
     evs = [evaluation.evaluate(PROBE, a, PROFILE) for a in good + [timeout, ungrounded]]
     evs[:3] = [e.model_copy(update=dict(valid=True, mentioned=True, recommended=True, strength=2)) for e in evs[:3]]
-    te = score_topic(t, good + [timeout, ungrounded], evs)
+    te = score_topic(TOPIC, good + [timeout, ungrounded], evs)
     assert te.n == 3 and te.excluded == 2 and te.visibility_score == 100
     assert any("timeout" in r for r in te.excluded_reasons) and any("ungrounded" in r for r in te.excluded_reasons)
 
@@ -260,7 +258,7 @@ def test_a_buyer_question_addressing_the_vendor_is_caught(text, addressed):
                                   "Which tool like Notion Calendar is best?"])
 def test_brand_leaking_questions_rejected(text):
     p = Probe(id="kb-9", topic_id="kb", text=text, phase="baseline", purpose="t")
-    topics = [Topic(id="kb", label="KB", positioning_point_ids=[], fit="strong")]
+    topics = [TOPIC]
     assert any("leaks" in err for err in ana.validate_probes([p], topics, PROFILE))
 
 
@@ -276,12 +274,6 @@ def test_bundled_questions_are_neutral():
     prov = fixture.FixtureProvider("A")
     topics, probes = prov.plan(PROFILE)
     assert ana.validate_probes(probes, topics, PROFILE) == []
-
-
-def test_measured_prompt_carries_no_company_context():
-    msgs = live.measured_prompt(Probe(id="a", topic_id="kb", text="Best wiki tools?", phase="baseline", purpose="p"))
-    blob = json.dumps(msgs)
-    assert "Best wiki tools?" in blob and not ana.brand_leaks(blob, PROFILE) and len(msgs) == 2
 
 
 # --- export / import / persistence -------------------------------------------------

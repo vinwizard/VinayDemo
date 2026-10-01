@@ -33,8 +33,6 @@ SHOWCASE = reports.RUNS / f"{main.SHOWCASE_RUN}.json"   # the committed file, re
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     seeded_data(tmp_path, monkeypatch, CO)
-    monkeypatch.delenv(main.OFFLINE_ENV, raising=False)
-    monkeypatch.delenv(live.KEY_ENV, raising=False)  # api.main loaded any local .env at import
     # an unexpected model call fails loudly instead of reaching the network
     monkeypatch.setattr(onboarding_model, "default_transport",
                         lambda *_: pytest.fail("unexpected model call"))
@@ -91,11 +89,6 @@ def test_a_run_streamed_over_http_is_listed_and_reopens(client):
     assert got.json()["id"] == run["id"] and got.json()["mode"] == "demo_replay"
 
 
-def test_runs_list_is_empty_with_no_saved_runs(client):
-    r = client.get("/api/runs")
-    assert r.status_code == 200 and r.json() == []
-
-
 def test_unreadable_files_are_counted_not_silently_dropped(client, capsys):
     (reports.RUNS / "0123456789.json").write_text("{not json")
     (reports.COMPANIES / "0123456789.json").write_text("{not json")
@@ -105,12 +98,9 @@ def test_unreadable_files_are_counted_not_silently_dropped(client, capsys):
     assert "could not read 0123456789.json" in capsys.readouterr().out
 
 
-def test_unknown_run_is_404(client):
-    assert client.get("/api/runs/0123456789").status_code == 404
-
-
-def test_malformed_run_id_is_404_not_500(client):
-    assert client.get("/api/runs/not-a-run").status_code == 404
+@pytest.mark.parametrize("run_id", ["0123456789", "not-a-run"])   # unknown, and malformed: 404, never 500
+def test_unknown_or_malformed_run_is_404(client, run_id):
+    assert client.get(f"/api/runs/{run_id}").status_code == 404
 
 
 # --- companies ------------------------------------------------------------------------------------

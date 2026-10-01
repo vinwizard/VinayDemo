@@ -11,21 +11,41 @@ INTENDED_STATED = dict(intended_weight=1.0, claim_evidence_ids=["e"], claim_page
 
 
 # --- zone x owner truth table -------------------------------------------------
-@pytest.mark.parametrize("attrs,echo,expected", [
-    (INTENDED_STATED, 0.8, ("landed", "none")),
-    (INTENDED_STATED, 0.1, ("lost_claim", "authority_gap")),
-    (dict(intended_weight=1.0, claim_pages=0, claim_pages_total=8), 0.0, ("unstated_intent", "messaging_gap")),
-    (dict(claim_pages=0, claim_pages_total=8), 0.9, ("imposed", "imposed_identity")),
+CLAIMED = dict(claim_evidence_ids=["pg1", "pg3", "pg5"], claim_quotes=["set up in minutes"], claim_pages=3,
+               claim_pages_total=6)    # the company states it but never weighted it: every onboarded claim at first
+
+
+@pytest.mark.parametrize("attrs,echo,negative,expected", [
+    (INTENDED_STATED, 0.8, 0.0, ("landed", "none")),
+    (INTENDED_STATED, 0.1, 0.0, ("lost_claim", "authority_gap")),
+    (dict(intended_weight=1.0, claim_pages=0, claim_pages_total=8), 0.0, 0.0, ("unstated_intent", "messaging_gap")),
+    (dict(claim_pages=0, claim_pages_total=8), 0.9, 0.0, ("imposed", "imposed_identity")),
+    # absence is only an authority gap if they actually said it: barely stated is their own problem
+    (dict(INTENDED_STATED, claim_pages=1), 0.0, 0.0, ("unstated_intent", "messaging_gap")),
+    # criticism is not an endorsement: 4 criticisms + 1 nod used to read as "landed, no problem"
+    (INTENDED_STATED, 0.125, 0.5, ("contested", "contested_identity")),
+    (INTENDED_STATED, 0.625, 0.0, ("landed", "none")),        # same mention volume, no criticism
+    (INTENDED_STATED, 0.75, 0.25, ("landed", "none")),        # majority supportive despite some criticism
+    (dict(claim_pages=0, claim_pages_total=8), 0.0, 0.375, ("imposed", "imposed_identity")),  # purely negative
+    # their own claim repeated back is unprioritised, never imposed beside their validated quote,
+    # also in the band mentioned too little to count as echoed (2 of 7)
+    (CLAIMED, 0.75, 0.0, ("unprioritised", "unprioritised_claim")),
+    (CLAIMED, 2 / 7, 0.0, ("unprioritised", "unprioritised_claim")),
+    (CLAIMED, 0.0, 4 / 7, ("contested", "contested_identity")),   # AI contradicts it: contested, even unweighted
+    (dict(claim_pages=0, claim_pages_total=6), 0.0, 4 / 7, ("imposed", "imposed_identity")),
 ])
-def test_zone_truth_table(attrs, echo, expected):
+def test_zone_truth_table(attrs, echo, negative, expected):
     a = mk(**attrs)
-    assert drift.classify(a, echo, drift.claim_strength(a)) == expected
+    assert drift.classify(a, echo, drift.claim_strength(a), negative) == expected
 
 
-def test_intended_but_barely_stated_is_the_companys_own_problem():
-    """The three-layer point: absence is only an authority gap if they actually said it."""
-    a = mk(intended_weight=1.0, claim_evidence_ids=["e"], claim_pages=1, claim_pages_total=8)
-    assert drift.classify(a, 0.0, drift.claim_strength(a))[1] == "messaging_gap"
+def test_only_somebodys_problem_is_filed_under_gaps():
+    """Both report surfaces read GAP_ZONES, so neither can start calling the company's own repeated
+    claim somebody's problem, or hide a contradicted one from the gap cards."""
+    a = mk(**CLAIMED)
+    assert a.claimed and not a.intended
+    assert "unprioritised" not in drift.GAP_ZONES and "landed" not in drift.GAP_ZONES
+    assert "contested" in drift.GAP_ZONES
 
 
 def test_a_claim_stated_only_in_a_private_document_is_a_messaging_gap():
@@ -37,10 +57,13 @@ def test_a_claim_stated_only_in_a_private_document_is_a_messaging_gap():
 
 
 def test_unclaimed_and_unechoed_attribute_is_not_reported():
-    """Without the relevance floor every unclaimed attribute would show as 'imposed' at 0%."""
+    """Without the relevance floor every unclaimed attribute would show as 'imposed' at 0%. Relevance
+    is keyed on mentions, not supportive echoes, or 'expensive at scale' disappears."""
     assert not drift.relevant(mk(claim_pages=0, claim_pages_total=8), 0.0)
     assert drift.relevant(mk(claim_pages=0, claim_pages_total=8), 0.9)
+    assert drift.relevant(mk(claim_pages=0, claim_pages_total=8), 0.375)   # 3 of 8, all negative
     assert drift.relevant(mk(**INTENDED_STATED), 0.0)  # intended always shows
+    assert drift.IMPOSED_MIN <= 2 / 7 < drift.ECHO_THRESHOLD and drift.relevant(mk(**CLAIMED), 2 / 7)
 
 
 # --- alignment arithmetic -----------------------------------------------------
@@ -78,34 +101,21 @@ def answer_with(labels, text="Notion is a notes app."):
                   fixture_labels={"attributes": labels})
 
 
-def test_non_verbatim_quote_is_dropped_not_repaired():
-    attrs = [mk(id="nt", label="Note-taking app")]
-    obs, warns = evaluation.extract_attributes(
-        answer_with([{"attribute_id": "nt", "quote": "Notion is a NOTES APP"}]), attrs)
-    assert obs == [] and any("not verbatim" in w for w in warns)
+LINKED = "Notion integrates with [GitHub](https://github.com) and Slack."
 
 
-def test_verbatim_quote_is_kept():
-    attrs = [mk(id="nt", label="Note-taking app")]
-    obs, warns = evaluation.extract_attributes(
-        answer_with([{"attribute_id": "nt", "quote": "Notion is a notes app"}]), attrs)
-    assert [o.attribute_id for o in obs] == ["nt"] and not warns
-
-
-def test_quote_from_a_citation_title_is_dropped():
-    text = "Notion is a notes app. ([Notion is the best AI workspace](https://example.com/x))"
-    obs, warns = evaluation.extract_attributes(
-        answer_with([{"attribute_id": "nt", "quote": "Notion is the best AI workspace"}], text),
-        [mk(id="nt", label="Note-taking app")])
-    assert obs == [] and any("from a citation" in w for w in warns)
-
-
-def test_a_quote_spanning_a_prose_link_is_kept():
-    text = "Notion integrates with [GitHub](https://github.com) and Slack. ([x.com](https://x.com))"
-    quote = "Notion integrates with [GitHub](https://github.com) and Slack."
-    obs, warns = evaluation.extract_attributes(answer_with([{"attribute_id": "gh", "quote": quote}], text),
-                                               [mk(id="gh", label="GitHub integration")])
-    assert [o.quote for o in obs] == [quote] and not warns
+@pytest.mark.parametrize("text,quote,kept,warning", [
+    (None, "Notion is a NOTES APP", False, "not verbatim"),           # dropped, not repaired
+    (None, "Notion is a notes app", True, None),
+    ("Notion is a notes app. ([Notion is the best AI workspace](https://example.com/x))",
+     "Notion is the best AI workspace", False, "from a citation"),
+    (f"{LINKED} ([x.com](https://x.com))", LINKED, True, None),        # a quote spanning a prose link
+])
+def test_a_quote_is_kept_only_when_verbatim_in_the_answer_prose(text, quote, kept, warning):
+    a = answer_with([{"attribute_id": "nt", "quote": quote}], *([text] if text else []))
+    obs, warns = evaluation.extract_attributes(a, [mk(id="nt", label="Note-taking app")])
+    assert [o.quote for o in obs] == ([quote] if kept else [])
+    assert any(warning in w for w in warns) if warning else not warns
 
 
 def test_unknown_attribute_id_is_dropped():
@@ -138,37 +148,20 @@ def test_named_probe_may_name_the_brand():
 
 
 # --- negative polarity reaches the score (Option C: contested zone) -----------
-def test_criticism_is_not_an_endorsement():
-    """The defect this fixes: 4 criticisms + 1 nod used to read as 'landed, no problem'."""
-    a = mk(**INTENDED_STATED)
-    cs = drift.claim_strength(a)
-    # 5 of 8 answers raised it; 4 of those were negative. Supportive rate is 1/8.
-    assert drift.classify(a, 0.125, cs, 0.5) == ("contested", "contested_identity")
-    # same mention volume, no criticism, still lands
-    assert drift.classify(a, 0.625, cs, 0.0) == ("landed", "none")
-
-
-def test_majority_supportive_still_lands_despite_some_criticism():
-    a = mk(**INTENDED_STATED)
-    assert drift.classify(a, 0.75, drift.claim_strength(a), 0.25)[0] == "landed"
-
-
-def test_purely_negative_unclaimed_attribute_is_still_reported():
-    """Relevance is keyed on mentions, not supportive echoes, or 'expensive at scale' disappears."""
-    a = mk(claim_pages=0, claim_pages_total=8)
-    assert drift.relevant(a, 0.375)               # mentioned in 3 of 8, all negative
-    assert drift.classify(a, 0.0, 0.0, 0.375) == ("imposed", "imposed_identity")
+def five_named(text):
+    """Five baseline brand questions, each answered with `text` and judged a valid mention."""
+    probes = [Probe(id=f"np-{i}", topic_id="perception", text="What is Notion?", kind="named",
+                    phase="baseline", purpose="p") for i in range(1, 6)]
+    answers = [Answer(probe_id=p.id, text=text, provenance="synthetic", status="ok") for p in probes]
+    evals = [QueryEvaluation(probe_id=p.id, valid=True, mentioned=True, strength=1, explanation="e")
+             for p in probes]
+    return probes, answers, evals
 
 
 def test_negative_mentions_are_subtracted_from_the_supportive_echo():
     """End to end through score_attributes: 4 of 5 answers raise it, 3 of those to criticise it."""
     a = mk(**INTENDED_STATED)
-    probes = [Probe(id=f"np-{i}", topic_id="perception", text="What is Notion?", kind="named",
-                    phase="baseline", purpose="p") for i in range(1, 6)]
-    answers = [Answer(probe_id=p.id, text="Notion is an AI-native workspace.", provenance="synthetic",
-                      status="ok") for p in probes]
-    evals = [QueryEvaluation(probe_id=p.id, valid=True, mentioned=True, strength=1, explanation="e")
-             for p in probes]
+    probes, answers, evals = five_named("Notion is an AI-native workspace.")
     obs = {f"np-{i}": [AttributeObservation(attribute_id="x", quote="AI-native workspace",
                                             polarity="negative" if i <= 3 else "positive")]
            for i in range(1, 5)}
@@ -181,12 +174,7 @@ def test_negative_mentions_are_subtracted_from_the_supportive_echo():
 def test_neutral_mentions_do_not_land_an_intended_attribute():
     """Five of five answers mention it neutrally, none endorse it: a mention is not conviction."""
     a = mk(**INTENDED_STATED)
-    probes = [Probe(id=f"np-{i}", topic_id="perception", text="What is Notion?", kind="named",
-                    phase="baseline", purpose="p") for i in range(1, 6)]
-    answers = [Answer(probe_id=p.id, text="Notion is sometimes used as an AI-native workspace.",
-                      provenance="synthetic", status="ok") for p in probes]
-    evals = [QueryEvaluation(probe_id=p.id, valid=True, mentioned=True, strength=1, explanation="e")
-             for p in probes]
+    probes, answers, evals = five_named("Notion is sometimes used as an AI-native workspace.")
     obs = {p.id: [AttributeObservation(attribute_id="x", quote="AI-native workspace", polarity="neutral")]
            for p in probes}
     s = drift.score_attributes([a], probes, answers, evals, obs)[0]
@@ -197,12 +185,7 @@ def test_neutral_mentions_do_not_land_an_intended_attribute():
 
 def test_neutral_heavy_row_says_ai_mentions_but_does_not_endorse():
     """A lost claim AI mentions in every answer must not read as 'the models are not repeating it'."""
-    probes = [Probe(id=f"np-{i}", topic_id="perception", text="What is Notion?", kind="named",
-                    phase="baseline", purpose="p") for i in range(1, 6)]
-    answers = [Answer(probe_id=p.id, text="Notion is sometimes used as an AI-native workspace.",
-                      provenance="synthetic", status="ok") for p in probes]
-    evals = [QueryEvaluation(probe_id=p.id, valid=True, mentioned=True, strength=1, explanation="e")
-             for p in probes]
+    probes, answers, evals = five_named("Notion is sometimes used as an AI-native workspace.")
     obs = {p.id: [AttributeObservation(attribute_id="x", quote="AI-native workspace",
                                        polarity="positive" if p.id == "np-1" else "neutral")]
            for p in probes}

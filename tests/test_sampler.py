@@ -9,7 +9,6 @@ import graph
 import reports
 import sampler
 import sharing
-from agents import ana
 from providers import fixture, live
 from scoring import wilson, z_for
 

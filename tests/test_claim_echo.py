@@ -75,7 +75,6 @@ def client(tmp_path, monkeypatch):
     runs = tmp_path / "runs"
     runs.mkdir()
     monkeypatch.setattr(reports, "RUNS", runs)
-    monkeypatch.delenv(live.KEY_ENV, raising=False)
     return TestClient(main.app, raise_server_exceptions=False)
 
 
