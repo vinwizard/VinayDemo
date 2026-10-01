@@ -580,6 +580,7 @@ def _metered(call, timeout: int, kwargs: dict):
             except Exception as e:
                 if getattr(e, "status_code", None) is None:
                     usd = bill(None)
+                e.billed_usd = usd   # for the budgets kept beside the ledger (LiveProvider, why.Lab)
                 raise
         usd = bill(response)
         return response

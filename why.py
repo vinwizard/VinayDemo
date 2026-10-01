@@ -272,11 +272,17 @@ class Lab:
         self._lock = threading.Lock()
 
     def call(self, **kw):
-        response = self._transport(**{"model": self.model, **kw})
-        cost = access.cost(kw.get("model", self.model), response)[0]
-        with self._lock:
-            self.spent += cost
+        try:
+            response = self._transport(**{"model": self.model, **kw})
+        except Exception as e:      # a failed call the ledger charged is spent here too
+            self._spend(getattr(e, "billed_usd", 0.0))
+            raise
+        self._spend(access.cost(kw.get("model", self.model), response)[0])
         return response
+
+    def _spend(self, usd: float) -> None:
+        with self._lock:
+            self.spent += usd
 
     def live(self, question: str):
         return self.call(input=[{"role": "system", "content": live.NEUTRAL_INSTRUCTION},

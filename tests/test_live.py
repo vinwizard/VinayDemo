@@ -162,6 +162,26 @@ def test_timeout_becomes_a_failed_answer_not_a_zero():
     assert a.status == "timeout" and a.text == "" and a.error == "APITimeoutError"
 
 
+def test_a_failed_call_the_ledger_charged_counts_against_the_run_budget(monkeypatch):
+    # A timeout may have been billed, so the ledger charges it the unknown-usage estimate; the run's
+    # own budget (RUN_BUDGET_USD) read only successful calls, so it fell behind what the pass paid.
+    import access
+    monkeypatch.setenv(access.KEY_ENV, "k")
+
+    def boom(timeout, **kw):
+        raise TimeoutError("took too long")
+
+    monkeypatch.setattr(access, "_create", boom)
+    p = live.LiveProvider(fixture.FixtureProvider("A").attributes(), [], model="test-model")
+    assert p.answer(PROBE).status == "timeout"
+    assert p.spent == access.cost("test-model", None)[0] > 0
+
+    monkeypatch.setattr(access, "_create", lambda timeout, **kw: (_ for _ in ()).throw(StatusError(400, "bad")))
+    p = live.LiveProvider(fixture.FixtureProvider("A").attributes(), [], model="test-model")
+    p.answer(PROBE)
+    assert p.spent == 0          # refused with a status: not billed, so not counted
+
+
 def test_empty_response_is_an_error_not_an_absence():
     a = provider(transport=lambda *_: {"output": []}).answer(PROBE)
     assert a.status == "error" and a.error == "empty response"

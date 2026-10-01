@@ -5,6 +5,8 @@ import json
 from itertools import count
 from pathlib import Path
 
+import pytest
+
 import why
 from fakes import openai_reply
 from providers import live
@@ -287,6 +289,20 @@ def test_the_default_calls_go_through_the_metered_path(monkeypatch):
     monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.append(kw) or message("Amgen."))
     why.Lab("gpt-6-luna").off("What is Amgen?")
     assert sent and sent[0]["model"] == "gpt-6-luna"
+
+
+def test_a_failed_call_the_ledger_charged_counts_against_the_why_budget(monkeypatch):
+    import access
+    monkeypatch.setenv(access.KEY_ENV, "k")
+
+    def boom(timeout, **kw):
+        raise TimeoutError("took too long")
+
+    monkeypatch.setattr(access, "_create", boom)
+    lab = why.Lab("gpt-6-luna")
+    with pytest.raises(TimeoutError):
+        lab.off("What is Amgen?")
+    assert lab.spent == access.cost("gpt-6-luna", None)[0] > 0
 
 
 def test_every_call_is_charged_to_the_pass_that_asked():
