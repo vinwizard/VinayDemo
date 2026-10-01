@@ -119,25 +119,29 @@ class Store:
                       (access.SPENDER.get() or "", mode, _norm(question), question, int(open), origin, now,
                        kept.model_dump_json(), array("f", vec).tobytes() if vec else None))
 
-    def _rows(self, where: str, args: tuple, origin: str, skip: set) -> list:
+    def _rows(self, cols: str, where: str, args: tuple, origin: str, skip: set) -> list:
         """Rows of the last REUSE_HOURS this pass may read (its own, or open ones), not this run's own
         (`origin`) and not one this run reused already (`skip`), newest first."""
         with self._db() as c:
-            rows = c.execute(f"SELECT id, asked, answer, vec FROM reuse WHERE {where} AND at >= ? "
+            rows = c.execute(f"SELECT id, {cols} FROM reuse WHERE {where} AND at >= ? "
                              "AND (pass = ? OR open = 1) AND origin != ? ORDER BY at DESC",
                              (*args, time.time() - REUSE_HOURS * 3600, access.SPENDER.get() or "", origin)
                              ).fetchall()
         return [r for r in rows if r[0] not in skip]
 
     def exact(self, question: str, mode: str, origin: str, skip: set) -> Optional[Hit]:
-        rows = self._rows("mode = ? AND question = ?", (mode, _norm(question)), origin, skip)
+        rows = self._rows("asked, answer", "mode = ? AND question = ?", (mode, _norm(question)), origin, skip)
         return Hit(rows[0][0], Answer.model_validate_json(rows[0][2]), rows[0][1], None) if rows else None
 
     def near(self, vec: list[float], mode: str, origin: str, skip: set, threshold: float) -> Optional[Hit]:
         """The most similar stored question at or above `threshold`, ties to the newest."""
         best = None
-        for rid, asked, answer, blob in self._rows("mode = ? AND vec IS NOT NULL", (mode,), origin, skip):
+        for rid, asked, blob in self._rows("asked, vec", "mode = ? AND vec IS NOT NULL", (mode,), origin, skip):
             sim = embeddings.cosine(vec, array("f", blob).tolist())
-            if sim >= threshold and (best is None or sim > best[3]):
-                best = (rid, answer, asked, sim)
-        return Hit(best[0], Answer.model_validate_json(best[1]), best[2], best[3]) if best else None
+            if sim >= threshold and (best is None or sim > best[2]):
+                best = (rid, asked, sim)
+        if best is None:
+            return None
+        with self._db() as c:
+            answer = c.execute("SELECT answer FROM reuse WHERE id = ?", (best[0],)).fetchone()[0]
+        return Hit(best[0], Answer.model_validate_json(answer), best[1], best[2])
