@@ -83,21 +83,6 @@ def test_a_rewrite_replaces_its_copy_inside_the_passage_that_holds_it():
     assert "All in one" not in fixed.text
 
 
-def test_replay_carries_the_authored_sample_and_moves_no_score():
-    for scenario, score in (("A", 21.4), ("B", 27.9)):
-        run = replay(scenario)
-        assert run.retrieval.provenance == "synthetic" and run.retrieval.model is None
-        assert run.drift.alignment == score
-        ids = {p.id for p in run.probes}
-        fixes = {a.attribute_id: a for a in run.win_back}
-        for r in run.retrieval.rows:
-            assert r.probe_id in ids and r.yours and r.rival
-            if r.fixed:
-                assert r.fixed.text == fixes[r.fix_attribute_id].rewrite
-                assert r.probe_id in fixes[r.fix_attribute_id].question_ids
-        assert "authored, not computed" in " ".join(run.log)
-
-
 def test_a_test_transport_never_runs_the_simulation():
     assert live.LiveProvider([object()], [], transport=lambda *a: None).retrieval is None
 
@@ -133,7 +118,6 @@ def api(tmp_path, monkeypatch):
     monkeypatch.setattr(reports, "DATA", tmp_path)
     monkeypatch.setattr(reports, "RUNS", runs)
     monkeypatch.setenv(live.KEY_ENV, "sk-fake-never-sent")
-    monkeypatch.delenv(access.PUBLIC_ENV, raising=False)
     run = replay()
     run.mode = "live_api"
     run.id = "ae5c000001"

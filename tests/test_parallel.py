@@ -103,7 +103,7 @@ def is_brand(q):
 
 
 def test_the_aimed_front_is_asked_while_the_brand_questions_are():
-    clock = Clock(delay=lambda q: 0.15 if is_brand(q) else 0.02)
+    clock = Clock(delay=lambda q: 0.08 if is_brand(q) else 0.01)
     run, _ = measure(clock)
     brand_start, brand_end = clock.span(is_brand)
     aimed_start, _ = clock.span(lambda q: q in AIM_QS)
@@ -112,7 +112,7 @@ def test_the_aimed_front_is_asked_while_the_brand_questions_are():
 
 
 def test_the_placed_front_starts_without_waiting_for_the_aimed_front():
-    clock = Clock(delay=lambda q: 0.5 if q in AIM_QS else 0.01)
+    clock = Clock(delay=lambda q: 0.2 if q in AIM_QS else 0.01)
     run, _ = measure(clock)
     _, aimed_end = clock.span(lambda q: q in AIM_QS)
     placed_start, _ = clock.span(lambda q: q in PLACED_QS)
@@ -207,7 +207,7 @@ def test_a_run_that_fails_drops_only_its_own_queued_asks():
             raise access.Refused("capped")
         return Clock(delay=lambda q: 0.01)(messages, model, timeout)
 
-    good, bad = {}, {}
+    good = {}
     t = threading.Thread(target=lambda: good.update(run=measure(Clock(delay=lambda q: 0.01), dispatcher=d)[0]))
     t.start()
     with pytest.raises(access.Refused):
@@ -281,9 +281,11 @@ def test_an_exhausted_quota_is_not_waited_on(monkeypatch):
         access.openai_response(5, model="gpt-6-luna", input="hi")
 
 
-def test_calls_under_way_count_against_a_pass_so_concurrency_cannot_overspend_it(tmp_path, monkeypatch):
+@pytest.fixture
+def capped_pass(tmp_path, monkeypatch):
+    """A pass under one call's estimate, so a second call must wait, and a model that holds the call
+    "first" until the gate opens: -> (pass id, gate, inputs made)."""
     monkeypatch.setattr(access, "db_path", lambda: tmp_path / "access.db")
-    pid = access.create_pass("tester", 0.001)   # under one call's estimate: a second must wait
     gate, made = threading.Event(), []
 
     def create(timeout, **kw):
@@ -294,6 +296,11 @@ def test_calls_under_way_count_against_a_pass_so_concurrency_cannot_overspend_it
         return {"usage": {"input_tokens": 400_000, "output_tokens": 0}}
 
     monkeypatch.setattr(access, "_create", create)
+    return access.create_pass("tester", 0.001), gate, made
+
+
+def test_calls_under_way_count_against_a_pass_so_concurrency_cannot_overspend_it(capped_pass):
+    pid, gate, made = capped_pass
     refused = []
 
     def call(text):
@@ -357,18 +364,8 @@ def test_one_429_pauses_every_call_once_and_a_call_is_tried_a_bounded_number_of_
     assert len(tries) == access.RATE_LIMIT_RETRIES + 1
 
 
-def test_a_pass_at_its_cap_waits_in_the_queue_not_on_a_shared_worker(tmp_path, monkeypatch):
-    monkeypatch.setattr(access, "db_path", lambda: tmp_path / "access.db")
-    pid = access.create_pass("tester", 0.001)   # one call under way takes it to its cap
-    gate, made = threading.Event(), []
-
-    def create(timeout, **kw):
-        made.append(kw["input"])
-        if kw["input"] == "first":
-            gate.wait()
-        return {"usage": {"input_tokens": 400_000, "output_tokens": 0}}
-
-    monkeypatch.setattr(access, "_create", create)
+def test_a_pass_at_its_cap_waits_in_the_queue_not_on_a_shared_worker(capped_pass):
+    pid, gate, made = capped_pass
     ask = lambda text: access.openai_response(5, model="gpt-4o-mini", input=text)
     d = dispatch.Dispatcher(3)
     with access.spending(pid):   # all at once: no worker may take a second before the first has reserved

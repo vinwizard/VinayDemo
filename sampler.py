@@ -95,18 +95,17 @@ def rate(run: Run, ids: set[str]) -> tuple[int, int]:
     return k, n
 
 
-def decide(run: Run, spent: float = 0.0, front: Optional[str] = None, committed: int = 0,
-           per_ask: float = 0.0) -> list[str]:
-    """After look 1: which fronts stop, which go on to look 2. -> the probe ids released for look 2.
-    A front whose look 2 would take the run past its budget stops, its margin not met. With `front`,
-    only that one decides — a front decides as soon as its own look 1 is in — and `committed` is how
-    many asks the run has under way and not yet paid for, each counted at `per_ask`, what one
-    measured ask has cost so far: so the budget sees the run's whole spend, whichever answers are in."""
+def decide(run: Run, spent: float, front: str, committed: int, per_ask: float) -> list[str]:
+    """After `front`'s look 1 is in: does it stop, or go on to look 2? -> the probe ids released for
+    look 2. A front whose look 2 would take the run past its budget stops, its margin not met.
+    `committed` is how many asks the run has under way and not yet paid for, each counted at
+    `per_ask`, what one measured ask has cost so far: so the budget sees the run's whole spend,
+    whichever answers are in."""
     report = run.sampler
     fronts = front_of(run)
     released = []
     for f in report.fronts:
-        if front is not None and f.front != front:
+        if f.front != front:
             continue
         ids = {pid for pid, fr in fronts.items() if fr == f.front and pid not in report.held}
         k, n = rate(run, ids)
@@ -121,17 +120,16 @@ def decide(run: Run, spent: float = 0.0, front: Optional[str] = None, committed:
         released += waiting
         f.look, f.asked = 2, f.pool
     report.held = [pid for pid in report.held if pid not in set(released)]
-    report.decided = front is None
     return released
 
 
-def drop_unasked(run: Run, front: Optional[str] = None) -> None:
-    """The questions a front never needed leave the run's probes (and any topic left empty) for
+def drop_unasked(run: Run, front: str) -> None:
+    """The questions `front` never needed leave the run's probes (and any topic left empty) for
     `unasked`, so every reader of the run sees only what was asked; the frozen hash covers both.
-    With `front`, only that front's: the others may still be waiting for their look 1."""
+    Only that front's: the others may still be waiting for their look 1."""
     report = run.sampler
     fronts = front_of(run)
-    held = {pid for pid in report.held if front is None or fronts.get(pid) == front}
+    held = {pid for pid in report.held if fronts.get(pid) == front}
     report.unasked += [p for p in run.probes if p.id in held]
     run.probes = [p for p in run.probes if p.id not in held]
     kept = {p.topic_id for p in run.probes}
@@ -156,9 +154,3 @@ def finish(run: Run) -> None:
 def frozen(run: Run) -> list[Probe]:
     """The pool as frozen: what was asked plus what was not needed, in id order."""
     return sorted([*run.probes, *(run.sampler.unasked if run.sampler else [])], key=lambda p: p.id)
-
-
-if __name__ == "__main__":
-    assert looks(20) == (10, 23) and looks(15) == (16, 43)   # the design review's numbers
-    assert looks(50)[0] <= looks(50)[1] < looks(20)[1]
-    print("ok")

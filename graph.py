@@ -14,11 +14,9 @@ from agents import ana, evaluation, win_back
 from labels import probe_name
 from schemas import Run, VisibilitySet
 from scoring import (MIN_INTERVAL_ANSWERS, echo_draws, gap_verdict, interval, low_confidence, score_topic,
-                     visibility_by_question, visibility_draws, visibility_over_tries)
+                     visibility_by_question, visibility_draws, visibility_range)
 
 MAX_NAMED = 8
-MAX_FOLLOWUP = 4
-MAX_ADAPTIVE_ROUNDS = 1
 RECURSION_LIMIT = 25
 
 
@@ -27,38 +25,9 @@ def max_baseline() -> int:
     return ana.max_topics() * ana.PER_TOPIC
 
 
-def repeat_sampled(buyer: list, n: int) -> list:
-    """The `n` buyer questions that are asked BUYER_TRIES times instead of once.
-
-    Evenly spaced through the planned order rather than the first `n`, because the fronts are
-    contiguous there: with two fronts and the default sample of 2, one question comes from each, so
-    the wobble is not read off one category alone. Deterministic, so a resumed run re-asks the same
-    questions and `try_no` keeps meaning the same thing.
-    """
-    if n <= 0 or not buyer:
-        return []
-    step = len(buyer) / min(n, len(buyer))
-    return [buyer[int(i * step)] for i in range(min(n, len(buyer)))]
-
-
-STAGES = {  # node -> (UI stage, logical agent). Both strings are shown to the reader verbatim.
-    "plan_brand": ("Topic planning", "Agent 2 · Question planner"),
-    "plan_aiming": ("Topic planning", "Agent 2 · Question planner"),
-    "perceive": ("Perception gap", "Agent 3 · Answer evaluation"),
-    "plan_buyer": ("Topic planning", "Agent 2 · Question planner"),
-    "validate_and_freeze": ("Topic planning", "Orchestrator"),
-    "execute_or_replay": ("Baseline / Follow-up", "Orchestrator"),
-    "evaluate": ("Gap evaluation", "Agent 3 · Answer evaluation"),
-    "choose_followup": ("Follow-up", "Agent 2 · Question planner"),
-    "measure_drift": ("Perception gap", "Agent 3 · Answer evaluation"),
-    "build_gap_report": ("Report", "Agent 3 · Answer evaluation"),
-}
-
-
 class State(TypedDict):
     run: Run
     provider: Any
-    rounds: int
     asks: Any        # Asks: this run's questions in flight
 
 
@@ -76,19 +45,16 @@ class Asks:
         self.pending: dict[tuple[str, int], Future] = {}
         self.decided: set = set()     # fronts the sampler has decided
 
-    def _ask(self, probe, try_no):
-        return self.provider.answer(probe) if try_no == 1 else self.provider.answer(probe, try_no=try_no)
-
     def submit(self, jobs: list) -> None:
         jobs = [(p, t) for p, t in jobs if (p.id, t) not in self.pending]
         if plan := getattr(self.provider, "plan_reuse", None):
             plan(jobs)    # here, on the graph thread: which asks reuse a stored answer never depends on timing
         for p, t in jobs:
             if self.dispatcher:
-                self.pending[(p.id, t)] = self.dispatcher.submit(self.key, self._ask, p, t)
+                self.pending[(p.id, t)] = self.dispatcher.submit(self.key, self.provider.answer, p, t)
             else:
                 fut = Future()
-                fut.set_result(self._ask(p, t))
+                fut.set_result(self.provider.answer(p, t))
                 self.pending[(p.id, t)] = fut
 
     def cancel(self) -> None:
@@ -107,8 +73,7 @@ def askable(run: Run, provider) -> list[tuple]:
     tries = getattr(provider, "tries", 1)
     have = {(a.probe_id, a.try_no) for a in run.repeat_answers}
     buyer_probes = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline" and p.id not in held]
-    sampled = ([p for p in buyer_probes if p.id in run.sampler.wobble] if run.sampler
-               else repeat_sampled(buyer_probes, getattr(provider, "repeat_sample", 0)))
+    sampled = [p for p in buyer_probes if run.sampler and p.id in run.sampler.wobble]
     return [(p, 1) for p in todo] + [(p, t) for p in sampled for t in range(2, tries + 1) if (p.id, t) not in have]
 
 
@@ -118,7 +83,7 @@ FRONT_ORDER = {"placed": 0, "both": 0, "aiming": 1, None: 2}
 def canonical(run: Run) -> None:
     """Saved order never depends on which answer came back first. It is the order a run asking one
     step at a time had: the placed front, the aimed one, the claims' questions, then the brand
-    questions and the follow-ups; answers brand first, then look 1, look 2 and the follow-ups."""
+    questions and the comparison; answers brand first, then look 1, look 2 and the comparison."""
     rank = lambda t: 3 if t.kind == "perception" else FRONT_ORDER[t.front]
     run.topics.sort(key=rank)
     of = {t.id: rank(t) for t in run.topics}
@@ -181,7 +146,6 @@ def plan_aiming(s: State):
     topics, probes = early(run.profile)
     if not probes:
         return {"run": run}   # nothing to ask on it; plan_buyer says why
-    fill_fit(run, topics)
     if errors := ana.validate_probes(probes, topics, run.profile):
         raise ValidationError("; ".join(errors))
     run.topics, run.probes = topics + run.topics, probes + run.probes
@@ -194,13 +158,6 @@ def plan_aiming(s: State):
     s["asks"].submit(askable(run, provider))
     return {"run": run}
 
-
-def fill_fit(run: Run, topics: list) -> None:
-    """Fit evidence always resolves against the approved profile."""
-    points = {pp.id: pp for pp in run.profile.positioning_points}
-    for t in topics:
-        t.fit_evidence_ids = t.fit_evidence_ids or [e for pid in t.positioning_point_ids if pid in points
-                                                    for e in points[pid].evidence_ids]
 
 
 def perceive(s: State):
@@ -252,7 +209,6 @@ def plan_buyer(s: State):
                                     run.observations or {})
     placed = ana.placed_attribute(scores, run.attributes, run.profile)
     topics, probes = provider.plan(run.profile, placed)
-    fill_fit(run, topics)
     merge_plan(run, topics, probes)
     if "aiming" in s["asks"].decided and any(t.front == "both" for t in topics):
         s["asks"].decided.add("both")    # the aimed front, decided already, is now the shared set
@@ -347,7 +303,7 @@ def execute_or_replay(s: State):
     asks.submit(askable(run, provider))
     brand_stage = run.baseline_hash is None
     named = {p.id for p in run.probes if p.kind == "named"}
-    phase = {p.id: ("follow-up" if p.phase == "followup" else "brand" if p.kind == "named" else "buyer")
+    phase = {p.id: ("comparison" if p.phase == "followup" else "brand" if p.kind == "named" else "buyer")
              for p in run.probes}
     got: list = []
 
@@ -439,12 +395,10 @@ def evaluate(s: State):
     evaluate_new(run)
     ev = {e.probe_id: e for e in run.evaluations}
     run.topic_evaluations = []
-    for phase in ("baseline", "followup"):
-        for t in [x for x in run.topics if x.kind == "buyer"]:
-            ps = [p for p in run.probes if p.topic_id == t.id and p.phase == phase
-                  and p.kind == "blind" and p.id in ev]
-            if ps:
-                run.topic_evaluations.append(score_topic(t, phase, [answers[p.id] for p in ps], [ev[p.id] for p in ps]))
+    for t in [x for x in run.topics if x.kind == "buyer"]:
+        ps = [p for p in run.probes if p.topic_id == t.id and p.phase == "baseline" and p.kind == "blind" and p.id in ev]
+        if ps:
+            run.topic_evaluations.append(score_topic(t, [answers[p.id] for p in ps], [ev[p.id] for p in ps]))
     # a front's answers may have been evaluated already, to decide its look 2: the count is the run's so far
     run.log.append(f"Evaluated {len(run.evaluations)} answers so far "
                    f"({sum(not e.valid for e in run.evaluations)} need review / failed).")
@@ -452,34 +406,28 @@ def evaluate(s: State):
 
 
 def choose_followup(s: State):
+    """The one follow-up: compare the brand to the competitors the baseline answers named. Only a
+    live provider can answer a question nobody authored, and its wording is not known until the
+    baseline answers name somebody, so replay never asks it. Planned once, never re-planned."""
     run = s["run"]
-    if s["rounds"] >= MAX_ADAPTIVE_ROUNDS:
+    if run.mode != "live_api" or any(p.id == ana.COMPARISON_PROBE_ID for p in run.probes):
         return {"run": run}
-    d = ana.choose_followup(run.topics, run.topic_evaluations, run.evaluations, run.probes,
-                            s["provider"].followup_bank(), run.profile)
-    d.new_probes = d.new_probes[:MAX_FOLLOWUP]
-    if run.mode == "live_api":
-        # Only a live provider can answer a question nobody authored, and this one's wording is not
-        # known until the baseline answers name somebody. A replay provider would return an error
-        # answer for it, so fixture runs never ask it.
-        if names := ana.discovered_competitors(run.topic_evaluations):
-            p = ana.comparison_probe(run.profile, names, d.evidence_probe_ids)
-            if leaks := ana.attribute_leaks(p.text, run.attributes):
-                run.log.append(f"Comparison question dropped: a competitor's name collides with the "
-                               f"attribute(s) being measured ({', '.join(leaks)}).")
-            else:
-                d.new_probes.append(p)
-                run.log.append(f"Competitors discovered, not asked for: {', '.join(names)}.")
-    run.decisions.append(d)
-    run.probes += d.new_probes
-    run.log.append(f"Follow-up decision: {d.rationale}")
-    return {"run": run, "rounds": s["rounds"] + 1}
+    if names := ana.discovered_competitors(run.topic_evaluations):
+        named = {e.probe_id for e in run.evaluations if set(e.competitor_recommendations) & set(names)}
+        p = ana.comparison_probe(run.profile, names, [p.id for p in run.probes if p.id in named and p.kind == "blind"])
+        if leaks := ana.attribute_leaks(p.text, run.attributes):
+            run.log.append(f"Comparison question dropped: a competitor's name collides with the "
+                           f"attribute(s) being measured ({', '.join(leaks)}).")
+        else:
+            run.probes.append(p)
+            run.log.append(f"Competitors discovered, not asked for: {', '.join(names)}.")
+    return {"run": run}
 
 
 def route_after_followup(s: State) -> str:
     run = s["run"]
     pending = [p for p in run.probes if p.id not in {a.probe_id for a in run.answers}]
-    return "execute_or_replay" if pending and s["rounds"] <= MAX_ADAPTIVE_ROUNDS else "measure_drift"
+    return "execute_or_replay" if pending else "measure_drift"
 
 
 def measure_drift(s: State):
@@ -525,7 +473,7 @@ def score_drift(run: Run) -> None:
     # the WOBBLE — the same repeat-sampled questions scored try by try — not a second estimate of
     # the whole run, which is what the confidence interval below is for.
     visibility = visibility_by_question(per_question([p.id for p in blind]))
-    _, spread = visibility_over_tries(
+    spread = visibility_range(
         [[e.strength for e in counted if e.probe_id in repeated and e.try_no == t]
          for t in range(1, tries + 1)])
     # provenance is read off the answers that actually fed the perception layer — never hardcoded,
@@ -587,7 +535,7 @@ def score_drift(run: Run) -> None:
         ids = {p.id for p in blind if topic[p.topic_id].front == front}
         mine = [e for e in counted if e.probe_id in ids]
         vis = visibility_by_question(per_question(sorted(ids)))
-        _, rng = visibility_over_tries(
+        rng = visibility_range(
             [[e.strength for e in mine if e.probe_id in repeated and e.try_no == t]
              for t in range(1, tries + 1)])
         control = next((p for p in run.probes if p.phase == "control"
@@ -667,7 +615,6 @@ def build_gap_report(s: State):
     run = s["run"]
     if frozen_hash(run) != run.baseline_hash:
         raise ValidationError("baseline changed after freeze")
-    run.findings = evaluation.build_findings(run.topics, run.topic_evaluations, run.evaluations, run.probes)
     # After every score exists, over saved answers and pages only: it reads the zones, never moves them.
     win_back.plan(run, s["provider"])
     if run.win_back or run.win_back_notes:
@@ -676,7 +623,7 @@ def build_gap_report(s: State):
     simulate_retrieval(run, s["provider"])
     map_positioning(run, getattr(s["provider"], "positioning", None))
     run.status = "complete"
-    run.log.append(f"Gap report built: {len(run.findings)} findings.")
+    run.log.append("Report built.")
     return {"run": run}
 
 
@@ -765,7 +712,7 @@ def stream(run: Run, provider, dispatcher: Optional[dispatch.Dispatcher] = None)
     process-wide one by default, keyed by this run and the pass paying for it; a run that fails or
     is closed early drops whatever it still has queued there, and nothing of any other run's."""
     asks = Asks(provider, dispatcher or dispatch.shared(), (run.id, access.SPENDER.get()))
-    state = {"run": run, "provider": provider, "rounds": 0, "asks": asks}
+    state = {"run": run, "provider": provider, "asks": asks}
     try:
         for update in GRAPH.stream(state, {"recursion_limit": RECURSION_LIMIT}, stream_mode="updates"):
             for node, out in update.items():

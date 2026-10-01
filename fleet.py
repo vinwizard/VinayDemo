@@ -7,8 +7,8 @@ company and what would change it, at the same time (WEB.md, "Investigation fleet
   investigators  why.start, one per claim and question, FLEET_CONCURRENCY at a time.
   critic         code rules on each finished investigation: thin, at a ceiling, not reproducible,
                  quoting off the claim, contradicting another question's verdict.
-  planner        code ranks the accepted verdicts and copies every number from an arm; one model
-                 call words the lines, and a line is kept only if it adds no number and no page.
+  planner        code ranks the accepted verdicts and copies every number from an arm into a
+                 templated line.
   verifier       verify.py, later, once a fix is live.
 
 Agents never call each other. They exchange typed FleetEvents on one append-only log (EventLog), which
@@ -18,21 +18,18 @@ read and never written; investigations are counterfactual replays and never reac
 """
 import json
 import queue
-import re
 import threading
 import time
 import uuid
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextvars import copy_context
-from typing import Callable, Optional
+from typing import Optional
 
 import access
 import config
 import reports
 import why
 from agents import ana, evaluation
-from agents.evaluator_model import json_object
-from agents.onboarding_model import MARKETING
 from providers import live
 from scoring import domain_matches
 from schemas import (ActionPlan, Challenge, FleetEvent, FleetTask, Investigation, PlanItem, Run, utc_now)
@@ -42,12 +39,11 @@ CONCURRENCY_ENV, DEFAULT_CONCURRENCY = "FLEET_CONCURRENCY", 3
 IN_FLIGHT = 18              # calls in flight across the fleet: the pilot peaked here with no 429 (2026-09-28)
 MAX_TASKS, MAX_TRIES, MAX_TURNS = 8, 2, 12
 FIRST_PICKS = 5             # what code dispatches when the coordinator cannot
-WRITER_RESERVE = 0.05       # held back from the purse until the plan is written
-TASK_DEADLINE_S = live.LIMITS["investigation_deadline_s"]
+TASK_DEADLINE_S = 600
 FLEET_DEADLINE_S = 1200
 CEILING = 0.9               # a base replay rate this high leaves a fix no room to show a rise
 MEAN_COST, MEAN_MINUTES = 0.36, 4.8   # one investigation in the pilot (2026-09-28): for the estimate
-MAX_TERM = 40               # api/why.MAX_TERM: the same limit a user's own word has
+MAX_TERM = 40               # also the limit on a user's own word (api/why.py)
 
 
 def budget() -> float:
@@ -63,29 +59,24 @@ def concurrency() -> int:
 class EventLog:
     """DATA_DIR/fleets/<fleet id>.jsonl: one FleetEvent a line, numbered from 1. While the fleet runs its
     loop's thread is the only writer; a verifier appends once the fleet is done, under the same lock."""
-    _locks: dict[str, threading.Lock] = {}
-    _next: dict[str, int] = {}
-    _guard = threading.Lock()
+    # ponytail: one lock for every log, and each append counts its file's lines for the next number;
+    # a lock per file and a cached count if fleets ever run long or many at once
+    _lock = threading.Lock()
 
-    def __init__(self, fleet_id: str, spent: Callable[[], float] = lambda: 0.0):
+    def __init__(self, fleet_id: str):
         if not reports.ID.fullmatch(fleet_id):
             raise ValueError("bad fleet id")
-        self.id, self.spent = fleet_id, spent
+        self.id, self.spent = fleet_id, lambda: 0.0
         self.path = reports.FLEETS / f"{fleet_id}.jsonl"
-        with EventLog._guard:
-            self.lock = EventLog._locks.setdefault(str(self.path), threading.Lock())
 
     def append(self, kind: str, task_id: Optional[str] = None, **data) -> FleetEvent:
-        with self.lock:
-            key = str(self.path)
-            if key not in EventLog._next:
-                EventLog._next[key] = len(self.read()) + 1
-            event = FleetEvent(seq=EventLog._next[key], at=utc_now(), kind=kind, task_id=task_id, data=data,
+        with EventLog._lock:
+            seq = len(self.path.read_text().splitlines()) + 1 if self.path.exists() else 1
+            event = FleetEvent(seq=seq, at=utc_now(), kind=kind, task_id=task_id, data=data,
                                spent_usd=round(self.spent(), 4))
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with self.path.open("a") as f:
                 f.write(event.model_dump_json() + "\n")
-            EventLog._next[key] += 1
         return event
 
     def read(self, after: int = 0) -> list[FleetEvent]:
@@ -337,7 +328,7 @@ def digest(st: State) -> str:
 
 
 def coordinator_calls(st: State, model: str) -> list[tuple[str, dict]]:
-    r = access.openai_response(live.LIMITS["per_call_timeout_s"], model=model, tools=TOOLS, tool_choice="required",
+    r = access.openai_response(live.CALL_TIMEOUT_S, model=model, tools=TOOLS, tool_choice="required",
                                input=[{"role": "system", "content": COORDINATOR}, {"role": "user", "content": digest(st)}])
     calls = []
     for item in live._output_items(r):
@@ -503,7 +494,7 @@ class Coordinator:
         return None
 
 
-# ---------------------------------------------------------------- the planner/writer
+# ---------------------------------------------------------------- the planner
 ORDER = {"copy": 0, "authority": 1, "source": 2, "none": 3, "thin": 4, "untested": 5}
 
 
@@ -588,61 +579,10 @@ def plan(st: State) -> ActionPlan:
     return ActionPlan(items=items)
 
 
-WRITER = """You write the action plan for {name}'s marketing team. Each item below is a fix an experiment tested, already ranked, with a line written by code. Rewrite each line in plain words a marketer acts on: what to publish or get found, on which page, and what the experiment found. Keep the action the line gives; keep every number exactly as given and add none. Name the page the line names and no other. No marketing adjectives. At most 45 words a line.
-
-Return ONLY JSON: {{"lines": [{{"rank": <int>, "text": <string>}}]}}
-
-Items:
-{items}"""
-NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
-DOMAIN = re.compile(r"\b[\w-]+(?:\.[a-z]{2,})+(?:/[\w\-./%~]*[\w/])?", re.I)
-
-
-def acceptable(new, old: str) -> bool:
-    """A writer's line replaces the template's only if it adds no number, no page and no marketing word,
-    and still names the page the template names."""
-    if not evaluation.real(new) or len(new.split()) > 60:
-        return False
-    pages, named = set(DOMAIN.findall(new)), set(DOMAIN.findall(old))
-    return (set(NUMBER.findall(new)) <= set(NUMBER.findall(old)) and pages <= named and (pages or not named)
-            and not MARKETING.search(new))
-
-
-WORDED = ("copy", "authority")   # the fixes a marketer acts on; every other line stays code's own
-
-
-def write(p: ActionPlan, run: Run, model: str) -> None:
-    """One model call words the tested fixes; code keeps each line only if `acceptable`, else the
-    template's. Sources, what copy cannot move and what did not decide keep code's lines: on the live
-    Amgen fleet (2026-09-28) the writer turned "AI says it because of a line of the SEC filing" into
-    "remove them", and "not decided" into instructions to test more."""
-    worded = [i for i in p.items if i.fix in WORDED]
-    if not worded:
-        return
-    items = "\n".join(f"{i.rank}. [{i.fix}] {i.claim}: {i.text}" for i in worded)
-    try:
-        r = access.openai_response(live.LIMITS["per_call_timeout_s"], model=model,
-                                   input=WRITER.format(name=run.profile.name, items=items))
-        lines = json_object(live.parse_response(r)[0]).get("lines")
-    except (Exception, access.PurseEmpty, access.Refused) as e:
-        p.notes.append(f"The writer's call failed ({type(e).__name__}), so every line is the template's.")
-        return
-    by_rank, kept = {i.rank: i for i in worded}, 0
-    for line in lines if isinstance(lines, list) else []:
-        item = by_rank.get(line.get("rank")) if isinstance(line, dict) else None
-        if item and acceptable(line.get("text"), item.text):
-            item.text, kept = " ".join(line["text"].split()), kept + 1
-    p.written_by = model if kept else "template"
-    if kept < len(worded):
-        p.notes.append(f"{len(worded) - kept} of {len(worded)} fix line(s) are the template's: the writer's version "
-                       "added a number or a page, dropped the page, or was missing.")
-
-
 # ---------------------------------------------------------------- the loop
 def investigate(run: Run, task: FleetTask, resolved, emit, cancel: threading.Event) -> Investigation:
-    from agents.evaluator_model import ModelEvaluator
     lab = why.Lab(resolved.model, resolved.tool)
-    evaluator = None if task.term else ModelEvaluator(model=resolved.judge, transport=lab.judge_transport)
+    evaluator = None if task.term else lab.evaluator(resolved.judge)
     return why.start(run, task.attribute_id, task.question, probe_id=task.probe_id, term=task.term, lab=lab,
                      evaluator=evaluator, emit=emit, budget_usd=task.budget_usd, cancel=cancel)
 
@@ -652,11 +592,10 @@ def new_id() -> str:
 
 
 def execute(run: Run, log: EventLog, resolved, pass_id: Optional[str] = None, budget_usd: Optional[float] = None,
-            lanes: Optional[int] = None, task_deadline: float = TASK_DEADLINE_S,
-            deadline: float = FLEET_DEADLINE_S) -> str:
+            lanes: Optional[int] = None, task_deadline: float = TASK_DEADLINE_S) -> str:
     """Runs one fleet to its end on a saved live run. -> its status. The caller sets the paying pass
     (access.spending); every thread this starts inherits it and the purse."""
-    purse = access.Purse(budget_usd or budget(), WRITER_RESERVE, IN_FLIGHT)
+    purse = access.Purse(budget_usd or budget(), in_flight=IN_FLIGHT)
     log.spent = lambda: purse.spent
     lanes = lanes or concurrency()
     st = State(run, purse)
@@ -665,8 +604,6 @@ def execute(run: Run, log: EventLog, resolved, pass_id: Optional[str] = None, bu
     log.append("started", fleet_id=log.id, run_id=run.id, company=run.profile.name, budget_usd=purse.limit,
                concurrency=lanes, why_budget_usd=why.budget(), model=resolved.model, coordinator=resolved.judge,
                max_tasks=MAX_TASKS)
-    log.append("shortlist", candidates=[{k: c[k] for k in ("attribute_id", "label", "kind", "zone", "mentioned",
-                                                           "endorsed", "negative", "n")} for c in st.candidates.values()])
     inbox: queue.Queue = queue.Queue()
     running: dict = {}   # future -> (task, cancel flag, started)
     status = "complete"
@@ -706,7 +643,7 @@ def execute(run: Run, log: EventLog, resolved, pass_id: Optional[str] = None, bu
                     log.append("accepted", task.id, by="code", reason="The critic found nothing to challenge.")
             if done:
                 coordinator.turn()
-            late = time.monotonic() - t0 > deadline
+            late = time.monotonic() - t0 > FLEET_DEADLINE_S
             if late and not st.finished:
                 st.finished, status = True, "stopped"
                 for task in st.queue:
@@ -721,10 +658,7 @@ def execute(run: Run, log: EventLog, resolved, pass_id: Optional[str] = None, bu
         for tid in st.pending():
             st.decided[tid] = "accepted"
             log.append("accepted", tid, by="code", reason="Accepted as it stood when the fleet ended.")
-        purse.release_reserve()
-        p = plan(st)
-        write(p, run, resolved.judge)
-        log.append("planned", plan=p.model_dump())
+        log.append("planned", plan=plan(st).model_dump())
     if st.refused:
         status = "stopped"
     log.append("done", status=status, wall_s=round(time.monotonic() - t0, 1), spent_usd=round(purse.spent, 4),
@@ -743,8 +677,6 @@ def drain(inbox: queue.Queue, log: EventLog) -> None:
             log.append("progress", tid, text=payload.get("text", ""))
         elif kind == "arm":
             log.append("arm", tid, arm=payload)
-        elif kind == "verdict":
-            log.append("verdict", tid, verdict=payload)
 
 
 def outcome(f, task: FleetTask, st: State, log: EventLog, pass_id: Optional[str]) -> Optional[Investigation]:

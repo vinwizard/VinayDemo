@@ -8,6 +8,7 @@ import { GLOSSARY } from "./glossary";
 import { day } from "./labels";
 import { checkProblems } from "./quickwins";
 import { Popover, Term } from "./popover";
+import { Block, Section } from "./report/ui";
 
 const MARK: Record<AuditStatus, string> = { pass: "✓", fail: "✕", unknown: "?" };
 const SAID: Record<AuditStatus, string> = { pass: "passes", fail: "fails", unknown: "could not check" };
@@ -155,8 +156,8 @@ function AuditBody({ audit, name, siteSays, recheck, busy }: {
 
 /** The whole section. Folded (the claims step) it shows only its one-line finding; `flat` (a report
  * sub-tab) it is a titled section with everything showing. */
-export function SiteReadability({ audit, name, siteSays, open, flat, onRecheck }: {
-  audit: SiteAudit | null; name?: string; siteSays?: string | null; open?: boolean; flat?: boolean;
+export function SiteReadability({ audit, name, siteSays, flat, onRecheck }: {
+  audit: SiteAudit | null; name?: string; siteSays?: string | null; flat?: boolean;
   onRecheck?: () => Promise<unknown>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -171,26 +172,8 @@ export function SiteReadability({ audit, name, siteSays, open, flat, onRecheck }
       {error && <div className="callout error">{error}</div>}
     </>
   );
-  if (flat) {
-    return (
-      <section className="panel-sec audit">
-        <div className="panel-sec-head">
-          <h3>Can AI read your site?</h3>
-          <span className="block-found">{audit ? auditFinding(audit) : "Not checked yet"}</span>
-        </div>
-        {body}
-      </section>
-    );
-  }
-  return (
-    <details className="block audit" open={open}>
-      <summary>
-        <span className="block-title">Can AI read your site?</span>
-        <span className="block-found">{audit ? auditFinding(audit) : "Not checked yet"}</span>
-      </summary>
-      <div className="block-body">{body}</div>
-    </details>
-  );
+  const Frame = flat ? Section : Block;
+  return <Frame className="audit" title="Can AI read your site?" found={audit ? auditFinding(audit) : "Not checked yet"}>{body}</Frame>;
 }
 
 /** The report tab's diagnosis sections. */
@@ -199,16 +182,12 @@ export function WhyAIMisses({ run }: { run: Run }) {
     return <SiteReadability audit={run.audit} name={run.profile.name} siteSays={run.profile.positioning_points?.[0]?.text} flat />;
   }
   return (
-    <section className="panel-sec audit">
-      <div className="panel-sec-head">
-        <h3>Can AI read your site?</h3>
-        <span className="block-found">Not checked for this run</span>
-      </div>
+    <Section className="audit" title="Can AI read your site?" found="Not checked for this run">
       <p className="muted" style={{ margin: 0 }}>
         {run.mode === "demo_replay"
           ? "A sample run has no real site to read."
           : "This run was measured before the site check existed. Check the site again from the company’s claims step, then measure: the next run carries the result."}
       </p>
-    </section>
+    </Section>
   );
 }

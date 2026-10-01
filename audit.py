@@ -19,6 +19,7 @@ turns automated tools away is reported as not checked.
 Every fetch is SSRF-guarded (fetching.request), short, honours robots.txt for our own agent on the
 company's site, and a failure becomes an "unknown" line with its reason, never a guess.
 """
+import contextlib
 import json
 import re
 import time
@@ -137,10 +138,8 @@ class Page:
     def __post_init__(self):
         self.text = fetching.extract_text(self.html) if self.html else ""
         self.markup = _Markup()
-        try:
+        with contextlib.suppress(Exception):   # malformed markup: keep whatever parsed
             self.markup.feed(self.html or "")
-        except Exception:
-            pass                             # malformed markup: keep whatever parsed
 
     @property
     def thin(self) -> bool:

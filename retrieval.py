@@ -14,12 +14,11 @@ exists and moves none of them. Fetched text is untrusted DATA, only ever embedde
 import re
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
 from typing import Callable, Optional
 
 import embeddings
 import fetching
-from schemas import Reask, RetrievalRow, RetrievalSim, Run, ScoredPassage
+from schemas import Reask, RetrievalRow, RetrievalSim, Run, ScoredPassage, utc_now
 from scoring import domain_matches, mentions_alias
 
 PASSAGE_MIN, PASSAGE_MAX = 80, 150  # words per passage
@@ -192,4 +191,4 @@ def reask(run: Run, row: RetrievalRow, model: str) -> Reask:
                                                               {"role": "user", "content": user}])
     text, _, _ = parse_response(response)
     return Reask(named=mentions_alias(text, run.profile.names()), answer=text, model=model,
-                 collected_at=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+                 collected_at=utc_now())

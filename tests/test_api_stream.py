@@ -49,7 +49,7 @@ def test_journey(journey, scenario, alignment, landed):
     assert kinds[-1] == "done" and kinds.count("done") == 1
     nodes = [p["node"] for k, p in evs if k == "node"]
     # every node runs, plan_aiming too (a replay has no front to plan there, so it passes through)
-    assert set(nodes) == set(main.graph.STAGES)
+    assert set(nodes) == set(main.graph.GRAPH.nodes) - {"__start__"}
     answers = [p for k, p in evs if k == "answer"]
     assert answers and [a["done"] for a in answers] == list(range(1, len(answers) + 1))
     assert all(a["status"] == "ok" for a in answers)

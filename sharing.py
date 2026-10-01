@@ -18,9 +18,7 @@ Upgrade path: this is SQLite on the one instance's disk (DATA_DIR), and the simi
 every vector of the mode's last day in-process — fine for thousands of rows. Running several
 instances would need a shared store (Postgres with pgvector, say) behind these same four methods.
 """
-import contextlib
 import json
-import sqlite3
 import time
 from array import array
 from datetime import datetime, timezone
@@ -71,26 +69,18 @@ class Store:
     def __init__(self, path: Optional[Path] = None):
         self.path = path or default_path()
 
-    @contextlib.contextmanager
     def _db(self):
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self.path, timeout=10)
-        conn.execute("PRAGMA journal_mode=WAL")   # runs read while others write
-        try:
-            with conn:
-                conn.executescript("""
-                    CREATE TABLE IF NOT EXISTS pools (category TEXT NOT NULL, day TEXT NOT NULL,
-                        questions TEXT NOT NULL, PRIMARY KEY (category, day));
-                    CREATE TABLE IF NOT EXISTS reuse (id INTEGER PRIMARY KEY, pass TEXT NOT NULL,
-                        mode TEXT NOT NULL, question TEXT NOT NULL, asked TEXT NOT NULL,
-                        open INTEGER NOT NULL, origin TEXT NOT NULL, at REAL NOT NULL,
-                        answer TEXT NOT NULL, vec BLOB);
-                    CREATE INDEX IF NOT EXISTS reuse_exact ON reuse (mode, question, at);
-                    CREATE INDEX IF NOT EXISTS reuse_near ON reuse (mode, at) WHERE vec IS NOT NULL;
-                """)
-                yield conn
-        finally:
-            conn.close()
+        return reports.sqlite(self.path, """
+            PRAGMA journal_mode=WAL;  -- runs read while others write
+            CREATE TABLE IF NOT EXISTS pools (category TEXT NOT NULL, day TEXT NOT NULL,
+                questions TEXT NOT NULL, PRIMARY KEY (category, day));
+            CREATE TABLE IF NOT EXISTS reuse (id INTEGER PRIMARY KEY, pass TEXT NOT NULL,
+                mode TEXT NOT NULL, question TEXT NOT NULL, asked TEXT NOT NULL,
+                open INTEGER NOT NULL, origin TEXT NOT NULL, at REAL NOT NULL,
+                answer TEXT NOT NULL, vec BLOB);
+            CREATE INDEX IF NOT EXISTS reuse_exact ON reuse (mode, question, at);
+            CREATE INDEX IF NOT EXISTS reuse_near ON reuse (mode, at) WHERE vec IS NOT NULL;
+            """)
 
     def pool(self, category: str) -> list[str]:
         with self._db() as c:

@@ -7,29 +7,23 @@ import fetching
 from fetching import FetchError, UnsafeURL
 
 
-def stub_resolve(monkeypatch, addr: str):
+def stub_resolve(monkeypatch, *addrs: str):
     monkeypatch.setattr(fetching.socket, "getaddrinfo",
                         lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM,
-                                          socket.IPPROTO_TCP, "", (addr, 443))])
+                                          socket.IPPROTO_TCP, "", (addr, 443)) for addr in addrs])
 
 
 # --- scheme and shape --------------------------------------------------------
-@pytest.mark.parametrize("url", [
-    "file:///etc/passwd",
-    "ftp://example.com/x",
-    "gopher://example.com",
+@pytest.mark.parametrize("url,why", [
+    ("file:///etc/passwd", "scheme"),
+    ("ftp://example.com/x", "scheme"),
+    ("gopher://example.com", "scheme"),
+    ("http://localhost/", "without a dot"),   # localhost, container names and other internal short names
+    ("http://metadata/", "without a dot"),
 ])
-def test_non_http_schemes_refused(url):
-    with pytest.raises(UnsafeURL, match="scheme"):
+def test_non_http_schemes_and_dotless_hosts_refused(url, why):
+    with pytest.raises(UnsafeURL, match=why):
         fetching.validate(url)
-
-
-def test_hostname_without_a_dot_refused():
-    """Blocks 'localhost', container names and other internal short names."""
-    with pytest.raises(UnsafeURL, match="without a dot"):
-        fetching.validate("http://localhost/")
-    with pytest.raises(UnsafeURL, match="without a dot"):
-        fetching.validate("http://metadata/")
 
 
 # --- literal addresses -------------------------------------------------------
@@ -53,27 +47,15 @@ def test_public_literal_address_allowed():
 
 
 # --- DNS results -------------------------------------------------------------
-def test_hostname_resolving_to_loopback_refused(monkeypatch):
-    """The classic bypass: a public-looking name pointed at 127.0.0.1."""
-    stub_resolve(monkeypatch, "127.0.0.1")
+@pytest.mark.parametrize("addrs", [
+    ["127.0.0.1"],                    # the classic bypass: a public-looking name pointed at loopback
+    ["169.254.169.254"],              # cloud metadata
+    ["93.184.216.34", "10.1.2.3"],    # one public and one private: every address is checked
+])
+def test_hostname_resolving_to_a_non_public_address_refused(monkeypatch, addrs):
+    stub_resolve(monkeypatch, *addrs)
     with pytest.raises(UnsafeURL, match="non-public"):
         fetching.resolve_public("evil.example.com", 443)
-
-
-def test_hostname_resolving_to_metadata_ip_refused(monkeypatch):
-    stub_resolve(monkeypatch, "169.254.169.254")
-    with pytest.raises(UnsafeURL, match="non-public"):
-        fetching.resolve_public("metadata.example.com", 443)
-
-
-def test_every_resolved_address_is_checked(monkeypatch):
-    """A name answering with one public and one private address must be refused outright."""
-    monkeypatch.setattr(fetching.socket, "getaddrinfo", lambda *a, **k: [
-        (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("93.184.216.34", 443)),
-        (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("10.1.2.3", 443)),
-    ])
-    with pytest.raises(UnsafeURL, match="non-public"):
-        fetching.resolve_public("split.example.com", 443)
 
 
 def test_public_resolution_returns_the_address_used(monkeypatch):
@@ -114,24 +96,7 @@ def test_redirect_limit_enforced(monkeypatch):
         fetching.fetch_raw("https://example.com/")
 
 
-def test_non_html_content_type_refused(monkeypatch):
-    monkeypatch.setattr(fetching, "_get",
-                        lambda *a: (200, {"Content-Type": "application/zip"}, b"PK\x03\x04"))
-    stub_resolve(monkeypatch, "93.184.216.34")
-    with pytest.raises(FetchError, match="unsupported content type"):
-        fetching.fetch_raw("https://example.com/")
-
-
 # --- text extraction ---------------------------------------------------------
-def test_script_and_style_are_stripped():
-    html = ("<html><head><style>body{color:red}</style></head><body>"
-            "<script>alert('x')</script><h1>Connected workspace</h1>"
-            "<p>Docs and databases in one place.</p></body></html>")
-    text = fetching.extract_text(html)
-    assert "Connected workspace" in text and "Docs and databases in one place." in text
-    assert "alert" not in text and "color:red" not in text
-
-
 def test_extracted_text_is_capped():
     assert len(fetching.extract_text("<p>" + ("word " * 20_000) + "</p>")) <= fetching.MAX_CHARS
 
@@ -242,7 +207,8 @@ def test_icon_prefers_apple_touch_then_icon_then_favicon_and_only_http():
 # --- passages and robots.txt (retrieval.py) ---------------------------------------------------------
 
 def test_blocks_follow_headings_and_paragraphs():
-    html = "<h2>Pricing</h2><p>Free for <b>small</b> teams.</p><ul><li>One</li><li>Two</li></ul><script>x</script>"
+    html = ("<style>body{color:red}</style><h2>Pricing</h2><p>Free for <b>small</b> teams.</p>"
+            "<ul><li>One</li><li>Two</li></ul><script>alert('x')</script>")
     assert fetching.extract_blocks(html) == ["Pricing", "Free for small teams.", "One", "Two"]
     assert fetching.extract_text(html) == "Pricing Free for small teams. One Two"
 

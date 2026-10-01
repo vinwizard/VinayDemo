@@ -27,7 +27,6 @@ def probe(pid, kind="blind", phase="baseline"):
     ("np-8", "named", "baseline", "Branded question 8"),
     ("kb-2", "blind", "baseline", "Unbranded question 2"),
     ("ai_native-b1", "blind", "baseline", "Unbranded question 1"),
-    ("kb-f1", "blind", "followup", "Follow-up question 1"),
     ("kb-c1", "blind", "control", "Control question"),
 ])
 def test_probe_name(pid, kind, phase, expected):
@@ -54,17 +53,6 @@ def test_workflow_log_speaks_words_not_ids(run_a):
         assert not ID_SHAPED.search(line), line
 
 
-def test_followup_rationale_names_topics_and_keeps_the_ids_in_the_data(run_a):
-    d = run_a.decisions[0]
-    assert "Project tracking" in d.rationale and "Meeting documentation" in d.rationale
-    assert not ID_SHAPED.search(d.rationale), d.rationale
-    # display only: traceability still lives in the stored fields
-    assert d.selected_topics == ["pt", "mtg"]
-    assert d.evidence_probe_ids and all(ID_SHAPED.match(p) for p in d.evidence_probe_ids)
-
-
-BACKTICKED = re.compile(r"`[^`]*`")
-
 # One list of what a reader must never be shown: engine id shapes, stored provenance values and the
 # acronyms this task removed. Add the next word here.
 NEVER_SHOWN = re.compile("|".join([f"(?i:{ID_SHAPED.pattern})",
@@ -77,14 +65,8 @@ def test_engine_strings_never_leave_an_id_as_the_only_name(scenario):
     """The sentences the engine builds and a page prints whole; ids may only trail a name."""
     prov = fixture.FixtureProvider(scenario)
     run = graph.execute(graph.new_run(fixture.bundled_profile(scenario), prov), prov)
-    said = [*(x for f in run.findings for x in (f.observation, f.interpretation, f.suggested_action,
-                                                 f.exploratory_note or "", *f.limitations)),
-            *(d.rationale for d in run.decisions), *run.drift.excluded_reasons]
-    spoken = [BACKTICKED.sub("", s) for s in said]  # backticked ids are traceability, and always follow their name
-    assert [s for s in spoken if NEVER_SHOWN.search(s)] == []
-    # display only: the ids are still in the stored findings
-    stored = [i for f in run.findings for i in f.evidence_ids]
-    assert stored and all(ID_SHAPED.fullmatch(i) for i in stored)
+    said = [*run.drift.excluded_reasons, *run.drift.limitations]
+    assert said and [s for s in said if NEVER_SHOWN.search(s)] == []
     assert {a.provenance for a in run.answers} == {"synthetic"}
 
 
@@ -99,14 +81,11 @@ def test_exclusion_reasons_name_the_question(run_a):
 def test_the_browser_and_the_engine_speak_the_same_words():
     # labels.ts and labels.py drifted apart: "Experiment —" against "Experiment:", and a control
     # question was "Control question" on screen but "Unbranded question 1" in the engine's text.
-    from schemas import Topic
     probes = [probe(*args) for args in [("np-3", "named"), ("np-f1", "named", "followup"), ("kb-2",),
-                                        ("kb-f1", "blind", "followup"), ("kb-c1", "blind", "control"), ("x",)]]
-    topics = [Topic.model_construct(id="t", label="Project tracking")]   # only id and label are read
+                                        ("kb-c1", "blind", "control"), ("x",)]]
     script = (f"const m = await import({json.dumps(str(Path(labels.__file__).parent / 'web/src/labels.ts'))});"
-              f"console.log(JSON.stringify([m.PROVENANCE_LABEL, m.probeLabels({json.dumps([p.model_dump() for p in probes])},"
-              f" {json.dumps([t.model_dump() for t in topics])})]));")
+              f"console.log(JSON.stringify([m.PROVENANCE_LABEL, m.probeLabels({json.dumps([p.model_dump() for p in probes])})]));")
     out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, check=True)
     provenance, names = json.loads(out.stdout)
     assert provenance == labels.PROVENANCE_LABEL
-    assert names == labels.probe_names(probes, topics)
+    assert names == {p.id: labels.probe_name(p) for p in probes}

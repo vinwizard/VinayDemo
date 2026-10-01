@@ -20,7 +20,6 @@ from typing import Callable, Optional
 from agents.evaluation import CITATION
 from schemas import Answer, Attribute, CompanyProfile, Probe
 
-KEY_ENV = "OPENAI_API_KEY"
 MODEL_ENV = "EVALUATOR_MODEL"
 # The evaluator reads text it is handed: it needs no web search — `default_transport` below sends no
 # tools at all — and no flagship reasoning. It does need to copy exactly: on the same 19 linear.app
@@ -279,7 +278,6 @@ class ModelEvaluator:
         self.model = model or model_name()
         self._transport = transport or default_transport
         self.timeout = timeout
-        self.calls = 0
         self.failures: list[str] = []
 
     def label(self, probe: Probe, answer: Answer, attributes: list[Attribute],
@@ -287,7 +285,6 @@ class ModelEvaluator:
         """-> labels dict, or None if the evaluator failed. None means 'needs review', not 'absent'."""
         if answer.status != "ok" or not answer.text:
             return None
-        self.calls += 1
         try:
             labels = parse_labels(self._transport(
                 build_prompt(probe, answer, attributes, profile), self.model, self.timeout))
@@ -299,29 +296,21 @@ class ModelEvaluator:
     def discover(self, profile: CompanyProfile, attributes: list[Attribute],
                  answers: list[tuple[Probe, Answer]]) -> Optional[list]:
         """-> raw proposals for evaluation.discover_attributes to validate, or None if the call failed."""
-        self.calls += 1
-        try:
-            proposals = json_object(self._transport(
-                build_discovery_prompt(profile, attributes, answers), self.model, self.timeout)).get("proposals")
-            if not isinstance(proposals, list):
-                raise ValueError("discovery output has no proposals list")
-        except Exception as e:
-            self.failures.append(f"discovery: {type(e).__name__}: {e}")
-            return None
-        return proposals
+        return self._listed(build_discovery_prompt(profile, attributes, answers), "proposals", "discovery")
 
     def win_back(self, prompt: str) -> Optional[list]:
         """-> raw actions for win_back.validate, or None if the call failed."""
-        self.calls += 1
+        return self._listed(prompt, "actions", "win back")
+
+    def _listed(self, prompt: str, key: str, what: str) -> Optional[list]:
         try:
-            actions = json_object(self._transport(prompt, self.model, self.timeout)).get("actions")
-            if not isinstance(actions, list):
-                raise ValueError("action-plan output has no actions list")
+            out = json_object(self._ask(prompt)).get(key)
+            if not isinstance(out, list):
+                raise ValueError(f"{what} output has no {key} list")
         except Exception as e:
-            self.failures.append(f"win back: {type(e).__name__}: {e}")
+            self.failures.append(f"{what}: {type(e).__name__}: {e}")
             return None
-        return actions
+        return out
 
     def _ask(self, prompt: str) -> str:
-        self.calls += 1
         return self._transport(prompt, self.model, self.timeout)

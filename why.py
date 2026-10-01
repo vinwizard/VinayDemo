@@ -269,7 +269,7 @@ class Lab:
         self.model, self.tool = model, tool
         # asked as hard as the run asked it (live.reasoning_for), or a replay would change two things
         self.thinking = {"reasoning": r} if (r := live.reasoning_for(model)) else {}
-        self._transport = transport or (lambda **kw: access.openai_response(live.LIMITS["per_call_timeout_s"], **kw))
+        self._transport = transport or (lambda **kw: access.openai_response(live.CALL_TIMEOUT_S, **kw))
         self.spent = 0.0
         self._lock = threading.Lock()
 
@@ -316,6 +316,11 @@ class Lab:
         r = self.call(model=model, input=prompt, **extra)
         return getattr(r, "output_text", None) or live.parse_response(r)[0]
 
+    def evaluator(self, model: Optional[str] = None):
+        """The run's judge (EVALUATOR_MODEL unless `model`), its calls metered here."""
+        from agents.evaluator_model import ModelEvaluator
+        return ModelEvaluator(model=model, transport=self.judge_transport)
+
 
 class OverBudget(Exception):
     pass
@@ -327,6 +332,13 @@ class Cancelled(Exception):
 
 # ---------------------------------------------------------------- the investigation
 class Agent:
+    # Which live answer's reading list is replayed (one that said it), and how the baseline reads.
+    pick = True
+    LIVE = "Live: stated in {k} of {n} answers."
+    UNFAIR = ("Replayed, what the model read gives the claim in {bk} of {bn} answers against {k} of {n} live, so "
+              "the answer depends on more than what it read. No experiment on the reading list would be a fair test.")
+    FAIR = "Replayed, the reading list gives it in {bk} of {bn}: close enough to live to experiment on."
+
     def __init__(self, inv: Investigation, lab: Lab, judge: Judge, attribute: Attribute,
                  profile: CompanyProfile, rewrite: Optional[tuple[str, str]] = None,
                  emit: Callable[[str, dict], None] = lambda kind, payload: None,
@@ -369,12 +381,8 @@ class Agent:
         self.per_ask = (self.lab.spent - before) / need
         self.inv.spent_usd = round(self.lab.spent, 4)
 
-    def room(self, reserve: int = 0) -> int:
-        """Experiments still allowed (the base is not one), keeping `reserve` back."""
-        return MAX_ARMS - (len(self.inv.arms) - 1) - reserve
-
     def add(self, arm: WhyArm, reading: list[ReadStep], reserve: int = 0) -> Optional[WhyArm]:
-        if self.room(reserve) <= 0:
+        if MAX_ARMS - (len(self.inv.arms) - 1) - reserve <= 0:   # experiments left; the base is not one
             self.note(f"No room for “{arm.label}”: the interval is corrected for at most {MAX_ARMS} experiments.")
             return None
         self.readings[arm.id] = reading
@@ -408,7 +416,6 @@ class Agent:
 
     def verdict(self, kind: str, text: str, arm: Optional[WhyArm] = None, fix: Optional[str] = None) -> None:
         self.inv.verdicts.append(WhyVerdict(kind=kind, text=text, arm_id=arm.id if arm else None, fix=fix))
-        self.emit("verdict", self.inv.verdicts[-1].model_dump())
 
     # -- the steps
     def record(self) -> list[tuple[str, Optional[list[ReadStep]], Optional[bool], Optional[str], list]]:
@@ -434,34 +441,50 @@ class Agent:
         self.note(f"With search off it said it in {self.inv.off.k} of {self.inv.off.n} answers: "
                   + ("the model already believes it." if self.inv.off.k else "not something it says from memory."))
 
+    def baseline(self) -> Optional[WhyArm]:
+        """Record the live reading lists, ask with search off, then replay one in two looks. -> the base
+        arm, or None with a verdict when there is nothing fair to test on."""
+        inv = self.inv
+        with_reading = [o for o in self.record() if o[1]]
+        if not with_reading:
+            self.verdict("not_reproducible", "The model answered without searching, so there is no reading list to test.")
+            return None
+        say = dict(k=inv.live.k, n=inv.live.n, name=self.profile.name, verb=inv.counts)
+        self.note(self.LIVE.format(**say))
+        self.prior()
+        chosen = next((o for o in with_reading if o[2] is self.pick), with_reading[0])
+        inv.reading = chosen[1]
+        self.cited = self.cited_near(chosen[0], chosen[3], chosen[4])
+        base = self.add(WhyArm(id="base", kind="base", label="The recorded reading list, replayed", decided="base"),
+                        inv.reading)
+        self.ask_replays(base, LOOKS[0])
+        # one check, before any experiment: plain 95% on both sides
+        live_lo, live_hi = wilson(inv.live.k, inv.live.n)
+        base_lo, base_hi = wilson(base.k, base.n)
+        if inv.live.n and (base_hi < live_lo or base_lo > live_hi):
+            self.verdict("not_reproducible", self.UNFAIR.format(bk=base.k, bn=base.n, **say))
+            return None
+        self.note(self.FAIR.format(bk=base.k, bn=base.n, **say))
+        # whether AI says it at all decides which experiments run, so it gets the second look's asks
+        self.ask_replays(base, LOOKS[1])
+        return base
+
+    def stopped(self, e: Exception) -> Investigation:
+        """A budget or the fleet's deadline ended it: what ran is kept and said."""
+        ran = f"{max(0, len(self.inv.arms) - 1)} experiment(s) ran; what is below is as far as they got."
+        if isinstance(e, Cancelled):
+            self.verdict("cancelled", f"Stopped at the fleet's deadline: {ran}")
+        else:
+            limit = (f"the fleet's ${e.limit:.2f} budget" if isinstance(e, access.PurseEmpty)
+                     else f"the ${self.inv.budget_usd:.2f} budget")
+            self.verdict("budget", f"Stopped at {limit}: {ran}")
+        return self.finish("stopped")
+
     def run(self) -> Investigation:
         inv = self.inv
         try:
-            recorded = self.record()
-            with_reading = [o for o in recorded if o[1]]
-            if not with_reading:
-                self.verdict("not_reproducible", "The model answered without searching, so there is no reading list to test.")
+            if (base := self.baseline()) is None:
                 return self.finish("complete")
-            self.note(f"Live: stated in {inv.live.k} of {inv.live.n} answers.")
-            self.prior()
-            chosen = next((o for o in with_reading if o[2]), with_reading[0])
-            inv.reading = chosen[1]
-            self.cited = self.cited_near(chosen[0], chosen[3], chosen[4])
-            base = self.add(WhyArm(id="base", kind="base", label="The recorded reading list, replayed", decided="base"),
-                            inv.reading)
-            self.ask_replays(base, LOOKS[0])
-            # one check, before any experiment: plain 95% on both sides
-            live_lo, live_hi = wilson(inv.live.k, inv.live.n)
-            base_lo, base_hi = wilson(base.k, base.n)
-            if inv.live.n and (base_hi < live_lo or base_lo > live_hi):
-                self.verdict("not_reproducible",
-                             f"Replayed, what the model read gives the claim in {base.k} of {base.n} answers against "
-                             f"{inv.live.k} of {inv.live.n} live, so the answer depends on more than what it read. "
-                             "No experiment on the reading list would be a fair test.")
-                return self.finish("complete")
-            self.note(f"Replayed, the reading list gives it in {base.k} of {base.n}: close enough to live to experiment on.")
-            # whether AI says it at all decides which experiments run, so it gets the second look's asks
-            self.ask_replays(base, LOOKS[1])
             if base.k:
                 self.find_cause(reserve=0 if self.attribute.discovered else FIX_ARMS)
             elif self.attribute.discovered:
@@ -470,15 +493,8 @@ class Agent:
             if not self.attribute.discovered:
                 self.test_fixes()
             return self.finish("complete")
-        except (OverBudget, access.PurseEmpty) as e:
-            limit = f"the fleet's ${e.limit:.2f} budget" if isinstance(e, access.PurseEmpty) else f"the ${inv.budget_usd:.2f} budget"
-            self.verdict("budget", f"Stopped at {limit}: {max(0, len(inv.arms) - 1)} experiment(s) "
-                                   "ran; what is below is as far as they got.")
-            return self.finish("stopped")
-        except Cancelled:
-            self.verdict("cancelled", f"Stopped at the fleet's deadline: {max(0, len(inv.arms) - 1)} experiment(s) "
-                                      "ran; what is below is as far as they got.")
-            return self.finish("stopped")
+        except (OverBudget, access.PurseEmpty, Cancelled) as e:
+            return self.stopped(e)
 
     def finish(self, status: str) -> Investigation:
         self.inv.status = status
@@ -650,48 +666,23 @@ class RewriteAgent(Agent):
     the live reading lists, check a replay agrees with live, then test one arm, the rewrite on its page.
     AI read that page: the rewrite leads it (edit). It did not: the page is added to the search results
     (inject), and a rise then says the rewrite works once the page is found, which is its own job."""
+    pick = False   # the reading list of an answer that missed the company is the one a fix is for
+    LIVE = "Live: {verb} {name} in {k} of {n} answers."
+    UNFAIR = ("Replayed, what the model read {verb} {name} in {bk} of {bn} answers against {k} of {n} live, so the "
+              "answer depends on more than what it read. No test of the rewrite on the reading list would be fair.")
+    FAIR = "Replayed, the reading list {verb} {name} in {bk} of {bn}: close enough to live to test on."
 
     @property
     def said(self) -> str:
         return "recommended" if self.inv.counts == "recommends" else "named"
 
     def run(self) -> Investigation:
-        inv = self.inv
-        name, said = self.profile.name, self.said
-        verb = inv.counts
         try:
-            recorded = self.record()
-            with_reading = [o for o in recorded if o[1]]
-            if not with_reading:
-                self.verdict("not_reproducible", "The model answered without searching, so there is no reading list to test.")
-                return self.finish("complete")
-            self.note(f"Live: {said} {name} in {inv.live.k} of {inv.live.n} answers.")
-            self.prior()
-            # the reading list of an answer that missed the company is the one a fix is for
-            chosen = next((o for o in with_reading if o[2] is False), with_reading[0])
-            inv.reading = chosen[1]
-            base = self.add(WhyArm(id="base", kind="base", label="The recorded reading list, replayed", decided="base"),
-                            inv.reading)
-            self.ask_replays(base, LOOKS[0])
-            live_lo, live_hi = wilson(inv.live.k, inv.live.n)
-            base_lo, base_hi = wilson(base.k, base.n)
-            if inv.live.n and (base_hi < live_lo or base_lo > live_hi):
-                self.verdict("not_reproducible",
-                             f"Replayed, what the model read {verb} {name} in {base.k} of {base.n} answers against "
-                             f"{inv.live.k} of {inv.live.n} live, so the answer depends on more than what it read. "
-                             "No test of the rewrite on the reading list would be fair.")
-                return self.finish("complete")
-            self.ask_replays(base, LOOKS[1])
-            self.note(f"Replayed, the reading list {verb} {name} in {base.k} of {base.n}: close enough to live to test on.")
-            self.test_rewrite()
+            if self.baseline() is not None:
+                self.test_rewrite()
             return self.finish("complete")
-        except (OverBudget, access.PurseEmpty) as e:
-            limit = f"the fleet's ${e.limit:.2f} budget" if isinstance(e, access.PurseEmpty) else f"the ${inv.budget_usd:.2f} budget"
-            self.verdict("budget", f"Stopped at {limit} before the rewrite was decided.")
-            return self.finish("stopped")
-        except Cancelled:
-            self.verdict("cancelled", "Stopped at the deadline before the rewrite was decided.")
-            return self.finish("stopped")
+        except (OverBudget, access.PurseEmpty, Cancelled) as e:
+            return self.stopped(e)
 
     def test_rewrite(self) -> None:
         inv, name = self.inv, self.profile.name
@@ -735,9 +726,8 @@ def same_page(a: str, b: str) -> bool:
     return key(a) == key(b)
 
 
-def test_rewrite(run, attribute_id: str, probe_id: str, model: Optional[str] = None, lab: Optional[Lab] = None,
-                 evaluator=None, emit: Callable[[str, dict], None] = lambda kind, payload: None,
-                 budget_usd: Optional[float] = None, cancel: Optional[threading.Event] = None) -> Investigation:
+def test_rewrite(run, attribute_id: str, probe_id: str, *, lab: Lab, evaluator=None,
+                 emit: Callable[[str, dict], None] = lambda kind, payload: None) -> Investigation:
     """One quick win's replay test: the rewrite for `attribute_id` against the buyer question `probe_id`
     it was written for. -> the Investigation (kind "buyer"), complete or stopped. It counts the gap the
     question has: names, or recommends when the question already named the company."""
@@ -746,18 +736,16 @@ def test_rewrite(run, attribute_id: str, probe_id: str, model: Optional[str] = N
     probe = next((p for p in run.probes if p.id == probe_id), None)
     if action is None or probe is None or probe.kind != "blind" or probe_id not in action.question_ids:
         raise ValueError("only a suggested rewrite, against a buyer question it was written for, can be tested")
-    lab = lab or Lab(model or live.model_name(), live.search_tool())
     counts = "recommends" if verdicts(run).get(probe_id) == "named, not recommended" else "names"
     if counts == "recommends" and evaluator is None:
-        from agents.evaluator_model import ModelEvaluator
-        evaluator = ModelEvaluator(transport=lab.judge_transport)
+        evaluator = lab.evaluator()
     judge = buyer_judge(run, probe, counts, evaluator)
     inv = Investigation(id=uuid.uuid4().hex[:10], run_id=run.id, company=run.profile.name, question=probe.text,
                         probe_id=probe_id, attribute_id=attribute_id, claim=action.label, model=lab.model,
-                        judge=judge.name, budget_usd=budget_usd or budget(), counts=counts, kind="buyer")
+                        judge=judge.name, budget_usd=budget(), counts=counts, kind="buyer")
     attribute = next((a for a in run.attributes if a.id == attribute_id), None) or Attribute(id=attribute_id, label=action.label)
     agent = RewriteAgent(inv, lab, judge, attribute, run.profile, rewrite=(action.page_url, action.passage()),
-                         emit=emit, cancel=cancel)
+                         emit=emit)
     return agent.run()
 
 
@@ -796,17 +784,14 @@ def count_pages(urls: list[str]) -> str:
 
 
 def start(run, attribute_id: str, question: str, probe_id: Optional[str] = None, term: Optional[str] = None,
-          model: Optional[str] = None, lab: Optional[Lab] = None, evaluator=None,
-          emit: Callable[[str, dict], None] = lambda kind, payload: None,
+          *, lab: Lab, evaluator=None, emit: Callable[[str, dict], None] = lambda kind, payload: None,
           budget_usd: Optional[float] = None, cancel: Optional[threading.Event] = None) -> Investigation:
     """One investigation on a finished live run's claim. -> the Investigation, complete or stopped.
     `budget_usd` overrides WHY_BUDGET_USD (a fleet's re-dispatch with more budget); `cancel` is the
     fleet's flag to stop at the next batch."""
     attribute = next(a for a in run.attributes if a.id == attribute_id)
-    lab = lab or Lab(model or live.model_name(), live.search_tool())
     if evaluator is None and not term:
-        from agents.evaluator_model import ModelEvaluator
-        evaluator = ModelEvaluator(transport=lab.judge_transport)
+        evaluator = lab.evaluator()
     judge = Judge(attribute, run.profile, question, term, evaluator, endorse=not attribute.discovered)
     action = next((a for a in run.win_back if a.attribute_id == attribute_id), None)
     inv = Investigation(id=uuid.uuid4().hex[:10], run_id=run.id, company=run.profile.name, question=question,

@@ -25,50 +25,30 @@ is a *messaging gap* (AI does not say it because they never clearly did). Naming
   **perception**. A named probe that names the attribute invites the model to agree.
 
 Leaks are rejected in code (`agents/ana.py`: `attribute_leaks`, `vendor_address`, `brand_leaks`).
-The measured model gets only the neutral question in a fresh context, never the company
-profile. Buyer questions come on two fronts with their own visibility and control question: its
-core category, asked beside the brand questions, and where AI places it, planned from their answers (WEB.md).
-Live runs ask real searches first (`demand.py`: autocomplete, grouped by embedding), written ones
-fill the rest; tests never reach that network (`tests/conftest.py`).
-Each is asked once, sized by sampler-lite (`sampler.py`: a stated margin at 95%, two looks); one
-question a front is asked again for the wobble, and tries 2+ live in `run.repeat_answers`, so
-`run.answers` stays one answer per probe for every other consumer. Answers are reused for 24 hours
-per model and search mode (`sharing.py`, planned on the graph thread in `LiveProvider.plan_reuse`):
-any question within a pass, across passes only buyer questions the app wrote; at most half a run,
-each stored answer once, never stored again (WEB.md "Answer reuse").
-The why agent (`why.py`) replays what a live answer read (`Answer.trace`) with one thing changed;
-its answers are provenance `counterfactual_replay`, kept in their own record, never scored. After a
-run, the investigation fleet (`fleet.py`: a model coordinator bounded by code, parallel why
-investigators, a code critic, a planner; `verify.py` re-checks a live fix) exchanges typed events
-on one append-only log and draws every call on one `access.Purse` in `_metered`; a re-check's live
-answers stay in its `Verification`, never on a run (WEB.md "Investigation fleet"). A thread pool
-must copy the context in the submitting thread (`access.pmap` does, or `pool.submit(copy_context().run, ...)`):
-a pool thread starts empty, and a copy taken there drops the paying pass and the purse.
-A run's measured asks go to the one process-wide dispatcher (`dispatch.py`: `LIVE_CONCURRENCY` in
-flight, round-robin across runs) as futures the graph collects; only the graph thread writes the run,
-in `graph.canonical` order, so nothing saved depends on completion order.
-Every measured call, and every live ask of the why agent and `verify` (`why.Lab.live`), forces
-live web search (`live.TOOL_CHOICE`, `live.SEARCH_TOOL`) and retries once when none ran, because an ungrounded answer is paid for and then excluded; `preflight`
-steps down to `live.FALLBACK_MODEL`, then to no search at all, never to a third model, and says
-which in `/api/health` and the report. Budget and model settings are
-env-driven with defaults; the whole table is in WEB.md ("Live mode", "Why a rerun gives a different
-number").
+The measured model gets only the neutral question in a fresh context, never the company profile.
+`run.answers` holds one answer per probe; re-asks live in `run.repeat_answers`. Reused answers
+(`sharing.py`, planned on the graph thread) never count twice. The why agent's and fleet's replays are
+`counterfactual_replay`, kept in their own record, never scored. Only the graph thread writes a run, in
+`graph.canonical` order. A thread pool must copy the context in the submitting thread (`access.pmap`,
+or `pool.submit(copy_context().run, ...)`), or the paying pass and purse are lost. Every live ask
+forces web search (`live.TOOL_CHOICE`) and retries once when none ran. Settings: WEB.md "Live mode".
 
 ## Authored evidence is never presented as measured
 
-Every record carries its provenance (`synthetic`, `web_research_snapshot`, `live_api`). Fixture
-answers are replays, labelled as such everywhere they appear; a web-search snapshot is company
-research, never a chatbot visibility score; provenances are never pooled into one metric. Without a
-key, live mode errors rather than falling back to fixtures. Arithmetic lives in code, quotes must be
-verbatim in the answer they cite, and nothing is invented to fill a gap.
+Every record carries its provenance (`synthetic`, `web_research_snapshot`, `live_api`,
+`counterfactual_replay`). Fixture answers are replays, labelled as such everywhere they appear; a
+web-search snapshot is company research, never a chatbot visibility score; provenances are never
+pooled into one metric. Without a key, live mode errors rather than falling back to fixtures.
+Arithmetic lives in code, quotes must be verbatim in the answer they cite, and nothing is invented to
+fill a gap.
 
 ## Where things are
 
 - Run, test, layout: `README.md`. API, live mode, offline fallback, views, wording: `WEB.md`.
   Presenter script: `DEMO.md`. Tests: `python -m pytest -q`.
 - Detailed rules load on demand from `.claude/skills/`: `product-workflow` (agents, graph, state),
-  `evidence-modes` (providers, provenance, budgets), `evaluation-and-scoring` (scoring, suggested
-  actions, acceptance checks), `build-history` (the original overnight brief and milestone log).
+  `evidence-modes` (providers, provenance, budgets), `evaluation-and-scoring` (scoring, acceptance
+  checks).
 - Tests never touch the network: `audit.py` (the no-model site check) fetches only through
   `audit.get`, which `tests/conftest.py` refuses unless a test records responses.
 - Every OpenAI call goes through `access.openai_response` (embeddings: `access.openai_embedding`,
@@ -76,6 +56,12 @@ verbatim in the answer they cite, and nothing is invented to fill a gap.
   reported usage, and fails closed on the public demo when no pass is set. A new model call site
   must use it. Passes, admin and hosting: WEB.md "Deploy to Render".
 - Independent portfolio demo.
+
+## Keep it small
+
+Before adding a module, option, env setting, schema field or doc section, check that something reads it;
+delete what nothing reads in the same PR. Prefer a parametrized row to a new test function, and a pointer to the
+docstring over restating it in WEB.md. CI prints each PR's net lines per area; say why in the PR when it is large.
 
 ## Maintaining this file
 

@@ -12,15 +12,10 @@ import verify
 import why
 from agents.ana import attribute_leaks, brand_leaks
 from api.fleet import live_run, resolve
+from fleet import MAX_TERM
 
 router = APIRouter()
-MAX_QUESTION, MAX_TERM = 200, 40
-
-
-def summary(inv) -> dict:
-    return dict(id=inv.id, created_at=inv.created_at, claim=inv.claim, attribute_id=inv.attribute_id,
-                question=inv.question, status=inv.status, verdicts=[v.kind for v in inv.verdicts],
-                spent_usd=inv.spent_usd, budget_usd=inv.budget_usd)
+MAX_QUESTION = 200
 
 
 @router.get("/api/runs/{run_id}/why")
@@ -32,17 +27,6 @@ def investigations(run_id: str, request: Request = None):
         raise HTTPException(404, f"run {run_id} not found")
     return [inv.model_dump() for inv in reports.list_investigations(run_id)
             if access.visible("investigation", inv.id, pid)]
-
-
-@router.get("/api/investigations/{inv_id}")
-def investigation(inv_id: str, request: Request = None):
-    from api import main
-    if not access.visible("investigation", inv_id, main.pass_id(main.holder_of(request))):
-        raise HTTPException(404, f"investigation {inv_id} not found")
-    try:
-        return reports.load_investigation(inv_id).model_dump()
-    except (FileNotFoundError, ValueError):
-        raise HTTPException(404, f"investigation {inv_id} not found")
 
 
 def prepare(run_id: str, attribute: str, probe: Optional[str], question: Optional[str], term: Optional[str],

@@ -8,11 +8,10 @@ from pathlib import Path
 import pytest
 
 import why
-from fakes import openai_reply
+from fakes import Judge, openai_reply
 from providers import live
-from schemas import Answer, Attribute, CompanyProfile, Evidence, Run, WinBackAction
+from schemas import Answer, Attribute, CompanyProfile, Evidence, QueryEvaluation, Run, WinBackAction
 from scoring import eligible, newcombe, z_for
-from schemas import QueryEvaluation
 
 CASSETTES = Path(__file__).parent / "cassettes"
 STRENGTHS = json.loads((CASSETTES / "amgen_strengths.json").read_text())
@@ -28,6 +27,8 @@ AI = Attribute(id="ai_rd", label="Uses AI and advanced technology in research an
                intended_weight=1.0, claim_quotes=["bring R&D, AI and data closer together"], claim_evidence_ids=["pg3"])
 REWRITE = ("We use AI and other advanced technologies across R&D to accelerate drug discovery and "
            "clinical development.")
+ACTION = WinBackAction(attribute_id=AI.id, label=AI.label, zone="unstated_intent", page_url=AI_PAGE,
+                       rewrite=REWRITE, provenance="live_api")    # the win-back plan's rewrite of AI_PAGE
 
 
 def message(text):
@@ -122,6 +123,10 @@ def test_it_traces_debt_to_the_two_lines_of_the_release():
     assert passage.interval[1] < 0 and passage.k == 0
     assert all(a.decided != "undecided" for a in inv.arms)
     assert not any(v.kind in ("copy_fix", "authority_fix") for v in inv.verdicts)   # imposed: no fix to test
+    for a in inv.arms[1:]:                      # each experiment keeps the base it was decided against
+        assert a.base_n and a.effect == round(a.k / a.n - a.base_k / a.base_n, 2)
+    assert f"from {passage.base_k}/{passage.base_n} to {passage.k}/{passage.n}" in verdict.text
+    assert 0 < inv.spent_usd <= inv.budget_usd   # counted from reported usage
 
 
 def test_a_claim_two_pages_each_carry_is_over_determined():
@@ -224,9 +229,7 @@ def ai_model():
 
 def test_the_rewrite_on_a_page_ai_reads_is_a_copy_fix():
     fake = Fake(DIFFERENT, ai_model())
-    action = WinBackAction(attribute_id=AI.id, label=AI.label, zone="unstated_intent", page_url=AI_PAGE,
-                           rewrite=REWRITE, provenance="live_api")
-    inv = investigate(fake, AI, DIFFERENT["question"], "AI", win_back=[action])
+    inv = investigate(fake, AI, DIFFERENT["question"], "AI", win_back=[ACTION])
     fix = next(v for v in inv.verdicts if v.fix)
     assert fix.kind == "copy_fix" and fix.fix == "copy"
     edit = next(a for a in inv.arms if a.id == fix.arm_id)
@@ -236,6 +239,10 @@ def test_the_rewrite_on_a_page_ai_reads_is_a_copy_fix():
     assert inject.urls == [AI_PAGE] and not inject.hypothetical   # the site's own quote, not new copy
     cause = next(v for v in inv.verdicts if not v.fix)
     assert cause.kind in ("caused_by", "over_determined", "undecided")
+    # live, search returned Amgen's AI page itself: leading it with the rewrite repeated what it
+    # already said and moved nothing. The copy question is about a page AI reads that is silent.
+    said = why.term_pattern("AI")
+    assert not any(said.search(r.text) for s in inv.reading for r in s.results if r.url == edit.urls[0])
 
 
 def test_copy_that_moves_nothing_is_not_movable():
@@ -274,12 +281,6 @@ def test_it_stops_at_its_budget(monkeypatch):
     assert inv.status == "stopped" and inv.verdicts[-1].kind == "budget" and inv.budget_usd == 0.05
     assert not fake.calls   # refused before the first live call, whose estimate alone is over
     assert "0 experiment(s) ran" in inv.verdicts[-1].text   # never a negative count
-
-
-def test_spend_is_counted_from_reported_usage():
-    fake = Fake(STRENGTHS, says_debt, live_text="Amgen carries meaningful debt.")
-    inv = investigate(fake, DEBT, STRENGTHS["question"], "debt")
-    assert 0 < inv.spent_usd <= inv.budget_usd
 
 
 def test_the_default_calls_go_through_the_metered_path(monkeypatch):
@@ -350,16 +351,7 @@ def test_an_experiment_answer_never_counts():
 
 
 def test_the_evaluator_judges_when_there_is_no_term():
-    class Evaluator:
-        model = "judge"
-
-        def label(self, probe, answer, attributes, profile):
-            quote = "meaningful debt"
-            found = quote in answer.text
-            return {"attributes": [{"attribute_id": DEBT.id, "quote": quote, "polarity": "negative"}] if found else [],
-                    "mentioned": True, "recommended": False, "negative_mention": False,
-                    "competitor_recommendations": [], "evidence_quotes": [], "on_topic": True}
-    judge = why.Judge(DEBT, PROFILE, "q", evaluator=Evaluator())
+    judge = why.Judge(DEBT, PROFILE, "q", evaluator=Judge(endorse=(DEBT.id, "meaningful debt")))
     assert judge("Amgen carries meaningful debt.") == (True, "meaningful debt")
     assert judge("Amgen grew.") == (False, None)
 
@@ -389,18 +381,6 @@ def test_the_pilots_ai_arms_re_derive_and_need_the_last_look():
 
 
 # ---------------------------------------------------------------- found live, 2026-09-28
-def test_the_copy_test_edits_a_page_that_does_not_say_it_yet():
-    """Live, search returned Amgen's AI page itself: leading it with the rewrite repeated what it
-    already said and moved nothing. The copy question is about a page AI reads that is silent."""
-    fake = Fake(DIFFERENT, ai_model())
-    action = WinBackAction(attribute_id=AI.id, label=AI.label, zone="unstated_intent", page_url=AI_PAGE,
-                           rewrite=REWRITE, provenance="live_api")
-    inv = investigate(fake, AI, DIFFERENT["question"], "AI", win_back=[action])
-    edit = next(a for a in inv.arms if a.kind == "edit")
-    said = why.term_pattern("AI")
-    assert not any(said.search(r.text) for s in inv.reading for r in s.results if r.url == edit.urls[0])
-
-
 def test_whether_ai_says_it_is_decided_on_the_second_looks_asks():
     """Live, the base read 0 of 6 and 12 of 36 once topped up: a claim said a third of the time
     must still get its cause searched."""
@@ -411,36 +391,23 @@ def test_whether_ai_says_it_is_decided_on_the_second_looks_asks():
     assert inv.arms[0].n >= why.LOOKS[1] and any(a.kind == "drop_source" for a in inv.arms)
 
 
-def test_each_experiment_keeps_the_base_it_was_decided_against():
-    fake = Fake(STRENGTHS, says_debt, live_text="Amgen carries meaningful debt.")
-    inv = investigate(fake, DEBT, STRENGTHS["question"], "debt")
-    for a in inv.arms[1:]:
-        assert a.base_n and a.effect == round(a.k / a.n - a.base_k / a.base_n, 2)
-    passage = next(a for a in inv.arms if a.id == inv.verdicts[-1].arm_id)
-    assert f"from {passage.base_k}/{passage.base_n} to {passage.k}/{passage.n}" in inv.verdicts[-1].text
-
-
 def test_a_page_that_does_not_state_the_claim_is_never_injected_as_its_copy():
     unstated = AI.model_copy(update=dict(claim_evidence_ids=[]))
     fake = Fake(DIFFERENT, lambda text: "It uses AI." if "ai-in-research-and-development" in text else "It is a pioneer.")
     inv = investigate(fake, unstated, DIFFERENT["question"], "AI")
     assert not any(a.kind == "inject" for a in inv.arms)
     assert not any(v.kind == "authority_fix" for v in inv.verdicts)
-    action = WinBackAction(attribute_id=AI.id, label=AI.label, zone="unstated_intent", page_url=AI_PAGE,
-                           rewrite=REWRITE, provenance="live_api")
     inv = investigate(Fake(DIFFERENT, lambda text: "It is a pioneer."), unstated, DIFFERENT["question"], "AI",
-                      win_back=[action])
+                      win_back=[ACTION])
     inject = next(a for a in inv.arms if a.kind == "inject")
     assert inject.urls == [AI_PAGE] and inject.hypothetical and inject.text == [REWRITE]
 
 
 def test_a_rewrite_injected_on_an_unread_page_needs_the_rewrite_and_authority():
     unstated = AI.model_copy(update=dict(claim_evidence_ids=[]))
-    action = WinBackAction(attribute_id=AI.id, label=AI.label, zone="unstated_intent", page_url=AI_PAGE,
-                           rewrite=REWRITE, provenance="live_api")
     fake = Fake(DIFFERENT, lambda text: "It uses AI." if REWRITE in text and "ai-in-research-and-development" in text
                 else "It is a pioneer.")
-    inv = investigate(fake, unstated, DIFFERENT["question"], "AI", win_back=[action])
+    inv = investigate(fake, unstated, DIFFERENT["question"], "AI", win_back=[ACTION])
     fix = inv.verdicts[-1]
     assert fix.kind == "authority_fix" and next(a for a in inv.arms if a.id == fix.arm_id).hypothetical
     assert "your rewrite" in fix.text and "not rewriting it" not in fix.text

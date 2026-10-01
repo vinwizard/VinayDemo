@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { beforeEach, test } from "node:test";
-import { autoStarts, fill, loadSeen, markSeen, pickStory, replayPart, resetMemory, welcomeFirst, sceneMs, STORAGE_KEY, STORY_WELCOME, termParts, type Store, type StoryRun } from "./tour.ts";
+import { autoStarts, fill, markSeen, pickStory, resetMemory, sceneMs, STORAGE_KEY, STORY_WELCOME, type Store, type StoryRun } from "./tour.ts";
 
 const memory = (): Store & { data: Record<string, string> } => {
   const data: Record<string, string> = {};
@@ -15,50 +15,26 @@ const broken: Store = {
 
 beforeEach(resetMemory);
 
-test("each part starts on its own once per browser, then never again", () => {
+test("the story starts on its own once per browser, then never again", () => {
   const store = memory();
-  assert.equal(autoStarts(store, "story"), true);
-  markSeen(store, "story", "done");
-  assert.equal(autoStarts(store, "story"), false);
-  assert.equal(autoStarts(store, "report"), true);   // finishing the story still leads into the tour
-  assert.deepEqual(JSON.parse(store.data[STORAGE_KEY]), { story: "done" });
-});
-
-test("skipping the story skips the report tour it leads into, but not onboarding", () => {
-  const store = memory();
-  markSeen(store, "story", "skipped");
-  assert.equal(autoStarts(store, "report"), false);
-  assert.equal(autoStarts(store, "onboard"), true);
-});
-
-test("skipping the welcome shown alone skips the onboard tour it hands over to, not the report tour", () => {
-  const store = memory();
-  markSeen(store, "story", "skipped", "onboard");
+  assert.equal(autoStarts(store), true);
+  markSeen(store, "skipped");
   resetMemory();   // the next load reads only what was stored
-  assert.equal(autoStarts(store, "story"), false);
-  assert.equal(autoStarts(store, "onboard"), false);   // not shown on the next load
-  assert.equal(autoStarts(store, "report"), true);     // still shown on the first finished report
-  assert.equal(welcomeFirst(store, false, true), false);
-});
-
-test("a report tour already finished is not downgraded to skipped", () => {
-  const store = memory();
-  markSeen(store, "report", "done");
-  markSeen(store, "story", "skipped");
-  assert.equal(loadSeen(store).report, "done");
+  assert.equal(autoStarts(store), false);
+  assert.deepEqual(JSON.parse(store.data[STORAGE_KEY]), { story: "skipped" });
 });
 
 test("blocked storage: shown at most once per page load, never an error", () => {
-  assert.equal(autoStarts(broken, "report"), true);
-  assert.doesNotThrow(() => markSeen(broken, "report", "skipped"));
-  assert.equal(autoStarts(broken, "report"), false);
-  assert.equal(autoStarts(null, "report"), false);   // same load, no storage at all
+  assert.equal(autoStarts(broken), true);
+  assert.doesNotThrow(() => markSeen(broken, "skipped"));
+  assert.equal(autoStarts(broken), false);
+  assert.equal(autoStarts(null), false);   // same load, no storage at all
 });
 
 test("garbage in storage reads as nothing seen", () => {
   const store = memory();
   store.data[STORAGE_KEY] = "{not json";
-  assert.equal(autoStarts(store, "story"), true);
+  assert.equal(autoStarts(store), true);
 });
 
 test("the story is the showcase run's own words, verbatim in their sources", () => {
@@ -89,18 +65,9 @@ test("a replayed sample never feeds the story", () => {
   assert.equal(pickStory({ ...run, win_back: [] }), null);
 });
 
-test("captions fill their slots and keep glossary terms apart", () => {
+test("headlines fill their slots", () => {
   assert.equal(fill("{brand} at {today}%", { brand: "Amgen", today: 5.7 }), "Amgen at 5.7%");
   assert.equal(fill("{missing}", {}), "{missing}");
-  assert.deepEqual(termParts("The other 9% is [[untapped_potential|untapped potential]]."), [
-    { text: "The other 9% is " }, { term: "untapped_potential", text: "untapped potential" }, { text: "." },
-  ]);
-});
-
-test("\"How it works\" always replays something, even for a pass holder on History with no report open", () => {
-  assert.equal(replayPart(true, false), "story");
-  assert.equal(replayPart(false, true), "report");
-  assert.equal(replayPart(false, false), "onboard");   // the app switches to the Onboard tab first
 });
 
 test("the story's welcome welcomes the visitor, says what the app is and credits Profound", () => {
@@ -113,13 +80,4 @@ test("the story's welcome welcomes the visitor, says what the app is and credits
 test("the welcome stays up about 8 s, long enough to read; the other scenes keep 3.6 s", () => {
   assert.equal(sceneMs(0), 8000);
   for (const i of [1, 2, 3, 4]) assert.equal(sceneMs(i), 3600);
-});
-
-test("a pass holder, with no story to tell, still gets the welcome first, once, and on every replay", () => {
-  const s = memory();
-  assert.equal(welcomeFirst(s, false, true), true);    // first visit: welcome, then the onboard tour
-  markSeen(s, "story", "done");
-  assert.equal(welcomeFirst(s, false, true), false);   // seen once in this browser
-  assert.equal(welcomeFirst(s, false, false), true);   // "How it works" replays it
-  assert.equal(welcomeFirst(memory(), true, true), false);   // with a story the welcome is its scene 0
 });

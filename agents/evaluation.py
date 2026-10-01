@@ -7,19 +7,8 @@ Live: agents/evaluator_model.py proposes the labels, and they are validated here
 import re
 
 from agents.ana import brand_leaks
-from labels import probe_names, with_ids
-from schemas import (Answer, Attribute, AttributeObservation, CompanyProfile, GapFinding, Probe,
-                     QueryEvaluation, Topic, TopicEvaluation)
-from scoring import OFF_TOPIC, PRIORITY_LABEL, domain_matches, mentions_alias
-
-# Reviewed configuration table (.claude/skills/evaluation-and-scoring): the next step each kind of gap suggests.
-ACTIONS = {
-    "absent_vs_competitors": "Track a wider fixed prompt set over time to assess whether the gap persists.",
-    "competitor_citations": "Inspect frequently cited sources and identify coverage the customer lacks.",
-    "content": "Review owned pages and propose an evidence-backed brief for the uncovered questions.",
-    "factcheck": "Compare the claim with current authoritative facts and investigate cited sources.",
-    "poor_match": "Examine how the brand is described and whether product-fit evidence is clear.",
-}
+from schemas import Answer, Attribute, AttributeObservation, CompanyProfile, Probe, QueryEvaluation
+from scoring import OFF_TOPIC, domain_matches, mentions_alias
 
 # The `([host](url))` inline citations, the source-card lines that are nothing but a link, and every
 # naked URL. A link inside a sentence ("Try [Asana](https://asana.com)") is the answer's own words.
@@ -91,7 +80,7 @@ def evaluate(probe: Probe, answer: Answer, profile: CompanyProfile) -> QueryEval
     if labels["mentioned"] and not labels["evidence_quotes"]:
         warnings.append("Mention claimed without a supporting quote.")
     # An evaluator listing the target among "other brands recommended" is a routine slip, and this
-    # list is not display-only: it feeds competitor_rate, gap_priority and the round-two comparison
+    # list is not display-only: it feeds the share of voice, the map and the round-two comparison
     # question sent to the measured model. "How does Notion compare to Notion and Confluence?" must
     # be impossible, so the target's own vocabulary is stripped here, at the one shared boundary.
     competitors = [c for c in labels["competitor_recommendations"] if not brand_leaks(c, profile)]
@@ -205,12 +194,10 @@ def extract_attributes(answer: Answer, attributes: list[Attribute]) -> tuple[lis
             continue
         kept.append(AttributeObservation(attribute_id=aid, quote=quote,
                                          polarity=raw.get("polarity", "neutral")))
-    seen, deduped = set(), []
+    first = {}
     for o in kept:  # one observation per attribute per answer: echoes count answers, not sentences
-        if o.attribute_id not in seen:
-            seen.add(o.attribute_id)
-            deduped.append(o)
-    return deduped, warnings
+        first.setdefault(o.attribute_id, o)
+    return list(first.values()), warnings
 
 
 # A characterisation one answer makes is one model's phrasing on one day: noise. The same one raised
@@ -317,70 +304,3 @@ def discover_attributes(proposals, answers: dict[str, Answer], attributes: list[
                 new_obs.setdefault(pid, []).append(o.model_copy(update={"attribute_id": aid}))
             known.append(([words], label, {pid: [o.quote] for pid, o in found.items()}))
     return new, new_obs, dropped
-
-
-def build_findings(topics: list[Topic], topic_evals: list[TopicEvaluation], evals: list[QueryEvaluation],
-                   probes: list[Probe]) -> list[GapFinding]:
-    ev = {e.probe_id: e for e in evals}
-    pn = probe_names(probes, topics)
-    findings = []
-    for t in topics:
-        te = next((x for x in topic_evals if x.topic_id == t.id and x.phase == "baseline"), None)
-        if te is None:
-            continue
-        base_ids = [p.id for p in probes if p.topic_id == t.id and p.phase == "baseline"]
-        fu_ids = [p.id for p in probes if p.topic_id == t.id and p.phase == "followup"]
-        fu_te = next((x for x in topic_evals if x.topic_id == t.id and x.phase == "followup"), None)
-        note = None
-        if fu_ids and fu_te:
-            note = (f"Exploratory follow-ups {with_ids(fu_ids, pn)} (not merged into baseline): "
-                    f"{fu_te.recommendations}/{fu_te.n} recommended.")
-        limits = list(te.limitations) + [
-            "Citations alone do not prove why a model chose a brand.",
-            "Absence alone is not proof of opportunity or market demand."]
-
-        def add(key, observation, interpretation, evidence_ids, extra_limits=()):
-            findings.append(GapFinding(
-                topic_id=t.id, observation=observation, evidence_ids=evidence_ids, fit_evidence_ids=t.fit_evidence_ids,
-                interpretation=interpretation, suggested_action=ACTIONS[key],
-                limitations=limits + list(extra_limits), provenance=te.provenance, gap_priority=te.gap_priority,
-                exploratory_note=note))
-
-        if te.status in ("insufficient evidence", "unclear"):
-            findings.append(GapFinding(
-                topic_id=t.id, observation=f"Status: {te.status} ({te.n} eligible, {te.excluded} excluded).",
-                evidence_ids=base_ids, fit_evidence_ids=t.fit_evidence_ids,
-                interpretation="Insufficient evidence to connect this topic to a gap.",
-                suggested_action="Collect more eligible observations before drawing conclusions.",
-                limitations=limits, provenance=te.provenance,
-                exploratory_note=note))
-            continue
-        if te.status == "observed presence":
-            continue
-        comps = ", ".join(te.top_competitors) or "none"
-        if te.status == "candidate gap":
-            add("absent_vs_competitors",
-                f"Not recommended in any of {te.n} baseline answers while competitors were ({comps}).",
-                f"Candidate gap in a strong-fit topic ({PRIORITY_LABEL} {te.gap_priority:g}).", base_ids)
-        neg = [i for i in base_ids if ev.get(i) and ev[i].negative_mention]
-        described = [i for i in base_ids if ev.get(i) and ev[i].mentioned and not ev[i].recommended]
-        if te.status == "mixed":
-            if described:
-                add("poor_match", f"Recommended in {te.recommendations}/{te.n}; mentioned without recommendation in {with_ids(described, pn)}.",
-                    "Brand appears but is not clearly matched to this use case in some answers.", base_ids)
-            else:
-                add("absent_vs_competitors", f"Recommended in {te.recommendations}/{te.n}; absent elsewhere while competitors appeared ({comps}).",
-                    "Mixed visibility; the small sample cannot show whether this persists.", base_ids)
-        if neg and te.status == "candidate gap":
-            add("poor_match", f"Negative mention(s) in {with_ids(neg, pn)}.",
-                "The brand is described critically for this use case.", neg)
-        outdated = [i for i in base_ids if ev.get(i) and any(w.startswith("Possible outdated") for w in ev[i].warnings)]
-        if outdated:
-            add("factcheck", f"Answer(s) to {with_ids(outdated, pn)} contain a product claim flagged as possibly outdated.",
-                "Needs comparison against current authoritative product facts.", outdated,
-                ["Accuracy not yet verified against current company pages."])
-        if t.fit == "strong" and te.owned_citations == 0 and te.recommendations < te.n:
-            add("content", f"No owned-domain citations across {te.n} baseline answers.",
-                "Possible owned-content gap for these questions.", base_ids,
-                ["Content gap NOT confirmed: the company's relevant pages were not examined."])
-    return sorted(findings, key=lambda f: -(f.gap_priority or -1))

@@ -84,8 +84,8 @@ def conclude(v: Verification) -> tuple[str, str]:
     return "undecided", f"Not decided yet: {said}, which fits both the old rate and the prediction ({was})."
 
 
-def verify(fleet_id: str, rank: int, resolve: Callable[[], object], emit: Callable[[str], None] = lambda text: None,
-           lab: Optional[why.Lab] = None, evaluator=None) -> Verification:
+def verify(fleet_id: str, rank: int, resolve: Callable[[], object],
+           emit: Callable[[str], None] = lambda text: None) -> Verification:
     """Re-checks one plan item of a finished fleet. `resolve` gives the live model pair (live.preflight)
     and is called only once a live ask is needed, so an unpublished fix needs neither key nor pass."""
     p = fleet.plan_of(fleet.EventLog(fleet_id).read())
@@ -103,11 +103,11 @@ def verify(fleet_id: str, rank: int, resolve: Callable[[], object], emit: Callab
 
     def judge_for(evaluator):
         return why.Judge(attribute, run.profile, inv.question, inv.term, evaluator, endorse=inv.counts == "endorsements")
-    return recheck(v, inv, arm, item.fix, judge_for, resolve, emit, lab, evaluator, needs_evaluator=not inv.term)
+    return recheck(v, inv, arm, item.fix, judge_for, resolve, emit, None, needs_evaluator=not inv.term)
 
 
 def verify_investigation(inv_id: str, resolve: Callable[[], object], emit: Callable[[str], None] = lambda text: None,
-                         lab: Optional[why.Lab] = None, evaluator=None) -> Verification:
+                         lab: Optional[why.Lab] = None) -> Verification:
     """Re-checks a quick win's rewrite that its replay test proved (why.test_rewrite): the page first,
     free, then the buyer question live, counting what its replay test counted (names or recommends)."""
     inv = reports.load_investigation(inv_id)
@@ -120,16 +120,12 @@ def verify_investigation(inv_id: str, resolve: Callable[[], object], emit: Calla
                      question=inv.question, investigation_id=inv.id, budget_usd=budget(),
                      predicted=WhyRate(k=arm.k, n=arm.n), base=WhyRate(k=arm.base_k, n=arm.base_n))
     probe = next(p for p in run.probes if p.id == inv.probe_id)
-    needs = inv.counts == "recommends"
-    if needs and lab is not None and evaluator is None:
-        from agents.evaluator_model import ModelEvaluator
-        evaluator = ModelEvaluator(transport=lab.judge_transport)
     return recheck(v, inv, arm, verdict.fix, lambda ev: why.buyer_judge(run, probe, inv.counts, ev), resolve, emit,
-                   lab, evaluator, needs_evaluator=needs)
+                   lab, needs_evaluator=inv.counts == "recommends")
 
 
 def recheck(v: Verification, inv, arm, fix: str, judge_for: Callable, resolve: Callable[[], object],
-            emit: Callable[[str], None], lab: Optional[why.Lab], evaluator, needs_evaluator: bool) -> Verification:
+            emit: Callable[[str], None], lab: Optional[why.Lab], needs_evaluator: bool) -> Verification:
     """The page (free), then live asks in looks, then the old reading list replayed as a control."""
     copy = v.copy_text
     if fix == "copy" or arm.hypothetical:
@@ -138,12 +134,11 @@ def recheck(v: Verification, inv, arm, fix: str, judge_for: Callable, resolve: C
     if v.page_has_copy is False:
         v.verdict, v.text = "not_published", f"Not published: {v.page_note} Nothing was asked, so this check cost nothing."
         return v
+    judge_model = None
     if lab is None:
-        from agents.evaluator_model import ModelEvaluator
         resolved = resolve()
-        lab = why.Lab(resolved.model, resolved.tool)
-        evaluator = ModelEvaluator(model=resolved.judge, transport=lab.judge_transport) if needs_evaluator else None
-    judge = judge_for(evaluator)
+        lab, judge_model = why.Lab(resolved.model, resolved.tool), resolved.judge
+    judge = judge_for(lab.evaluator(judge_model) if needs_evaluator else None)
     read_it = ((lambda r: carries(copy, r.text)) if fix == "copy" else (lambda r: why.same_page(r.url, v.page_url)))
 
     def afford(usd: float) -> None:
@@ -180,7 +175,7 @@ def recheck(v: Verification, inv, arm, fix: str, judge_for: Callable, resolve: C
                 v.control.n, v.control.k = v.control.n + 1, v.control.k + states
         emit(f"Replayed the old reading list {v.control.n} times: it gives it in {v.control.k}.")
         v.verdict, v.text = conclude(v)
-    except (why.OverBudget, access.PurseEmpty):
+    except why.OverBudget:
         v.verdict = "budget"
         v.text = (f"Stopped at the ${v.budget_usd:.2f} budget after {v.read_by_ai.n} live asks: "
                   + (conclude(v)[1] if v.live.n else "nothing to conclude yet."))

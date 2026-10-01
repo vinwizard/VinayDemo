@@ -19,7 +19,6 @@ from agents.evaluator_model import json_object
 from schemas import (Attribute, ClaimCheck, CompanyProfile, Evidence, PositioningPoint,
                      distinctive_alias)
 
-KEY_ENV = "OPENAI_API_KEY"
 MODEL_ENV = "ONBOARDING_MODEL"
 # Measured on linear.app with the same prompt and pages: gpt-4o-mini kept 2 of 8 claims (its quotes
 # were not verbatim), gpt-4.1-mini kept 6 of 8. One call per onboarding, so the difference is cents.
@@ -39,7 +38,6 @@ SCHEMA_HINT = """Return ONLY JSON:
                                    // shopping for it would name it: 2-6 plain lowercase words, no
                                    // company, product or brand names, e.g. "payroll software for
                                    // startups", "AI search visibility tracking"
-  "customer_types": [string],
   "attributes": [                  // at most 8, ordered by how central they are to the pitch
     {
       "id": string,                // short lowercase slug, e.g. "enterprise_ready"
@@ -327,8 +325,7 @@ def build_profile(data: dict, pages: list[tuple[str, str]], domain: str,
     points, one_liner = [], (data.get("one_liner") or "").strip()
     if one_liner:
         points.append(PositioningPoint(id="pp1", text=one_liner,
-                                       evidence_ids=[evidence[0].id] if evidence else [],
-                                       support="sourced"))
+                                       evidence_ids=[evidence[0].id] if evidence else []))
     name = (data.get("name") or "").strip() or domain
     # The name itself must be an alias: `aliases` is the vocabulary that counts as a mention, and a
     # model asked for "other names" returns "Linear Agent" but never "Linear" — so every answer
@@ -351,34 +348,25 @@ def build_profile(data: dict, pages: list[tuple[str, str]], domain: str,
         aliases=list(dict.fromkeys([*list(dict.fromkeys([name, *aliases]))[:6], *products[:MAX_PRODUCTS]])),
         # checked for brand leaks, and given buyer questions, by api.main.set_category
         core_category=" ".join(str(data.get("core_category") or "").split()) or None,
-        customer_types=[c for c in (data.get("customer_types") or []) if isinstance(c, str)][:6],
         positioning_points=points, evidence=evidence,
         warnings=["Claimed positioning only. Which of these you WANT to be known for, and how much "
                   "each matters, is your input — it is not derivable from your own marketing copy."])
 
 
-class OnboardingAgent:
-    def __init__(self, model: Optional[str] = None, transport: Optional[Callable] = None,
-                 timeout: int = 90):
-        self.model = model or model_name()
-        self._transport = transport or default_transport
-        self.timeout = timeout
-
-    def run(self, name: str, domain: str, pages: list[tuple[str, str]], meta: Sequence[dict] = ()
+def onboard(name: str, domain: str, pages: list[tuple[str, str]], meta: Sequence[dict] = (),
+            model: Optional[str] = None, transport: Optional[Callable] = None, timeout: int = 90
             ) -> tuple[CompanyProfile, list[Attribute], list[str], list[ClaimCheck]]:
-        if not pages:
-            raise ValueError("onboarding needs at least one fetched page")
-        prompt = build_prompt(name, pages)
+    if not pages:
+        raise ValueError("onboarding needs at least one fetched page")
+    model, transport, prompt = model or model_name(), transport or default_transport, build_prompt(name, pages)
+    try:
+        data = parse(transport(prompt, model, timeout))
+    except ValueError:          # malformed JSON now and then: ask once more, metered as usual
         try:
-            data = parse(self._transport(prompt, self.model, self.timeout))
-        except ValueError:          # malformed JSON now and then: ask once more, metered as usual
-            try:
-                data = parse(self._transport(prompt, self.model, self.timeout))
-            except ValueError as e:
-                raise ValueError(f"the extraction model returned text we could not read twice; "
-                                 f"try again ({e})") from e
-        attributes, checks = build_attributes(data, pages, name, [bool(m.get("private")) for m in meta])
-        profile = build_profile(data, pages, domain, meta)
-        warnings = [] if attributes else [
-            "No attribute survived quote validation; nothing can be measured yet."]
-        return profile, attributes, warnings, checks
+            data = parse(transport(prompt, model, timeout))
+        except ValueError as e:
+            raise ValueError(f"the extraction model returned text we could not read twice; "
+                             f"try again ({e})") from e
+    attributes, checks = build_attributes(data, pages, name, [bool(m.get("private")) for m in meta])
+    warnings = [] if attributes else ["No attribute survived quote validation; nothing can be measured yet."]
+    return build_profile(data, pages, domain, meta), attributes, warnings, checks

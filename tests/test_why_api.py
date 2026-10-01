@@ -2,16 +2,14 @@
 The model is the fake one from test_why; every file lives under tmp_path."""
 
 import pytest
-from fastapi.testclient import TestClient
 
 import access
-import api.main as main
 import reports
 import why
 from providers import live
 from schemas import Probe, Run
 from test_why import AI, DIFFERENT, PROFILE, Fake, ai_model
-from fakes import sse_events as events
+from fakes import sse_events as events, why_client
 
 RUN = "a1b2c3d4e5"
 NAMED = Probe(id="np-3", topic_id="perception", text="What makes Amgen different from other biotech companies?",
@@ -20,19 +18,9 @@ NAMED = Probe(id="np-3", topic_id="perception", text="What makes Amgen different
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    runs, invs = tmp_path / "runs", tmp_path / "investigations"
-    runs.mkdir()
-    for mod, name, value in ((reports, "DATA", tmp_path), (reports, "RUNS", runs),
-                             (reports, "INVESTIGATIONS", invs)):
-        monkeypatch.setattr(mod, name, value)
     run = Run(id=RUN, mode="live_api", profile=PROFILE, attributes=[AI], probes=[NAMED], status="complete")
-    reports.save_run(run)
-    reports.save_run(run.model_copy(update={"id": "0000aaaa11", "mode": "demo_replay"}))
-    monkeypatch.setenv(live.KEY_ENV, "test-key")
-    monkeypatch.setattr(live, "preflight", lambda: live.Resolved("gpt-6-luna", live.SEARCH_TOOL, "gpt-6-luna", None))
-    fake = Fake(DIFFERENT, ai_model())
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: fake(**kw))
-    return TestClient(main.app, raise_server_exceptions=False)
+    return why_client(tmp_path, monkeypatch, [run, run.model_copy(update={"id": "0000aaaa11", "mode": "demo_replay"})],
+                      Fake(DIFFERENT, ai_model()))
 
 
 def stream(client, **params):
@@ -48,7 +36,7 @@ def test_an_investigation_streams_and_is_kept_beside_the_run(client):
     assert inv["question"] == NAMED.text and inv["provenance"] == "counterfactual_replay"
     listed = client.get(f"/api/runs/{RUN}/why").json()
     assert [i["id"] for i in listed] == [inv["id"]]
-    assert client.get(f"/api/investigations/{inv['id']}").json()["verdicts"] == inv["verdicts"]
+    assert listed[0]["verdicts"] == inv["verdicts"]
     assert reports.load_run(RUN).answers == []    # the run itself is untouched
 
 

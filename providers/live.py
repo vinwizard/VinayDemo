@@ -15,36 +15,23 @@ import os
 import re
 import threading
 import uuid
-from datetime import datetime, timezone
 from typing import Callable, NamedTuple, Optional
 
+import access
 import dispatch
 import sampler
 import sharing
 from agents.onboarding_model import buyer_category_for, buyer_questions_for
-from schemas import Answer, Attribute, CompanyProfile, Probe, ReadResult, ReadStep, Topic
+from schemas import Answer, Attribute, CompanyProfile, Probe, ReadResult, ReadStep, Topic, utc_now
 
 KEY_ENV = "OPENAI_API_KEY"
-# The model that ANSWERS the questions — the one being measured. The judge is separate
-# (EVALUATOR_MODEL, agents/evaluator_model.py). It must (a) accept the Responses API web_search tool
-# and (b) know the present: gpt-4.1's training stops in 2024, so asked about a 2025-founded brand it
-# searched for — and reasoned about — a world that brand was not in yet.
-# Checked against OpenAI's model reference on 2026-09-22: gpt-6-luna lists web_search among its
-# tools, has a 2026-05-18 knowledge cutoff and costs $0.10/$0.50 per 1M tokens — a twentieth of
-# gpt-4.1's input and a sixteenth of its output. It is newer than the pinned SDK's model list
-# (openai==3.16.2), but the Responses API takes the model as a plain string, so the client sends it;
-# whether the ACCOUNT may call it is only knowable from a real call, which is what `preflight` and
-# FALLBACK_MODEL below are for.
-# Note: the *-search-preview models are Chat Completions only and 400 here ("not supported with the
-# Responses API"), and gpt-4.1-nano rejects the web_search tool.
+# The model that ANSWERS the questions — the one being measured; the judge is separate
+# (agents/evaluator_model.py). It must accept the Responses API web_search tool and know the
+# present. Whether the account may call it is only knowable from a real call: `preflight`.
 MODEL_ENV = "MEASURED_MODEL"
 DEFAULT_MODEL = "gpt-6-luna"
 # Where preflight drops to when the API refuses the model or the tool shape below, for the judge as
-# well as the measured model. gpt-5-nano, read from the model reference on 2026-09-22: web_search
-# among its tools, $0.05/$0.40 per 1M, and in the pinned SDK's model list. Its knowledge stops in
-# May 2024 — the staleness this change was made to escape — but it is only ever reached when the
-# account cannot call the real default, and forced search grounds each answer in pages fetched now.
-# Never silently: /api/health reports the model and search mode actually in use.
+# well as the measured model. Never silently: /api/health reports the model and search mode in use.
 FALLBACK_MODEL = "gpt-5-nano"
 # Search is REQUIRED, not merely offered: an answer the model wrote from memory is excluded from
 # live scores (scoring.eligible), so an optional search means paying for calls that are then thrown
@@ -68,19 +55,13 @@ INCLUDE = ["web_search_call.action.sources", "web_search_call.results"]
 # model outside REASONING_MODELS (gpt-4.1, gpt-4o) is sent no setting: it would refuse the field.
 REASONING = {"effort": "low"}
 REASONING_MODELS = ("gpt-5", "gpt-6")
-# The record of the most recent successful `preflight`, for /api/health and status() only: the
-# step-down reason, in words safe to show, and whether any web_search tool is sent at all. A run
-# never reads it back — it uses the `Resolved` its own preflight returned, so a concurrent run's
-# preflight cannot retarget it. `_search` False is the last resort: the fallback model would not
-# take the tool either, so answers come back ungrounded and are excluded from the scores, which the
-# report says plainly. No third model is tried — quietly measuring something nobody chose would be
-# worse than measuring nothing.
+# The most recent successful `preflight`, for /api/health and status() only: the step-down reason,
+# and whether any web_search tool is sent at all. A run never reads it back — it uses the `Resolved`
+# its own preflight returned, so a concurrent run's preflight cannot retarget it.
 _fallback: Optional[str] = None
 _search: bool = True
-# How many buyer questions a front asks, and when it may stop, is sampler-lite's (sampler.py): fresh
-# questions up to a stated margin at 95%, plus WOBBLE_AUDIT re-asks per front for the wobble.
 
-LIMITS = dict(per_call_timeout_s=90, investigation_deadline_s=600)
+CALL_TIMEOUT_S = 90
 
 NEUTRAL_INSTRUCTION = ("Answer the user's question as a helpful assistant. Use web search. "
                        "Recommend specific products where appropriate and cite sources.")
@@ -287,17 +268,9 @@ def parse_response(response) -> tuple[str, list[str], bool]:
     return "\n".join(t for t in text_parts if t).strip(), citations, searched
 
 
-def searches_of(response) -> list[str]:
-    """The queries the model actually searched, in order: every web_search_call "search" action.
-    Other actions (opening or finding in a page) carry no query and are not searches."""
-    out = []
-    for item in _output_items(response):
-        action = _item(item, "action") if _item(item, "type") == "web_search_call" else None
-        if action is not None and _item(action, "type") == "search":
-            for q in [_item(action, "query"), *(_item(action, "queries") or [])]:
-                if isinstance(q, str) and q.strip() and q.strip() not in out:
-                    out.append(q.strip())
-    return out
+def searches_of(trace: Optional[list[ReadStep]]) -> list[str]:
+    """The queries the model actually searched, in order. Opening or finding in a page is not a search."""
+    return list(dict.fromkeys(q for s in trace or [] if s.kind == "search" for q in s.queries))
 
 
 # The Responses API wraps each snippet's citation handle in private-use characters
@@ -336,9 +309,9 @@ def reading_of(response, cap: Optional[int] = TRACE_CAP) -> Optional[list[ReadSt
 
 def default_transport(messages: list[dict], model: str, timeout: int,
                       tool: Optional[dict] = SEARCH_TOOL):
-    import access  # metered: refused at a pass's cap, charged to it after
-    # tool_choice is the whole point of forcing search: with "auto" the model decides, and the
-    # answers it decides not to search for are paid for and then excluded from the score.
+    # Metered (access): refused at a pass's cap, charged to it after. tool_choice is the whole point
+    # of forcing search: with "auto" the model decides, and the answers it decides not to search for
+    # are paid for and then excluded from the score.
     extra = dict(tools=[tool], tool_choice=TOOL_CHOICE, include=INCLUDE) if tool else {}
     if reasoning := reasoning_for(model):
         extra["reasoning"] = reasoning
@@ -374,7 +347,6 @@ class LiveProvider:
         # sampler-lite (sampler.py) sizes the buyer fronts; a wobble-audited question is asked `tries` times
         self.sampler = True
         self.tries = 1 + sampler.wobble_audit()
-        self.repeat_sample = 0
         self.spent = 0.0      # what the measured calls cost, for RUN_BUDGET_USD
         self.asked = 0        # the measured asks in `spent`, each one or two calls
         self._spent_lock = threading.Lock()
@@ -404,7 +376,6 @@ class LiveProvider:
             positioning = pos.build
         self.positioning = positioning
         self.evaluator = evaluator          # None -> answers come back unlabelled ("needs review")
-        self.calls = 0
         self.skipped_questions: list[str] = []
         self.notes: list[str] = []
         self.missing_fronts: dict[str, str] = {}
@@ -528,8 +499,6 @@ class LiveProvider:
     def named_probes(self) -> list[Probe]:
         return self._named
 
-    def followup_bank(self) -> dict[str, list[dict]]:
-        return {}
 
     def discover(self, attributes: list[Attribute], answers: list[tuple[Probe, Answer]]):
         """Raw emergent-attribute proposals from the evaluator model, or None when there is none."""
@@ -544,15 +513,12 @@ class LiveProvider:
 
     def _call(self, probe: Probe) -> tuple[object, Optional[Exception]]:
         """One measured call: -> (response, None) or (None, the exception it raised)."""
-        with self._spent_lock:
-            self.calls += 1
         try:
-            raw = self._transport(measured_prompt(probe), self.model, LIMITS["per_call_timeout_s"])
+            raw = self._transport(measured_prompt(probe), self.model, CALL_TIMEOUT_S)
         except Exception as e:                      # surfaced as a failed answer, never swallowed
             with self._spent_lock:                  # what the ledger charged for it counts here too
                 self.spent += getattr(e, "billed_usd", 0.0)
             return None, e
-        import access
         cost = access.cost(self.model, raw)[0]
         with self._spent_lock:
             self.spent += cost
@@ -621,9 +587,8 @@ class LiveProvider:
         return answer
 
     def _ask(self, probe: Probe, try_no: int) -> Answer:
-        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         base = dict(probe_id=probe.id, provenance="live_api", provider=self.name,
-                    model=self.model, collected_at=now, try_no=try_no)
+                    model=self.model, collected_at=utc_now(), try_no=try_no)
         raw, err = self._call(probe)
         if raw is not None and self.search_tool is not None and not parse_response(raw)[2]:
             # tool_choice asked for a search and none ran. One retry: a model that skips a forced
@@ -642,5 +607,6 @@ class LiveProvider:
         if not text:
             return Answer(**base, text="", status="error", error="empty response",
                           search_executed=searched)
+        trace = reading_of(raw)
         return Answer(**base, text=text, citations=citations, search_executed=searched, status="ok",
-                      searches=searches_of(raw), trace=reading_of(raw))
+                      searches=searches_of(trace), trace=trace)

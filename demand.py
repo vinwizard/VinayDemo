@@ -4,10 +4,9 @@ For one category (a buyer front's), harvest real search phrasings, keep the ones
 intent, group them by meaning and ask one representative per group, heaviest group first. A scrappy
 answer to "are these even real questions?", not a volume estimate.
 
-  * Sources: Google autocomplete (the public suggestqueries endpoint, one short GET per seed below)
-    and Reddit's public search JSON, which refuses unauthenticated clients from many networks (it
-    returned 403 while this was built); a refusal is stated, never worked around. "People also ask"
-    is skipped: it exists only inside Google's result pages, and getting it means scraping them.
+  * Source: Google autocomplete (the public suggestqueries endpoint, one short GET per seed below);
+    a refusal is stated, never worked around. "People also ask" is skipped: it exists only inside
+    Google's result pages, and getting it means scraping them.
   * Clean in code: a phrasing that names the brand or addresses the vendor is dropped, as any
     buyer question is (agents/ana.py); so is one off the category or with no buying intent.
   * Group with embeddings (text-embedding-3-small, metered through access.py) and average-link
@@ -28,14 +27,12 @@ from typing import Callable
 import embeddings
 import reports
 from agents.ana import brand_leaks, vendor_address
-from agents.evaluation import content_words
 from fetching import USER_AGENT
 from schemas import CompanyProfile, Demand, DemandPhrase
 
 TIMEOUT = 4
 CACHE_S = 7 * 24 * 3600
 AUTOCOMPLETE = "https://suggestqueries.google.com/complete/search?client=firefox&hl=en&q="
-REDDIT = "https://www.reddit.com/search.json?sort=relevance&t=year&limit=25&q="
 SEEDS = ("{c}", "best {c}", "how to choose {c}", "which {c}", "{c} vs", "alternatives to {c}", "{c} for")
 EMBED_MODEL = "text-embedding-3-small"
 MAX_PHRASES = 60
@@ -60,7 +57,7 @@ def _cache(category: str):
 
 
 def harvest(category: str) -> tuple[list[dict], list[str]]:
-    """-> (phrases [{text, source, rank}], one note per source that gave nothing)."""
+    """-> (phrases [{text, source, rank}], a note when the source gave nothing)."""
     path = _cache(category)
     try:
         cached = json.loads(path.read_text())
@@ -77,12 +74,6 @@ def harvest(category: str) -> tuple[list[dict], list[str]]:
             failed += 1
     if failed == len(SEEDS):
         notes.append("Google autocomplete could not be reached")
-    try:
-        posts = _fetch_json(REDDIT + urllib.parse.quote(category))["data"]["children"]
-        phrases += [dict(text=p["data"]["title"], source="reddit", rank=i) for i, p in enumerate(posts)]
-    except Exception as e:
-        code = getattr(e, "code", None)
-        notes.append(f"Reddit refused the search (HTTP {code})" if code else "Reddit could not be reached")
     if phrases:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(dict(at=time.time(), phrases=phrases, notes=notes)))
@@ -91,18 +82,13 @@ def harvest(category: str) -> tuple[list[dict], list[str]]:
 
 def clean(phrases: list[dict], category: str, profile: CompanyProfile) -> list[dict]:
     """On the category, carrying buying intent, never naming the brand or the vendor, once each."""
-    words = content_words(category)
     kept, seen = [], set()
     for p in phrases:
         text = " ".join(p["text"].split())
         key = text.lower().rstrip("?")
         if key in seen or key == category.lower() or brand_leaks(text, profile) or vendor_address(text):
             continue
-        if p["source"] == "autocomplete":
-            relevant = category.lower() in key and bool(INTENT.search(text) or QUESTION.search(text))
-        else:  # a thread title: a question about the category, not news or a show-and-tell
-            relevant = words <= content_words(text) and bool(QUESTION.search(text)) and len(text) <= 160
-        if relevant:
+        if category.lower() in key and (INTENT.search(text) or QUESTION.search(text)):
             seen.add(key)
             kept.append({**p, "text": text})
     return kept[:MAX_PHRASES]
@@ -143,16 +129,14 @@ def ground(category: str, profile: CompanyProfile, n: int, embed: Callable = emb
         groups, sim = cluster(embed([p["text"] for p in phrases]))
     except Exception as e:     # refused by the pass (access.Refused) is a BaseException and passes up
         return [], f"Real searches for {category} could not be grouped by meaning ({type(e).__name__}), {fallback}."
-    rank = lambda g: (-len(g), min(phrases[i]["rank"] if phrases[i]["source"] == "autocomplete" else 99 for i in g))
+    rank = lambda g: (-len(g), min(phrases[i]["rank"] for i in g))
     out = []
     for g in sorted(groups, key=rank)[:n]:
         g = sorted(g, key=lambda i: -sum(sim[i][j] for j in g))      # most central first
         out.append((phrases[g[0]]["text"], Demand(
             phrase=phrases[g[0]]["text"], source=phrases[g[0]]["source"],
             phrasings=[DemandPhrase(text=phrases[i]["text"], source=phrases[i]["source"]) for i in g])))
-    sources = sorted({p["source"] for p in phrases})
-    said = " and ".join("Google autocomplete" if s == "autocomplete" else "Reddit" for s in sources)
-    note = (f"{len(out)} buyer questions about {category} are real searches from {said}: "
+    note = (f"{len(out)} buyer questions about {category} are real searches from Google autocomplete: "
             f"{len(phrases)} phrasings grouped into {len(groups)} by meaning, the most common groups asked.")
     return out, note + (f" {'; '.join(notes)}." if notes else "")
 

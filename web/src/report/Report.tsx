@@ -1,13 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent } from "react";
 import type { RetrievalRow, Run } from "../api";
-import { PROVENANCE_LABEL, headline, when } from "../labels";
+import { PROVENANCE_LABEL, when } from "../labels";
 import { tabBadge } from "../badge";
 import { GLOSSARY } from "../glossary";
 import { FleetPanel } from "../fleet";
-import { useReportTour } from "../guideBus";
-import { measuredWhat } from "../tour";
-import { modelsOf, TABS, winBackPlan } from "./util";
+import { modelsOf, TABS, tabKey, winBackPlan } from "./util";
 import type { ReportTab } from "./util";
 import { Logo, Section } from "./ui";
 import { Figures, PinnedLine, Explain } from "./figures";
@@ -68,8 +66,6 @@ export function Report({ run, onRescored }: {
   const d = run.drift;
   const uid = useId();
   const top = useRef<HTMLDivElement>(null);
-  const shown = d ? headline(d) : null;
-  useReportTour({ brand: run.profile.name, today: shown?.value, potential: shown?.potential, what: measuredWhat(run.profile.name, d?.lens) });
   const [tab, setTabState] = useState<ReportTab>(tabFromHash);
   const [reasks, setReasks] = useState<Record<string, RetrievalRow["reask"]>>({});
   const reasked = (probe: string, got: RetrievalRow["reask"]) => setReasks((m) => ({ ...m, [`${run.id}:${probe}`]: got }));
@@ -104,11 +100,8 @@ export function Report({ run, onRescored }: {
     if (head && head.getBoundingClientRect().top <= 0) head.parentElement?.scrollIntoView({ block: "start" });
   };
   const onKey = (e: KeyboardEvent) => {
-    const i = TABS.findIndex(([t]) => t === tab);
-    const to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: TABS.length - 1 }[e.key];
-    if (to == null) return;
-    e.preventDefault();
-    setTab(TABS[(to + TABS.length) % TABS.length][0], true);
+    const to = tabKey(e, TABS.findIndex(([t]) => t === tab), TABS.length);
+    if (to != null) setTab(TABS[to][0], true);
   };
 
   const claims = run.attribute_scores.filter((s) => !s.discovered);
@@ -144,7 +137,7 @@ export function Report({ run, onRescored }: {
         {d && (
           <div className={`report-tabs${nudge ? " nudge" : ""}`} role="tablist" aria-label="Report sections" onKeyDown={onKey}>
             {TABS.map(([t, label], i) => (
-              <button key={t} id={`${uid}-tab-${t}`} role="tab" className="rtab" aria-selected={tab === t} data-tour={`tab-${t}`}
+              <button key={t} id={`${uid}-tab-${t}`} role="tab" className="rtab" aria-selected={tab === t}
                       style={{ "--i": i } as CSSProperties}
                       aria-controls={`${uid}-panel-${t}`} tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)}
                       title={TAB_HINT[t]}>

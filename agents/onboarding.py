@@ -35,7 +35,7 @@ def named_probes_for(profile: CompanyProfile, attributes: list[Attribute] = ()) 
 
     There is deliberately no "how does {brand} compare to X?" question here: naming a competitor
     up front would put the answer in the model's mouth. Competitors are discovered from the blind
-    answers instead, and the comparison is asked in the adaptive round (ana.comparison_probe).
+    answers instead, and the comparison is asked after them (ana.comparison_probe).
 
     A template whose ordinary English collides with a measured claim (a template word that is also
     one of a claim's aliases) is dropped here rather than rewritten, so the collision costs one question at

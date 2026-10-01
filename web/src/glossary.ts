@@ -75,7 +75,7 @@ export const GLOSSARY = {
   real_demand: {
     term: "Real demand",
     def: "An unbranded question taken from what people actually search, not written by AI: Google's "
-      + "autocomplete suggestions for the category (and Reddit threads, when Reddit allows it). Similar "
+      + "autocomplete suggestions for the category. Similar "
       + "searches are grouped by meaning and the biggest groups are asked first. It shows the questions "
       + "are real, not how many people search them.",
   },
@@ -106,12 +106,6 @@ export const GLOSSARY = {
     def: "What kind of site a citation points at: the company's own site, a rival's own site, a review "
       + "site (G2, Capterra…), a community (Reddit, forums), media or a blog, or other. Sorted from a "
       + "short list of well-known sites plus the address itself, so an unfamiliar site shows as other.",
-  },
-  citation_map: {
-    term: "Citation map",
-    def: "Every brand named in a buyer answer, joined to each site that answer cited. A site joined to "
-      + "several rivals and never to the company is where the AI learns about the category without "
-      + "learning about the company.",
   },
   landed: {
     term: "Landed",

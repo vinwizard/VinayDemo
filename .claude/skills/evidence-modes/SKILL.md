@@ -5,13 +5,13 @@ description: Load when touching providers/ (fixture replay, live API), provenanc
 
 # Evidence modes, provenance and budgets
 
-Moved verbatim from agents.md section 2 and the execution limits in section 8. Where this disagrees with the code, README.md or WEB.md, the code wins: it was written for the first overnight build, before the React app, the drift layer and live mode existed.
+From the original brief. Where this disagrees with the code, README.md or WEB.md, the code wins.
 
-## 2. No-key execution: three explicitly different modes
+## Three explicitly different modes
 
 | Mode | Source | What works | Required label |
 | --- | --- | --- | --- |
-| Demo replay — default | Authored deterministic fixtures | Entire interactive workflow, graph routing, scores, follow-up selection, report and exports | Synthetic demo; no live chatbot measurements |
+| Demo replay — default | Authored deterministic fixtures | Entire interactive workflow, graph routing, scores, report and exports | Synthetic demo; no live chatbot measurements |
 | Research snapshot — optional | Claude Code's available WebSearch/WebFetch tools during development; saved source records | Real company research and a saved search snapshot | Claude Code research snapshot; not cross-model chatbot visibility |
 | Live API — optional adapter | Explicitly configured official provider API | Fresh neutral probes and model-powered agent decisions | Actual provider/model, timestamp, grounding status |
 
@@ -23,15 +23,13 @@ Moved verbatim from agents.md section 2 and the execution limits in section 8. W
 - A web-search result is not evidence that ChatGPT, Gemini, or Perplexity recommended a brand. Never convert search rankings/snippets into chatbot mention scores.
 - This coding session already knows the target company; any answers it authors must not be represented as blind visibility measurements. Use such answers only as labeled illustrative fixtures.
 - Do not call the Claude CLI from the app, reuse subscription session tokens as API credentials, automate consumer chatbot logins, or bypass permissions. Runtime CLI integration is out of scope.
-- If tools or network access are unavailable, finish the fixture-based application anyway.
-- If a genuine free-tier key is supplied later, verify current official docs and enable that provider through environment variables. Do not invent successful calls or hide rate-limit failures.
+- Do not invent successful calls or hide rate-limit failures.
 
 ### Making the demo honest and useful
 
-Every displayed record carries provenance. Show a permanent mode banner, add mode labels to exports and screenshots, and never label fixture results “live.” A why-agent replay (`counterfactual_replay`) is an experiment on a reading list the model really read, never a measurement; copy it edits or injects that is not a page's own verbatim text is labelled hypothetical wherever it appears. A fleet's plan cites those replays as predictions; its verifier's live asks after a fix is published are `live_api` but live only in a `Verification` record, never on a run or in a score, and are shown beside the prediction, never pooled with it. Simulated baseline and adaptive results may demonstrate the intended product behavior, but the app must state that model judgment is simulated in replay mode.
+Every displayed record carries provenance. Show a permanent mode banner, add mode labels to exports and screenshots, and never label fixture results “live.” A why-agent replay (`counterfactual_replay`) is an experiment on a reading list the model really read, never a measurement; copy it edits or injects that is not a page's own verbatim text is labelled hypothetical wherever it appears. A fleet's plan cites those replays as predictions; its verifier's live asks after a fix is published are `live_api` but live only in a `Verification` record, never on a run or in a score, and are shown beside the prediction, never pooled with it. Simulated results may demonstrate the intended product behavior, but the app must state that model judgment is simulated in replay mode. No fake provider latency, token bills or live-status indicators: `VISEXP_DEV_DELAY` is a development aid only, off by default, and never implies a provider was called.
 
-For arbitrary companies with no key: allow pasted facts and manual profile/topic edits, then show a research plan. Do not reuse Notion answers under a different company's name. Only bundled companies have replay results. Explain when generating new answers requires credentials.
-
+Do not reuse Notion answers under a different company's name. Only bundled companies have replay results.
 
 ### Onboarding sources: what may count as claimed
 
@@ -49,8 +47,8 @@ all the way to the report (WEB.md "Onboarding", `discovery.py`, `documents.py`):
 - A web search that finds the company is not a measurement of anything: it is not a chatbot
   visibility result and never feeds a score.
 
-### Execution limits (from section 8)
+### Execution limits
 
-Live adapter, only if credentials are supplied: one official search-capable provider; configurable model; fresh probe context. The live limits and budgets are in WEB.md ("Live mode") and `providers/live.py` `LIMITS`. No automatic paid checks. Track actual usage if available; do not invent dollar costs.
+Live adapter, only if credentials are supplied: one official search-capable provider; configurable model; fresh probe context. The live limits and budgets are in WEB.md ("Live mode"). No automatic paid checks. Track actual usage if available; do not invent dollar costs.
 
 Research within Claude Code: at most 12 search/fetch operations for company and product context. Stop when the demo has enough supporting material. If tools fail or require unavailable authorization, record the limitation and continue offline; do not bypass access controls.

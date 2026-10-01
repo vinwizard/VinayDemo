@@ -15,6 +15,7 @@ Fetching a URL a user supplies is an SSRF primitive: without care it can be poin
 Fetched page text is untrusted DATA. It is stored as an evidence excerpt and never treated as
 instructions to anything downstream.
 """
+import contextlib
 import http.client
 import ipaddress
 import re
@@ -123,10 +124,8 @@ class _Text(HTMLParser):
 
 def _parts(html: str) -> list[str]:
     p = _Text()
-    try:
+    with contextlib.suppress(Exception):    # malformed markup: keep whatever parsed
         p.feed(html)
-    except Exception:
-        pass                                # malformed markup: keep whatever parsed
     return p.parts
 
 
@@ -193,10 +192,8 @@ def _get(scheme: str, host: str, port: int, path: str, timeout: float = TIMEOUT,
     except (OSError, http.client.HTTPException) as e:
         raise _plain(e, host, timeout) from e
     finally:
-        try:
+        with contextlib.suppress(Exception):
             sock.close()
-        except Exception:
-            pass
 
 
 def request(url: str, timeout: float = TIMEOUT, accept: str = HTML) -> tuple[str, int, str, str]:
@@ -274,10 +271,8 @@ class _Links(HTMLParser):
 
 def _links(html_text: str) -> list[tuple[str, str]]:
     p = _Links()
-    try:
+    with contextlib.suppress(Exception):    # malformed markup: keep whatever parsed
         p.feed(html_text)
-    except Exception:
-        pass                                # malformed markup: keep whatever parsed
     return [(h, t) for h, t in p.links if h]
 
 
