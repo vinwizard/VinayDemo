@@ -401,20 +401,51 @@ def _hold(pass_id: Optional[str], usd: float) -> float:
             except Refused:
                 _settled.wait()                  # room only once the calls under way are charged
         _in_flight[pass_id] = under_way + usd
+    started()
     return usd
 
 
-def room() -> bool:
-    """Whether the acting pass may start a call now without waiting in _hold for its calls under way
-    to be charged. The dispatcher starts nothing that would wait, so one pass at its cap never holds
-    the workers every run shares. A pass already at its cap has room: its call is refused at once."""
+# A dispatched ask whose first call has not reserved yet, per pass: the dispatcher starts at most one
+# at a time, so what a pass has under way is always in _in_flight when it decides whether to start the next.
+_starting: dict[str, object] = {}
+STARTING: ContextVar[Optional[tuple]] = ContextVar("starting", default=None)
+
+
+def start(wake) -> bool:
+    """For the dispatcher, in an ask's context: whether it may start now without waiting in _hold for
+    its pass's calls under way to be charged, so one pass at its cap never holds the workers every run
+    shares. A pass already at its cap may: its call is refused at once. `wake` is called once the ask
+    has reserved its first call or ended (`started`), when the pass may start another."""
     pass_id = SPENDER.get()
-    with _settled:
-        under_way = _in_flight.get(pass_id, 0.0) if pass_id else 0.0
-    if not under_way:
+    if not pass_id:
         return True
-    p = get_pass(pass_id)
-    return p is None or bool(p["revoked"]) or not p["spent_usd"] < p["cap_usd"] <= p["spent_usd"] + under_way
+    with _settled:
+        if pass_id in _starting:
+            return False
+        under_way = _in_flight.get(pass_id, 0.0)
+    if under_way:
+        try:
+            p = get_pass(pass_id)
+        except Exception:                        # _hold decides then, as it always did
+            p = None
+        if p and not p["revoked"] and p["spent_usd"] < p["cap_usd"] <= p["spent_usd"] + under_way:
+            return False
+    token = object()
+    with _settled:
+        _starting[pass_id] = token
+    STARTING.set((pass_id, token, wake))
+    return True
+
+
+def started() -> None:
+    if not (mark := STARTING.get()):
+        return
+    pass_id, token, wake = mark
+    STARTING.set(None)
+    with _settled:
+        if _starting.get(pass_id) is token:
+            del _starting[pass_id]
+    wake()
 
 
 def _release(pass_id: Optional[str], usd: float) -> None:

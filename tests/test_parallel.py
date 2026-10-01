@@ -323,7 +323,7 @@ def test_one_429_pauses_every_call_once_and_a_call_is_tried_a_bounded_number_of_
     monkeypatch.setattr(access, "_calm_at", 0.0)
     paused, seen, lock = [], [], threading.Lock()
     real_pause = access.pause
-    monkeypatch.setattr(access, "pause", lambda s: (paused.append(s), real_pause(s)))
+    monkeypatch.setattr(access, "pause", lambda s: (real_pause(s), paused.append(s)))
 
     def create(timeout, **kw):
         with lock:
@@ -360,27 +360,30 @@ def test_one_429_pauses_every_call_once_and_a_call_is_tried_a_bounded_number_of_
 def test_a_pass_at_its_cap_waits_in_the_queue_not_on_a_shared_worker(tmp_path, monkeypatch):
     monkeypatch.setattr(access, "db_path", lambda: tmp_path / "access.db")
     pid = access.create_pass("tester", 0.001)   # one call under way takes it to its cap
-    gate = threading.Event()
+    gate, made = threading.Event(), []
 
     def create(timeout, **kw):
+        made.append(kw["input"])
         if kw["input"] == "first":
             gate.wait()
         return {"usage": {"input_tokens": 400_000, "output_tokens": 0}}
 
     monkeypatch.setattr(access, "_create", create)
     ask = lambda text: access.openai_response(5, model="gpt-4o-mini", input=text)
-    d = dispatch.Dispatcher(2)
-    with access.spending(pid):
-        first = d.submit("capped", ask, "first")
-        while not d.in_flight:
-            time.sleep(0.001)
-        second = d.submit("capped", ask, "second")
+    d = dispatch.Dispatcher(3)
+    with access.spending(pid):   # all at once: no worker may take a second before the first has reserved
+        capped = [d.submit("capped", ask, text) for text in ("first", "second", "third")]
     other = d.submit("other", lambda: "answered")
     try:
-        assert other.result(timeout=2) == "answered"   # the free worker was not parked on the capped pass
-        assert not second.done()
+        assert other.result(timeout=2) == "answered"   # no free worker was parked on the capped pass
+        while not made:
+            time.sleep(0.001)
+        time.sleep(0.05)
+        assert made == ["first"] and not any(f.done() for f in capped)
     finally:
         gate.set()
-    first.result(timeout=2)
-    with pytest.raises(access.Refused):
-        second.result(timeout=2)
+    capped[0].result(timeout=2)
+    for f in capped[1:]:
+        with pytest.raises(access.Refused):
+            f.result(timeout=2)
+    assert made == ["first"] and not access._starting

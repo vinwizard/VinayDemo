@@ -96,12 +96,12 @@ def rate(run: Run, ids: set[str]) -> tuple[int, int]:
 
 
 def decide(run: Run, spent: float = 0.0, front: Optional[str] = None, committed: int = 0,
-           per_call: float = 0.0) -> list[str]:
+           per_ask: float = 0.0) -> list[str]:
     """After look 1: which fronts stop, which go on to look 2. -> the probe ids released for look 2.
     A front whose look 2 would take the run past its budget stops, its margin not met. With `front`,
     only that one decides — a front decides as soon as its own look 1 is in — and `committed` is how
-    many asks the run has under way and not yet paid for, each counted at `per_call`, what one
-    measured call has cost so far: so the budget sees the run's whole spend, whichever answers are in."""
+    many asks the run has under way and not yet paid for, each counted at `per_ask`, what one
+    measured ask has cost so far: so the budget sees the run's whole spend, whichever answers are in."""
     report = run.sampler
     fronts = front_of(run)
     released = []
@@ -114,7 +114,7 @@ def decide(run: Run, spent: float = 0.0, front: Optional[str] = None, committed:
         if not waiting or half_width(k, n, z_for(ALPHA1)) * 100 <= report.margin:
             f.stopped_early = bool(waiting)
             continue
-        if report.budget_usd and spent + per_call * (committed + len(released) + len(waiting)) > report.budget_usd:
+        if report.budget_usd and spent + per_ask * (committed + len(released) + len(waiting)) > report.budget_usd:
             f.note = (f"Look 2 would take the run past its ${report.budget_usd:.2f} budget, so this front "
                       f"stopped at {f.asked} questions and its margin is wider than ±{report.margin}.")
             continue

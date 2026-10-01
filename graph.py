@@ -399,7 +399,7 @@ def sample_fronts(run: Run, provider, asks: Asks) -> list[list]:
         waiting = sum(fronts.get(pid) == f.front for pid in held)
         released = sampler.decide(run, getattr(provider, "spent", 0.0), f.front,
                                   committed=sum(not fut.done() for fut in asks.pending.values()),
-                                  per_call=getattr(provider, "per_call", lambda: 0.0)())
+                                  per_ask=getattr(provider, "per_ask", lambda: 0.0)())
         sampler.drop_unasked(run, f.front)
         asks.decided.add(f.front)
         name = {"placed": "where AI places it", "aiming": "where it aims to be", "both": "the shared set"}.get(

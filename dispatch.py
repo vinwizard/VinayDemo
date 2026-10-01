@@ -7,7 +7,7 @@ run wait for it to finish. Each ask runs in a copy of the context that submitted
 paying for it (access.SPENDER) is that run's own, and its answer comes back on that run's future
 only: nothing a run asked reaches another. Rate limits are handled where every model call passes,
 in access._metered (a 429 pauses every call in the process for the time the API asked). An ask
-whose pass has calls under way that may reach its cap waits in the queue (access.room), not on a
+whose pass has calls under way that may reach its cap waits in the queue (access.start), not on a
 worker, so the other runs' asks go ahead.
 
 Not the OpenAI Batch API: that one answers within 24 hours, and a run is watched while it happens.
@@ -67,7 +67,7 @@ class Dispatcher:
         for _ in range(len(self._turn)):
             key = self._turn.popleft()
             q = self._queues[key]
-            if not q[0][1].run(access.room):
+            if not q[0][1].run(access.start, self._wake):
                 self._turn.append(key)
                 continue
             item = q.popleft()
@@ -77,6 +77,10 @@ class Dispatcher:
                 del self._queues[key]
             return item
         return None
+
+    def _wake(self) -> None:
+        with self._cv:
+            self._cv.notify_all()
 
     def _work(self) -> None:
         while True:
@@ -93,6 +97,7 @@ class Dispatcher:
                     except BaseException as e:      # access.Refused too: it must stop the run that asked
                         fut.set_exception(e)
             finally:
+                ctx.run(access.started)
                 with self._cv:
                     self.in_flight -= 1
                     self._cv.notify_all()

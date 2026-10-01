@@ -358,7 +358,7 @@ class LiveProvider:
         self.tries = 1 + sampler.wobble_audit()
         self.repeat_sample = 0
         self.spent = 0.0      # what the measured calls cost, for RUN_BUDGET_USD
-        self.charged = 0      # the measured calls in `spent`
+        self.asked = 0        # the measured asks in `spent`, each one or two calls
         self._spent_lock = threading.Lock()
         # buyer questions and answers shared with every run in the same category today (sharing.py);
         # an injected transport (a test) gets none unless it injects one too
@@ -525,13 +525,12 @@ class LiveProvider:
         cost = access.cost(self.model, raw)[0]
         with self._spent_lock:
             self.spent += cost
-            self.charged += 1
         return raw, None
 
-    def per_call(self) -> float:
-        """What one measured call has cost on average, over the calls already charged."""
+    def per_ask(self) -> float:
+        """What one measured ask has cost on average, over the asks already made."""
         with self._spent_lock:
-            return self.spent / self.charged if self.charged else 0.0
+            return self.spent / self.asked if self.asked else 0.0
 
     def answer(self, probe: Probe, try_no: int = 1) -> Answer:
         # A buyer question's first ask may be one another run in this category asked today: its
@@ -568,6 +567,8 @@ class LiveProvider:
             again, _ = self._call(probe)
             if again is not None and parse_response(again)[2]:
                 raw, err = again, None
+        with self._spent_lock:
+            self.asked += 1
         if raw is None:
             kind = "timeout" if "timeout" in type(err).__name__.lower() else "error"
             return Answer(**base, text="", status=kind, error=safe_error(err),
