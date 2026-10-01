@@ -45,8 +45,8 @@ a pool thread starts empty, and a copy taken there drops the paying pass and the
 A run's measured asks go to the one process-wide dispatcher (`dispatch.py`: `LIVE_CONCURRENCY` in
 flight, round-robin across runs) as futures the graph collects; only the graph thread writes the run,
 in `graph.canonical` order, so nothing saved depends on completion order.
-Every measured call forces live web search (`live.TOOL_CHOICE`, `live.SEARCH_TOOL`) and
-retries once when none ran, because an ungrounded answer is paid for and then excluded; `preflight`
+Every measured call, and every live ask of the why agent and `verify` (`why.Lab.live`), forces
+live web search (`live.TOOL_CHOICE`, `live.SEARCH_TOOL`) and retries once when none ran, because an ungrounded answer is paid for and then excluded; `preflight`
 steps down to `live.FALLBACK_MODEL`, then to no search at all, never to a third model, and says
 which in `/api/health` and the report. Budget and model settings are
 env-driven with defaults; the whole table is in WEB.md ("Live mode", "Why a rerun gives a different

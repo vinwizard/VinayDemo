@@ -2,7 +2,7 @@
 // Nothing here changes stored data: ids, provenance values and strengths keep their names in the
 // JSON exports and saved runs. This module only decides how they are SPOKEN on screen.
 import type { Probe, RunSummary, Topic, Zone } from "./api";
-import { instant } from "./time";
+import { instant } from "./time.ts";
 
 // Zone names are spoken as the opportunity each one is, not as a loss: the zone keys, counts and
 // every number behind them are unchanged — only the words on screen are. Each label reads alone on a

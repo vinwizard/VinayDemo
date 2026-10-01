@@ -3,7 +3,11 @@
 The whole point of the display layer is that a reader who has never seen the code can read the
 screen. That is only true if it stays true, so these are guards, not documentation.
 """
+import json
 import re
+import shutil
+import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -24,6 +28,7 @@ def probe(pid, kind="blind", phase="baseline"):
     ("kb-2", "blind", "baseline", "Unbranded question 2"),
     ("ai_native-b1", "blind", "baseline", "Unbranded question 1"),
     ("kb-f1", "blind", "followup", "Follow-up question 1"),
+    ("kb-c1", "blind", "control", "Control question"),
 ])
 def test_probe_name(pid, kind, phase, expected):
     assert labels.probe_name(probe(pid, kind, phase)) == expected
@@ -88,3 +93,20 @@ def test_exclusion_reasons_name_the_question(run_a):
     answers = [a for a in run_a.answers if a.probe_id != "np-4"]
     _, reasons, asked = drift.named_eligibility(run_a.probes, answers, run_a.evaluations)
     assert reasons == ["Branded question 4: no answer collected"] and asked == 8
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node, as the web tests do")
+def test_the_browser_and_the_engine_speak_the_same_words():
+    # labels.ts and labels.py drifted apart: "Experiment —" against "Experiment:", and a control
+    # question was "Control question" on screen but "Unbranded question 1" in the engine's text.
+    from schemas import Topic
+    probes = [probe(*args) for args in [("np-3", "named"), ("np-f1", "named", "followup"), ("kb-2",),
+                                        ("kb-f1", "blind", "followup"), ("kb-c1", "blind", "control"), ("x",)]]
+    topics = [Topic.model_construct(id="t", label="Project tracking")]   # only id and label are read
+    script = (f"const m = await import({json.dumps(str(Path(labels.__file__).parent / 'web/src/labels.ts'))});"
+              f"console.log(JSON.stringify([m.PROVENANCE_LABEL, m.probeLabels({json.dumps([p.model_dump() for p in probes])},"
+              f" {json.dumps([t.model_dump() for t in topics])})]));")
+    out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, check=True)
+    provenance, names = json.loads(out.stdout)
+    assert provenance == labels.PROVENANCE_LABEL
+    assert names == labels.probe_names(probes, topics)
