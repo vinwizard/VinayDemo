@@ -60,8 +60,12 @@ default_transport = live.default_transport
 
 
 def _search(prompt: str, transport: Optional[Callable]):
+    # the model and search tool the last preflight proved, not the configured pair it stepped down from
+    tool = live.search_tool()
+    if tool is None:
+        raise SearchFailed(f"Web search is not available right now: {live.fallback_reason()}")
     try:
-        return (transport or default_transport)(prompt, live.configured_model(), TIMEOUT)
+        return (transport or default_transport)(prompt, live.model_name(), TIMEOUT, tool)
     except Exception as e:  # a model or network failure; a spending refusal (BaseException) goes up
         raise SearchFailed(f"Web search is not available right now ({live.safe_error(e)}).") from e
 
