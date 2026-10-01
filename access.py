@@ -404,6 +404,19 @@ def _hold(pass_id: Optional[str], usd: float) -> float:
     return usd
 
 
+def room() -> bool:
+    """Whether the acting pass may start a call now without waiting in _hold for its calls under way
+    to be charged. The dispatcher starts nothing that would wait, so one pass at its cap never holds
+    the workers every run shares. A pass already at its cap has room: its call is refused at once."""
+    pass_id = SPENDER.get()
+    with _settled:
+        under_way = _in_flight.get(pass_id, 0.0) if pass_id else 0.0
+    if not under_way:
+        return True
+    p = get_pass(pass_id)
+    return p is None or bool(p["revoked"]) or not p["spent_usd"] < p["cap_usd"] <= p["spent_usd"] + under_way
+
+
 def _release(pass_id: Optional[str], usd: float) -> None:
     if pass_id and usd:
         with _settled:
@@ -494,13 +507,13 @@ def charge(pass_id: str, model: str, response) -> float:
 def _create(timeout: int, **kwargs):
     """The one line in the app that talks to OpenAI. Tests replace it."""
     from openai import OpenAI  # lazy: the offline demo must not need the SDK
-    return OpenAI(api_key=os.environ[KEY_ENV], timeout=timeout).responses.create(**kwargs)
+    return OpenAI(api_key=os.environ[KEY_ENV], timeout=timeout, max_retries=0).responses.create(**kwargs)
 
 
 def _embed(timeout: int, **kwargs):
     """The one line in the app that asks OpenAI for embeddings. Tests replace it."""
     from openai import OpenAI
-    return OpenAI(api_key=os.environ[KEY_ENV], timeout=timeout).embeddings.create(**kwargs)
+    return OpenAI(api_key=os.environ[KEY_ENV], timeout=timeout, max_retries=0).embeddings.create(**kwargs)
 
 
 def openai_embedding(timeout: int, **kwargs):

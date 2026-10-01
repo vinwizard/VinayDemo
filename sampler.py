@@ -95,15 +95,16 @@ def rate(run: Run, ids: set[str]) -> tuple[int, int]:
     return k, n
 
 
-def decide(run: Run, spent: float = 0.0, front: Optional[str] = None, committed: int = 0) -> list[str]:
+def decide(run: Run, spent: float = 0.0, front: Optional[str] = None, committed: int = 0,
+           per_call: float = 0.0) -> list[str]:
     """After look 1: which fronts stop, which go on to look 2. -> the probe ids released for look 2.
     A front whose look 2 would take the run past its budget stops, its margin not met. With `front`,
     only that one decides — a front decides as soon as its own look 1 is in — and `committed` is how
-    many asks the run has under way and not yet paid for, which the budget counts as spent."""
+    many asks the run has under way and not yet paid for, each counted at `per_call`, what one
+    measured call has cost so far: so the budget sees the run's whole spend, whichever answers are in."""
     report = run.sampler
     fronts = front_of(run)
-    released, asked = [], sum(f.asked for f in report.fronts)
-    per_call = spent / asked if asked else 0.0
+    released = []
     for f in report.fronts:
         if front is not None and f.front != front:
             continue

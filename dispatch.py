@@ -6,7 +6,9 @@ taken from each run in turn (round-robin by run key), so a 55-question run never
 run wait for it to finish. Each ask runs in a copy of the context that submitted it, so the pass
 paying for it (access.SPENDER) is that run's own, and its answer comes back on that run's future
 only: nothing a run asked reaches another. Rate limits are handled where every model call passes,
-in access._metered (a 429 pauses every call in the process for the time the API asked).
+in access._metered (a 429 pauses every call in the process for the time the API asked). An ask
+whose pass has calls under way that may reach its cap waits in the queue (access.room), not on a
+worker, so the other runs' asks go ahead.
 
 Not the OpenAI Batch API: that one answers within 24 hours, and a run is watched while it happens.
 """
@@ -16,10 +18,12 @@ from concurrent.futures import Future
 from contextvars import copy_context
 from typing import Callable, Hashable, Optional
 
+import access
 from config import setting
 
 CONCURRENCY_ENV = "LIVE_CONCURRENCY"
 DEFAULT_CONCURRENCY = 16
+ROOM_POLL_S = 0.5    # a pass's calls under way may be charged outside the dispatcher: look again
 
 
 def live_concurrency() -> int:
@@ -58,18 +62,28 @@ class Dispatcher:
             fut.cancel()
         return len(q)
 
+    def _next(self) -> Optional[tuple]:
+        """The next ask that may start now, taking the runs in turn. Called holding _cv."""
+        for _ in range(len(self._turn)):
+            key = self._turn.popleft()
+            q = self._queues[key]
+            if not q[0][1].run(access.room):
+                self._turn.append(key)
+                continue
+            item = q.popleft()
+            if q:
+                self._turn.append(key)          # back of the line: the other runs go first
+            else:
+                del self._queues[key]
+            return item
+        return None
+
     def _work(self) -> None:
         while True:
             with self._cv:
-                while not self._turn:
-                    self._cv.wait()
-                key = self._turn.popleft()
-                q = self._queues[key]
-                fut, ctx, fn, args = q.popleft()
-                if q:
-                    self._turn.append(key)          # back of the line: the other runs go first
-                else:
-                    del self._queues[key]
+                while (item := self._next()) is None:
+                    self._cv.wait(ROOM_POLL_S if self._turn else None)
+                fut, ctx, fn, args = item
                 self.in_flight += 1
                 self.peak = max(self.peak, self.in_flight)
             try:
@@ -81,6 +95,7 @@ class Dispatcher:
             finally:
                 with self._cv:
                     self.in_flight -= 1
+                    self._cv.notify_all()
 
 
 _shared: Optional[Dispatcher] = None

@@ -358,6 +358,7 @@ class LiveProvider:
         self.tries = 1 + sampler.wobble_audit()
         self.repeat_sample = 0
         self.spent = 0.0      # what the measured calls cost, for RUN_BUDGET_USD
+        self.charged = 0      # the measured calls in `spent`
         self._spent_lock = threading.Lock()
         # buyer questions and answers shared with every run in the same category today (sharing.py);
         # an injected transport (a test) gets none unless it injects one too
@@ -514,7 +515,8 @@ class LiveProvider:
 
     def _call(self, probe: Probe) -> tuple[object, Optional[Exception]]:
         """One measured call: -> (response, None) or (None, the exception it raised)."""
-        self.calls += 1
+        with self._spent_lock:
+            self.calls += 1
         try:
             raw = self._transport(measured_prompt(probe), self.model, LIMITS["per_call_timeout_s"])
         except Exception as e:                      # surfaced as a failed answer, never swallowed
@@ -523,14 +525,21 @@ class LiveProvider:
         cost = access.cost(self.model, raw)[0]
         with self._spent_lock:
             self.spent += cost
+            self.charged += 1
         return raw, None
+
+    def per_call(self) -> float:
+        """What one measured call has cost on average, over the calls already charged."""
+        with self._spent_lock:
+            return self.spent / self.charged if self.charged else 0.0
 
     def answer(self, probe: Probe, try_no: int = 1) -> Answer:
         # A buyer question's first ask may be one another run in this category asked today: its
         # answer is reused (sharing.py) and judged again below for this brand. A re-ask never is.
         share = self._share if probe.kind == "blind" and try_no == 1 else None
         if share and (got := share.answer(probe.text, self.model)):
-            self.shared += 1
+            with self._spent_lock:
+                self.shared += 1
             return self._labelled(probe, got.model_copy(update=dict(probe_id=probe.id, shared=True)))
         answer = self._ask(probe, try_no)
         if share:
