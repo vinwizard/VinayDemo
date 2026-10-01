@@ -230,9 +230,14 @@ class Answer(BaseModel):
     # What the answering model read, step by step (providers/live.reading_of). None: not recorded (a
     # run saved before this field, a replay, or a response that carried no results).
     trace: Optional[list[ReadStep]] = None
-    # Reused: another run in the same category asked this buyer question of the same model today
-    # (sharing.py). The text is that answer; the labels were made again for this brand.
+    # Reused: an earlier run asked this question, or a near-identical one, of the same model in the
+    # same search mode in the last 24 hours (sharing.py). The text, citations, trace and collected_at
+    # are that answer's; the labels were made again for this run.
     shared: bool = False
+    # Set only when it was answered for a near-identical question: that question, and the cosine
+    # between the two (sharing.SIMILARITY is the least that is reused).
+    reused_question: Optional[str] = None
+    reused_similarity: Optional[float] = None
 
     @property
     def labels(self) -> Optional[dict]:
@@ -385,7 +390,7 @@ class SamplerReport(BaseModel):
     wobble: list[str] = []                       # probe ids re-asked once to show the wobble
     decided: bool = False
     unasked: list[Probe] = []                    # frozen questions a front never needed
-    shared: int = 0                              # answers reused from another run in the same category
+    shared: int = 0                              # answers reused from an earlier run (sharing.py)
 
 
 class DriftReport(BaseModel):

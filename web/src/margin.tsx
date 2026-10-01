@@ -32,8 +32,8 @@ export function SamplerNote({ run }: { run: Run }) {
       Each front aimed for a <Term k="margin">margin</Term> of ±{s.margin} points at 95%: {s.looks[0]} fresh
       questions first, up to {s.looks[1]} only where the answers so far were not clear
       {early ? ` (${early} front${early === 1 ? "" : "s"} were clear after the first look)` : ""}.
-      {s.shared > 0 && <> {s.shared} <Term k="shared_answer">answers were shared</Term> with another run in the same
-        category today.</>}
+      {s.shared > 0 && <> {s.shared} <Term k="shared_answer">answers were reused</Term> from a run in the last 24
+        hours.</>}
     </p>
   );
 }

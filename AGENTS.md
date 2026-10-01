@@ -32,8 +32,10 @@ Live runs ask real searches first (`demand.py`: autocomplete, grouped by embeddi
 fill the rest; tests never reach that network (`tests/conftest.py`).
 Each is asked once, sized by sampler-lite (`sampler.py`: a stated margin at 95%, two looks); one
 question a front is asked again for the wobble, and tries 2+ live in `run.repeat_answers`, so
-`run.answers` stays one answer per probe for every other consumer. Buyer answers are shared across
-brands in one category per model and day (`sharing.py`); brand questions never are.
+`run.answers` stays one answer per probe for every other consumer. Answers are reused for 24 hours
+per model and search mode (`sharing.py`, planned on the graph thread in `LiveProvider.plan_reuse`):
+any question within a pass, across passes only buyer questions the app wrote; at most half a run,
+each stored answer once, never stored again (WEB.md "Answer reuse").
 The why agent (`why.py`) replays what a live answer read (`Answer.trace`) with one thing changed;
 its answers are provenance `counterfactual_replay`, kept in their own record, never scored. After a
 run, the investigation fleet (`fleet.py`: a model coordinator bounded by code, parallel why

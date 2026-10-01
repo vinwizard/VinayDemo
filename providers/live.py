@@ -10,9 +10,11 @@ ungrounded, and `scoring.eligible` excludes it from live scores rather than quie
 
 Transport is injectable so the whole adapter is testable with no API key and no network.
 """
+import json
 import os
 import re
 import threading
+import uuid
 from datetime import datetime, timezone
 from typing import Callable, NamedTuple, Optional
 
@@ -57,6 +59,15 @@ FALLBACK_TOOL = {"type": "web_search"}
 # consulted and `results` the text it was handed — ranked snippets, the window of an opened page,
 # the lines a find-in-page matched (reading_of). This is what the why agent replays (why.py).
 INCLUDE = ["web_search_call.action.sources", "web_search_call.results"]
+# How hard the model thinks before it answers: gpt-6-luna takes none/low/medium (its default)/high
+# (model reference, read 2026-10-01). "low" was measured on 26 saved Amgen buyer and 11 brand
+# questions: the companies named and the claim verdicts matched the saved answers as closely as a
+# re-ask at the default did, at about half the latency (9 s against 15-17 s) and 60% of the cost.
+# "none" was no faster (it searched more) and a lighter `search_context_size` changed nothing (WEB.md
+# "Why a run takes the time it does"). The judge thinks at "low" too (agents/evaluator_model.py). A
+# model outside REASONING_MODELS (gpt-4.1, gpt-4o) is sent no setting: it would refuse the field.
+REASONING = {"effort": "low"}
+REASONING_MODELS = ("gpt-5", "gpt-6")
 # The record of the most recent successful `preflight`, for /api/health and status() only: the
 # step-down reason, in words safe to show, and whether any web_search tool is sent at all. A run
 # never reads it back — it uses the `Resolved` its own preflight returned, so a concurrent run's
@@ -73,6 +84,11 @@ LIMITS = dict(per_call_timeout_s=90, investigation_deadline_s=600)
 
 NEUTRAL_INSTRUCTION = ("Answer the user's question as a helpful assistant. Use web search. "
                        "Recommend specific products where appropriate and cite sources.")
+
+
+def reasoning_for(model: str) -> Optional[dict]:
+    """The `reasoning` field a call to `model` carries, or None to send none."""
+    return REASONING if model.startswith(REASONING_MODELS) else None
 
 
 def measured_prompt(probe: Probe) -> list[dict]:
@@ -324,6 +340,8 @@ def default_transport(messages: list[dict], model: str, timeout: int,
     # tool_choice is the whole point of forcing search: with "auto" the model decides, and the
     # answers it decides not to search for are paid for and then excluded from the score.
     extra = dict(tools=[tool], tool_choice=TOOL_CHOICE, include=INCLUDE) if tool else {}
+    if reasoning := reasoning_for(model):
+        extra["reasoning"] = reasoning
     return access.openai_response(timeout, model=model, input=messages, **extra)
 
 
@@ -360,10 +378,19 @@ class LiveProvider:
         self.spent = 0.0      # what the measured calls cost, for RUN_BUDGET_USD
         self.asked = 0        # the measured asks in `spent`, each one or two calls
         self._spent_lock = threading.Lock()
-        # buyer questions and answers shared with every run in the same category today (sharing.py);
-        # an injected transport (a test) gets none unless it injects one too
+        # buyer questions shared with every run in the same category today, and answers reused from
+        # the last 24 hours (sharing.py); an injected transport (a test) gets none unless it injects one
         self._share = share if share is not None else (sharing.Store() if transport is None else None)
-        self.shared = 0
+        self.fresh = False    # a Fresh run reuses nothing (its answers are still kept for later runs)
+        self.shared = 0       # answers reused, of which `near` for a near-identical question
+        self.near = 0
+        # the mode an answer is reused within: the same model, search tool and reasoning effort
+        self._mode = json.dumps([self.model, self.search_tool, reasoning_for(self.model)], sort_keys=True)
+        self._origin = uuid.uuid4().hex   # this run's own answers are never reused within it
+        self._reuse: dict[str, sharing.Hit] = {}   # probe id -> the stored answer its first ask reuses
+        self._firsts = 0                  # first asks planned, the reuse cap's denominator
+        self._vecs: dict[str, list[float]] = {}   # buyer question -> its embedding
+        self._wrote: set[str] = set()     # questions the app's writer wrote: the only ones another pass may reuse
         self._transport = transport or (lambda msgs, model, timeout: default_transport(
             msgs, model, timeout, tool=self.search_tool))
         # run -> RetrievalSim. The real one fetches pages and embeds them, so an injected transport
@@ -480,7 +507,9 @@ class LiveProvider:
         if len(have) >= set_questions():
             return []
         try:
-            return self._writer(category, description, set_questions() - len(have))
+            wrote = self._writer(category, description, set_questions() - len(have))
+            self._wrote.update(q.strip().lower() for q in wrote)
+            return wrote
         except Exception as e:
             self.notes.append(f"Unbranded questions for {category} could not be written "
                               f"({type(e).__name__}); its own {len(have)} were asked.")
@@ -534,17 +563,51 @@ class LiveProvider:
         with self._spent_lock:
             return self.spent / self.asked if self.asked else 0.0
 
+    def plan_reuse(self, jobs: list[tuple[Probe, int]]) -> None:
+        """Which of these asks reuse a stored answer instead (sharing.py), decided on the graph thread
+        as they are submitted, so a saved run never depends on which worker got there first. Only a
+        first ask: a re-ask for the wobble is a fresh draw by definition. A stored answer is reused
+        at most once a run and never one this run asked, so no answer counts twice; at most
+        sharing.MAX_SHARE of the run's first asks are reused, so each run still samples fresh."""
+        if not self._share:
+            return
+        firsts = [p for p, t in jobs if t == 1 and p.id not in self._reuse]
+        buyer = [p.text for p in firsts if p.kind == "blind" and p.phase == "baseline" and p.text not in self._vecs]
+        if buyer:
+            import embeddings
+            try:
+                self._vecs.update(zip(buyer, embeddings.embed(buyer)))
+            except Exception as e:      # stated: exact reuse still works, near-identical does not
+                self.notes.append(f"Buyer questions could not be embedded ({type(e).__name__}), so no answer "
+                                  "was reused for a near-identical question.")
+        used = {h.id for h in self._reuse.values()}
+        for p in firsts:
+            self._firsts += 1
+            if self.fresh or len(self._reuse) + 1 > sharing.MAX_SHARE * self._firsts:
+                continue
+            hit = self._share.exact(p.text, self._mode, self._origin, used)
+            if hit is None and p.text in self._vecs:
+                hit = self._share.near(self._vecs[p.text], self._mode, self._origin, used, sharing.SIMILARITY)
+            if hit:
+                self._reuse[p.id] = hit
+                used.add(hit.id)
+
     def answer(self, probe: Probe, try_no: int = 1) -> Answer:
-        # A buyer question's first ask may be one another run in this category asked today: its
-        # answer is reused (sharing.py) and judged again below for this brand. A re-ask never is.
-        share = self._share if probe.kind == "blind" and try_no == 1 else None
-        if share and (got := share.answer(probe.text, self.model)):
+        # A first ask plan_reuse matched is answered by the stored answer, judged again below for this
+        # run. Every fresh first ask is stored for later runs.
+        hit = self._reuse.get(probe.id) if try_no == 1 else None
+        if hit:
             with self._spent_lock:
                 self.shared += 1
-            return self._labelled(probe, got.model_copy(update=dict(probe_id=probe.id, shared=True)))
+                self.near += hit.similarity is not None
+            near = ({} if hit.similarity is None else
+                    dict(reused_question=hit.question, reused_similarity=round(hit.similarity, 3)))
+            return self._labelled(probe, hit.answer.model_copy(update=dict(probe_id=probe.id, shared=True, **near)))
         answer = self._ask(probe, try_no)
-        if share:
-            share.save_answer(probe.text, answer)
+        if self._share and try_no == 1:
+            self._share.save(probe.text, answer, self._mode, self._origin, vec=self._vecs.get(probe.text),
+                             open=probe.kind == "blind" and probe.phase == "baseline"
+                             and probe.text.strip().lower() in self._wrote)
         return self._labelled(probe, answer)
 
     def _labelled(self, probe: Probe, answer: Answer) -> Answer:

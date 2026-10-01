@@ -148,6 +148,10 @@ export interface Answer {
   trace?: ReadStep[] | null;
   /** Why scoring left this answer out (scoring.exclusion, set by the server), or null when it counts. */
   excluded?: Exclusion | null;
+  /** Reused from an earlier run's answer (sharing.py); `collected_at` is when it was asked. */
+  shared?: boolean;
+  /** Set when it was answered for a near-identical question: that question. */
+  reused_question?: string | null;
 }
 
 export type Exclusion = "snapshot" | "replay" | "failed" | "ungrounded" | "off_topic" | "unconfirmed" | "missing";
@@ -596,8 +600,8 @@ function openStream(
 }
 
 /** Measures one onboarded company. The UI only ever asks for live; the server owns any fallback. */
-export const streamRun = (companyId: string, h: StreamHandlers) =>
-  openStream(`/api/stream?company=${encodeURIComponent(companyId)}&mode=live`,
+export const streamRun = (companyId: string, fresh: boolean, h: StreamHandlers) =>
+  openStream(`/api/stream?company=${encodeURIComponent(companyId)}&mode=live${fresh ? "&fresh=true" : ""}`,
              { node: h.onNode, answer: h.onAnswer, done: h.onDone }, "done", h.onError);
 
 /** Onboarding as it happens: what was read first, then the saved company. `docs` are uploaded

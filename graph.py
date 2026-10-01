@@ -80,9 +80,10 @@ class Asks:
         return self.provider.answer(probe) if try_no == 1 else self.provider.answer(probe, try_no=try_no)
 
     def submit(self, jobs: list) -> None:
+        jobs = [(p, t) for p, t in jobs if (p.id, t) not in self.pending]
+        if plan := getattr(self.provider, "plan_reuse", None):
+            plan(jobs)    # here, on the graph thread: which asks reuse a stored answer never depends on timing
         for p, t in jobs:
-            if (p.id, t) in self.pending:
-                continue
             if self.dispatcher:
                 self.pending[(p.id, t)] = self.dispatcher.submit(self.key, self._ask, p, t)
             else:
@@ -376,7 +377,9 @@ def execute_or_replay(s: State):
     if shared := getattr(provider, "shared", 0):
         if run.sampler:
             run.sampler.shared = shared
-        extra += f"; {shared} buyer answer(s) shared with another run in the same category today"
+        near = getattr(provider, "near", 0)
+        extra += (f"; {shared} answer(s) reused from a run in the last 24 hours"
+                  + (f", {near} of them answered for a near-identical question" if near else ""))
     run.log.append(f"{verb} {what}{extra} from {src} ({failed} failed).")
     return {"run": run}
 

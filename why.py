@@ -267,6 +267,8 @@ class Lab:
 
     def __init__(self, model: str, tool: Optional[dict] = live.SEARCH_TOOL, transport: Optional[Callable] = None):
         self.model, self.tool = model, tool
+        # asked as hard as the run asked it (live.reasoning_for), or a replay would change two things
+        self.thinking = {"reasoning": r} if (r := live.reasoning_for(model)) else {}
         self._transport = transport or (lambda **kw: access.openai_response(live.LIMITS["per_call_timeout_s"], **kw))
         self.spent = 0.0
         self._lock = threading.Lock()
@@ -290,7 +292,7 @@ class Lab:
         would count as AI not reading the fix. After preflight's last step-down no tool is sent."""
         search = dict(tools=[self.tool], tool_choice=live.TOOL_CHOICE, include=live.INCLUDE) if self.tool else {}
         ask = lambda: self.call(input=[{"role": "system", "content": live.NEUTRAL_INSTRUCTION},
-                                       {"role": "user", "content": question}], **search)
+                                       {"role": "user", "content": question}], **search, **self.thinking)
         first = ask()
         if not search or live.parse_response(first)[2]:
             return first
@@ -301,14 +303,17 @@ class Lab:
         return again if live.parse_response(again)[2] else first
 
     def off(self, question: str):
-        return self.call(input=[{"role": "system", "content": OFF_INSTRUCTION}, {"role": "user", "content": question}])
+        return self.call(input=[{"role": "system", "content": OFF_INSTRUCTION}, {"role": "user", "content": question}],
+                         **self.thinking)
 
     def replay(self, question: str, reading: list[ReadStep]):
-        return self.call(input=replay_input(question, reading), tools=[REPLAY_TOOL], tool_choice="none")
+        return self.call(input=replay_input(question, reading), tools=[REPLAY_TOOL], tool_choice="none",
+                         **self.thinking)
 
     def judge_transport(self, prompt: str, model: str, timeout: int) -> str:
         """The evaluator's calls, counted against this investigation's budget too."""
-        r = self.call(model=model, input=prompt)
+        extra = {"reasoning": r} if (r := live.reasoning_for(model)) else {}
+        r = self.call(model=model, input=prompt, **extra)
         return getattr(r, "output_text", None) or live.parse_response(r)[0]
 
 

@@ -275,10 +275,11 @@ export const GLOSSARY = {
       + "its questions. The most a front can ask is fixed in advance, so the cost is known.",
   },
   shared_answer: {
-    term: "Shared answer",
-    def: "A buyer question never names a company, so its answer is the same whichever company it is scored "
-      + "for. When another run in the same category asked the same question of the same model today, its "
-      + "answer is reused and judged again for this company, instead of paying for it twice.",
+    term: "Reused answer",
+    def: "When a run in the last 24 hours asked the same question, or a near-identical buyer question, of the "
+      + "same model with the same search, its answer is reused and judged again for this run instead of paying "
+      + "for it twice. At most half of a run's answers are reused, so every run still asks fresh; another "
+      + "pass's answer is reused only for a buyer question the app wrote itself. Fresh run reuses none.",
   },
   investigation_fleet: {
     term: "Investigation fleet",
@@ -315,7 +316,7 @@ export const GLOSSARY = {
   },
   measuring: {
     term: "Measuring",
-    def: "Measuring asks a real AI model, with web search, every question of the run — about six minutes "
+    def: "Measuring asks a real AI model, with web search, every question of the run — one to two minutes "
       + "of paid calls. It measures that model through its API at this moment, not the ChatGPT app.",
   },
   replay_test: {

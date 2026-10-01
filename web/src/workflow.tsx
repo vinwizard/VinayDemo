@@ -140,10 +140,10 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
     listKnown();
   };
 
-  const measure = (c: CompanyDetail) => {
+  const measure = (c: CompanyDetail, fresh = false) => {
     setRunning(true); setP(NO_PROGRESS);
     closer.current?.();
-    closer.current = streamRun(c.id, {
+    closer.current = streamRun(c.id, fresh, {
       onNode: (e) => setP((x) => ({ ...x, node: e, nodes: [...x.nodes, e.node] })),
       onAnswer: (e) => setP((x) => ({ ...x, answers: [...x.answers, e] })),
       onDone: (e) => {

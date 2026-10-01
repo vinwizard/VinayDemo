@@ -276,8 +276,9 @@ def progress(run, tries: int = 1, repeat_sample: int = 0) -> dict:
 
 
 def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = None,
-               holder: Holder = None) -> Iterator[str]:
-    """Executes one run on a worker thread, yielding SSE as the graph progresses."""
+               holder: Holder = None, fresh: bool = False) -> Iterator[str]:
+    """Executes one run on a worker thread, yielding SSE as the graph progresses. `fresh` reuses no
+    answer from an earlier run (sharing.py)."""
     if not company_id and scenario not in fixture.SCENARIOS:
         yield sse("error", {"message": f"unknown scenario {scenario!r}"})
         return
@@ -290,6 +291,7 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
         traceback.print_exc()                        # the detail stays on the server console
         yield sse("error", {"message": f"Setup failed before the run started: {type(e).__name__}"})
         return
+    prov.fresh = fresh
     # the audit as it stands now travels with the run, so a report shows what AI could read then
     site_audit = load_company(company_id).audit if company_id and not offline_seed(company_id) else None
     state = {"done": 0}
@@ -344,8 +346,9 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
 
 
 @app.get("/api/stream")
-def stream(scenario: str = "A", mode: str = "demo", company: Optional[str] = None, request: Request = None):
-    return sse_response(run_events(scenario, mode, company, holder_of(request)))
+def stream(scenario: str = "A", mode: str = "demo", company: Optional[str] = None, fresh: bool = False,
+           request: Request = None):
+    return sse_response(run_events(scenario, mode, company, holder_of(request), fresh))
 
 
 @app.get("/api/runs")

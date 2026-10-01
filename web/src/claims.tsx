@@ -107,7 +107,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
   company: CompanyDetail;
   running: boolean;
   onCompany: (c: CompanyDetail) => void;
-  onMeasure: (c: CompanyDetail) => void;
+  onMeasure: (c: CompanyDetail, fresh: boolean) => void;
 }) {
   // Weights start where the saved company left them, and at zero for a claim nobody has weighted.
   const [weights, setWeights] = useState<Record<string, number>>(() => weightsOf(company));
@@ -116,6 +116,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Added>(EMPTY_DRAFT);
   const [category, setCategory] = useState(company.profile.core_category ?? "");
+  const [fresh, setFresh] = useState(false);
 
   const load = (c: CompanyDetail) => {
     onCompany(c); setWeights(weightsOf(c)); setCategory(c.profile.core_category ?? "");
@@ -123,7 +124,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
 
   /** Saves intent, then optionally measures with the company the server just returned. */
   const save = (thenMeasure: boolean) => {
-    if (company.replay) { if (thenMeasure) onMeasure(company); return; }
+    if (company.replay) { if (thenMeasure) onMeasure(company, false); return; }
     setSaving(true); setError(null);
     const added = draft.label.trim()
       ? [{ label: draft.label.trim(), description: draft.description.trim() || null,
@@ -133,7 +134,7 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
     patchCompany(company.id, { weights, added, ...(moved ? { core_category: category.trim() } : {}) })
       .then((c) => {
         load(c); setSaved(true); setDraft(EMPTY_DRAFT);
-        if (thenMeasure) onMeasure(c);
+        if (thenMeasure) onMeasure(c, fresh);
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setSaving(false));
@@ -343,7 +344,10 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
         <p className="muted actionbar-note">
           {company.replay
             ? "Replays the bundled sample's authored answers — no model is asked and nothing is paid."
-            : <>Asks a real AI model, with web search, about six minutes of paid calls. <Term k="measuring" icon /></>}
+            : <>Asks a real AI model, with web search, one to two minutes of paid calls. <Term k="measuring" icon />{" "}
+              <label title="Ask every question again instead of reusing answers from the last 24 hours">
+                <input type="checkbox" checked={fresh} onChange={(e) => setFresh(e.target.checked)} /> Fresh run
+              </label></>}
         </p>
       </div>
     </div>
