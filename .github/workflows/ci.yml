@@ -1,21 +1,5 @@
-# What these checks cover: the Python engine tests under tests/, the web
-# TypeScript types (tsc -b), the web lint (oxlint) and the web unit tests (npm test). api/main.py is tested over HTTP through
-# fastapi's TestClient (tests/test_api_http.py): health, runs and companies (status codes and JSON),
-# a bundled run streamed as SSE on the wire and reopened, the intent rules on PATCH /api/companies/{id}, and
-# a sentinel key that must appear in no response body or header. tests/test_api_stream.py and
-# tests/test_api_seed.py drive the stream generators directly; /api/onboard and
-# /api/onboard/stream are covered only that way, not over HTTP. tests/test_access.py covers the access
-# passes over HTTP: the code exchange and cookie, admin sign-in, the spend meter against a fake usage
-# payload, refusal at the cap, which pass sees which run, and seeding a fresh DATA_DIR from the
-# committed companies and runs. tests/test_audit.py replays recorded pages, robots.txt and
-# Wikidata/Wikipedia answers for the site audit; tests/conftest.py refuses every audit fetch otherwise.
-# What they do NOT cover: TestClient is in-process, so a real uvicorn server, proxy buffering and
-# the CORS policy are untested. The only web/src behaviour CI executes is in web/src/*.test.ts (`node --test`):
-# the positioning map's label placement, the report tab badges, the tour, the fleet log, and the Quick wins and
-# site-check arithmetic (quickwins.ts); the rest — including the stream client in web/src/api.ts — is only
-# typechecked and linted.
-# Live model behaviour is not tested and must not be: CI has no key, the live path runs only
-# under an injected transport, and no real provider is ever called.
+# The offline checks: Python tests, web typecheck, lint and unit tests. No step has a key, so no real
+# provider is ever called; live paths run only under injected transports.
 name: CI
 
 on:
@@ -30,6 +14,18 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 2
+
+      - name: Lines added per area (report only)
+        if: github.event_name == 'pull_request'
+        run: |
+          git diff --numstat HEAD^1 HEAD -- . ':!*.png' ':!*.json' ':!*.lock' |
+          awk '{ f=$3; a = (f ~ /^tests\// || f ~ /\.test\.tsx?$/) ? "tests" : f ~ /^web\// ? "web" : (f ~ /\.md$/ || f ~ /^\.claude\//) ? "docs" : f ~ /\.py$/ ? "backend" : "other";
+                 add[a]+=$1; del[a]+=$2; ta+=$1; td+=$2 }
+               END { print "| area | added | removed | net |"; print "|---|---|---|---|";
+                     for (k in add) printf "| %s | %d | %d | %+d |\n", k, add[k], del[k], add[k]-del[k];
+                     printf "| **all** | %d | %d | **%+d** |\n", ta, td, ta-td }' | tee -a "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
