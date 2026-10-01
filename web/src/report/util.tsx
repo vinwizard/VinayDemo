@@ -120,7 +120,6 @@ export function questionKind(p: Probe, brand: string) {
       : `A branded question: it names ${brand} but never a claim, so whatever AI says ${brand} is known for, it said on its own.`;
   }
   if (p.phase === "control") return "The control question: can the AI name the companies that lead this category at all? Never scored.";
-  if (p.phase === "followup") return `A follow-up unbranded question: exploratory, never counted in the scores.`;
   return `An unbranded question: it never names ${brand}, so it shows whether AI brings ${brand} up on its own.`;
 }
 

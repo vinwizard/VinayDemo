@@ -48,7 +48,7 @@ def test_an_investigation_streams_and_is_kept_beside_the_run(client):
     assert inv["question"] == NAMED.text and inv["provenance"] == "counterfactual_replay"
     listed = client.get(f"/api/runs/{RUN}/why").json()
     assert [i["id"] for i in listed] == [inv["id"]]
-    assert client.get(f"/api/investigations/{inv['id']}").json()["verdicts"] == inv["verdicts"]
+    assert listed[0]["verdicts"] == inv["verdicts"]
     assert reports.load_run(RUN).answers == []    # the run itself is untouched
 
 

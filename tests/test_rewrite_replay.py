@@ -190,5 +190,5 @@ def test_a_rewrite_test_streams_and_is_kept_then_rechecked_for_free_while_unpubl
     monkeypatch.setattr(verify.audit, "get", lambda url: (url, 200, "text/html", "<p>" + "Amgen. " * 60 + "</p>"))
     checked = events(client.get(f"/api/investigations/{inv['id']}/verify/stream").text)
     assert checked[-1][0] == "done" and checked[-1][1]["verdict"] == "not_published"
-    kept = client.get(f"/api/investigations/{inv['id']}").json()
+    [kept] = [i for i in client.get("/api/runs/a1b2c3d4e5/why").json() if i["id"] == inv["id"]]
     assert kept["verification"]["verdict"] == "not_published"

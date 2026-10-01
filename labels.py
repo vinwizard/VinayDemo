@@ -7,7 +7,7 @@ when their words differ.
 """
 import re
 
-from schemas import Probe, Topic
+from schemas import Probe
 
 
 PROVENANCE_LABEL = {"synthetic": "Sample data", "demo_replay": "Sample run",
@@ -16,17 +16,13 @@ PROVENANCE_LABEL = {"synthetic": "Sample data", "demo_replay": "Sample run",
                     "user_provided": "You told us", "web_research_snapshot": "Research snapshot"}
 
 
-def spoken(value: str) -> str:
-    """`Answer.provenance`, `Evidence.source_type` and `Run.mode` all speak this one vocabulary."""
-    return PROVENANCE_LABEL.get(value, value)
-
 
 def probe_name(probe: Probe) -> str:
-    """`np-4` -> "Branded question 4", `kb-2` -> "Unbranded question 2", `kb-f1` -> "Follow-up question 1",
-    a front's control question -> "Control question".
+    """`np-4` -> "Branded question 4", `kb-2` -> "Unbranded question 2", a front's control question
+    -> "Control question".
 
     The number comes from the id, not from a list position, so the same question is called the same
-    thing on every screen and in every rerender. The adaptive comparison question is the one probe
+    thing on every screen and in every rerender. The comparison question is the one probe
     that is not an nth of anything — there is exactly one per run — so it is named, not numbered.
     """
     m = re.search(r"(\d+)$", probe.id)
@@ -35,19 +31,4 @@ def probe_name(probe: Probe) -> str:
         return "Comparison question" if probe.phase == "followup" else f"Branded question {n}"
     if probe.phase == "control":
         return "Control question"
-    if probe.phase == "followup":
-        return f"Follow-up question {n}"
     return f"Unbranded question {n}"
-
-
-def probe_names(probes: list[Probe], topics: list[Topic] = ()) -> dict[str, str]:
-    """id -> "Unbranded question 3 — Project tracking". Unbranded questions carry their topic; branded
-    ones and a control question have none."""
-    label = {t.id: t.label for t in topics}
-    return {p.id: probe_name(p) + (f" — {label[p.topic_id]}" if p.kind == "blind" and p.phase != "control" and p.topic_id in label else "")
-            for p in probes}
-
-
-def with_ids(ids, names: dict[str, str]) -> str:
-    """"Unbranded question 3 — Project tracking (`pt-3`)": the name a reader needs, the id traceability needs."""
-    return ", ".join(f"{names.get(i, i)} (`{i}`)" for i in ids)

@@ -68,7 +68,7 @@ def test_evaluator_runs_the_repair_round_once():
                json.dumps({"fixed": {slip: "Its interface opens issues instantly"}})]
     ev = ModelEvaluator(model="test", transport=lambda *_: replies.pop(0))
     got = ev.label(PROBE, ANSWER, ATTRS, PROFILE)
-    assert got["evidence_quotes"] == ["Its interface opens issues instantly"] and ev.calls == 2
+    assert got["evidence_quotes"] == ["Its interface opens issues instantly"] and not replies   # both asked
 
 
 def test_a_repair_cannot_swap_in_a_different_span_or_a_blank():

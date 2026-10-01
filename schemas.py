@@ -21,7 +21,6 @@ class Evidence(BaseModel):
     id: str
     url: Optional[str] = None
     excerpt: str
-    retrieved_at: Optional[str] = None
     # illustrative | web_research_snapshot | user_provided | page_fetch | search_copy |
     # uploaded_document | third_party. A search_copy is the company's own page as a search engine
     # saved it, read when the page itself turns us away; third_party is about the company, never by
@@ -36,8 +35,6 @@ class PositioningPoint(BaseModel):
     id: str
     text: str
     evidence_ids: list[str] = []
-    # sourced | user_provided | uncertain
-    support: str = "uncertain"
 
 
 # Words that name a kind of product, not a company. An alias made only of these, without the brand's
@@ -70,13 +67,9 @@ class CompanyProfile(BaseModel):
     owned_domains: list[str] = []
     aliases: list[str] = []
     branded_terms: list[str] = []  # distinctive feature names that would identify the target
-    customer_types: list[str] = []
-    capabilities: list[str] = []
-    use_cases: list[str] = []
     positioning_points: list[PositioningPoint] = []
     evidence: list[Evidence] = []
     warnings: list[str] = []
-    approved: bool = False
     logo_url: Optional[str] = None  # the site's own icon, from the homepage fetch; display only
     # What a buyer would call the market it competes in ("AI search visibility tracking"): the
     # "where you aim to be" buyer front. None: saved before categories existed, so that front is
@@ -159,10 +152,8 @@ class Topic(BaseModel):
     # answers most associate with the company), "aiming" (the site's own core category), "both"
     # (they are the same category, asked once), or None (one unlabelled set, as in replay).
     front: Optional[Literal["placed", "aiming", "both"]] = None
-    buyer_need: str
     positioning_point_ids: list[str]
     fit: Literal["strong", "partial", "unsupported"]
-    fit_evidence_ids: list[str] = []
 
 
 class DemandPhrase(BaseModel):
@@ -270,51 +261,21 @@ class QueryEvaluation(BaseModel):
     strength: Optional[int] = None  # 0/1/2, None when invalid
     explanation: str
     warnings: list[str] = []
-    evaluator: str = "simulated (fixture labels + deterministic validation)"
     try_no: int = 1
 
 
 class TopicEvaluation(BaseModel):
     topic_id: str
-    phase: Literal["baseline", "followup"]
+    phase: Literal["baseline", "followup"] = "baseline"   # followup: runs saved before it was cut
     provenance: Provenance
     n: int
     excluded: int
     excluded_reasons: list[str] = []
     mentions: int = 0
     recommendations: int = 0
-    owned_citations: int = 0
-    competitor_answers: int = 0
-    mention_rate: Optional[float] = None
-    recommendation_rate: Optional[float] = None
-    citation_rate: Optional[float] = None
     visibility_score: Optional[float] = None
-    competitor_rate: Optional[float] = None
-    gap_priority: Optional[float] = None  # heuristic investigation priority
-    status: str
     top_competitors: list[str] = []
     limitations: list[str] = []
-
-
-class AdaptiveDecision(BaseModel):
-    selected_topics: list[str]
-    new_probes: list[Probe]
-    rationale: str
-    evidence_probe_ids: list[str]
-    policy: str = "simulated AnA policy (deterministic)"
-
-
-class GapFinding(BaseModel):
-    topic_id: str
-    observation: str
-    evidence_ids: list[str]
-    fit_evidence_ids: list[str] = []
-    interpretation: str
-    suggested_action: str
-    limitations: list[str]
-    provenance: Provenance
-    gap_priority: Optional[float] = None
-    exploratory_note: Optional[str] = None
 
 
 Zone = Literal["landed", "lost_claim", "contested", "imposed", "unstated_intent", "unprioritised"]
@@ -618,8 +579,6 @@ class Run(BaseModel):
     repeat_answers: list[Answer] = []
     repeat_evaluations: list[QueryEvaluation] = []
     topic_evaluations: list[TopicEvaluation] = []
-    decisions: list[AdaptiveDecision] = []
-    findings: list[GapFinding] = []
     attributes: list[Attribute] = []
     attribute_scores: list[AttributeScore] = []
     # validated observations per named probe id, kept so a re-score never needs the model again

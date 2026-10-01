@@ -19,7 +19,7 @@ import sampler
 from agents import ana, onboarding_model
 from providers import fixture, live
 from schemas import Company, QueryEvaluation, Answer
-from scoring import MIN_CONTROL_VENDORS, low_confidence, visibility_by_question, visibility_over_tries
+from scoring import MIN_CONTROL_VENDORS, low_confidence, visibility_by_question, visibility_range
 
 F = fixture.FixtureProvider("A")
 
@@ -61,10 +61,10 @@ def test_visibility_weighs_every_question_once_however_often_it_was_asked():
 
 
 def test_the_range_beside_the_number_is_the_per_try_wobble():
-    assert visibility_over_tries([[2, 0, 0], [0, 0, 0], [1, 1, 0]]) == (22.2, [0.0, 33.3])
-    assert visibility_over_tries([[2, 1, 0]]) == (50.0, [50.0, 50.0])   # one try is its own range
-    assert visibility_over_tries([[1], []]) == (50.0, [50.0, 50.0])       # an empty try is not a zero
-    assert visibility_over_tries([]) == (None, None)
+    assert visibility_range([[2, 0, 0], [0, 0, 0], [1, 1, 0]]) == [0.0, 33.3]
+    assert visibility_range([[2, 1, 0]]) == [50.0, 50.0]   # one try is its own range
+    assert visibility_range([[1], []]) == [50.0, 50.0]       # an empty try is not a zero
+    assert visibility_range([]) is None
 
 
 def live_run(buyer_text, control_text, wobble=1, monkeypatch=None):
@@ -108,14 +108,6 @@ def test_the_budget_buys_fresh_questions_and_one_re_ask_a_front(monkeypatch):
     [front] = run.sampler.fronts
     assert (front.asked, front.pool, front.stopped_early, front.named, front.judged) == (4, 6, True, 0, 4)
 
-
-def test_repeat_asks_are_spread_across_the_fronts_not_taken_off_the_front_of_the_list():
-    """The fronts are contiguous in plan order, so the first two questions are the same category."""
-    buyer = [f"q{i}" for i in range(12)]
-    assert graph.repeat_sampled(buyer, 2) == ["q0", "q6"]
-    assert graph.repeat_sampled(buyer, 3) == ["q0", "q4", "q8"]
-    assert graph.repeat_sampled(buyer, 0) == [] and graph.repeat_sampled([], 2) == []
-    assert graph.repeat_sampled(["q0"], 5) == ["q0"]      # never more questions than there are
 
 
 def test_the_control_question_never_moves_visibility(monkeypatch):

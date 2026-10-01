@@ -90,7 +90,7 @@ def test_an_answer_that_still_did_not_search_is_asked_once_more():
 
     p = provider(transport=flaky)
     a = p.answer(PROBE)
-    assert len(calls) == 2 and p.calls == 2
+    assert len(calls) == 2
     assert a.search_executed is True and a.text == "Answer 2." and a.status == "ok"
 
 

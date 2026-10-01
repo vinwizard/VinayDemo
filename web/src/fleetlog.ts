@@ -43,8 +43,8 @@ export interface Verification {
 /** One line of a fleet's append-only log. */
 export interface FleetEvent {
   seq: number; at: string; task_id: string | null; spent_usd: number;
-  kind: "started" | "shortlist" | "turn" | "dispatched" | "rejected" | "skipped" | "began" | "progress" | "arm"
-    | "verdict" | "finished" | "failed" | "cancelling" | "challenged" | "accepted" | "planned" | "verify"
+  kind: "started" | "turn" | "dispatched" | "rejected" | "skipped" | "began" | "progress" | "arm"
+    | "finished" | "failed" | "cancelling" | "challenged" | "accepted" | "planned" | "verify"
     | "verified" | "stopped" | "done";
   data: Record<string, any>;
 }
@@ -61,7 +61,6 @@ export interface Lane {
   challenges: Challenge[];
   decided: string | null;
   error: string | null;
-  investigation: string | null;
   spent: number | null;
 }
 
@@ -73,7 +72,6 @@ export interface FleetView {
   lanes: Lane[];
   skipped: { claim: string; reason: string; by: string }[];
   rejected: { call: string; reason: string }[];
-  turns: { by: string; error?: string; finish?: string }[];
   plan: ActionPlan | null;
   checks: Record<number, { log: string[]; v: Verification | null; error: string | null }>;
   done: { status: string; wall_s?: number; spent_usd?: number } | null;
@@ -83,7 +81,7 @@ export interface FleetView {
 }
 
 export const emptyView = (id: string): FleetView => ({
-  id, t0: null, budget: null, lanes: [], skipped: [], rejected: [], turns: [], plan: null, checks: {},
+  id, t0: null, budget: null, lanes: [], skipped: [], rejected: [], plan: null, checks: {},
   done: null, stopped: null, spent: 0, seq: 0,
 });
 
@@ -100,10 +98,9 @@ export function fold(v: FleetView, e: FleetEvent): FleetView {
   const d = e.data;
   switch (e.kind) {
     case "started": next.t0 = time(e.at); next.budget = d.budget_usd; break;
-    case "turn": next.turns = [...next.turns, { by: d.by, error: d.error, finish: d.finish }]; break;
     case "dispatched":
       next.lanes = [...next.lanes, { task: d.task, began: null, ended: null, status: "waiting", last: null, arms: 0,
-        verdicts: [], challenges: [], decided: null, error: null, investigation: null, spent: null }];
+        verdicts: [], challenges: [], decided: null, error: null, spent: null }];
       break;
     case "rejected": next.rejected = [...next.rejected, { call: d.call, reason: d.reason }]; break;
     case "skipped":
@@ -115,8 +112,7 @@ export function fold(v: FleetView, e: FleetEvent): FleetView {
     case "arm": set(e.task_id, { arms: (lane(e.task_id)?.arms ?? 0) + (d.arm?.kind === "base" ? 0 : 1) }); break;
     case "cancelling": set(e.task_id, { status: "cancelling" }); break;
     case "finished":
-      set(e.task_id, { ended: time(e.at), status: "finished", verdicts: d.verdicts, investigation: d.investigation_id,
-                       spent: d.spent_usd });
+      set(e.task_id, { ended: time(e.at), status: "finished", verdicts: d.verdicts, spent: d.spent_usd });
       break;
     case "failed": set(e.task_id, { ended: time(e.at), status: "failed", error: d.error }); break;
     case "challenged": set(e.task_id, { challenges: [...(lane(e.task_id)?.challenges ?? []), d.challenge] }); break;

@@ -269,7 +269,7 @@ class Lab:
         self.model, self.tool = model, tool
         # asked as hard as the run asked it (live.reasoning_for), or a replay would change two things
         self.thinking = {"reasoning": r} if (r := live.reasoning_for(model)) else {}
-        self._transport = transport or (lambda **kw: access.openai_response(live.LIMITS["per_call_timeout_s"], **kw))
+        self._transport = transport or (lambda **kw: access.openai_response(live.CALL_TIMEOUT_S, **kw))
         self.spent = 0.0
         self._lock = threading.Lock()
 
@@ -408,7 +408,6 @@ class Agent:
 
     def verdict(self, kind: str, text: str, arm: Optional[WhyArm] = None, fix: Optional[str] = None) -> None:
         self.inv.verdicts.append(WhyVerdict(kind=kind, text=text, arm_id=arm.id if arm else None, fix=fix))
-        self.emit("verdict", self.inv.verdicts[-1].model_dump())
 
     # -- the steps
     def record(self) -> list[tuple[str, Optional[list[ReadStep]], Optional[bool], Optional[str], list]]:

@@ -13,6 +13,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+import access
 import api.main as main
 import reports
 from agents import onboarding_model
@@ -275,7 +276,7 @@ def test_a_failure_during_a_run_streams_without_its_detail(client, monkeypatch):
     def build(mode, scenario=None, company_id=None):
         prov = fixture.FixtureProvider("A")
 
-        def answer(probe):
+        def answer(probe, try_no):
             raise RuntimeError(f"401 invalid api key {SENTINEL}")
 
         prov.answer = answer
@@ -291,7 +292,7 @@ def test_a_failure_during_a_run_streams_without_its_detail(client, monkeypatch):
 
 @pytest.fixture
 def public(client, monkeypatch):
-    monkeypatch.setenv(main.PUBLIC_ENV, "1")
+    monkeypatch.setenv(access.PUBLIC_ENV, "1")
     monkeypatch.setenv(live.KEY_ENV, SENTINEL)   # a key configured by mistake must still never be used
     monkeypatch.setattr(live, "preflight", lambda: pytest.fail("public demo reached a model"))
     return client

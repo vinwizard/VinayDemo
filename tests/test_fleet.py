@@ -376,7 +376,7 @@ def test_the_log_is_ordered_and_reads_back_the_same(world):
     for t in ("t1", "t2"):
         order = [e.kind for e in events if e.task_id == t]
         assert order[0] == "dispatched" and order[1] == "began"
-        assert order.index("finished") > max(i for i, k in enumerate(order) if k in ("progress", "arm", "verdict"))
+        assert order.index("finished") > max(i for i, k in enumerate(order) if k in ("progress", "arm"))
     log = fleet.EventLog(events[0].data["fleet_id"])
     assert log.read() == events and log.read(after=5) == events[5:]
     assert fleet.summary(events)["status"] == "complete" and fleet.summary(events)["planned"]

@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from agents.onboarding_model import OnboardingAgent, _useful_description, build_attributes, parse
+from agents.onboarding_model import _useful_description, build_attributes, onboard, parse
 
 PAGES = [
     ("https://example.com/",
@@ -18,7 +18,6 @@ PAGES = [
 def payload(**over):
     data = {
         "name": "Acme", "aliases": ["Acme Inc"], "one_liner": "The connected workspace.",
-        "customer_types": ["startups"],
         "attributes": [{
             "id": "enterprise_ready", "label": "Enterprise ready",
             "description": "Acme offers SAML single sign-on, audit logs and SCIM provisioning for "
@@ -32,8 +31,8 @@ def payload(**over):
     return json.dumps(data)
 
 
-def agent(raw):
-    return OnboardingAgent(model="test", transport=lambda *_: raw)
+def onboarded(raw, *args):
+    return onboard(*args, model="test", transport=lambda *_: raw)
 
 
 def notes(checks):
@@ -43,7 +42,7 @@ def notes(checks):
 # --- the page-count fix ------------------------------------------------------
 def test_claim_pages_is_counted_from_validated_quotes_not_taken_from_the_model():
     """The old fixtures asserted claim_pages 6/8 with nothing fetched. It must be derived."""
-    _, attrs, _, _ = agent(payload()).run("Acme", "example.com", PAGES)
+    _, attrs, _, _ = onboarded(payload(), "Acme", "example.com", PAGES)
     a = attrs[0]
     assert a.claim_pages == 1 and a.claim_pages_total == 2   # quote appears on page 2 only
     assert a.claim_evidence_ids == ["pg2"]
@@ -53,7 +52,7 @@ def test_model_supplied_page_counts_are_ignored():
     raw = json.loads(payload())
     raw["attributes"][0]["claim_pages"] = 99
     raw["attributes"][0]["claim_pages_total"] = 99
-    _, attrs, _, _ = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
+    _, attrs, _, _ = onboarded(json.dumps(raw), "Acme", "example.com", PAGES)
     assert attrs[0].claim_pages == 1 and attrs[0].claim_pages_total == 2
 
 
@@ -62,7 +61,7 @@ def test_quote_on_every_page_counts_every_page():
              ("https://example.com/b", "Acme has audit logs everywhere too.")]
     raw = json.loads(payload())
     raw["attributes"][0]["claim_quotes"] = ["Acme has audit logs everywhere"]
-    _, attrs, _, _ = agent(json.dumps(raw)).run("Acme", "example.com", pages)
+    _, attrs, _, _ = onboarded(json.dumps(raw), "Acme", "example.com", pages)
     assert attrs[0].claim_pages == 2 and attrs[0].claim_pages_total == 2
 
 
@@ -70,7 +69,7 @@ def test_quote_on_every_page_counts_every_page():
 def test_unverifiable_quote_drops_the_attribute():
     raw = json.loads(payload())
     raw["attributes"][0]["claim_quotes"] = ["Acme is ISO 27001 certified"]   # not on any page
-    _, attrs, warnings, checks = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
+    _, attrs, warnings, checks = onboarded(json.dumps(raw), "Acme", "example.com", PAGES)
     assert attrs == []
     assert any("No verifiable quote" in n for n in notes(checks))
     assert any("nothing can be measured" in w for w in warnings)
@@ -83,7 +82,7 @@ def test_partially_hallucinated_quotes_keep_only_the_real_ones():
     raw = json.loads(payload())
     raw["attributes"][0]["claim_quotes"] = ["audit logs and SCIM provisioning",
                                             "we are ISO 27001 certified today"]
-    _, attrs, _, checks = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
+    _, attrs, _, checks = onboarded(json.dumps(raw), "Acme", "example.com", PAGES)
     assert attrs[0].claim_quotes == ["audit logs and SCIM provisioning"]
     assert any("not verbatim" in n for n in notes(checks))
     [c] = checks
@@ -94,7 +93,7 @@ def test_partially_hallucinated_quotes_keep_only_the_real_ones():
 def test_description_that_restates_the_label_is_rejected():
     raw = json.loads(payload())
     raw["attributes"][0]["description"] = "Enterprise ready for enterprises."
-    _, attrs, _, checks = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
+    _, attrs, _, checks = onboarded(json.dumps(raw), "Acme", "example.com", PAGES)
     assert attrs == [] and any("restates the label" in n for n in notes(checks))
     assert not checks[0].kept and checks[0].quotes_matched == 1   # found, but not checkable
     assert not checks[0].not_found
@@ -110,7 +109,7 @@ def test_description_that_restates_the_label_is_rejected():
 def test_a_statement_that_does_not_name_the_company_is_rejected(statement):
     raw = json.loads(payload())
     raw["attributes"][0]["description"] = statement
-    _, attrs, _, checks = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
+    _, attrs, _, checks = onboarded(json.dumps(raw), "Acme", "example.com", PAGES)
     assert attrs == []
     assert any("does not name the company" in n and statement in n for n in notes(checks))
 
@@ -122,7 +121,7 @@ def test_a_statement_that_does_not_name_the_company_is_rejected(statement):
 def test_marketing_language_flags_a_claim_for_review_and_never_drops_it(statement, words):
     raw = json.loads(payload())
     raw["attributes"][0]["description"] = statement
-    _, attrs, _, checks = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
+    _, attrs, _, checks = onboarded(json.dumps(raw), "Acme", "example.com", PAGES)
     [a] = attrs
     assert a.description == statement and not a.set_aside     # kept as written, and measured
     assert words in a.review
@@ -150,7 +149,7 @@ def test_amgens_core_claims_survive_onboarding_flagged_for_review(label, stateme
     raw = {"name": "Amgen", "aliases": [], "attributes": [{
         "id": "core", "label": label, "description": statement,
         "claim_quotes": ["Amgen discovers, develops, manufactures and delivers innovative medicines"]}]}
-    _, attrs, _, _ = agent(json.dumps(raw)).run("Amgen", "amgen.com", [("https://www.amgen.com", AMGEN_PAGE)])
+    _, attrs, _, _ = onboarded(json.dumps(raw), "Amgen", "amgen.com", [("https://www.amgen.com", AMGEN_PAGE)])
     [a] = attrs
     assert a.review and "innovat" in a.review and a.claim_pages == 1
 
@@ -162,7 +161,7 @@ def test_amgens_core_claims_survive_onboarding_flagged_for_review(label, stateme
 def test_a_marketing_word_in_the_company_name_is_not_marketing(statement, flagged):
     raw = json.loads(payload(name="Modern Treasury", aliases=[]))
     raw["attributes"][0]["description"] = statement
-    _, attrs, _, _ = agent(json.dumps(raw)).run("Modern Treasury", "example.com", PAGES)
+    _, attrs, _, _ = onboarded(json.dumps(raw), "Modern Treasury", "example.com", PAGES)
     [a] = attrs
     assert bool(a.review) is flagged and ("seamlessly" in (a.review or "")) is flagged
 
@@ -174,7 +173,7 @@ def test_a_quote_differing_only_in_apostrophes_case_or_spacing_matches_the_page_
         "description": "Amgen develops medicines for cancer, bone loss and rare genetic diseases.",
         "claim_quotes": ["medicines to fight some of the World's toughest diseases",
                          "medicines to fight some of the world's hardest diseases"]}]}
-    _, attrs, _, checks = agent(json.dumps(raw)).run("Amgen", "amgen.com", [("https://www.amgen.com", page)])
+    _, attrs, _, checks = onboarded(json.dumps(raw), "Amgen", "amgen.com", [("https://www.amgen.com", page)])
     [a] = attrs
     assert a.claim_quotes == ["medicines to fight some of the world’s  toughest\u00a0diseases"]  # as the page writes it
     assert a.claim_quotes[0] in page
@@ -185,13 +184,13 @@ def test_a_checkable_assertion_passes():
     raw = json.loads(payload())
     raw["attributes"][0]["description"] = ("Acme is fast by design - issues open instantly and the "
                                            "whole app is keyboard-first")
-    _, attrs, warnings, checks = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
+    _, attrs, warnings, checks = onboarded(json.dumps(raw), "Acme", "example.com", PAGES)
     assert [a.id for a in attrs] == ["enterprise_ready"] and not warnings and not notes(checks)
     assert [(c.kept, c.quotes_matched, c.quotes_removed) for c in checks] == [(True, 1, 0)]
 
 
 def test_a_real_description_is_kept_without_complaint():
-    _, attrs, _, checks = agent(payload()).run("Acme", "example.com", PAGES)
+    _, attrs, _, checks = onboarded(payload(), "Acme", "example.com", PAGES)
     assert "SCIM" in attrs[0].description
     assert not any("restates the label" in n for n in notes(checks))
 
@@ -199,7 +198,7 @@ def test_a_real_description_is_kept_without_complaint():
 def test_missing_description_is_rejected():
     raw = json.loads(payload())
     raw["attributes"][0]["description"] = ""
-    _, attrs, _, checks = agent(json.dumps(raw)).run("Acme", "example.com", PAGES)
+    _, attrs, _, checks = onboarded(json.dumps(raw), "Acme", "example.com", PAGES)
     assert attrs == [] and any("too thin" in n for n in notes(checks))
 
 
@@ -210,7 +209,7 @@ def test_quotes_filed_by_page_count_every_page_that_states_it():
     raw = json.loads(payload())
     raw["attributes"][0]["claim_quotes"] = {"2": "SAML single sign-on, audit logs and SCIM provisioning",
                                             "3": "Security first: SAML single sign-on"}
-    _, attrs, _, _ = agent(json.dumps(raw)).run("Acme", "example.com", pages)
+    _, attrs, _, _ = onboarded(json.dumps(raw), "Acme", "example.com", pages)
     assert attrs[0].claim_pages == 2 and attrs[0].claim_evidence_ids == ["pg2", "pg3"]
 
 
@@ -220,7 +219,7 @@ def test_a_nav_label_on_every_page_does_not_count():
     raw = json.loads(payload())
     raw["attributes"][0]["claim_quotes"] = ["Available today",
                                             "SAML single sign-on, audit logs and SCIM provisioning"]
-    _, attrs, _, checks = agent(json.dumps(raw)).run("Acme", "example.com", pages)
+    _, attrs, _, checks = onboarded(json.dumps(raw), "Acme", "example.com", pages)
     assert attrs[0].claim_pages == 1 and attrs[0].claim_quotes == [
         "SAML single sign-on, audit logs and SCIM provisioning"]
     assert any("too short" in n for n in notes(checks))
@@ -229,20 +228,20 @@ def test_a_nav_label_on_every_page_does_not_count():
 
 def test_the_company_name_always_counts_as_a_mention():
     """The model lists product names as aliases; the bare name must still count as the brand."""
-    profile, _, _, _ = agent(payload(aliases=["Acme Agent"])).run("Acme", "example.com", PAGES)
+    profile, _, _, _ = onboarded(payload(aliases=["Acme Agent"]), "Acme", "example.com", PAGES)
     assert profile.aliases == ["Acme", "Acme Agent"]
 
 
 # --- the three layers stay separate ------------------------------------------
 def test_onboarding_never_sets_intent():
     """Crawling establishes what they CLAIM. What they want to be known for is the customer's."""
-    _, attrs, _, _ = agent(payload()).run("Acme", "example.com", PAGES)
+    _, attrs, _, _ = onboarded(payload(), "Acme", "example.com", PAGES)
     assert all(a.intended_weight is None for a in attrs)
     assert all(not a.intended for a in attrs)
 
 
 def test_profile_says_intent_is_not_derivable():
-    profile, _, _, _ = agent(payload()).run("Acme", "example.com", PAGES)
+    profile, _, _, _ = onboarded(payload(), "Acme", "example.com", PAGES)
     assert any("not derivable" in w for w in profile.warnings)
     assert [e.source_type for e in profile.evidence] == ["page_fetch", "page_fetch"]
 
@@ -260,7 +259,7 @@ def test_missing_attributes_list_raises():
 
 def test_no_pages_is_refused():
     with pytest.raises(ValueError, match="at least one fetched page"):
-        agent(payload()).run("Acme", "example.com", [])
+        onboarded(payload(), "Acme", "example.com", [])
 
 
 def test_unlabelled_attribute_is_dropped():
@@ -321,11 +320,11 @@ def test_malformed_json_is_asked_again_once():
     """Live extraction sometimes returns broken JSON; one retry, metered like any call."""
     replies = iter(['{"name": "Acme", "attributes": [,]}', payload()])
     calls = []
-    a = OnboardingAgent(model="test", transport=lambda *args: calls.append(args) or next(replies))
-    _, attrs, _, _ = a.run("Acme", "example.com", PAGES)
+    _, attrs, _, _ = onboard("Acme", "example.com", PAGES, model="test",
+                             transport=lambda *args: calls.append(args) or next(replies))
     assert len(calls) == 2 and attrs[0].id == "enterprise_ready"
 
 
 def test_malformed_json_twice_says_so_plainly():
     with pytest.raises(ValueError, match="could not read twice"):
-        agent('{"attributes": [,]}').run("Acme", "example.com", PAGES)
+        onboarded('{"attributes": [,]}', "Acme", "example.com", PAGES)

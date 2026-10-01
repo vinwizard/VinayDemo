@@ -43,11 +43,11 @@ IN_FLIGHT = 18              # calls in flight across the fleet: the pilot peaked
 MAX_TASKS, MAX_TRIES, MAX_TURNS = 8, 2, 12
 FIRST_PICKS = 5             # what code dispatches when the coordinator cannot
 WRITER_RESERVE = 0.05       # held back from the purse until the plan is written
-TASK_DEADLINE_S = live.LIMITS["investigation_deadline_s"]
+TASK_DEADLINE_S = 600
 FLEET_DEADLINE_S = 1200
 CEILING = 0.9               # a base replay rate this high leaves a fix no room to show a rise
 MEAN_COST, MEAN_MINUTES = 0.36, 4.8   # one investigation in the pilot (2026-09-28): for the estimate
-MAX_TERM = 40               # api/why.MAX_TERM: the same limit a user's own word has
+MAX_TERM = 40               # also the limit on a user's own word (api/why.py)
 
 
 def budget() -> float:
@@ -337,7 +337,7 @@ def digest(st: State) -> str:
 
 
 def coordinator_calls(st: State, model: str) -> list[tuple[str, dict]]:
-    r = access.openai_response(live.LIMITS["per_call_timeout_s"], model=model, tools=TOOLS, tool_choice="required",
+    r = access.openai_response(live.CALL_TIMEOUT_S, model=model, tools=TOOLS, tool_choice="required",
                                input=[{"role": "system", "content": COORDINATOR}, {"role": "user", "content": digest(st)}])
     calls = []
     for item in live._output_items(r):
@@ -621,7 +621,7 @@ def write(p: ActionPlan, run: Run, model: str) -> None:
         return
     items = "\n".join(f"{i.rank}. [{i.fix}] {i.claim}: {i.text}" for i in worded)
     try:
-        r = access.openai_response(live.LIMITS["per_call_timeout_s"], model=model,
+        r = access.openai_response(live.CALL_TIMEOUT_S, model=model,
                                    input=WRITER.format(name=run.profile.name, items=items))
         lines = json_object(live.parse_response(r)[0]).get("lines")
     except (Exception, access.PurseEmpty, access.Refused) as e:
@@ -665,8 +665,6 @@ def execute(run: Run, log: EventLog, resolved, pass_id: Optional[str] = None, bu
     log.append("started", fleet_id=log.id, run_id=run.id, company=run.profile.name, budget_usd=purse.limit,
                concurrency=lanes, why_budget_usd=why.budget(), model=resolved.model, coordinator=resolved.judge,
                max_tasks=MAX_TASKS)
-    log.append("shortlist", candidates=[{k: c[k] for k in ("attribute_id", "label", "kind", "zone", "mentioned",
-                                                           "endorsed", "negative", "n")} for c in st.candidates.values()])
     inbox: queue.Queue = queue.Queue()
     running: dict = {}   # future -> (task, cancel flag, started)
     status = "complete"
@@ -743,8 +741,6 @@ def drain(inbox: queue.Queue, log: EventLog) -> None:
             log.append("progress", tid, text=payload.get("text", ""))
         elif kind == "arm":
             log.append("arm", tid, arm=payload)
-        elif kind == "verdict":
-            log.append("verdict", tid, verdict=payload)
 
 
 def outcome(f, task: FleetTask, st: State, log: EventLog, pass_id: Optional[str]) -> Optional[Investigation]:

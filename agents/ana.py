@@ -1,24 +1,16 @@
-"""Agent 2 — AnA (Assimilate and Attack): topics, neutral probes, one adaptive round.
-
-Demo implementation: plans come from fixtures; follow-up *selection* is a deterministic
-policy over the current evaluations (simulated AnA policy). A model-backed planner can
-replace `choose_followup` behind the same signature later.
-"""
+"""Agent 2 — AnA (Assimilate and Attack): topics, neutral probes and the comparison question."""
 import hashlib
 import json
 import re
 from collections import Counter
 
-from schemas import (AdaptiveDecision, Attribute, AttributeScore, CompanyProfile, Probe,
-                     QueryEvaluation, Topic, TopicEvaluation)
+from schemas import Attribute, AttributeScore, CompanyProfile, Probe, Topic, TopicEvaluation
 
 # Buyer questions per front, asked ONCE each: re-asking one question moved visibility a few points
 # while different questions disagreed by tens, so the budget buys questions, not tries. How many a
 # front freezes is sampler-lite's look 2 for the stated margin (sampler.py); it may stop at look 1.
 PER_TOPIC = 3
 CONTROL_TOPIC = "control"
-MAX_FOLLOWUP_TOPICS = 2
-PER_FOLLOWUP_TOPIC = 2
 MAX_COMPARED = 3
 COMPARISON_PROBE_ID = "np-cmp"
 
@@ -143,9 +135,7 @@ def blind_probes_from_attributes(attributes: list[Attribute], profile: CompanyPr
                           key=lambda x: -x.claim_pages)
     for a in eligible:
         ask(Topic(id=f"pos-{a.id}", label=a.label, kind="buyer",
-                  buyer_need=f"A buyer looking for: {a.label.lower()}",
-                  positioning_point_ids=[], fit="strong" if a.claimed else "partial",
-                  fit_evidence_ids=list(a.claim_evidence_ids)),
+                  positioning_point_ids=[], fit="strong" if a.claimed else "partial"),
             a.id, a.buyer_questions[:PER_TOPIC],
             f"Placebo: would a buyer wanting '{a.label}' be shown this brand?")
     if dropped:
@@ -177,16 +167,13 @@ def control_probe(profile: CompanyProfile, category: str | None = None, pid: str
                          "Excluded from the visibility score.")
 
 
-def control_topic(profile: CompanyProfile, category: str | None = None, tid: str = CONTROL_TOPIC,
-                  front: str | None = None) -> Topic:
-    return Topic(id=tid, label=f"Control — {category or profile.core_category}", kind="control",
-                 front=front, buyer_need="Whether the answering model knows the category's leading companies",
+def control_topic(category: str, tid: str, front: str) -> Topic:
+    return Topic(id=tid, label=f"Control — {category}", kind="control", front=front,
                  positioning_point_ids=[], fit="strong")
 
 
 def perception_topic() -> Topic:
     return Topic(id="perception", label="Brand perception", kind="perception",
-                 buyer_need="How AI characterises the brand when asked about it directly",
                  positioning_point_ids=[], fit="strong")
 
 
@@ -255,14 +242,13 @@ def _front(profile: CompanyProfile, front: str, category: str, questions: list[s
     points = [] if front == "placed" else [pp.id for pp in profile.positioning_points[:1]]
     for n in range(0, len(kept), PER_TOPIC):
         t = Topic(id=f"{prefix}-{n // PER_TOPIC + 1}", label=category, kind="buyer", front=front,
-                  buyer_need=f"A buyer looking for: {category}", fit=fit, positioning_point_ids=points,
-                  fit_evidence_ids=list(placed.claim_evidence_ids) if front == "placed" else [])
+                  fit=fit, positioning_point_ids=points)
         topics.append(t)
         probes += [Probe(id=f"{prefix}-b{n + j + 1}", topic_id=t.id, text=q, kind="blind",
                          phase="baseline", purpose=_purpose(front, category))
                    for j, q in enumerate(kept[n:n + PER_TOPIC])]
     if kept:
-        return topics + [control_topic(profile, category, control.topic_id, front)], probes + [control], skipped, {}
+        return topics + [control_topic(category, control.topic_id, front)], probes + [control], skipped, {}
     why = (f"every unbranded question for {category} named {profile.name} or addressed the vendor"
            if questions else f"no unbranded questions are saved or could be written for {category}")
     missing = {}
@@ -304,10 +290,8 @@ def blind_probes_for_fronts(profile: CompanyProfile, placed: Attribute | None,
     """
     aiming = profile.core_category
     placed_as = placed_category or (placed.label if placed else None)
-    # Every claim the customer weighted gets its own topic before the fronts share the rest: on the
-    # Amgen run the fronts took the whole budget, none of its three weighted claims was asked about,
-    # and every Quick-wins fix cited no question. They come on top of the fronts' pools, at most one
-    # front's worth, so every front can still freeze look 2.
+    # Every weighted claim gets its own topic, on top of the fronts' pools and at most one front's
+    # worth, so every front can still freeze look 2.
     reserved = min(len([a for a in attributes if a.intended and a.buyer_questions
                         and not (placed and a.id == placed.id)]), front_topics())
     topics, probes, skipped, missing = [], [], [], {}
@@ -408,44 +392,3 @@ def baseline_hash(probes: list[Probe]) -> str:
     # exclude_none: a probe with no real-demand grounding hashes exactly as it did before `demand` existed
     base = [p.model_dump(exclude_none=True) for p in probes if p.phase in ("baseline", "control")]
     return hashlib.sha256(json.dumps(base, sort_keys=True).encode()).hexdigest()
-
-
-def choose_followup(topics: list[Topic], topic_evals: list[TopicEvaluation], evals: list[QueryEvaluation],
-                    probes: list[Probe], bank: dict[str, list[dict]], profile: CompanyProfile) -> AdaptiveDecision:
-    """Pick supported topics with the highest candidate-gap priority; mixed results as fallback."""
-    fit = {t.id: t.fit for t in topics}
-    base = [te for te in topic_evals if te.phase == "baseline" and fit.get(te.topic_id) != "unsupported"
-            and te.gap_priority is not None]
-    gaps = sorted((te for te in base if te.status == "candidate gap"), key=lambda te: -te.gap_priority)
-    mixed = sorted((te for te in base if te.status == "mixed"), key=lambda te: -te.gap_priority)
-    chosen = [te for te in gaps + mixed if te.gap_priority > 0][:MAX_FOLLOWUP_TOPICS]
-    if not chosen:
-        return AdaptiveDecision(
-            selected_topics=[], new_probes=[], evidence_probe_ids=[],
-            rationale="Stop: no topic with supported fit was left unrecommended or split, "
-                      "so another round of questions would add nothing.")
-    label = {t.id: t.label for t in topics}
-    strength = {e.probe_id: e.strength for e in evals}
-    asked = {p.text.strip().lower() for p in probes}
-    new, evidence, why = [], [], []
-    for te in chosen:
-        motivating = [p.id for p in probes if p.topic_id == te.topic_id and p.phase == "baseline"
-                      and (strength.get(p.id) or 0) < 2]
-        answered = [i for i in motivating if strength.get(i) is not None]
-        evidence += motivating
-        for raw in bank.get(te.topic_id, [])[:PER_FOLLOWUP_TOPIC]:
-            p = Probe(**raw, parent_probe_ids=motivating)
-            if p.text.strip().lower() in asked or brand_leaks(p.text, profile):
-                continue  # not novel or not neutral: skip rather than ask
-            new.append(p)
-        uncertainty = ("whether the absence persists under differently framed unbranded questions"
-                       if te.status == "candidate gap" else "why results were split across similar questions")
-        found = (f"not recommended in any of {te.n} answers" if not te.recommendations
-                 else f"recommended in only {te.recommendations} of {te.n} answers")
-        n_m = len(answered)
-        motive = (f"{n_m} answer{'' if n_m == 1 else 's'} that did not recommend the brand" if answered
-                  else "the topic-level result")
-        why.append(f"{label.get(te.topic_id, te.topic_id)} — {found}; asking more questions to test "
-                   f"{uncertainty}, prompted by {motive}")
-    return AdaptiveDecision(selected_topics=[te.topic_id for te in chosen], new_probes=new,
-                            evidence_probe_ids=evidence, rationale=" | ".join(why))

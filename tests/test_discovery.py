@@ -92,7 +92,7 @@ def test_a_site_that_turns_us_away_is_read_from_search_copies():
     assert urls[0] == "https://hub-prod.perplexity.ai"                           # the front page ranks first
     assert all(fetching.urlparse(u).hostname.endswith("perplexity.ai") for u in urls)
     assert not any("/es/" in u or "?" in u for u in urls)                        # other languages, tracking: out
-    assert all(m["saved"] and m["retrieved_at"] for m in meta)                   # when the search engine saved it
+    assert all(m["saved"] for m in meta)                                         # when the search engine saved it
     assert not any(t.startswith(("Crawled:", "Published:")) for _, t in pages)   # its preface is not the page
     assert "https://en.wikipedia.org/wiki/Perplexity_AI" in [o.url for o in others]
     assert {o.source_type for o in others} == {"third_party"}

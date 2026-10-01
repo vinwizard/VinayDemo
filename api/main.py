@@ -38,9 +38,9 @@ from insights import insights
 from agents.ana import brand_leaks, discovered_competitors, set_questions, vendor_address
 from agents.evaluator_model import ModelEvaluator
 from agents.onboarding import NAMED_TEMPLATES, named_probes_for
-from agents.onboarding_model import MIN_CLAIMS, OnboardingAgent, buyer_questions_for
+from agents.onboarding_model import MIN_CLAIMS, buyer_questions_for, onboard as extract
 from drift import MIN_NAMED
-from config import load_env, redacted_status
+from config import load_env
 from providers import fixture, live
 from providers.company import CompanyProvider
 from api import admin
@@ -51,7 +51,7 @@ from schemas import Attribute, Company, Evidence
 from scoring import exclusion
 
 _LOADED = load_env()
-print(f"[config] {redacted_status(_LOADED)}")  # names only; a key value is never printed
+print(f"[config] loaded from .env: {', '.join(_LOADED) or 'nothing'}")  # names only, never a value
 
 app = FastAPI(title="Off Message API")
 
@@ -152,11 +152,9 @@ OFFLINE_FIXED = "offline replay: the bundled sample's claims and weights are fix
 # or change a saved company — even when a key happens to be configured.
 # A pass (access.py) lifts that for its holder only: they can onboard and measure live, charged to
 # their pass, and see only their own companies and runs — none of the preloaded examples.
-PUBLIC_ENV = access.PUBLIC_ENV
 PUBLIC_REFUSED = ("This is the public demo: it replays the saved sample only, so {what} is switched "
                   "off here. Want to try it live on your own company? Email {email} from your work "
                   "email for a personal link.")
-public_demo = access.public_demo
 Holder = Optional[dict]   # the pass behind the request's session cookie, if any
 
 
@@ -174,29 +172,27 @@ def pass_id(holder: Holder) -> Optional[str]:
 def refuse_in_public(what: str, holder: Holder = None) -> None:
     """Public demo without a pass: refused. With a pass: refused up front once it is capped or
     revoked, rather than after a crawl that cannot be paid for."""
-    if public_demo() and holder is None:
+    if access.public_demo() and holder is None:
         raise HTTPException(403, PUBLIC_REFUSED.format(what=what, email=access.contact_email()))
     if holder:
-        try:
+        with paying(holder["id"]):
             access.check(holder["id"])
-        except access.Refused as e:
-            raise HTTPException(403, e.message)
 
 
 def refuse_unowned(company_id: str, holder: Holder) -> None:
     """On the public demo a pass edits only its own companies, never a shared one."""
-    if public_demo() and access.owner("company", company_id) != pass_id(holder):
+    if access.public_demo() and access.owner("company", company_id) != pass_id(holder):
         raise HTTPException(403, "Only companies you onboarded with this pass can be edited.")
 
 
 def offline_seed(company_id: str) -> bool:
-    return company_id == SEED_COMPANY and bool(os.environ.get(OFFLINE_ENV) or public_demo())
+    return company_id == SEED_COMPANY and bool(os.environ.get(OFFLINE_ENV) or access.public_demo())
 
 
 def seed_public_runs() -> None:
     """A fresh public deploy has no saved runs (they are gitignored), so replay both bundled
     scenarios once — fixtures only, no model — and History has something to open."""
-    if not public_demo() or any(p.stem not in {SHOWCASE_RUN, *access.RETIRED} for p in reports.RUNS.glob("*.json")):
+    if not access.public_demo() or any(p.stem not in {SHOWCASE_RUN, *access.RETIRED} for p in reports.RUNS.glob("*.json")):
         return
     for scenario in sorted(fixture.SCENARIOS):
         prov = fixture.FixtureProvider(scenario)
@@ -234,7 +230,7 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
         base = fixture.FixtureProvider(scenario)
         if mode != "live":
             return (base, base.profile,
-                    len(base.named_probes()) + graph.max_baseline() + graph.MAX_FOLLOWUP, "demo_replay")
+                    len(base.named_probes()) + graph.max_baseline(), "demo_replay")
     refuse_in_public("measuring with a live model", holder)
     profile = base.profile
     if not live.available():
@@ -259,7 +255,7 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
     return prov, profile, asks + len(base.named_probes()), "live_api"
 
 
-def progress(run, tries: int = 1, repeat_sample: int = 0) -> dict:
+def progress(run, tries: int = 1) -> dict:
     """What a run has planned so far, in the counts the staged progress names: every ask, so a
     re-asked buyer question counts each ask. Questions waiting for the sampler's look 2 are not
     planned until it asks for them."""
@@ -268,9 +264,7 @@ def progress(run, tries: int = 1, repeat_sample: int = 0) -> dict:
     for p in run.probes:
         if p.id not in held:
             planned["followup" if p.phase == "followup" else "brand" if p.kind == "named" else "buyer"] += 1
-    buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline" and p.id not in held]
-    again = len(run.sampler.wobble) if run.sampler else len(graph.repeat_sampled(buyer, repeat_sample))
-    planned["buyer"] += again * (tries - 1)
+    planned["buyer"] += (len(run.sampler.wobble) if run.sampler else 0) * (tries - 1)
     return dict(mode=run.mode, planned=planned,
                 competitors=discovered_competitors(run.topic_evaluations))
 
@@ -303,8 +297,8 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
     counted = threading.Lock()                      # answers land from the dispatcher's workers
 
     def work(put):
-        def counting_answer(probe, **kw):           # per-answer progress: the whole point
-            a = inner(probe, **kw)
+        def counting_answer(probe, try_no):         # per-answer progress: the whole point
+            a = inner(probe, try_no)
             with counted:
                 state["done"] += 1
                 put(("answer", dict(probe_id=probe.id, kind=probe.kind, phase=probe.phase, try_no=a.try_no,
@@ -322,12 +316,10 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
             run.audit = site_audit
             for node, run in graph.stream(run, prov):
                 topic_labels.update({t.id: t.label for t in run.topics})
-                stage, agent = graph.STAGES[node]
-                put(("node", dict(node=node, stage=stage, agent=agent,
-                                    log=run.log[-1] if run.log else "",
-                                    **progress(run, getattr(prov, "tries", 1), getattr(prov, "repeat_sample", 0)))))
+                put(("node", dict(node=node, log=run.log[-1] if run.log else "",
+                                  **progress(run, getattr(prov, "tries", 1)))))
             # a pass's every run is kept, replay or live, owned by it; only a passless visitor's is not
-            if not public_demo() or holder:
+            if not access.public_demo() or holder:
                 save_run(run)
             if holder:
                 access.own("run", run.id, holder["id"], profile.name)
@@ -365,20 +357,11 @@ def list_all(request: Request = None, response: Response = None):
             skipped += 1
             continue
         d = r.drift
-        out.append(dict(id=r.id, created_at=r.created_at, scenario=r.scenario, status=r.status, mode=r.mode,
-                        company=r.profile.name,
-                        alignment=d.alignment if d else None,
-                        claim_echo=d.claim_echo if d else None,
-                        lens=d.lens if d else None,
-                        visibility=d.visibility if d else None,
-                        landed=len(d.landed) if d else 0,
-                        lost=len(d.lost_claims) if d else 0,
-                        contested=len(d.contested) if d else 0,
-                        unstated=len(d.unstated_intent) if d else 0,
-                        imposed=len(d.imposed) if d else 0,
-                        unprioritised=len(d.unprioritised) if d else 0,
-                        na_reasons=d.na_reasons if d else
-                        {"headline": "This run finished without a report."}))
+        out.append(dict(id=r.id, created_at=r.created_at, scenario=r.scenario, mode=r.mode,
+                        company=r.profile.name, alignment=d and d.alignment, claim_echo=d and d.claim_echo,
+                        lens=d and d.lens, landed=d and len(d.landed), lost=d and len(d.lost_claims),
+                        imposed=d and len(d.imposed),
+                        na_reasons=d.na_reasons if d else {"headline": "This run finished without a report."}))
     if response is not None:
         response.headers[UNREADABLE] = str(skipped)
     return sorted(out, key=lambda r: r["created_at"], reverse=True)
@@ -497,7 +480,6 @@ def company_payload(c: Company) -> dict:
     return dict(
         id=c.id, created_at=c.created_at,
         profile=dict(name=p.name, domain=p.domain, aliases=p.aliases,
-                     customer_types=p.customer_types,
                      one_liner=p.positioning_points[0].text if p.positioning_points else None,
                      logo_url=p.logo_url, core_category=p.core_category,
                      category_questions=p.category_questions,
@@ -580,12 +562,12 @@ def onboard_steps(url: str, name: str, holder: Holder = None, docs: tuple[str, .
                                      "Upload documents about the company instead.")
     web = [u for u, _ in pages]
     pages += [(f"uploaded document: {d['filename']}", d["text"]) for d in uploaded]
-    meta += [dict(source_type="uploaded_document", url=None, title=d["filename"], private=True,
-                  retrieved_at=d["created_at"][:10]) for d in uploaded]
+    meta += [dict(source_type="uploaded_document", url=None, title=d["filename"], private=True)
+             for d in uploaded]
     yield "pages", {"pages": web, "sources": sources_of(pages, meta)}
     try:
         with paying(pass_id(holder)):               # capped mid-extraction: nothing is saved
-            profile, attrs, warnings, checks = OnboardingAgent().run(name, domain, pages, meta)
+            profile, attrs, warnings, checks = extract(name, domain, pages, meta)
             company = Company(id=uuid.uuid4().hex[:10], profile=profile, attributes=attrs,
                               pages=web, checks=checks, third_party=others)
             warnings += set_category(company, profile.core_category)
@@ -767,7 +749,7 @@ def rescore_run(run_id: str, req: RescoreRequest, request: Request = None):
         raise HTTPException(409, str(e))
     # public: arithmetic only, so allowed — but one visitor never rewrites a shared run, only a pass its own;
     # and the committed live example is never rewritten, so re-weighting it leaves the working tree clean
-    if run.id != SHOWCASE_RUN and (not public_demo() or (pid and access.owner("run", run_id) == pid)):
+    if run.id != SHOWCASE_RUN and (not access.public_demo() or (pid and access.owner("run", run_id) == pid)):
         save_run(run)
     return run_payload(run)
 
@@ -805,7 +787,7 @@ def reask_run(run_id: str, req: ReaskRequest, request: Request = None):
     for r in run.retrieval.rows if run.retrieval else []:
         if r.probe_id == req.probe_id:
             r.reask = answer
-    if run.id != SHOWCASE_RUN and (not public_demo() or (pid and access.owner("run", run_id) == pid)):
+    if run.id != SHOWCASE_RUN and (not access.public_demo() or (pid and access.owner("run", run_id) == pid)):
         save_run(run)
     return run_payload(run)
 
@@ -945,12 +927,11 @@ def health(request: Request = None):
     from agents import evaluator_model
     measured = live.model_name() if live.available() else None
     evaluator = evaluator_model.model_name() if live.available() else None
-    return {"ok": True, "scenarios": sorted(fixture.SCENARIOS), "seed_company": SEED_COMPANY,
+    return {"ok": True, "seed_company": SEED_COMPANY,
             "showcase": {"company": SHOWCASE_COMPANY, "run": SHOWCASE_RUN},
-            "live_available": live.available() and (not public_demo() or bool(holder_of(request))),
+            "live_available": live.available() and (not access.public_demo() or bool(holder_of(request))),
             "key_configured": live.available(),
-            "live_status": live.status(),
-            "public_demo": public_demo(),
+            "public_demo": access.public_demo(),
             "contact_email": access.contact_email(),
             "storage": access.storage(),
             # what is ACTUALLY in use, not what was asked for: preflight drops to live.FALLBACK_MODEL

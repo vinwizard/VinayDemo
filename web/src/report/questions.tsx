@@ -146,7 +146,6 @@ export function BuyerQuestions({ run }: { run: Run }) {
   const answers = new Map(run.answers.map((a) => [a.probe_id, a]));
   const evals = new Map(run.evaluations.map((e) => [e.probe_id, e]));
   const base = run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline");
-  const follow = run.probes.filter((p) => p.kind === "blind" && p.phase === "followup");
   const control = run.probes.find((p) => p.phase === "control");
   const realAsked = base.filter((p) => p.demand).length;
   const tries = d?.tries ?? 1;
@@ -286,12 +285,6 @@ export function BuyerQuestions({ run }: { run: Run }) {
             <h4 style={{ margin: ".4rem 0 0" }}>Your claims <span className="muted">— counted in neither front</span></h4>
             <div className="qlist">{base.filter((p) => !topicFront.get(p.topic_id)).map(card)}</div>
           </div>
-        )}
-        {follow.length > 0 && (
-          <>
-            <h4>Follow-up questions (exploratory — not counted in the scores)</h4>
-            <div className="qlist">{follow.map(card)}</div>
-          </>
         )}
       {!fronts.length && control && d && <Control run={run} p={control} v={d} />}
     </Section>

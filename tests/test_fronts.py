@@ -144,7 +144,7 @@ def test_the_placed_front_cites_only_its_own_claim_evidence():
     profile = F.profile.model_copy(update=dict(core_category=AIMING, category_questions=AIM_QS))
     topics, _, _, _ = ana.blind_probes_for_fronts(profile, found, WRITTEN, F.attributes())
     placed = [t for t in topics if t.front == "placed" and t.kind == "buyer"]
-    assert placed and all(t.positioning_point_ids == [] and t.fit_evidence_ids == [] for t in placed)
+    assert placed and all(t.positioning_point_ids == [] for t in placed)
     aiming = [t for t in topics if t.front == "aiming" and t.kind == "buyer"]
     assert all(t.positioning_point_ids for t in aiming)   # the site's own category keeps its homepage
 
