@@ -285,9 +285,20 @@ class Lab:
             self.spent += usd
 
     def live(self, question: str):
-        return self.call(input=[{"role": "system", "content": live.NEUTRAL_INSTRUCTION},
-                                {"role": "user", "content": question}],
-                         tools=[self.tool], tool_choice=live.TOOL_CHOICE, include=live.INCLUDE)
+        """A real ask, search forced, asked once more when no search ran, as a run's asks are
+        (LiveProvider._ask): an answer with no reading has nothing to record, and in verify it
+        would count as AI not reading the fix. After preflight's last step-down no tool is sent."""
+        search = dict(tools=[self.tool], tool_choice=live.TOOL_CHOICE, include=live.INCLUDE) if self.tool else {}
+        ask = lambda: self.call(input=[{"role": "system", "content": live.NEUTRAL_INSTRUCTION},
+                                       {"role": "user", "content": question}], **search)
+        first = ask()
+        if not search or live.parse_response(first)[2]:
+            return first
+        try:
+            again = ask()
+        except Exception:      # charged and counted in `spent`; the first, ungrounded answer stands
+            return first
+        return again if live.parse_response(again)[2] else first
 
     def off(self, question: str):
         return self.call(input=[{"role": "system", "content": OFF_INSTRUCTION}, {"role": "user", "content": question}])
