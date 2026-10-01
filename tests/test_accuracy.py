@@ -12,6 +12,7 @@ from fastapi import HTTPException
 
 import access
 import api.main as main
+from fakes import CAT_QS, CATEGORY, Judge, openai_reply
 import graph
 import reports
 import sampler
@@ -21,8 +22,6 @@ from schemas import Company, QueryEvaluation, Answer
 from scoring import MIN_CONTROL_VENDORS, low_confidence, visibility_by_question, visibility_over_tries
 
 F = fixture.FixtureProvider("A")
-CATEGORY = "connected workspace software"
-CAT_QS = [f"Which workspace tool suits a team of {n}?" for n in (5, 10, 20, 50, 100, 200)]
 
 
 def with_category(questions=CAT_QS, category=CATEGORY):
@@ -68,20 +67,6 @@ def test_the_range_beside_the_number_is_the_per_try_wobble():
     assert visibility_over_tries([]) == (None, None)
 
 
-class Judge:
-    """Labels what the answer actually says, so the validators accept it."""
-    model = "test-judge"
-
-    def label(self, probe, answer, attributes, profile):
-        named = profile.name in answer.text
-        return dict(mentioned=named, recommended=False, negative_mention=False,
-                    competitor_recommendations=[c for c in ("Linear", "Asana", "Coda") if c in answer.text],
-                    evidence_quotes=[answer.text] if named else [], on_topic=True, attributes=[])
-
-    def discover(self, profile, attributes, answers):
-        return []
-
-
 def live_run(buyer_text, control_text, wobble=1, monkeypatch=None):
     """buyer_text(ask number of that question) -> answer text. Named questions get a plain answer."""
     asked = Counter()
@@ -93,8 +78,7 @@ def live_run(buyer_text, control_text, wobble=1, monkeypatch=None):
         asked[q] += 1
         text = (control_text if q.startswith("Which companies lead in") else
                 buyer_text(asked[q]) if q in buyer else "A workspace tool.")
-        return {"output": [{"type": "web_search_call"},
-                           {"type": "message", "content": [{"type": "output_text", "text": text}]}]}
+        return openai_reply(text, searched=True)
 
     # ±33 points: six questions frozen a front, four asked first (test_sampler.py owns the sizing)
     monkeypatch.setenv(sampler.MARGIN_ENV, "33")

@@ -1,5 +1,5 @@
 /**
- * The positioning map's layout (PositioningMapView in components.tsx). No DOM here, so
+ * The positioning map's layout (PositioningMapView in report/map.tsx). No DOM here, so
  * `node --test` can check the rule the map must keep: both axes are named, in the chart and outside
  * the plot, and every dot carries its own full name, with no two labels (or a label and a dot)
  * overlapping. Widths come in measured, never guessed: a guess ran "Kymriah" into "Where you want
@@ -25,7 +25,7 @@ const hit = (a: Box, b: Box) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1
 const circle = (d: Dot): Box => [d.x - d.r, d.y - d.r, d.x + d.r, d.y + d.r];
 
 /** Whether any stretch of a line runs inside a box (Liang–Barsky clipping); touching an edge does not count. */
-export const crosses = ([x1, y1, x2, y2]: number[], b: Box) => {
+const crosses = ([x1, y1, x2, y2]: number[], b: Box) => {
   let t0 = 0, t1 = 1;
   const dx = x2 - x1, dy = y2 - y1;
   for (const [p, q] of [[-dx, x1 - b[0]], [dx, b[2] - x1], [-dy, y1 - b[1]], [dy, b[3] - y1]]) {
@@ -41,7 +41,7 @@ export const crosses = ([x1, y1, x2, y2]: number[], b: Box) => {
 };
 
 /** Words into lines no wider than `max`; a single word wider than that keeps a line of its own. */
-export function wrap(text: string, max: number, measure: (t: string) => number): string[] {
+function wrap(text: string, max: number, measure: (t: string) => number): string[] {
   const lines: string[] = [];
   for (const word of text.split(" ")) {
     const last = lines.length ? `${lines[lines.length - 1]} ${word}` : word;

@@ -38,16 +38,14 @@ own, any mention (drift.py keys those on mentions). A literal term cannot tell t
 counts any mention and says so.
 """
 import json
-import os
 import re
 import threading
 import uuid
-from concurrent.futures import ThreadPoolExecutor
-from contextvars import copy_context
 from typing import Callable, Optional
 from urllib.parse import urlparse
 
 import access
+import config
 from agents import evaluation
 from providers import live
 from schemas import (Answer, Attribute, CompanyProfile, Investigation, Probe, ReadResult, ReadStep,
@@ -78,11 +76,8 @@ REPLAY_TOOL = {"type": "function", "name": "web_search", "description": "Search 
 
 
 def budget() -> float:
-    """WHY_BUDGET_USD, the most one investigation may spend; unreadable or tiny -> the default."""
-    try:
-        return max(0.05, float(os.environ.get(BUDGET_ENV) or DEFAULT_BUDGET))
-    except ValueError:
-        return DEFAULT_BUDGET
+    """WHY_BUDGET_USD, the most one investigation may spend; unreadable -> the default, never below $0.05."""
+    return config.setting(BUDGET_ENV, DEFAULT_BUDGET, 0.05, float)
 
 
 # ---------------------------------------------------------------- the reading list
@@ -106,9 +101,6 @@ def urls_of(reading: list[ReadStep]) -> list[str]:
 
 def drop_sources(reading: list[ReadStep], urls: set[str]) -> list[ReadStep]:
     return [s.model_copy(update={"results": [r for r in s.results if r.url not in urls]}) for s in reading]
-
-
-SEGMENT = re.compile(r"(?<=[.!?])\s+|\n")
 
 
 def drop_lines(reading: list[ReadStep], url: str, says: Callable[[str], bool]) -> tuple[list[ReadStep], list[str]]:
@@ -247,6 +239,10 @@ def buyer_judge(run, probe: Probe, counts: str, evaluator=None):
     return RecommendsJudge(run.profile, probe, evaluator) if counts == "recommends" else NamesJudge(run.profile)
 
 
+def claim_words(attribute: Attribute) -> set[str]:
+    return evaluation.content_words(" ".join([attribute.label, attribute.description or "", *attribute.aliases]))
+
+
 def marker(attribute: Attribute, term: Optional[str], quotes: list[str],
            reading: list[ReadStep]) -> Callable[[str], bool]:
     """-> whether a piece of what was read says the claim. The term if there is one; else the words
@@ -255,7 +251,7 @@ def marker(attribute: Attribute, term: Optional[str], quotes: list[str],
     if term:
         pattern = term_pattern(term)
         return lambda text: bool(pattern.search(text))
-    claim = evaluation.content_words(" ".join([attribute.label, attribute.description or "", *attribute.aliases]))
+    claim = claim_words(attribute)
     said = set().union(*(evaluation.content_words(q) for q in quotes)) if quotes else set()
     words = (claim & said) or claim
     results = [r.text for s in reading for r in s.results]
@@ -295,9 +291,8 @@ class Lab:
 
     def judge_transport(self, prompt: str, model: str, timeout: int) -> str:
         """The evaluator's calls, counted against this investigation's budget too."""
-        from agents.evaluator_model import _text_from
         r = self.call(model=model, input=prompt)
-        return getattr(r, "output_text", None) or _text_from(r)
+        return getattr(r, "output_text", None) or live.parse_response(r)[0]
 
 
 class OverBudget(Exception):
@@ -325,13 +320,6 @@ class Agent:
         self.inv.log.append(text)
         self.emit("log", {"text": text, "spent_usd": round(self.lab.spent, 4)})
 
-    def pmap(self, fn, items):
-        """fn over items, CONCURRENCY at a time. Each call runs in a copy of THIS thread's context, taken
-        here: a pool thread starts with an empty one, so a copy taken inside it would drop the paying
-        pass (access.SPENDER) and a fleet's purse, and every call would go unmetered or be refused."""
-        with ThreadPoolExecutor(CONCURRENCY) as pool:
-            return [f.result() for f in [pool.submit(copy_context().run, fn, x) for x in items]]
-
     def afford(self, asks: int) -> None:
         if self.cancel is not None and self.cancel.is_set():
             raise Cancelled
@@ -346,9 +334,9 @@ class Agent:
             return
         self.afford(need)
         before = self.lab.spent
-        texts = self.pmap(lambda _: live.parse_response(self.lab.replay(self.inv.question, self.readings[arm.id]))[0],
-                          range(need))
-        for states, quote in self.pmap(self.judge, texts):
+        texts = access.pmap(lambda _: live.parse_response(self.lab.replay(self.inv.question, self.readings[arm.id]))[0],
+                            range(need), CONCURRENCY)
+        for states, quote in access.pmap(self.judge, texts, CONCURRENCY):
             if states is None:
                 continue
             arm.n += 1
@@ -404,7 +392,7 @@ class Agent:
     def record(self) -> list[tuple[str, Optional[list[ReadStep]], Optional[bool], Optional[str], list]]:
         self.note(f"Asking live {LIVE_ASKS} times, recording what the model read.")
         self.afford(LIVE_ASKS * 5)
-        raws = self.pmap(lambda _: self.lab.live(self.inv.question), range(LIVE_ASKS))
+        raws = access.pmap(lambda _: self.lab.live(self.inv.question), range(LIVE_ASKS), CONCURRENCY)
         out = []
         for raw in raws:
             text, _, searched = live.parse_response(raw)
@@ -418,8 +406,8 @@ class Agent:
         return out
 
     def prior(self) -> None:
-        texts = self.pmap(lambda _: live.parse_response(self.lab.off(self.inv.question))[0], range(OFF_ASKS))
-        judged = [s for s, _ in self.pmap(self.judge, texts) if s is not None]
+        texts = access.pmap(lambda _: live.parse_response(self.lab.off(self.inv.question))[0], range(OFF_ASKS), CONCURRENCY)
+        judged = [s for s, _ in access.pmap(self.judge, texts, CONCURRENCY) if s is not None]
         self.inv.off = WhyRate(k=sum(judged), n=len(judged))
         self.note(f"With search off it said it in {self.inv.off.k} of {self.inv.off.n} answers: "
                   + ("the model already believes it." if self.inv.off.k else "not something it says from memory."))

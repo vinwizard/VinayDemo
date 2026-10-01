@@ -163,7 +163,7 @@ def client(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
     runs, invs = tmp_path / "runs", tmp_path / "investigations"
     runs.mkdir()
-    for mod, name, value in ((reports, "DATA", tmp_path), (reports, "RUNS", runs), (main, "RUNS", runs),
+    for mod, name, value in ((reports, "DATA", tmp_path), (reports, "RUNS", runs),
                              (reports, "INVESTIGATIONS", invs)):
         monkeypatch.setattr(mod, name, value)
     reports.save_run(rewrite_run().model_copy(update={"id": "a1b2c3d4e5", "status": "complete"}))

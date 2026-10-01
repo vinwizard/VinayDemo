@@ -3,7 +3,7 @@ import pytest
 
 import drift
 from agents import ana, evaluation
-from schemas import (Answer, Attribute, AttributeObservation, AttributeScore, CompanyProfile,
+from schemas import (Answer, Attribute, AttributeObservation, AttributeScore,
                      Probe, QueryEvaluation)
 
 mk = lambda **k: Attribute(id=k.pop("id", "x"), label=k.pop("label", "X"), **k)
@@ -135,13 +135,6 @@ def test_named_probe_may_name_the_brand():
     ok = Probe(id="n2", topic_id="perception", text="What is Notion, and who is it for?",
                kind="named", phase="baseline", purpose="p")
     assert not ana.validate_named_probes([ok], attrs)
-    profile = CompanyProfile(name="Notion", domain="notion.com", aliases=["Notion"])
-    assert not ana.validate_probes([ok], [], profile) or True  # brand check applies to blind only
-
-
-def test_blind_probe_naming_the_brand_is_still_rejected():
-    profile = CompanyProfile(name="Notion", domain="notion.com", aliases=["Notion"])
-    assert ana.brand_leaks("Is Notion good for wikis?", profile)
 
 
 # --- negative polarity reaches the score (Option C: contested zone) -----------

@@ -15,13 +15,13 @@ What counts as the company's own words is decided here, in code, never by the mo
   * a page in another language is skipped (quotes are matched as written, and answers are English)
   * anything else that names the company is third-party: shown to the user apart, never extracted
 """
-import json
 import re
 from datetime import date
 from typing import Callable, Optional
 from urllib.parse import urlparse
 
 import fetching
+from agents.evaluator_model import json_object
 from providers import live
 from schemas import Evidence, ReadResult
 from scoring import domain_matches
@@ -55,10 +55,8 @@ class SearchFailed(RuntimeError):
     """The search could not be made or read; the message is shown to the user as is."""
 
 
-def default_transport(prompt: str, model: str, timeout: int):
-    import access  # metered: refused at a pass's cap, charged to it after
-    return access.openai_response(timeout, model=model, input=prompt, tools=[live.SEARCH_TOOL],
-                                  tool_choice=live.TOOL_CHOICE, include=live.INCLUDE)
+# forced search, metered and charged to the pass; a prompt string is a valid input
+default_transport = live.default_transport
 
 
 def _search(prompt: str, transport: Optional[Callable]):
@@ -136,7 +134,7 @@ def find(name: str, hint: Optional[str] = None, transport: Optional[Callable] = 
     text, _, _ = live.parse_response(response)
     seen = [r.url for r in results(response)]
     try:
-        raw = json.loads(text[text.find("{"):text.rfind("}") + 1]).get("candidates") or []
+        raw = json_object(text, "the search").get("candidates") or []
     except (ValueError, AttributeError):
         raw = []
     candidates = []

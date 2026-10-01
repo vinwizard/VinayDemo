@@ -11,11 +11,11 @@ Nothing the model says is trusted:
     drives "stated on N% of your pages", which was previously invented outright.
   * page text is untrusted DATA and is labelled as such in the prompt
 """
-import json
 import os
 import re
 from typing import Callable, Optional, Sequence
 
+from agents.evaluator_model import json_object
 from schemas import (Attribute, ClaimCheck, CompanyProfile, Evidence, PositioningPoint,
                      distinctive_alias)
 
@@ -144,11 +144,7 @@ def buyer_questions_for(label: str, description: Optional[str] = None, *,
     """
     prompt = QUESTIONS_PROMPT.format(label=label, description=description or "", n=n)
     raw = (transport or default_transport)(prompt, model or model_name(), timeout)
-    text = (raw or "").strip()
-    start, end = text.find("{"), text.rfind("}")
-    if start == -1 or end == -1:
-        raise ValueError("buyer-question model returned no JSON object")
-    got = json.loads(text[start:end + 1]).get("buyer_questions")
+    got = json_object(raw, "buyer-question model").get("buyer_questions")
     if not isinstance(got, list):
         raise ValueError("buyer-question output has no buyer_questions list")
     return [q.strip() for q in got if isinstance(q, str) and q.strip()][:n]
@@ -163,7 +159,7 @@ def buyer_category_for(label: str, description: Optional[str] = None, *,
     The caller still checks it for the brand's name."""
     prompt = CATEGORY_PROMPT.format(label=label, description=description or "")
     raw = (transport or default_transport)(prompt, model or model_name(), timeout) or ""
-    got = json.loads(raw[raw.find("{"):raw.rfind("}") + 1]).get("category")
+    got = json_object(raw, "buyer-category model").get("category")
     category = " ".join(str(got or "").split()).lower()
     if not 2 <= len(category.split()) <= 8:
         raise ValueError("no buyer category came back")
@@ -184,11 +180,7 @@ def default_transport(prompt: str, model: str, timeout: int) -> str:
 
 
 def parse(raw: str) -> dict:
-    text = (raw or "").strip()
-    start, end = text.find("{"), text.rfind("}")
-    if start == -1 or end == -1:
-        raise ValueError("onboarding model returned no JSON object")
-    data = json.loads(text[start:end + 1])
+    data = json_object(raw, "onboarding model")
     if not isinstance(data.get("attributes"), list):
         raise ValueError("onboarding output has no attributes list")
     return data
@@ -253,8 +245,8 @@ _FOLD = {**dict.fromkeys("'‘’`´", "['‘’`´]"), **dict.fromkeys('"“”
 
 def page_span(quote: str, text: str) -> Optional[str]:
     """The page's own words that `quote` copies, or None. Case, apostrophes, quotation marks,
-    dashes and whitespace may differ — the same leniency answer quotes get (evaluation.quoted_in) —
-    and nothing else: a changed, added or missing word still fails. Returns the page's spelling,
+    dashes and whitespace may differ — more than answer quotes get (evaluation.quoted_in folds only
+    case and emphasis) — and nothing else: a changed, added or missing word still fails. Returns the page's spelling,
     so a stored quote is always verbatim on the page it came from."""
     parts = [r"\s+" if ch.isspace() else _FOLD.get(ch) or re.escape(ch) for ch in " ".join(quote.split())]
     m = re.search("".join(parts), text, re.I) if parts else None

@@ -170,18 +170,33 @@ def low_confidence(brand: str, category: str, control: Optional[QueryEvaluation]
     return None
 
 
-def eligible(answer: Answer, ev: QueryEvaluation) -> tuple[bool, Optional[str]]:
+OFF_TOPIC = "Off-topic answer."   # the validator's warning (agents/evaluation.py)
+# Why an answer is left out, as the engine's own notes say it; "failed" says the answer's status.
+EXCLUDED_REASON = {"snapshot": "search snapshot (not a chatbot observation)",
+                   "replay": "why-agent experiment (a replayed reading list, not a measurement)",
+                   "ungrounded": "ungrounded (no search executed)",
+                   "off_topic": "needs review", "unconfirmed": "needs review"}
+
+
+def exclusion(answer: Answer, ev: QueryEvaluation) -> Optional[str]:
+    """Why an answer is left out of every score, as a code, or None when it counts. The one rule:
+    the report words these codes (web/src/report/util.tsx, leftOut) instead of re-deriving them."""
     if answer.provenance == "web_research_snapshot":
-        return False, "search snapshot (not a chatbot observation)"
+        return "snapshot"
     if answer.provenance == "counterfactual_replay":
-        return False, "why-agent experiment (a replayed reading list, not a measurement)"
+        return "replay"
     if answer.status != "ok":
-        return False, answer.status
+        return "failed"
     if answer.provenance == "live_api" and not answer.search_executed:
-        return False, "ungrounded (no search executed)"
+        return "ungrounded"
     if not ev.valid:
-        return False, "needs review"
-    return True, None
+        return "off_topic" if OFF_TOPIC in ev.warnings else "unconfirmed"
+    return None
+
+
+def eligible(answer: Answer, ev: QueryEvaluation) -> tuple[bool, Optional[str]]:
+    code = exclusion(answer, ev)
+    return code is None, None if code is None else answer.status if code == "failed" else EXCLUDED_REASON[code]
 
 
 def rate(k: int, n: int) -> Optional[float]:

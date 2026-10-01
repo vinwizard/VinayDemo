@@ -3,14 +3,10 @@ import type { Challenge, FleetEstimate, FleetSummary, PlanItem, Run, Verificatio
 import { getFleets, getHealth, startFleet, streamFleet, streamVerify } from "./api";
 import type { FleetView, Lane } from "./fleetlog";
 import { emptyView, fold } from "./fleetlog";
-import { PROVENANCE_LABEL } from "./labels";
+import { PROVENANCE_LABEL, address, money, plural, signed } from "./labels";
 import { Term } from "./popover";
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-const host = (u?: string | null) => (u ?? "").replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
-const money = (x: number) => `$${x.toFixed(2)}`;
 const minutes = (s: number) => (s >= 90 ? `${(s / 60).toFixed(1)} min` : `${Math.round(s)} s`);
-const signed = (x: number) => `${x > 0 ? "+" : x < 0 ? "−" : ""}${Math.abs(Math.round(x * 100))}`;
 
 const VERDICT_LABEL: Record<string, string> = {
   caused_by: "Cause found", over_determined: "Several pages", prior_belief: "Prior belief",
@@ -119,14 +115,14 @@ function PlanCard({ i, check, running, onCheck }: {
       <p className="plan-text">{i.text}</p>
       {(i.page_url || i.n > 0) && (
         <p className="plan-meta">
-          {i.page_url && <><a href={i.page_url} target="_blank" rel="noopener noreferrer">{host(i.page_url)}</a>{" · "}</>}
+          {i.page_url && <><a href={i.page_url} target="_blank" rel="noopener noreferrer">{address(i.page_url)}</a>{" · "}</>}
           <Numbers i={i} />
           {i.hypothetical && <> <span className="tag sample">hypothetical copy</span></>}
         </p>
       )}
       {i.rewrite && i.fix !== "untested" && <blockquote className="plan-rewrite">{i.rewrite}</blockquote>}
       {i.sources.length > 0 && (
-        <ul className="plan-sources">{i.sources.map((u) => <li key={u}><a href={u} target="_blank" rel="noopener noreferrer">{host(u)}</a></li>)}</ul>
+        <ul className="plan-sources">{i.sources.map((u) => <li key={u}><a href={u} target="_blank" rel="noopener noreferrer">{address(u)}</a></li>)}</ul>
       )}
       {i.notes.map((n, k) => <p key={k} className="muted plan-note">⚠ {n}</p>)}
       {(i.fix === "copy" || i.fix === "authority") && (

@@ -1,11 +1,11 @@
 """HTTP API over the existing Python engine. The engine is not modified — only observed.
 
-Streamlit could only render progress when a graph NODE returned, so `execute_or_replay` froze the
-page for the whole batch. Here the graph runs on a worker thread and pushes an event per ANSWER as
-well as per node, so the browser sees real progress while a long batch is still running.
+The graph runs on a worker thread and pushes an event per ANSWER as well as per node, so the browser
+sees real progress while a long batch is still running.
 """
 import json
 import os
+import contextlib
 import queue
 import re
 import shutil
@@ -45,8 +45,9 @@ from providers.company import CompanyProvider
 from api import admin
 from api import fleet as fleet_api
 from api import why as why_api
-from reports import RUNS, list_companies, load_company, load_run, save_company, save_run
+from reports import list_companies, load_company, load_run, save_company, save_run
 from schemas import Attribute, Company, Evidence
+from scoring import exclusion
 
 _LOADED = load_env()
 print(f"[config] {redacted_status(_LOADED)}")  # names only; a key value is never printed
@@ -55,8 +56,15 @@ app = FastAPI(title="Off Message API")
 
 
 def run_payload(run) -> dict:
-    """The run as the browser reads it, plus the panels derived from its saved answers."""
-    return {**json.loads(run.model_dump_json()), "insights": insights(run)}
+    """The run as the browser reads it, plus the panels derived from its saved answers. Each answer
+    carries `excluded`: why scoring left it out (scoring.exclusion), "missing" with no evaluation."""
+    out = {**json.loads(run.model_dump_json()), "insights": insights(run)}
+    evs = {(e.probe_id, e.try_no): e for e in [*run.evaluations, *run.repeat_evaluations]}
+    for field in ("answers", "repeat_answers"):
+        for a, sent in zip(getattr(run, field), out[field]):
+            e = evs.get((a.probe_id, a.try_no))
+            sent["excluded"] = "missing" if e is None else exclusion(a, e)
+    return out
 
 # Any loopback port, because Vite silently moves to 5174/5175 when 5173 is taken and a pinned
 # origin then fails as an opaque "TypeError: Failed to fetch" in the browser.
@@ -68,6 +76,48 @@ app.add_middleware(CORSMiddleware, allow_origin_regex=LOOPBACK_ORIGIN,
 
 def sse(event: str, payload: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(payload, default=str)}\n\n"
+
+
+def sse_response(events: Iterator[str]) -> StreamingResponse:
+    return StreamingResponse(events, media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+def threaded(work) -> Iterator:
+    """Runs work(put) on a daemon thread and yields each item it puts, until work returns. A new thread
+    starts with an empty context, so work sets the paying pass itself."""
+    q: queue.Queue = queue.Queue()
+    end = object()
+
+    def run():
+        try:
+            work(q.put)
+        finally:
+            q.put(end)
+
+    threading.Thread(target=run, daemon=True).start()
+    while (item := q.get()) is not end:
+        yield item
+
+
+@contextlib.contextmanager
+def paying(pid: Optional[str]):
+    """Model calls in here are charged to the pass; a refusal at its cap is a 403 in its own words."""
+    try:
+        with access.spending(pid):
+            yield
+    except access.Refused as e:
+        raise HTTPException(403, e.message)
+
+
+def visible_run(run_id: str, pid: Optional[str]):
+    """The saved run, or a 404 when this pass may not see it or it is not there."""
+    if not access.visible("run", run_id, pid):
+        raise HTTPException(404, f"run {run_id} not found")
+    try:
+        return load_run(run_id)
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(404, f"run {run_id} not found")
 
 
 NO_REPLAY = ("{name} was onboarded from its own website, so there are no authored answers to "
@@ -137,7 +187,7 @@ def offline_seed(company_id: str) -> bool:
 def seed_public_runs() -> None:
     """A fresh public deploy has no saved runs (they are gitignored), so replay both bundled
     scenarios once — fixtures only, no model — and History has something to open."""
-    if not public_demo() or any(p.stem not in {SHOWCASE_RUN, *access.RETIRED} for p in RUNS.glob("*.json")):
+    if not public_demo() or any(p.stem not in {SHOWCASE_RUN, *access.RETIRED} for p in reports.RUNS.glob("*.json")):
         return
     for scenario in sorted(fixture.SCENARIOS):
         prov = fixture.FixtureProvider(scenario)
@@ -186,10 +236,8 @@ def build_provider(mode: str, scenario: Optional[str] = None, company_id: Option
                                  "there is nothing to measure yet. Add a claim you want to be known "
                                  "for, or onboard again from a page that states its positioning.")
     try:
-        with access.spending(pass_id(holder)):
+        with paying(pass_id(holder)):
             resolved = live.preflight()   # one trivial call: an unusable model fails once, not 20 times
-    except access.Refused as e:
-        raise HTTPException(403, e.message)
     except live.PreflightFailed as e:   # its message is safe to show: no provider body, no key
         raise HTTPException(400, str(e))
     prov = live.LiveProvider(base.attributes(), base.named_probes(), profile=profile,
@@ -235,28 +283,25 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
         return
     # the audit as it stands now travels with the run, so a report shows what AI could read then
     site_audit = load_company(company_id).audit if company_id and not offline_seed(company_id) else None
-    q: queue.Queue = queue.Queue()
     state = {"done": 0}
     # id -> label, so the live feed can say "Buyer question 2 — Team knowledge bases" instead of
     # "kb-2". Filled from each planning node's event, which lands before that node's questions are answered.
     topic_labels: dict[str, str] = {}
-
     inner = prov.answer
 
-    def counting_answer(probe, **kw):               # per-answer progress: the whole point
-        a = inner(probe, **kw)
-        state["done"] += 1
-        q.put(("answer", dict(probe_id=probe.id, kind=probe.kind, phase=probe.phase, try_no=a.try_no,
-                              topic_label=topic_labels.get(probe.topic_id),
-                              text=probe.text, status=a.status,
-                              answer=a.text[:320], provenance=a.provenance,
-                              grounded=a.search_executed,
-                              done=state["done"], expected=expected)))
-        return a
+    def work(put):
+        def counting_answer(probe, **kw):           # per-answer progress: the whole point
+            a = inner(probe, **kw)
+            state["done"] += 1
+            put(("answer", dict(probe_id=probe.id, kind=probe.kind, phase=probe.phase, try_no=a.try_no,
+                                topic_label=topic_labels.get(probe.topic_id),
+                                text=probe.text, status=a.status,
+                                answer=a.text[:320], provenance=a.provenance,
+                                grounded=a.search_executed,
+                                done=state["done"], expected=expected)))
+            return a
 
-    prov.answer = counting_answer
-
-    def work():
+        prov.answer = counting_answer
         access.SPENDER.set(pass_id(holder))   # this thread's model calls are charged to the pass
         try:
             run = graph.new_run(profile, prov, mode=run_mode)
@@ -264,7 +309,7 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
             for node, run in graph.stream(run, prov):
                 topic_labels.update({t.id: t.label for t in run.topics})
                 stage, agent = graph.STAGES[node]
-                q.put(("node", dict(node=node, stage=stage, agent=agent,
+                put(("node", dict(node=node, stage=stage, agent=agent,
                                     log=run.log[-1] if run.log else "",
                                     **progress(run, getattr(prov, "tries", 1), getattr(prov, "repeat_sample", 0)))))
             # a pass's every run is kept, replay or live, owned by it; only a passless visitor's is not
@@ -273,37 +318,29 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
             if holder:
                 access.own("run", run.id, holder["id"], profile.name)
                 access.log(holder["id"], f"measured {profile.name}")
-            q.put(("done", dict(run_id=run.id, run=run_payload(run))))
+            put(("done", dict(run_id=run.id, run=run_payload(run))))
         except access.Refused as e:                  # capped mid-run: stopped, nothing saved
             if holder:
                 access.log(holder["id"], "stopped at its cap")
-            q.put(("error", dict(message=e.message)))
+            put(("error", dict(message=e.message)))
         except Exception as e:                       # surfaced, never swallowed; detail stays on the console
             traceback.print_exc()
-            q.put(("error", dict(message=f"Run failed after it started: {type(e).__name__}")))
-        finally:
-            q.put((None, None))
+            put(("error", dict(message=f"Run failed after it started: {type(e).__name__}")))
 
-    threading.Thread(target=work, daemon=True).start()
-    while True:
-        kind, payload = q.get()
-        if kind is None:
-            return
+    for kind, payload in threaded(work):
         yield sse(kind, payload)
 
 
 @app.get("/api/stream")
 def stream(scenario: str = "A", mode: str = "demo", company: Optional[str] = None, request: Request = None):
-    return StreamingResponse(run_events(scenario, mode, company, holder_of(request)),
-                             media_type="text/event-stream",
-                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return sse_response(run_events(scenario, mode, company, holder_of(request)))
 
 
 @app.get("/api/runs")
 def list_all(request: Request = None):
     """Run history: newest first, with enough detail to pick one for comparison."""
     out, pid = [], pass_id(holder_of(request))
-    for p in sorted(RUNS.glob("*.json")):
+    for p in sorted(reports.RUNS.glob("*.json")):
         if not access.visible("run", p.stem, pid):
             continue
         try:
@@ -330,12 +367,7 @@ def list_all(request: Request = None):
 
 @app.get("/api/runs/{run_id}")
 def get_run(run_id: str, request: Request = None):
-    if not access.visible("run", run_id, pass_id(holder_of(request))):
-        raise HTTPException(404, f"run {run_id} not found")
-    try:
-        return run_payload(load_run(run_id))
-    except (FileNotFoundError, ValueError):
-        raise HTTPException(404, f"run {run_id} not found")
+    return run_payload(visible_run(run_id, pass_id(holder_of(request))))
 
 
 CRAWL_PAGES = 8  # the homepage and up to seven pages that say how the company positions itself
@@ -486,12 +518,10 @@ def read_site(url: str, name: str, holder: Holder) -> tuple[str, list, list[dict
     meta, others = [{} for _ in pages], []
     if len(pages) < MIN_DIRECT_PAGES:
         try:
-            with access.spending(pass_id(holder)):
+            with paying(pass_id(holder)):
                 found, how, others = discovery.gather(name or domain, domain, CRAWL_PAGES - len(pages),
                                                       [u for u, _ in pages])
             pages, meta = pages + found, meta + how
-        except access.Refused as e:
-            raise HTTPException(403, e.message)
         except discovery.SearchFailed as e:
             problem = f"{problem}. {e}" if problem else str(e)
     return domain, pages, meta, others, logo, problem
@@ -535,13 +565,11 @@ def onboard_steps(url: str, name: str, holder: Holder = None, docs: tuple[str, .
                   retrieved_at=d["created_at"][:10]) for d in uploaded]
     yield "pages", {"pages": web, "sources": sources_of(pages, meta)}
     try:
-        with access.spending(pass_id(holder)):
+        with paying(pass_id(holder)):               # capped mid-extraction: nothing is saved
             profile, attrs, warnings, checks = OnboardingAgent().run(name, domain, pages, meta)
             company = Company(id=uuid.uuid4().hex[:10], profile=profile, attributes=attrs,
                               pages=web, checks=checks, third_party=others)
             warnings += set_category(company, profile.core_category)
-    except access.Refused as e:                     # capped mid-extraction: nothing is saved
-        raise HTTPException(403, e.message)
     except ValueError as e:
         raise HTTPException(502, f"Extraction failed: {e}")
     profile.logo_url = logo
@@ -592,9 +620,7 @@ def onboard_events(url: str, name: str, holder: Holder = None, docs: tuple[str, 
 @app.get("/api/onboard/stream")
 def onboard_stream(url: str = "", name: str = "", docs: str = "", only_docs: bool = False,
                    request: Request = None):
-    return StreamingResponse(onboard_events(url, name, holder_of(request), doc_ids(docs), only_docs),
-                             media_type="text/event-stream",
-                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return sse_response(onboard_events(url, name, holder_of(request), doc_ids(docs), only_docs))
 
 
 @app.get("/api/onboard/find")
@@ -609,10 +635,8 @@ def find_company(name: str, hint: str = "", request: Request = None):
     if not live.available():
         raise HTTPException(400, f"Searching needs {live.KEY_ENV}. Enter the company's website instead.")
     try:
-        with access.spending(pass_id(holder)):
+        with paying(pass_id(holder)):
             return discovery.find(name[:200], hint[:300] or None)
-    except access.Refused as e:
-        raise HTTPException(403, e.message)
     except discovery.SearchFailed as e:
         raise HTTPException(502, f"{e} Enter the company's website, or upload documents about it.")
 
@@ -716,12 +740,7 @@ def rescore_run(run_id: str, req: RescoreRequest, request: Request = None):
     through the claim lens again. The run is saved in place.
     """
     pid = pass_id(holder_of(request))
-    if not access.visible("run", run_id, pid):
-        raise HTTPException(404, f"run {run_id} not found")
-    try:
-        run = load_run(run_id)
-    except (FileNotFoundError, ValueError):
-        raise HTTPException(404, f"run {run_id} not found")
+    run = visible_run(run_id, pid)
     check_weights(run.attributes, req.weights)
     try:
         graph.rescore(run, req.weights)
@@ -744,12 +763,7 @@ def reask_run(run_id: str, req: ReaskRequest, request: Request = None):
     only sources. One metered call, a simulation that moves no score; refused without a pass."""
     holder = holder_of(request)
     pid = pass_id(holder)
-    if not access.visible("run", run_id, pid):
-        raise HTTPException(404, f"run {run_id} not found")
-    try:
-        run = load_run(run_id)
-    except (FileNotFoundError, ValueError):
-        raise HTTPException(404, f"run {run_id} not found")
+    run = visible_run(run_id, pid)
     refuse_in_public("asking the model again", holder)
     if run.mode != "live_api":
         raise HTTPException(400, "Only a live run can be asked again: this sample's passages were written by hand.")
@@ -842,22 +856,16 @@ def patch_company(company_id: str, patch: CompanyPatch, request: Request = None)
         if leaks := brand_leaks(patch.core_category, c.profile):
             raise HTTPException(400, f"The core category names you ({', '.join(leaks)}). Describe what "
                                      "a buyer shops for, not the brand.")
-        try:
-            with access.spending(pass_id(holder)):
-                c.warnings += set_category(c, patch.core_category)
-        except access.Refused as e:
-            raise HTTPException(403, e.message)
+        with paying(pass_id(holder)):
+            c.warnings += set_category(c, patch.core_category)
     for raw in patch.added:
         aid = base = re.sub(r"[^a-z0-9]+", "_", raw.label.lower()).strip("_") or "added"
         for n in range(2, 99):
             if aid not in by_id:
                 break
             aid = f"{base}_{n}"
-        try:
-            with access.spending(pass_id(holder)):
-                questions, warns = added_buyer_questions(c, raw)
-        except access.Refused as e:                 # nothing saved: the edit is all or nothing
-            raise HTTPException(403, e.message)
+        with paying(pass_id(holder)):               # nothing saved: the edit is all or nothing
+            questions, warns = added_buyer_questions(c, raw)
         c.warnings += warns
         attr = Attribute(id=aid, label=raw.label.strip(), description=raw.description,
                          intended_weight=round(raw.intended_weight, 2), added_by_user=True,

@@ -17,7 +17,6 @@ agent draws on one access.Purse (FLEET_BUDGET_USD) inside the pass that started 
 read and never written; investigations are counterfactual replays and never reach a score.
 """
 import json
-import os
 import queue
 import re
 import threading
@@ -33,7 +32,7 @@ import config
 import reports
 import why
 from agents import ana, evaluation
-from agents.evaluator_model import _json_object
+from agents.evaluator_model import json_object
 from agents.onboarding_model import MARKETING
 from providers import live
 from scoring import domain_matches
@@ -54,10 +53,7 @@ MAX_TERM = 40               # api/why.MAX_TERM: the same limit a user's own word
 
 def budget() -> float:
     """FLEET_BUDGET_USD, the most one fleet may spend, every agent together."""
-    try:
-        return max(0.10, float(os.environ.get(BUDGET_ENV) or DEFAULT_BUDGET))
-    except ValueError:
-        return DEFAULT_BUDGET
+    return config.setting(BUDGET_ENV, DEFAULT_BUDGET, 0.10, float)
 
 
 def concurrency() -> int:
@@ -196,10 +192,6 @@ MOVED = {"copy_fix", "authority_fix"}
 UNMOVED = {"not_movable", "copy_lowers"}
 
 
-def claim_words(attribute) -> set[str]:
-    return evaluation.content_words(" ".join([attribute.label, attribute.description or "", *attribute.aliases]))
-
-
 def critic(inv: Investigation, task: FleetTask, attribute, others: list[tuple[FleetTask, Investigation]]) -> list[Challenge]:
     """What to object to in one finished investigation. Pure: the same investigation always draws the
     same challenges, and nothing here asks a model."""
@@ -228,7 +220,7 @@ def critic(inv: Investigation, task: FleetTask, attribute, others: list[tuple[Fl
             out.append(Challenge(task_id=task.id, kind="thin", ask="accept",
                                  evidence=[a.id for a in inv.arms if a.decided == "undecided"],
                                  text="Every experiment used its asks and none decided: more of the same would not."))
-    words = claim_words(attribute)
+    words = why.claim_words(attribute)
     if inv.live_quotes and not any(evaluation.content_words(q) & words for q in inv.live_quotes):
         out.append(Challenge(task_id=task.id, kind="off_claim", ask="accept",
                              text="None of the judge's quotes shares a word with the claim (“"
@@ -636,7 +628,7 @@ def write(p: ActionPlan, run: Run, model: str) -> None:
     try:
         r = access.openai_response(live.LIMITS["per_call_timeout_s"], model=model,
                                    input=WRITER.format(name=run.profile.name, items=items))
-        lines = _json_object(live.parse_response(r)[0]).get("lines")
+        lines = json_object(live.parse_response(r)[0]).get("lines")
     except (Exception, access.PurseEmpty, access.Refused) as e:
         p.notes.append(f"The writer's call failed ({type(e).__name__}), so every line is the template's.")
         return

@@ -76,6 +76,15 @@ def embed(texts: list[str], model: str = MODEL) -> list[list[float]]:
     return [have[k] for k in keys]
 
 
+def dot(a: list[float], b: list[float]) -> float:
+    return sum(x * y for x, y in zip(a, b))
+
+
+def unit(v: list[float]) -> list[float]:
+    n = math.sqrt(dot(v, v))
+    return [x / n for x in v] if n > 1e-12 else [0.0] * len(v)
+
+
 def cosine(a: list[float], b: list[float]) -> float:
-    na, nb = math.sqrt(sum(x * x for x in a)), math.sqrt(sum(x * x for x in b))
-    return sum(x * y for x, y in zip(a, b)) / (na * nb) if na and nb else 0.0
+    na, nb = math.sqrt(dot(a, a)), math.sqrt(dot(b, b))
+    return dot(a, b) / (na * nb) if na and nb else 0.0

@@ -9,8 +9,8 @@ import pytest
 
 import graph
 import labels
+from fakes import replay
 from providers import fixture
-from reports import to_markdown
 from schemas import Probe
 
 
@@ -37,8 +37,7 @@ def test_numbering_comes_from_the_id_not_the_list_order():
 
 @pytest.fixture(scope="module")
 def run_a():
-    prov = fixture.FixtureProvider("A")
-    return graph.execute(graph.new_run(fixture.bundled_profile("A"), prov), prov)
+    return replay("A")
 
 
 # np-4, kb-2, pos-ai_native, ai_native-b1 — anything shaped like an engine id
@@ -69,25 +68,19 @@ NEVER_SHOWN = re.compile("|".join([f"(?i:{ID_SHAPED.pattern})",
 
 
 @pytest.mark.parametrize("scenario", ["A", "B"])
-def test_markdown_report_never_leaves_an_id_as_the_only_name(scenario):
-    """The Markdown export is the generated artefact a reader is handed; ids may only trail a name."""
+def test_engine_strings_never_leave_an_id_as_the_only_name(scenario):
+    """The sentences the engine builds and a page prints whole; ids may only trail a name."""
     prov = fixture.FixtureProvider(scenario)
     run = graph.execute(graph.new_run(fixture.bundled_profile(scenario), prov), prov)
-    md = to_markdown(run)
-    spoken = BACKTICKED.sub("", md)  # backticked ids are traceability, and always follow their name
-    assert [l for l in spoken.splitlines() if NEVER_SHOWN.search(l)] == []
-    # display only: the ids are still in the export and in the stored findings
-    assert "`np-1`" in md
+    said = [*(x for f in run.findings for x in (f.observation, f.interpretation, f.suggested_action,
+                                                 f.exploratory_note or "", *f.limitations)),
+            *(d.rationale for d in run.decisions), *run.drift.excluded_reasons]
+    spoken = [BACKTICKED.sub("", s) for s in said]  # backticked ids are traceability, and always follow their name
+    assert [s for s in spoken if NEVER_SHOWN.search(s)] == []
+    # display only: the ids are still in the stored findings
     stored = [i for f in run.findings for i in f.evidence_ids]
     assert stored and all(ID_SHAPED.fullmatch(i) for i in stored)
     assert {a.provenance for a in run.answers} == {"synthetic"}
-
-
-def test_markdown_report_leads_with_names(run_a):
-    md = to_markdown(run_a)
-    assert "**Branded question 1** (`np-1`" in md
-    assert "strength 2" not in md and "- Evaluation: recommended" in md
-    assert "[Sample data]" in md
 
 
 def test_exclusion_reasons_name_the_question(run_a):

@@ -13,13 +13,11 @@ replays (counterfactual_replay). They are shown side by side, never pooled, and 
 scores. Every call goes through access.openai_response; a check stops at VERIFY_BUDGET_USD.
 """
 import html
-import os
 import re
-from concurrent.futures import ThreadPoolExecutor
-from contextvars import copy_context
 from typing import Callable, Optional
 
 import access
+import config
 import audit
 import fleet
 import reports
@@ -36,10 +34,7 @@ MIN_PAGE_TEXT = 200         # characters: less is a blocked or script-only page,
 
 
 def budget() -> float:
-    try:
-        return max(0.05, float(os.environ.get(BUDGET_ENV) or DEFAULT_BUDGET))
-    except ValueError:
-        return DEFAULT_BUDGET
+    return config.setting(BUDGET_ENV, DEFAULT_BUDGET, 0.05, float)
 
 
 def plain(text: str) -> str:
@@ -151,10 +146,6 @@ def recheck(v: Verification, inv, arm, fix: str, judge_for: Callable, resolve: C
     judge = judge_for(evaluator)
     read_it = ((lambda r: carries(copy, r.text)) if fix == "copy" else (lambda r: why.same_page(r.url, v.page_url)))
 
-    def pmap(fn, n):   # contexts copied here, in this thread, so the pass and purse reach the calls
-        with ThreadPoolExecutor(why.CONCURRENCY) as pool:
-            return [f.result() for f in [pool.submit(copy_context().run, fn) for _ in range(n)]]
-
     def afford(usd: float) -> None:
         if lab.spent + usd > v.budget_usd:
             raise why.OverBudget
@@ -162,7 +153,7 @@ def recheck(v: Verification, inv, arm, fix: str, judge_for: Callable, resolve: C
     try:
         for look in LOOKS:
             afford((look - v.read_by_ai.n) * LIVE_ASK_USD)
-            for raw in pmap(lambda: lab.live(inv.question), look - v.read_by_ai.n):
+            for raw in access.pmap(lambda _: lab.live(inv.question), range(look - v.read_by_ai.n), why.CONCURRENCY):
                 text = live.parse_response(raw)[0]
                 reading = live.reading_of(raw, cap=None) or []
                 v.read_by_ai.n += 1
@@ -182,7 +173,8 @@ def recheck(v: Verification, inv, arm, fix: str, judge_for: Callable, resolve: C
                 v.spent_usd = round(lab.spent, 4)
                 return v
         afford(CONTROL_ASKS * 0.01)
-        texts = pmap(lambda: live.parse_response(lab.replay(inv.question, inv.reading))[0], CONTROL_ASKS)
+        texts = access.pmap(lambda _: live.parse_response(lab.replay(inv.question, inv.reading))[0],
+                            range(CONTROL_ASKS), why.CONCURRENCY)
         for states, _ in map(judge, texts):
             if states is not None:
                 v.control.n, v.control.k = v.control.n + 1, v.control.k + states

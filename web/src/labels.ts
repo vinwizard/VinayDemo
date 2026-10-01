@@ -72,12 +72,6 @@ export const plain = (md: string) => md
   .replace(/^([ \t]*)[-*+][ \t]+/gm, "$1• ")
   .replace(/\*+|__|`+/g, "");
 
-/** `Probe.kind`: what the question does, not what the enum is called. */
-export const PROBE_KIND_LABEL: Record<string, string> = {
-  named: "names your brand",
-  blind: "buyer search",
-};
-
 /** The number a probe id already carries: np-3 -> 3, ai_native-b1 -> 1, kb-f2 -> 2. */
 const idNumber = (id: string): number | null => {
   const m = /(\d+)$/.exec(id);
@@ -165,8 +159,13 @@ export function headline(d: { lens?: string | null; alignment: number | null; cl
   };
 }
 
-export const pctText = (x: number | null | undefined) => (x == null ? "n/a" : `${x}%`);
-
 /** "78.6% untapped potential", or "n/a" when the server withheld the score. */
 export const potentialText = (h: Headline) =>
   h.potential == null ? "n/a" : `${h.potential}% untapped potential`;
+
+export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** A share (0.12) as signed points: "+12", "−5", "0". */
+export const signed = (x: number) => `${x > 0 ? "+" : x < 0 ? "−" : ""}${Math.abs(Math.round(x * 100))}`;
+export const money = (x: number) => `$${x.toFixed(2)}`;
+/** A page's address as a reader says it: no scheme, no www., no trailing slash. */
+export const address = (u?: string | null) => (u ?? "").replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");

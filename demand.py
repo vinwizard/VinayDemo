@@ -25,6 +25,7 @@ import urllib.parse
 import urllib.request
 from typing import Callable
 
+import embeddings
 import reports
 from agents.ana import brand_leaks, vendor_address
 from agents.evaluation import content_words
@@ -107,15 +108,10 @@ def clean(phrases: list[dict], category: str, profile: CompanyProfile) -> list[d
     return kept[:MAX_PHRASES]
 
 
-def _unit(v: list[float]) -> list[float]:
-    n = sum(x * x for x in v) ** .5 or 1.0
-    return [x / n for x in v]
-
-
 def cluster(vectors: list[list[float]], threshold: float = SAME_GROUP) -> tuple[list[list[int]], list[list[float]]]:
     """Average-link agglomerative clustering on cosine similarity. -> (groups of indices, similarity matrix)."""
-    u = [_unit(v) for v in vectors]
-    sim = [[sum(a * b for a, b in zip(x, y)) for y in u] for x in u]
+    u = [embeddings.unit(v) for v in vectors]
+    sim = [[embeddings.dot(x, y) for y in u] for x in u]
     groups = [[i] for i in range(len(u))]
     link = lambda a, b: sum(sim[i][j] for i in a for j in b) / (len(a) * len(b))
     while len(groups) > 1:

@@ -1,11 +1,10 @@
 """Orchestrator: ordinary code owning LangGraph state, routing, budgets and validation."""
-import contextvars
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+import access
 import drift
 import sampler
 from agents import ana, evaluation, win_back
@@ -211,11 +210,7 @@ def execute_or_replay(s: State):
     # 12-probe run; results are collected in submission order so they stay deterministic.
     workers = min(getattr(provider, "concurrency", 1), len(jobs)) if jobs else 1
     if workers > 1:
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            # each answer runs in a copy of this thread's context, so the pass paying for it
-            # (access.SPENDER) reaches the pool threads
-            got = [f.result() for f in [pool.submit(contextvars.copy_context().run, ask, p, t)
-                                        for p, t in jobs]]
+        got = access.pmap(lambda job: ask(*job), jobs, workers)   # the paying pass reaches each call
     else:
         got = [ask(p, t) for p, t in jobs]
     new = got[:len(todo)]

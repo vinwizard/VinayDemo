@@ -1,6 +1,5 @@
 """Offline acceptance checks (.claude/skills/evaluation-and-scoring) for the engine. Run: python -m pytest"""
 import json
-import socket
 from pathlib import Path
 
 import pytest
@@ -8,25 +7,13 @@ from pydantic import ValidationError
 
 import graph
 from agents import ana, evaluation, onboarding
-from providers import fixture, imported, live
-from reports import from_json, load_run, save_run, to_json, to_markdown
+from providers import fixture, live
+from fakes import replay as run_scenario
+from reports import from_json, load_run, save_run, to_json
 from schemas import Answer, CompanyProfile, GapFinding, PositioningPoint, Probe, QueryEvaluation, Topic
 from scoring import domain_matches, score_topic, visibility_score
 
 ROOT = Path(__file__).resolve().parent.parent
-
-
-@pytest.fixture(autouse=True)
-def no_internet(monkeypatch):
-    def blocked(*a, **k):
-        raise OSError("network disabled in tests")
-    monkeypatch.setattr(socket, "create_connection", blocked)
-    monkeypatch.setattr(socket.socket, "connect", blocked)
-
-
-def run_scenario(s):
-    prov = fixture.FixtureProvider(s)
-    return graph.execute(graph.new_run(fixture.bundled_profile(s), prov), prov)
 
 
 @pytest.fixture(scope="module")
@@ -105,10 +92,8 @@ def test_every_query_and_topic_explained(runs):
             assert a.provenance == "synthetic" and a.provider == "fixture" and a.collected_at is None and not a.search_executed
         for te in r.topic_evaluations:
             assert te.status and te.limitations and te.provenance == "synthetic"
-        md = to_markdown(r)
-        assert "SYNTHETIC DEMO" in md
-        points = [l for l in md.split("## Positioning points")[1].splitlines() if l.startswith("- Point ")]
-        assert [l.endswith("not tested") for l in points] == [False, False, False, False, True]  # pp5 has no topic
+        tested = [any(pp.id in t.positioning_point_ids for t in r.topics) for pp in r.profile.positioning_points]
+        assert tested == [True, True, True, True, False]  # pp5 has no topic
 
 
 def test_every_gap_suggests_a_mapped_action_or_says_insufficient(runs):
@@ -160,12 +145,10 @@ def test_search_snapshot_never_scored():
     assert not e.valid and te.n == 0 and te.visibility_score is None and "search snapshot" in te.excluded_reasons[0]
 
 
-def test_snapshot_only_touches_profile_evidence():
-    snap = imported.load_snapshot(imported.list_snapshots()[-1])
-    p = imported.apply_snapshot(PROFILE, snap)
-    assert {e.source_type for e in p.evidence} == {"web_research_snapshot"}
-    for e in p.evidence:
-        assert e.url.startswith("https://www.notion.com") and e.retrieved_at
+def test_an_evidence_only_edit_still_allows_replay():
+    p = PROFILE.model_copy(deep=True)
+    p.evidence = [e.model_copy(update={"source_type": "web_research_snapshot", "url": "https://www.notion.com/product"})
+                  for e in p.evidence]
     fixture.FixtureProvider("A").check_profile(p)  # factual edit: replay still allowed
 
 
@@ -404,5 +387,5 @@ def test_secrets_not_exported_or_committed(monkeypatch):
     secret = "sk-test-DO-NOT-LEAK-123"
     monkeypatch.setenv(live.KEY_ENV, secret)
     r = run_scenario("A")
-    assert secret not in to_json(r) and secret not in to_markdown(r) and secret not in live.status()
+    assert secret not in to_json(r) and secret not in live.status()
     assert ".env" in (ROOT / ".gitignore").read_text().split()

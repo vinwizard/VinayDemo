@@ -26,16 +26,6 @@ MIN_NAMED = 3          # below this, perception is not measurable and alignment 
 # GAP_ZONES in web/src/api.ts.
 GAP_ZONES = ("contested", "lost_claim", "unstated_intent", "imposed")
 
-OWNER_TEXT = {
-    "authority_gap": "You state this clearly and the models are not repeating it.",
-    "messaging_gap": "AI does not say it because your own copy does not clearly say it either.",
-    "contested_identity": "AI talks about this and says the opposite of what you claim.",
-    "imposed_identity": "AI asserts this about you without you claiming it.",
-    "unprioritised_claim": "You say this on your own site and AI repeats it, but you did not mark it "
-                           "as something you want to be known for.",
-    "none": "Intended positioning is reflected in AI answers.",
-}
-
 
 def claim_strength(a: Attribute) -> Optional[float]:
     return None if not a.claim_pages_total else round(a.claim_pages / a.claim_pages_total, 3)

@@ -68,8 +68,7 @@ _search: bool = True
 # How many buyer questions a front asks, and when it may stop, is sampler-lite's (sampler.py): fresh
 # questions up to a stated margin at 95%, plus WOBBLE_AUDIT re-asks per front for the wobble.
 
-LIMITS = dict(max_unique_probes=16, max_probe_retries=4, max_model_attempts=40, concurrency=3,
-              per_call_timeout_s=90, investigation_deadline_s=600)
+LIMITS = dict(concurrency=3, per_call_timeout_s=90, investigation_deadline_s=600)
 
 NEUTRAL_INSTRUCTION = ("Answer the user's question as a helpful assistant. Use web search. "
                        "Recommend specific products where appropriate and cite sources.")

@@ -13,12 +13,12 @@ with no axis names.
 
 A similarity picture, never a measurement: it runs after every score exists and moves none of them.
 """
-import math
 import re
 from collections import Counter
 from typing import Callable, Optional
 
 import embeddings
+from embeddings import dot, unit
 from schemas import MapPoint, PositioningMap, Run
 
 MAX_RIVALS = 6         # rivals drawn, most-named first; more crowd a phone screen
@@ -38,15 +38,6 @@ def _text(a) -> str:
     return f"{a.label}: {a.description}" if a.description else a.label
 
 
-def _dot(a, b) -> float:
-    return sum(x * y for x, y in zip(a, b))
-
-
-def _unit(v: list[float]) -> list[float]:
-    n = math.sqrt(_dot(v, v))
-    return [x / n for x in v] if n > 1e-12 else [0.0] * len(v)
-
-
 def claim_axes(means: list[list[float]], claims: list, vecs: list[list[float]]
                ) -> tuple[list[tuple[float, float]], int, int, float]:
     """-> (2D coordinates per point, x claim index, y claim index, share of the spread shown).
@@ -56,17 +47,17 @@ def claim_axes(means: list[list[float]], claims: list, vecs: list[list[float]]
     so the two axes never measure the same thing twice."""
     centre = _mean(means)
     x = [[a - c for a, c in zip(p, centre)] for p in means]
-    dirs = [_unit([a - c for a, c in zip(v, centre)]) for v in vecs]
-    spread = lambda d: sum(_dot(p, d) ** 2 for p in x)  # noqa: E731
+    dirs = [unit([a - c for a, c in zip(v, centre)]) for v in vecs]
+    spread = lambda d: sum(dot(p, d) ** 2 for p in x)  # noqa: E731
     weighted = [i for i, c in enumerate(claims) if c.intended_weight]
     ix = (max(weighted, key=lambda i: claims[i].intended_weight) if weighted
           else max(range(len(claims)), key=lambda i: spread(dirs[i])))
     ux = dirs[ix]
-    rest = {i: _unit([a - _dot(d, ux) * b for a, b in zip(d, ux)]) for i, d in enumerate(dirs) if i != ix}
+    rest = {i: unit([a - dot(d, ux) * b for a, b in zip(d, ux)]) for i, d in enumerate(dirs) if i != ix}
     iy = max(rest, key=lambda i: spread(rest[i]))
     uy = rest[iy]
-    total = sum(_dot(p, p) for p in x) or 1.0
-    return [(_dot(p, ux), _dot(p, uy)) for p in x], ix, iy, (spread(ux) + spread(uy)) / total
+    total = sum(dot(p, p) for p in x) or 1.0
+    return [(dot(p, ux), dot(p, uy)) for p in x], ix, iy, (spread(ux) + spread(uy)) / total
 
 
 def build(run: Run, embed: Optional[Callable] = None) -> PositioningMap:

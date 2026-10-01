@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Health, PassStatus, Run, RunSummary } from "./api";
 import { API, exchangePass, getHealth, getPass, getRun, getRuns } from "./api";
-import { History, Report } from "./components";
+import { Report } from "./report/Report";
+import { History } from "./report/history";
 import { CompanyWorkflow } from "./workflow";
 import { Guide } from "./guide";
 import { requestTour } from "./guideBus";
-import { headline } from "./labels";
+import { headline, money } from "./labels";
 import { pickStory, replayPart } from "./tour";
 
 type Tab = "onboard" | "history";
@@ -111,7 +112,7 @@ export default function App() {
         <div className={`callout meter${pass.capped ? " warn-box" : ""}`} role="status">
           <div className="row" style={{ justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
             <span>Live pass for <strong>{pass.label}</strong></span>
-            <strong>${pass.spent_usd.toFixed(2)} of ${pass.cap_usd.toFixed(2)} used</strong>
+            <strong>{money(pass.spent_usd)} of {money(pass.cap_usd)} used</strong>
           </div>
           <div className="meter-track" aria-hidden="true">
             <div style={{ width: `${Math.min(100, (100 * pass.spent_usd) / (pass.cap_usd || 1))}%` }} />
@@ -120,7 +121,7 @@ export default function App() {
             {pass.capped
               ? <>This pass has reached its limit. The saved reports stay open; email <Contact email={health?.contact_email} /> for a higher limit.</>
               : <>Onboard a company and measure it live on real models. Your runs are visible only to you.
-                  This pass includes ${pass.cap_usd.toFixed(2)} of live runs; need more? Email <Contact email={health?.contact_email} /> to have it raised.</>}
+                  This pass includes {money(pass.cap_usd)} of live runs; need more? Email <Contact email={health?.contact_email} /> to have it raised.</>}
           </span>
         </div>
       )}

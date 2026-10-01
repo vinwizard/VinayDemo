@@ -2,6 +2,7 @@
 import json
 
 import graph
+from fakes import openai_reply
 from agents import evaluation
 from agents.evaluator_model import ModelEvaluator, build_discovery_prompt
 from providers import fixture, live
@@ -155,11 +156,10 @@ class Evaluator:
 
 
 def live_run(proposals):
-    message = {"type": "message", "content": [{"type": "output_text", "text": TEXT, "annotations": []}]}
     f = fixture.FixtureProvider("A")
     ev = Evaluator(proposals)
     prov = live.LiveProvider(f.attributes(), f.named_probes(), profile=f.profile, model="m",
-                             transport=lambda *_: {"output": [{"type": "web_search_call"}, message]},
+                             transport=lambda *_: openai_reply(TEXT, searched=True, annotations=[]),
                              evaluator=ev)
     return graph.execute(graph.new_run(f.profile, prov, mode="live_api"), prov), ev
 
@@ -215,7 +215,7 @@ def test_amgen_is_never_placed_as_a_stock_pick():
 
     import drift
     from agents import ana, onboarding_model
-    from agents.evaluator_model import _json_object
+    from agents.evaluator_model import json_object
     from schemas import Run
     root = Path(__file__).parent.parent
     rec = json.loads((root / "tests/cassettes/amgen_discovery.json").read_text())
@@ -224,7 +224,7 @@ def test_amgen_is_never_placed_as_a_stock_pick():
     answers = {a.probe_id: a for a in run.answers}
     obs = {pid: [o for o in got if o.attribute_id in {a.id for a in declared}]
            for pid, got in run.observations.items()}
-    new, found, _ = evaluation.discover_attributes(_json_object(rec["discovery"]["raw"])["proposals"],
+    new, found, _ = evaluation.discover_attributes(json_object(rec["discovery"]["raw"])["proposals"],
                                                    {p: answers[p] for p in rec["discovery"]["answers"]},
                                                    declared, obs, run.profile)
     for pid, got in found.items():

@@ -13,15 +13,7 @@ import api.main as main
 import fetching
 import reports
 from agents import onboarding_model
-
-
-def events(chunks):
-    """SSE text -> [(event, payload)]."""
-    out = []
-    for c in chunks:
-        head, data = c.strip().split("\n", 1)
-        out.append((head.removeprefix("event: "), json.loads(data.removeprefix("data: "))))
-    return out
+from fakes import sse_events as events
 
 
 def test_the_seed_company_ships_with_the_repo_and_is_weighted():

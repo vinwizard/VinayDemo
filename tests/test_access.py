@@ -8,9 +8,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 import access
+from fakes import openai_reply
 import api.main as main
 import reports
 from providers import live
+from fakes import seeded_data, sse_events as events
 
 CO = "abcdef0123"        # a copy of the seed company, owned by the first pass in these tests
 USAGE = {"input_tokens": 1_000_000, "output_tokens": 100_000}   # gpt-4o-mini: $0.15 + $0.06
@@ -19,23 +21,13 @@ USAGE = {"input_tokens": 1_000_000, "output_tokens": 100_000}   # gpt-4o-mini: $
 def fake_response(**kw):
     """A measured answer that names Notion and ran one search; the evaluator gets the same text,
     which is not JSON, so its labels fail and the answer is left for review — fine for metering."""
-    return {"output": [{"type": "web_search_call"},
-                       {"type": "message", "content": [{"type": "output_text",
-                                                        "text": "Notion is a connected workspace."}]}],
-            "usage": {"input_tokens": 1000, "output_tokens": 200}}
+    return openai_reply("Notion is a connected workspace.", searched=True,
+                        usage={"input_tokens": 1000, "output_tokens": 200})
 
 
 @pytest.fixture
 def env(tmp_path, monkeypatch):
-    companies, runs = tmp_path / "companies", tmp_path / "runs"
-    companies.mkdir()
-    runs.mkdir()
-    seed = json.loads((reports.BUNDLED / "companies" / f"{main.SEED_COMPANY}.json").read_text())
-    (companies / f"{CO}.json").write_text(json.dumps(seed | {"id": CO}))
-    monkeypatch.setattr(reports, "DATA", tmp_path)
-    monkeypatch.setattr(reports, "COMPANIES", companies)
-    monkeypatch.setattr(reports, "RUNS", runs)
-    monkeypatch.setattr(main, "RUNS", runs)
+    seeded_data(tmp_path, monkeypatch, CO)
     monkeypatch.setenv(access.PUBLIC_ENV, "1")
     monkeypatch.setenv(access.SECRET_ENV, "test-secret")
     monkeypatch.setenv(access.ADMIN_ENV, "hunter2-long-password")
@@ -56,14 +48,6 @@ def with_pass(pass_id="person-1"):
     r = c.post("/api/access/exchange", json={"code": code})
     assert r.status_code == 200, r.text
     return c, code, r
-
-
-def events(body: str) -> list[tuple[str, dict]]:
-    out = []
-    for block in body.strip().split("\n\n"):
-        lines = dict(line.split(": ", 1) for line in block.splitlines())
-        out.append((lines["event"], json.loads(lines["data"])))
-    return out
 
 
 # --- the code exchange ----------------------------------------------------------------------------

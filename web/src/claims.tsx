@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { ClaimCheck, CompanyDetail } from "./api";
 import { deleteAttribute, patchCompany, reaudit } from "./api";
 import { SiteReadability } from "./audit";
-import { statedOn } from "./labels";
+import { plural, statedOn } from "./labels";
 import { intentWord } from "./quickwins";
 import { Term } from "./popover";
 
@@ -46,7 +46,6 @@ export function Slider({ value, onChange, id, label, min = 0, disabled }: {
 const weightsOf = (c: CompanyDetail) =>
   Object.fromEntries(c.attributes.map((a) => [a.id, a.intended_weight ?? 0]));
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /**
  * Quote validation, shown as the rigour it is rather than as errors: every claim appears once, under

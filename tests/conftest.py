@@ -9,6 +9,7 @@ Nor does any test read the developer's own settings: a real `.env` — loaded on
 EVALUATOR_MODEL pinned in .env failed `test_health_names_...` while CI passed, which is the wrong
 way round for a check whose whole job is to pin the defaults."""
 import hashlib
+import socket
 
 import pytest
 
@@ -20,12 +21,12 @@ import embeddings
 import retrieval
 import sharing
 
-# Every setting the app reads from the environment (providers/live.py, agents/*_model.py,
-# agents/ana.py). A test that wants one sets it itself with monkeypatch.
-APP_SETTINGS = ("MEASURED_MODEL", "EVALUATOR_MODEL", "ONBOARDING_MODEL", "LIVE_MODEL",
+# Every setting the app reads from the environment (providers/, agents/*_model.py, access.py, the
+# budget modules). A test that wants one sets it itself with monkeypatch.
+APP_SETTINGS = ("MEASURED_MODEL", "EVALUATOR_MODEL", "ONBOARDING_MODEL",
                 "TARGET_MARGIN", "RUN_BUDGET_USD", "WOBBLE_AUDIT", "WHY_BUDGET_USD", "OPENAI_API_KEY",
-                "DATA_DIR", "VISEXP_PUBLIC_DEMO", "VISEXP_OFFLINE_REPLAY", "FLEET_BUDGET_USD",
-                "FLEET_CONCURRENCY", "VERIFY_BUDGET_USD")
+                "DATA_DIR", "VISEXP_PUBLIC_DEMO", "VISEXP_OFFLINE_REPLAY", "VISEXP_DEV_DELAY", "FLEET_BUDGET_USD",
+                "FLEET_CONCURRENCY", "VERIFY_BUDGET_USD", "SESSION_SECRET", "ADMIN_PASSWORD", "CONTACT_EMAIL")
 
 
 @pytest.fixture(autouse=True)
@@ -37,6 +38,11 @@ def default_settings(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def no_network(tmp_path, monkeypatch):
+    def blocked(*a, **k):
+        raise OSError("network disabled in tests")
+    monkeypatch.setattr(socket, "create_connection", blocked)
+    monkeypatch.setattr(socket.socket, "connect", blocked)
+
     def refuse(url, accept=None):
         raise OSError(f"no network in tests: {url}")
     monkeypatch.setattr(audit, "get", refuse)

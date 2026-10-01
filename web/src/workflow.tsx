@@ -10,8 +10,9 @@ import { getCompanies, getCompany, streamOnboard, streamRun } from "./api";
 import { ClaimsStep } from "./claims";
 import type { ReadRequest } from "./find";
 import { FindCompany, SourceList } from "./find";
-import { Logo, Report } from "./components";
-import { PROVENANCE_LABEL, headline, plain, potentialText, streamingProbeLabel } from "./labels";
+import { Report } from "./report/Report";
+import { Logo } from "./report/ui";
+import { PROVENANCE_LABEL, headline, plain, plural, potentialText, streamingProbeLabel } from "./labels";
 
 type StageState = "pending" | "active" | "done" | "skipped" | "failed";
 
@@ -47,7 +48,6 @@ function Stage({ n, title, state, summary, children, last, tour }: {
 const host = (url: string) => {
   try { return new URL(url.includes("://") ? url : `https://${url}`).host; } catch { return url; }
 };
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 interface Progress {
   node: StreamNode | null;      // latest node event: planned counts, discovered competitors, mode

@@ -1,6 +1,5 @@
 """The why agent over HTTP (api/why.py): who may ask, what may be asked, and the record it keeps.
 The model is the fake one from test_why; every file lives under tmp_path."""
-import json
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,26 +10,19 @@ import reports
 import why
 from providers import live
 from schemas import Probe, Run
-from test_why import AI, DIFFERENT, PROFILE, REWRITE, Fake, ai_model
+from test_why import AI, DIFFERENT, PROFILE, Fake, ai_model
+from fakes import sse_events as events
 
 RUN = "a1b2c3d4e5"
 NAMED = Probe(id="np-3", topic_id="perception", text="What makes Amgen different from other biotech companies?",
               kind="named", phase="baseline", purpose="perception")
 
 
-def events(body: str) -> list[tuple[str, dict]]:
-    out = []
-    for block in body.strip().split("\n\n"):
-        kind = block.split("\n")[0].removeprefix("event: ")
-        out.append((kind, json.loads(block.split("data: ", 1)[1])))
-    return out
-
-
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     runs, invs = tmp_path / "runs", tmp_path / "investigations"
     runs.mkdir()
-    for mod, name, value in ((reports, "DATA", tmp_path), (reports, "RUNS", runs), (main, "RUNS", runs),
+    for mod, name, value in ((reports, "DATA", tmp_path), (reports, "RUNS", runs),
                              (reports, "INVESTIGATIONS", invs)):
         monkeypatch.setattr(mod, name, value)
     run = Run(id=RUN, mode="live_api", profile=PROFILE, attributes=[AI], probes=[NAMED], status="complete")

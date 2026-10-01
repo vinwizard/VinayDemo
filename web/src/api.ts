@@ -146,7 +146,11 @@ export interface Answer {
   try_no?: number;
   /** What the answering model read, step by step; absent when not recorded. */
   trace?: ReadStep[] | null;
+  /** Why scoring left this answer out (scoring.exclusion, set by the server), or null when it counts. */
+  excluded?: Exclusion | null;
 }
+
+export type Exclusion = "snapshot" | "replay" | "failed" | "ungrounded" | "off_topic" | "unconfirmed" | "missing";
 
 /** One thing the model read: a search snippet, an opened page's lines or a find-in-page hit. */
 export interface ReadResult { url: string; title: string | null; text: string; crawled: string | null }
@@ -320,8 +324,7 @@ export const OWNER_TITLE: Record<Owner, string> = {
   none: "Aligned",
 };
 
-// Why each gap is whose problem. Mirrors drift.OWNER_TEXT, except messaging_gap: drift's "does not
-// clearly say it either" reads as absolute beside a nonzero page count, so the web says it relatively.
+// Why each gap is whose problem, said relatively: a messaging gap can sit beside a nonzero page count.
 export const OWNER_TEXT: Record<Owner, string> = {
   authority_gap: "You state this clearly and the models are not repeating it.",
   messaging_gap: "AI does not say it, and neither do enough of your own pages.",
@@ -357,6 +360,10 @@ async function json<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return r.json();
 }
+
+/** A JSON body sent with `method`; the reply read like any other. */
+const send = <T,>(path: string, method: "POST" | "PATCH", body: unknown) =>
+  json<T>(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
 // ---------------------------------------------------------------- onboarding
 export interface ClaimedAttribute {
@@ -464,11 +471,7 @@ export const patchCompany = (
           core_category?: string;
           /** A flagged claim reviewed: keep it (and restore one set aside), or set it aside. */
           review?: Record<string, "keep" | "set_aside"> },
-) => json<CompanyDetail>(`/api/companies/${id}`, {
-  method: "PATCH",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(body),
-});
+) => send<CompanyDetail>(`/api/companies/${id}`, "PATCH", body);
 
 export interface Health {
   ok: boolean;
@@ -511,11 +514,7 @@ export const getHealth = () => json<Health>("/api/health");
 export interface PassStatus { label: string; spent_usd: number; cap_usd: number; capped: boolean }
 
 /** Trades a personal link's code for an HttpOnly session cookie. Throws the server's plain message. */
-export const exchangePass = (code: string) => json<{ pass: PassStatus }>("/api/access/exchange", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ code }),
-});
+export const exchangePass = (code: string) => send<{ pass: PassStatus }>("/api/access/exchange", "POST", { code });
 /** The meter. `visit` records a page load in the owner's visit log. */
 export const getPass = (visit = false) =>
   json<{ pass: PassStatus | null }>(`/api/access${visit ? "?visit=1" : ""}`);
@@ -524,19 +523,11 @@ export const getRun = (id: string) => json<Run>(`/api/runs/${id}`);
 
 /** Asks one buyer question again with the rewritten passage as a source: one metered model call. */
 export const reaskRun = (id: string, probe_id: string) =>
-  json<Run>(`/api/runs/${id}/reask`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ probe_id }),
-  });
+  send<Run>(`/api/runs/${id}/reask`, "POST", { probe_id });
 
 /** Re-scores a finished run's saved answers with intent weights. No model is asked. */
 export const rescoreRun = (id: string, weights: Record<string, number>) =>
-  json<Run>(`/api/runs/${id}/rescore`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ weights }),
-  });
+  send<Run>(`/api/runs/${id}/rescore`, "POST", { weights });
 
 /** One answer, the moment the model returns it. `answer` is the first few hundred characters. */
 export interface StreamAnswer {
@@ -696,7 +687,7 @@ export const streamRecheck = (invId: string, h: {
 
 // ---------------------------------------------------------------- the investigation fleet (fleet.py)
 // Its records live in fleetlog.ts, which the node unit tests read without this file's Vite globals.
-export type { ActionPlan, Challenge, FleetEvent, FleetTask, PlanItem, Verification } from "./fleetlog.ts";
+export type { Challenge, PlanItem, Verification } from "./fleetlog.ts";
 export interface FleetSummary {
   id: string; run_id: string; created_at: string; status: "running" | "complete" | "stopped";
   spent_usd: number; wall_s: number | null; tasks: number; planned: boolean;

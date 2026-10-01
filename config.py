@@ -28,11 +28,11 @@ def load_env(path: Path = ENV_FILE) -> list[str]:
     return loaded
 
 
-def setting(env: str, default: int, floor: int = 0) -> int:
-    """A whole-number env setting (a budget or a count), never below `floor`. Anything unreadable is
-    the default rather than a crash mid-run: a typo in Render must not end a paid run."""
+def setting(env: str, default, floor=0, cast=int):
+    """A number env setting (a count, or with cast=float a dollar budget), never below `floor`. Anything
+    unreadable is the default rather than a crash mid-run: a typo in Render must not end a paid run."""
     try:
-        return max(floor, int(os.environ.get(env) or default))
+        return max(floor, cast(os.environ.get(env) or default))
     except ValueError:
         return default
 
