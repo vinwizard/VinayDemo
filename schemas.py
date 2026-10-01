@@ -235,7 +235,7 @@ class Answer(BaseModel):
     # are that answer's; the labels were made again for this run.
     shared: bool = False
     # Set only when it was answered for a near-identical question: that question, and the cosine
-    # between the two (sharing.similarity is the least that is reused).
+    # between the two (sharing.SIMILARITY is the least that is reused).
     reused_question: Optional[str] = None
     reused_similarity: Optional[float] = None
 

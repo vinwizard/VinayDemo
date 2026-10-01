@@ -101,7 +101,7 @@ A buyer answer averaged **$0.025** on 24 Amgen buyer questions (2026-09-28). `TA
 therefore the dial that moves the bill: at ±20 a front costs 10 to 23 buyer asks (about $0.50–1.15
 for two fronts, against $0.80 for the old fixed 16 a front, which guaranteed no margin), at ±15 it
 costs 16 to 43. Each weighted claim adds one topic of 3 questions (about $0.08) on top, at most one
-front's worth, so the known maximum at ±20 is 72 buyer questions (about $1.80, `max_buyer_questions`). The tool's `search_context_size` is the one lever still untouched. The preflight call costs one forced search of its own (~$0.01): that is
+front's worth, so the known maximum at ±20 is 72 buyer questions (about $1.80, `max_buyer_questions`). The preflight call costs one forced search of its own (~$0.01): that is
 the price of proving the exact request shape before spending a run on it.
 
 Restart the API. It prints `[config] loaded from .env: OPENAI_API_KEY=<set>` — names only, never
