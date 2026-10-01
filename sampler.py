@@ -67,11 +67,15 @@ def front_of(run: Run) -> dict[str, str]:
 
 def start(run: Run) -> SamplerReport:
     """At freeze: every front's pool asks its first look-1 questions; the rest wait for look 2.
-    The wobble audit re-asks the first question of each front."""
+    The wobble audit re-asks the first question of each front. A front already in `run.sampler`
+    (frozen earlier, perhaps asked) is kept as it is: only the new fronts are added."""
     n1, n2 = looks()
     fronts = front_of(run)
-    report = SamplerReport(margin=margin(), looks=[n1, n2], budget_usd=run_budget())
+    report = run.sampler or SamplerReport(margin=margin(), looks=[n1, n2], budget_usd=run_budget())
+    have = {f.front for f in report.fronts}
     for front in dict.fromkeys(fronts.values()):
+        if front in have:
+            continue
         pool = [p for p in run.probes if fronts.get(p.id) == front]
         report.held += [p.id for p in pool[n1:]]
         report.wobble += [p.id for p in pool[:1]] * bool(wobble_audit())
@@ -91,41 +95,47 @@ def rate(run: Run, ids: set[str]) -> tuple[int, int]:
     return k, n
 
 
-def decide(run: Run, spent: float = 0.0) -> list[str]:
+def decide(run: Run, spent: float = 0.0, front: Optional[str] = None, committed: int = 0) -> list[str]:
     """After look 1: which fronts stop, which go on to look 2. -> the probe ids released for look 2.
-    A front whose look 2 would take the run past its budget stops, its margin not met."""
+    A front whose look 2 would take the run past its budget stops, its margin not met. With `front`,
+    only that one decides — a front decides as soon as its own look 1 is in — and `committed` is how
+    many asks the run has under way and not yet paid for, which the budget counts as spent."""
     report = run.sampler
     fronts = front_of(run)
     released, asked = [], sum(f.asked for f in report.fronts)
     per_call = spent / asked if asked else 0.0
     for f in report.fronts:
+        if front is not None and f.front != front:
+            continue
         ids = {pid for pid, fr in fronts.items() if fr == f.front and pid not in report.held}
         k, n = rate(run, ids)
         waiting = [pid for pid in report.held if fronts.get(pid) == f.front]
         if not waiting or half_width(k, n, z_for(ALPHA1)) * 100 <= report.margin:
             f.stopped_early = bool(waiting)
             continue
-        if report.budget_usd and spent + per_call * (len(released) + len(waiting)) > report.budget_usd:
+        if report.budget_usd and spent + per_call * (committed + len(released) + len(waiting)) > report.budget_usd:
             f.note = (f"Look 2 would take the run past its ${report.budget_usd:.2f} budget, so this front "
                       f"stopped at {f.asked} questions and its margin is wider than ±{report.margin}.")
             continue
         released += waiting
         f.look, f.asked = 2, f.pool
     report.held = [pid for pid in report.held if pid not in set(released)]
-    report.decided = True
+    report.decided = front is None
     return released
 
 
-def drop_unasked(run: Run) -> None:
+def drop_unasked(run: Run, front: Optional[str] = None) -> None:
     """The questions a front never needed leave the run's probes (and any topic left empty) for
-    `unasked`, so every reader of the run sees only what was asked; the frozen hash covers both."""
+    `unasked`, so every reader of the run sees only what was asked; the frozen hash covers both.
+    With `front`, only that front's: the others may still be waiting for their look 1."""
     report = run.sampler
-    held = set(report.held)
+    fronts = front_of(run)
+    held = {pid for pid in report.held if front is None or fronts.get(pid) == front}
     report.unasked += [p for p in run.probes if p.id in held]
     run.probes = [p for p in run.probes if p.id not in held]
     kept = {p.topic_id for p in run.probes}
     run.topics = [t for t in run.topics if t.id in kept or t.kind != "buyer"]
-    report.held = []
+    report.held = [pid for pid in report.held if pid not in held]
 
 
 def finish(run: Run) -> None:

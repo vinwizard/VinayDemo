@@ -364,8 +364,9 @@ def spending(pass_id: Optional[str]):
         SPENDER.reset(token)
 
 
-def check(pass_id: Optional[str]) -> None:
-    """Raises Refused unless a model call may be made now."""
+def check(pass_id: Optional[str], in_flight: float = 0.0) -> None:
+    """Raises Refused unless a model call may be made now. `in_flight` is what the pass's calls
+    already under way are estimated to cost: they count against the cap before they are charged."""
     if pass_id is None:
         if public_demo():
             raise Refused("This is the public demo: model calls need a pass.")
@@ -373,8 +374,91 @@ def check(pass_id: Optional[str]) -> None:
     p = get_pass(pass_id)
     if p is None or p["revoked"]:
         raise Refused(REVOKED_MESSAGE)
-    if p["spent_usd"] >= p["cap_usd"]:
+    if p["spent_usd"] + in_flight >= p["cap_usd"]:
         raise Refused(CAP_MESSAGE.format(cap=p["cap_usd"], email=contact_email()))
+
+
+# Each pass's calls in flight, at their estimated cost: with LIVE_CONCURRENCY calls under way at once,
+# checking the ledger alone would let all of them through on the last cent. A call that would take the
+# pass past its cap counting what is under way waits for those to be charged, then checks again: so
+# the cap is passed by what it always was, about one call, and a run is never stopped early on an
+# estimate (one with search is held at about twice what it usually costs).
+_in_flight: dict[str, float] = {}
+_settled = threading.Condition()
+
+
+def _hold(pass_id: Optional[str], usd: float) -> float:
+    if not pass_id:
+        check(pass_id)
+        return 0.0
+    with _settled:
+        while True:
+            under_way = _in_flight.get(pass_id, 0.0)
+            check(pass_id)                       # spent alone at the cap: refused, as ever
+            try:
+                check(pass_id, under_way)
+                break
+            except Refused:
+                _settled.wait()                  # room only once the calls under way are charged
+        _in_flight[pass_id] = under_way + usd
+    return usd
+
+
+def _release(pass_id: Optional[str], usd: float) -> None:
+    if pass_id and usd:
+        with _settled:
+            if (left := _in_flight.get(pass_id, 0.0) - usd) > 1e-12:
+                _in_flight[pass_id] = left
+            else:
+                _in_flight.pop(pass_id, None)
+            _settled.notify_all()
+
+
+# ---------------------------------------------------------------- rate limits
+# A 429 pauses every call in the process, not just the one refused: the limit is the key's, and the
+# calls beside it would only be refused too. The pause is the API's own Retry-After when it sends one.
+RATE_LIMIT_RETRIES = 4
+MAX_PAUSE_S = 60.0
+_calm_at = 0.0                  # time.monotonic() before which no call starts
+_calm_lock = threading.Lock()
+
+
+def rate_limited(e: Exception) -> bool:
+    """A 429 that waiting cures. An exhausted quota is a 429 too, and no wait cures it."""
+    return getattr(e, "status_code", None) == 429 and getattr(e, "code", None) != "insufficient_quota"
+
+
+def retry_after(e: Exception) -> Optional[float]:
+    headers = getattr(getattr(e, "response", None), "headers", None) or {}
+    for name, per_s in (("retry-after-ms", 1000), ("retry-after", 1)):
+        try:
+            return float(headers.get(name)) / per_s
+        except (TypeError, ValueError):
+            pass
+    return None
+
+
+def pause(seconds: float) -> None:
+    global _calm_at
+    with _calm_lock:
+        _calm_at = max(_calm_at, time.monotonic() + min(max(seconds, 0.0), MAX_PAUSE_S))
+
+
+def _wait_calm() -> None:
+    while (wait := _calm_at - time.monotonic()) > 0:
+        time.sleep(wait)
+
+
+def _call_paced(call, timeout: int, kwargs: dict):
+    """`call`, retried after a 429 once the process-wide pause it set has passed."""
+    for attempt in range(RATE_LIMIT_RETRIES + 1):
+        _wait_calm()
+        try:
+            return call(timeout, **kwargs)
+        except Exception as e:
+            if not rate_limited(e) or attempt == RATE_LIMIT_RETRIES:
+                raise
+            pause(retry_after(e) or 2.0 ** attempt)
 
 
 def _get(obj, key):
@@ -433,16 +517,22 @@ def _metered(call, timeout: int, kwargs: dict):
     """A model call refused before the call when the acting pass may not spend, and charged
     to it after. A call that fails without an HTTP status (a timeout, a dropped connection) may
     still have been billed, so it is charged the unknown-usage estimate. Inside a fleet the call
-    also draws on its purse: an estimate is held before the call and the real cost settled after."""
+    also draws on its purse: an estimate is held before the call and the real cost settled after.
+    A 429 is waited out and retried (`_call_paced`); it was not billed, so nothing is charged for it."""
     pass_id, purse = SPENDER.get(), PURSE.get()
-    check(pass_id)
-    held = purse.take(estimate(kwargs)) if purse else 0.0
+    guess = estimate(kwargs)
+    reserved = _hold(pass_id, guess)
+    try:
+        held = purse.take(guess) if purse else 0.0
+    except BaseException:
+        _release(pass_id, reserved)
+        raise
     usd = 0.0
     bill = (lambda r: charge(pass_id, kwargs["model"], r)) if pass_id else (lambda r: cost(kwargs["model"], r)[0])
     try:
         with purse.slots if purse else contextlib.nullcontext():
             try:
-                response = call(timeout, **kwargs)
+                response = _call_paced(call, timeout, kwargs)
             except Exception as e:
                 if getattr(e, "status_code", None) is None:
                     usd = bill(None)
@@ -450,6 +540,7 @@ def _metered(call, timeout: int, kwargs: dict):
         usd = bill(response)
         return response
     finally:
+        _release(pass_id, reserved)   # after the charge: for a moment both count, never neither
         if purse:
             purse.settle(held, usd)
 
