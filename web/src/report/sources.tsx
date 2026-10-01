@@ -211,74 +211,10 @@ function GapSource({ r, rank, run, names }: { r: Source; rank: number; run: Run;
   );
 }
 
-const MAP_SOURCES = 8, MAP_RIVALS = 6, MAP_ROW = 30;
-
-/**
- * Brands on the left, the sites AI cited on the right, one line per pairing, thicker for more
- * buyer answers. Hovering a name dims everything it is not linked to. Wide screens only: on a
- * phone the ranked list above says the same thing.
- */
-function CitationMap({ run, sources, gaps }: { run: Run; sources: Source[]; gaps: Set<string> }) {
-  const [hot, setHot] = useState<string | null>(null);
-  const brand = run.profile.name;
-  // The sites that skip the brand first, then the most-cited, kept in the list's order.
-  const keep = new Set([...new Set([...sources.filter((r) => gaps.has(r.domain)), ...sources.filter((r) => r.buyer > 0)])]
-    .slice(0, MAP_SOURCES));
-  const right = sources.filter((r) => keep.has(r));
-  const weight = new Map<string, number>();
-  for (const r of right) for (const x of r.rivals) weight.set(x.name, (weight.get(x.name) ?? 0) + x.count);
-  // Each site's most-named rival first, so no site on the map is left without a line, then the rest by weight.
-  const firsts = new Set(right.flatMap((r) => r.rivals.slice(0, 1).map((x) => x.name)));
-  const rivals = [...new Set([...firsts, ...[...weight].sort((a, b) => b[1] - a[1]).map(([n]) => n)])];
-  const left = [brand, ...rivals.slice(0, Math.max(MAP_RIVALS, firsts.size))];
-  const edges = right.flatMap((r, j) => [
-    ...(r.with_brand ? [{ from: 0, to: j, w: r.with_brand }] : []),
-    ...r.rivals.filter((x) => left.includes(x.name)).map((x) => ({ from: left.indexOf(x.name), to: j, w: x.count })),
-  ]);
-  if (!right.length || edges.length === 0) return null;
-  const rows = Math.max(left.length, right.length);
-  const y = (i: number, n: number) => 20 + (i + (rows - n) / 2) * MAP_ROW;
-  const lit = (from: number, to: number) => !hot || hot === left[from] || hot === right[to].domain;
-  const dim = (name: string) => hot && hot !== name
-    && !edges.some((e) => (left[e.from] === name || right[e.to].domain === name) && lit(e.from, e.to));
-  return (
-    <figure className="cmap">
-      <svg viewBox={`0 0 640 ${rows * MAP_ROW + 20}`} role="img"
-           aria-label={`Which brands each cited site appeared beside, for ${brand} and its rivals`}>
-        {edges.map((e) => (
-          <line key={`${e.from}-${e.to}`} x1={170} y1={y(e.from, left.length)} x2={430} y2={y(e.to, right.length)}
-                className={e.from === 0 ? "edge brand" : "edge"} strokeWidth={1 + e.w}
-                opacity={lit(e.from, e.to) ? 1 : 0.12}>
-            <title>{`${left[e.from]} ← ${right[e.to].domain}: ${plural(e.w, "buyer answer")}`}</title>
-          </line>
-        ))}
-        {left.map((n, i) => (
-          <g key={n} className={i === 0 ? "node brand" : "node"} opacity={dim(n) ? 0.3 : 1}
-             onMouseEnter={() => setHot(n)} onMouseLeave={() => setHot(null)}>
-            <circle cx={170} cy={y(i, left.length)} r={5} />
-            <text x={160} y={y(i, left.length)} dy=".35em" textAnchor="end">{n}</text>
-          </g>
-        ))}
-        {right.map((r, j) => (
-          <g key={r.domain} className={gaps.has(r.domain) ? "node gap" : r.owned ? "node brand" : "node"} opacity={dim(r.domain) ? 0.3 : 1}
-             onMouseEnter={() => setHot(r.domain)} onMouseLeave={() => setHot(null)}>
-            <circle cx={430} cy={y(j, right.length)} r={5} />
-            <text x={440} y={y(j, right.length)} dy=".35em">{r.domain.length > 26 ? `${r.domain.slice(0, 25)}…` : r.domain}</text>
-          </g>
-        ))}
-      </svg>
-      <figcaption className="muted">
-        <Term k="citation_map">Citation map</Term>: each line joins a brand to a site cited in a buyer answer
-        that named it; thicker means more answers. Red dots are the sites that skip {brand}. Hover a name to trace it.
-      </figcaption>
-    </figure>
-  );
-}
-
 /**
  * Who AI trusts in this category: the sites it cited in buyer answers, and which brands each one sat
  * beside. The ranked list of sites cited beside rivals but never beside the brand comes first; the
- * map and the full list of cited sites are one tap away. Replaces the plain cited-sites table.
+ * full list of cited sites is one tap away. Replaces the plain cited-sites table.
  */
 export function CitationNetwork({ run }: { run: Run }) {
   const s = run.insights?.sources;
@@ -318,7 +254,6 @@ export function CitationNetwork({ run }: { run: Run }) {
           <div className="src-list">{gaps.slice(SHOWN_GAPS).map((r, i) => gapRow(r, i + SHOWN_GAPS))}</div>
         </details>
       )}
-      <CitationMap run={run} sources={s.sources} gaps={new Set(gaps.map((r) => r.domain))} />
       <details className="more">
         <summary className="muted">
           All {plural(s.sources.length, "cited site")} · cited in {s.cited_answers} of {s.answers} buyer and brand answers

@@ -107,12 +107,6 @@ export const GLOSSARY = {
       + "site (G2, Capterra…), a community (Reddit, forums), media or a blog, or other. Sorted from a "
       + "short list of well-known sites plus the address itself, so an unfamiliar site shows as other.",
   },
-  citation_map: {
-    term: "Citation map",
-    def: "Every brand named in a buyer answer, joined to each site that answer cited. A site joined to "
-      + "several rivals and never to the company is where the AI learns about the category without "
-      + "learning about the company.",
-  },
   landed: {
     term: "Landed",
     def: "A claim the company wants to be known for, and the AI already says it. This is working.",

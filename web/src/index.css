@@ -501,17 +501,6 @@ tr.pick:hover { background: #f5f8fc; cursor: pointer; }
 .avatars .logo + .logo { margin-left: -6px; }
 .avatars-more { font-size: .75rem; color: var(--muted); margin-left: .25rem; }
 details.more > summary { cursor: pointer; min-height: 40px; display: flex; align-items: center; }
-.cmap { margin: 0; display: none; }
-.cmap svg { width: 100%; max-width: 680px; height: auto; font-size: 12px; }
-.cmap .edge { stroke: #aab4c0; stroke-linecap: round; transition: opacity .15s; }
-.cmap .edge.brand { stroke: var(--accent); }
-.cmap .node { cursor: default; transition: opacity .15s; }
-.cmap .node circle { fill: #8a96a3; }
-.cmap .node.brand circle { fill: var(--accent); }
-.cmap .node.brand text { font-weight: 650; }
-.cmap .node.gap circle { fill: var(--lost); }
-.cmap text { fill: var(--text); }
-@media (min-width: 821px) { .cmap { display: block; } }
 /* A section whose header is its one-sentence finding: the sentence wraps beside the arrow. */
 .block.finding > summary { flex-wrap: nowrap; }
 .block.finding .block-found:empty { display: none; }
