@@ -12,9 +12,9 @@ import { FrontLabel, Range, GapVerdict, Visibility } from "./figures";
 
 /**
  * "Brand question 2" as something you can read in place: hover or tap shows the question, whether
- * it counted and why not, and the AI's answer — no trip to another tab.
+ * it counted and why not, and the AI's answer — no trip to another tab. `text` shows the question
+ * itself as the trigger instead of its short name.
  */
-/** A question, opened in place. `text` shows the question itself as the trigger instead of its short name. */
 export function QRef({ id, run, text }: { id: string; run: Run; text?: boolean }) {
   const p = run.probes.find((x) => x.id === id);
   const name = probeLabels(run.probes, run.topics)[id] ?? id;
@@ -80,8 +80,6 @@ function DemandBadge({ d }: { d: Demand }) {
     </span>
   );
 }
-
-/** A cited page without its scheme, "www." or trailing slash. */
 
 /** What the model searched for one buyer question, every try, or that it was not recorded. */
 function Searched({ run, p }: { run: Run; p: Probe }) {

@@ -1,20 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Challenge, FleetEstimate, FleetSummary, PlanItem, Run, Verification } from "./api";
+import type { Challenge, FleetEstimate, FleetSummary, PlanItem, Run, Verification, WhyVerdict } from "./api";
 import { getFleets, getHealth, startFleet, streamFleet, streamVerify } from "./api";
 import type { FleetView, Lane } from "./fleetlog";
 import { emptyView, fold } from "./fleetlog";
-import { PROVENANCE_LABEL, address, money, plural, signed, when } from "./labels";
+import { PROVENANCE_LABEL, WHY_VERDICT, address, money, plural, signed, when } from "./labels";
 import { Term } from "./popover";
 
 const minutes = (s: number) => (s >= 90 ? `${(s / 60).toFixed(1)} min` : `${Math.round(s)} s`);
 
-const VERDICT_LABEL: Record<string, string> = {
-  caused_by: "Cause found", over_determined: "Several pages", prior_belief: "Prior belief",
-  not_in_reading: "Not from a page", not_said: "Not said", copy_fix: "Fix: copy", authority_fix: "Fix: authority",
-  not_movable: "Not movable by copy", copy_lowers: "Copy lowers it", not_reproducible: "Not reproducible",
-  undecided: "Undecided", budget: "Stopped at budget", cancelled: "Stopped at deadline",
-  ceiling: "Already at the top",
-};
 const CHALLENGE_LABEL: Record<Challenge["kind"], string> = {
   thin: "Thin", ceiling: "Ceiling", floor: "Not said here", not_reproducible: "Not reproducible",
   off_claim: "Quotes off the claim",
@@ -72,7 +65,7 @@ function LaneRow({ l, t0, now }: { l: Lane; t0: number; now: number }) {
           {l.began != null && ` · ${minutes(((l.ended ?? now) - l.began) / 1000)}`}
           {l.arms > 0 && ` · ${plural(l.arms, "experiment")}`}
           {l.spent != null && ` · ${money(l.spent)}`}</span>
-        {main && <span className="pill neutral">{VERDICT_LABEL[main.kind] ?? main.kind}</span>}
+        {main && <span className="pill neutral">{WHY_VERDICT[main.kind as WhyVerdict["kind"]]?.label ?? main.kind}</span>}
       </div>
       <p className="fleet-reason muted">{l.task.reason}</p>
       {l.status === "running" && l.last && <p className="fleet-last">{l.last}</p>}

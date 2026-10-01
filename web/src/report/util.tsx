@@ -1,5 +1,6 @@
+import type { KeyboardEvent } from "react";
 import type { Answer, AttributeScore, DriftReport, Exclusion, Probe, QueryEvaluation, RetrievalRow, Run, SearchTry, VisibilitySet, Zone } from "../api";
-import { ZONE_ORDER } from "../api";
+import { GAP_ZONES, ZONE_ORDER } from "../api";
 import { claimShare, plain, plural } from "../labels";
 import { QRef } from "./questions";
 
@@ -134,6 +135,19 @@ export const TABS = [
 ] as const;
 
 export type ReportTab = (typeof TABS)[number][0];
+
+/** The open claims, biggest first: the order of "Where the upside is" and the PDF summary. */
+export const openClaims = (scores: AttributeScore[]) => scores
+  .filter((s) => GAP_ZONES.includes(s.zone))
+  .sort((a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.intended_weight ?? 0) - (a.intended_weight ?? 0));
+
+/** Arrow, Home and End across a strip of tabs: the index to move to, or null for any other key. */
+export function tabKey(e: KeyboardEvent, i: number, n: number) {
+  const to = ({ ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: n - 1 } as Record<string, number>)[e.key];
+  if (to == null) return null;
+  e.preventDefault();
+  return (to + n) % n;
+}
 
 export const sortClaims = (scores: AttributeScore[]) => [...scores].sort(
   (a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.mention_rate ?? b.echo_rate ?? 0) - (a.mention_rate ?? a.echo_rate ?? 0),

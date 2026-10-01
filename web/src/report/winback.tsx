@@ -4,7 +4,7 @@ import type { Investigation, Run, Verification, WhyVerdict, WinBackAction } from
 import { getHealth, getInvestigations, streamRecheck, streamRewriteTest } from "../api";
 import { MATCH_STEP, matchRows, matchVerdict, wordDiff, wordsIn } from "../quickwins";
 import type { MatchVerdict } from "../quickwins";
-import { ZONE_LABEL, plural } from "../labels";
+import { ZONE_LABEL, address, plural } from "../labels";
 import { Popover, Term } from "../popover";
 import { refs, winBackPlan } from "./util";
 import { Section } from "./ui";
@@ -17,7 +17,7 @@ function WhatChanges({ a }: { a: WinBackAction }) {
   const parts = a.current_copy ? wordDiff(a.current_copy, a.rewrite) : null;
   return (
     <div className="changes">
-      <h4>What changes on <a href={a.page_url} target="_blank" rel="noreferrer">{shortPage(a.page_url)}</a></h4>
+      <h4>What changes on <a href={a.page_url} target="_blank" rel="noreferrer">{address(a.page_url)}</a></h4>
       {a.heading && <p className="diff-heading"><ins>{a.heading}</ins></p>}
       {parts ? (
         <p className="diff">
@@ -35,7 +35,8 @@ function WhatChanges({ a }: { a: WinBackAction }) {
   );
 }
 
-const shortPage = (u: string) => u.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+/** A replay test that proved the rewrite moves AI. */
+const isProven = (i: Investigation) => i.verdicts.some((v) => v.fix === "copy" || v.fix === "authority");
 
 /** Step ① as a table: per targeted question, today's best passage, the page AI cited, and with the
  * rewrite, from the retrieval simulation (the same scores as Why AI misses you → Test a fix). */
@@ -119,8 +120,7 @@ function LiveCheck({ inv, onChecked }: { inv?: Investigation; onChecked?: (v: Ve
   const [log, setLog] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const proven = inv && inv.verdicts.some((v) => v.fix === "copy" || v.fix === "authority");
-  if (!inv || !proven) return <p className="muted">Once a replay test proves the rewrite, publish it, then check it here.</p>;
+  if (!inv || !isProven(inv)) return <p className="muted">Once a replay test proves the rewrite, publish it, then check it here.</p>;
   const v = inv.verification;
   const run = () => {
     setBusy(true); setError(null); setLog([]);
@@ -209,10 +209,10 @@ function RewriteRow({ a, rank, run, invs, budget, onInv }: {
               </li>
               <li>
                 <strong>③ <Term k="fix_recheck">Live check</Term></strong> <span className="muted">after you publish</span>
-                {tests.filter((t) => t.verdicts.some((v) => v.fix === "copy" || v.fix === "authority")).map((t) => (
+                {tests.filter(isProven).map((t) => (
                   <LiveCheck key={t.id} inv={t} onChecked={(v) => onInv({ ...t, verification: v })} />
                 ))}
-                {!tests.some((t) => t.verdicts.some((v) => v.fix === "copy" || v.fix === "authority")) && <LiveCheck />}
+                {!tests.some(isProven) && <LiveCheck />}
               </li>
             </ol>
           </div>
@@ -268,8 +268,7 @@ export function WinBack({ run }: { run: Run }) {
   const verdicts = new Map(actions.map((a) => [a.attribute_id, matchVerdict(matchRows(a, run.retrieval?.rows ?? [])).verdict]));
   const stand = actions.filter((a) => verdicts.get(a.attribute_id) !== "worse");
   const fall = actions.filter((a) => verdicts.get(a.attribute_id) === "worse");
-  const proven = actions.filter((a) => invs.some((i) => i.kind === "buyer" && i.attribute_id === a.attribute_id
-    && i.verdicts.some((v) => v.fix === "copy" || v.fix === "authority"))).length;
+  const proven = actions.filter((a) => invs.some((i) => i.kind === "buyer" && i.attribute_id === a.attribute_id && isProven(i))).length;
   return (
     <Section title={<Term k="quick_wins">Quick wins</Term>}
            found={`${plural(targets.length, "claim")} with room to grow · `

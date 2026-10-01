@@ -1,7 +1,7 @@
 // The one place raw engine identifiers become words a reader who has never seen the code can read.
 // Nothing here changes stored data: ids, provenance values and strengths keep their names in the
 // JSON exports and saved runs. This module only decides how they are SPOKEN on screen.
-import type { Probe, RunSummary, Topic, Zone } from "./api";
+import type { Probe, RunSummary, Topic, WhyVerdict, Zone } from "./api";
 import { instant } from "./time.ts";
 
 // Zone names are spoken as the opportunity each one is, not as a loss: the zone keys, counts and
@@ -175,3 +175,21 @@ export const unreadableNote = (n: number, one: string, many?: string) => n
 export const money = (x: number) => `$${x.toFixed(2)}`;
 /** A page's address as a reader says it: no scheme, no www., no trailing slash. */
 export const address = (u?: string | null) => (u ?? "").replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+
+/** A why-agent verdict as a pill: its words and the tone it is drawn in (why.tsx, fleet.tsx). */
+export const WHY_VERDICT: Record<WhyVerdict["kind"], { label: string; tone: string }> = {
+  caused_by: { label: "Cause found", tone: "contested" },
+  over_determined: { label: "Several pages", tone: "contested" },
+  prior_belief: { label: "Prior belief", tone: "unprioritised" },
+  not_in_reading: { label: "Not from a page", tone: "neutral" },
+  not_said: { label: "Not said", tone: "neutral" },
+  copy_fix: { label: "Fix: copy", tone: "landed" },
+  authority_fix: { label: "Fix: authority", tone: "imposed" },
+  not_movable: { label: "Not movable by copy", tone: "neutral" },
+  copy_lowers: { label: "Copy lowers it", tone: "contested" },
+  not_reproducible: { label: "Not reproducible", tone: "neutral" },
+  undecided: { label: "Undecided", tone: "neutral" },
+  budget: { label: "Stopped at budget", tone: "neutral" },
+  cancelled: { label: "Stopped at deadline", tone: "neutral" },
+  ceiling: { label: "Already at the top", tone: "neutral" },
+};

@@ -3,7 +3,7 @@ import type { Answer, Investigation, ReadStep, Run, WhyArm, WhyVerdict } from ".
 import { getHealth, getInvestigations, streamWhy } from "./api";
 import { latestPerClaim } from "./investigations";
 import type { TermKey } from "./glossary";
-import { PROVENANCE_LABEL, money, plural, signed } from "./labels";
+import { PROVENANCE_LABEL, WHY_VERDICT, money, plural, signed } from "./labels";
 import { Term } from "./popover";
 
 const host = (u?: string | null) => (u ?? "").replace(/^https?:\/\/(www\.)?/, "").split("/")[0];
@@ -65,23 +65,6 @@ export function WhatItRead({ a }: { a?: Answer }) {
 
 // ---------------------------------------------------------------- the why agent (why.py)
 
-const VERDICT: Record<WhyVerdict["kind"], { label: string; tone: string }> = {
-  caused_by: { label: "Cause found", tone: "contested" },
-  over_determined: { label: "Several pages", tone: "contested" },
-  prior_belief: { label: "Prior belief", tone: "unprioritised" },
-  not_in_reading: { label: "Not from a page", tone: "neutral" },
-  not_said: { label: "Not said", tone: "neutral" },
-  copy_fix: { label: "Fix: copy", tone: "landed" },
-  authority_fix: { label: "Fix: authority", tone: "imposed" },
-  not_movable: { label: "Not movable by copy", tone: "neutral" },
-  copy_lowers: { label: "Copy lowers it", tone: "contested" },
-  not_reproducible: { label: "Not reproducible", tone: "neutral" },
-  undecided: { label: "Undecided", tone: "neutral" },
-  budget: { label: "Stopped at budget", tone: "neutral" },
-  cancelled: { label: "Stopped at deadline", tone: "neutral" },
-  ceiling: { label: "Already at the top", tone: "neutral" },
-};
-
 const VERDICT_TERM: Partial<Record<WhyVerdict["kind"], TermKey>> = {
   copy_fix: "copy_fix", authority_fix: "authority_fix", not_movable: "not_movable",
   copy_lowers: "copy_lowers", prior_belief: "prior_belief", over_determined: "over_determined",
@@ -116,7 +99,7 @@ function InvestigationCard({ inv }: { inv: Investigation }) {
     <article className="why-card">
       <header className="why-card-head">
         <strong>{inv.claim}</strong>
-        {shown && <span className={`pill ${VERDICT[shown.kind].tone}`}>{VERDICT[shown.kind].label}</span>}
+        {shown && <span className={`pill ${WHY_VERDICT[shown.kind].tone}`}>{WHY_VERDICT[shown.kind].label}</span>}
       </header>
       <p className="muted why-q">Asked: “{inv.question}”</p>
       <dl className="why-rows">
@@ -139,8 +122,8 @@ function InvestigationCard({ inv }: { inv: Investigation }) {
           <>
             <dt>Because of</dt>
             <dd>
-              {VERDICT_TERM[cause.kind] ? <Term k={VERDICT_TERM[cause.kind]!}>{VERDICT[cause.kind].label}</Term>
-                : VERDICT[cause.kind].label}: {cause.text}
+              {VERDICT_TERM[cause.kind] ? <Term k={VERDICT_TERM[cause.kind]!}>{WHY_VERDICT[cause.kind].label}</Term>
+                : WHY_VERDICT[cause.kind].label}: {cause.text}
               {lines.length > 0 && (
                 <ul className="why-lines">{lines.map((l, i) => <li key={i}>{pageText(l)}</li>)}</ul>
               )}
@@ -151,7 +134,7 @@ function InvestigationCard({ inv }: { inv: Investigation }) {
           <>
             <dt>Tested fix</dt>
             <dd>
-              {VERDICT_TERM[fix.kind] ? <Term k={VERDICT_TERM[fix.kind]!}>{VERDICT[fix.kind].label}</Term> : VERDICT[fix.kind].label}
+              {VERDICT_TERM[fix.kind] ? <Term k={VERDICT_TERM[fix.kind]!}>{WHY_VERDICT[fix.kind].label}</Term> : WHY_VERDICT[fix.kind].label}
               : {fix.text}
               {armOf(fix)?.hypothetical && <> <span className="tag sample">hypothetical copy</span></>}
             </dd>

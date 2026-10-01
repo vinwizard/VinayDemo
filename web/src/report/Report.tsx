@@ -5,7 +5,7 @@ import { PROVENANCE_LABEL, when } from "../labels";
 import { tabBadge } from "../badge";
 import { GLOSSARY } from "../glossary";
 import { FleetPanel } from "../fleet";
-import { modelsOf, TABS, winBackPlan } from "./util";
+import { modelsOf, TABS, tabKey, winBackPlan } from "./util";
 import type { ReportTab } from "./util";
 import { Logo, Section } from "./ui";
 import { Figures, PinnedLine, Explain } from "./figures";
@@ -100,11 +100,8 @@ export function Report({ run, onRescored }: {
     if (head && head.getBoundingClientRect().top <= 0) head.parentElement?.scrollIntoView({ block: "start" });
   };
   const onKey = (e: KeyboardEvent) => {
-    const i = TABS.findIndex(([t]) => t === tab);
-    const to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: TABS.length - 1 }[e.key];
-    if (to == null) return;
-    e.preventDefault();
-    setTab(TABS[(to + TABS.length) % TABS.length][0], true);
+    const to = tabKey(e, TABS.findIndex(([t]) => t === tab), TABS.length);
+    if (to != null) setTab(TABS[to][0], true);
   };
 
   const claims = run.attribute_scores.filter((s) => !s.discovered);
