@@ -26,8 +26,8 @@ is a *messaging gap* (AI does not say it because they never clearly did). Naming
 
 Leaks are rejected in code (`agents/ana.py`: `attribute_leaks`, `vendor_address`, `brand_leaks`).
 The measured model gets only the neutral question in a fresh context, never the company
-profile. Buyer questions are planned after the brand answers, on two fronts with their own
-visibility and control question: where AI places the company and its core category (WEB.md).
+profile. Buyer questions come on two fronts with their own visibility and control question: its
+core category, asked beside the brand questions, and where AI places it, planned from their answers (WEB.md).
 Live runs ask real searches first (`demand.py`: autocomplete, grouped by embedding), written ones
 fill the rest; tests never reach that network (`tests/conftest.py`).
 Each is asked once, sized by sampler-lite (`sampler.py`: a stated margin at 95%, two looks); one
@@ -42,6 +42,9 @@ on one append-only log and draws every call on one `access.Purse` in `_metered`;
 answers stay in its `Verification`, never on a run (WEB.md "Investigation fleet"). A thread pool
 must copy the context in the submitting thread (`access.pmap` does, or `pool.submit(copy_context().run, ...)`):
 a pool thread starts empty, and a copy taken there drops the paying pass and the purse.
+A run's measured asks go to the one process-wide dispatcher (`dispatch.py`: `LIVE_CONCURRENCY` in
+flight, round-robin across runs) as futures the graph collects; only the graph thread writes the run,
+in `graph.canonical` order, so nothing saved depends on completion order.
 Every measured call forces live web search (`live.TOOL_CHOICE`, `live.SEARCH_TOOL`) and
 retries once when none ran, because an ungrounded answer is paid for and then excluded; `preflight`
 steps down to `live.FALLBACK_MODEL`, then to no search at all, never to a third model, and says

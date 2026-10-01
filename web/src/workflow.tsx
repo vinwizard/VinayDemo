@@ -175,18 +175,23 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
   const tally = (got: number, want: number | undefined, go: boolean): StageState =>
     !started || want == null ? "pending" : want === 0 ? "skipped" : got >= want ? "done"
       : got > 0 || go ? "active" : "pending";
-  // Brand questions go first: the buyer questions are planned from what their answers say.
+  // The brand questions and the site's own category are asked side by side; where AI places the
+  // company is planned from the brand answers, so stage 5 cannot finish before plan_buyer has run.
+  const placedPlanned = p.nodes.includes("plan_buyer");
   let s4: StageState = started && !planned ? "active" : tally(brand.length, planned?.brand, true);
-  let s5: StageState = p.nodes.includes("plan_buyer") ? tally(buyer.length, planned?.buyer, true)
-    : started && finished(s4) ? "active" : "pending";
+  let s5: StageState = placedPlanned ? tally(buyer.length, planned?.buyer, true)
+    : started && (buyer.length > 0 || (planned?.buyer ?? 0) > 0 || finished(s4)) ? "active" : "pending";
   let s6: StageState = decided ? tally(follow.length, planned?.followup, true)
     : started && finished(s4) && finished(s5) ? "active" : "pending";
   let s7: StageState = p.run ? "done" : started && finished(s6) ? "active" : "pending";
   if (p.error) {
-    // the stage that was running when it broke carries the failure; a setup failure is the first
-    const firstOpen = [s4, s5, s6, s7].findIndex((s) => !finished(s));
-    const at = firstOpen === -1 ? 3 : firstOpen;
-    [s4, s5, s6, s7] = [s4, s5, s6, s7].map((s, i) => (i === at ? "failed" : s === "active" ? "pending" : s)) as
+    // the stages running when it broke carry the failure (4 and 5 can run at once); with none
+    // running it is the first one open, and a setup failure is the first
+    const stages = [s4, s5, s6, s7];
+    const firstOpen = stages.findIndex((s) => !finished(s));
+    const running = stages.map((s) => s === "active");
+    const at = (i: number) => running.some(Boolean) ? running[i] : i === (firstOpen === -1 ? 3 : firstOpen);
+    [s4, s5, s6, s7] = stages.map((s, i) => (at(i) ? "failed" : s)) as
       [StageState, StageState, StageState, StageState];
   }
   const errorAt = (s: StageState) => s === "failed" && (
@@ -308,13 +313,16 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
       </Stage>
       <Stage n={5} tour="onboard-measure" title="Ask unbranded questions" state={s5}
              summary={s5 === "skipped" ? "Skipped — no weighted claim has an unbranded question"
-               : answeredSummary(buyer, planned?.buyer, "question")
+               : (answeredSummary(buyer, planned?.buyer, "question")
+                   ?.concat(!placedPlanned && s5 === "active" ? " · more once the branded answers are read" : ""))
                  ?? `Questions a buyer would ask without naming ${brandName}`}>
         {s5 !== "pending" && s5 !== "skipped" && (
           <div className="stack">
             <p className="muted" style={{ margin: 0 }}>
               Each one is what a buyer would type with no brand named, on two fronts: the category
               the brand answers place {brandName} in, and the one its own site aims for. Does AI bring {brandName} up on its own?
+              {!replay && " The site's own category is asked alongside the branded questions; the other"
+                + " starts as soon as their answers are read."}
               {!replay && " Each is asked more than once, because the same question gets a different"
                 + " answer each time; the control question asks which companies lead the category."}
             </p>

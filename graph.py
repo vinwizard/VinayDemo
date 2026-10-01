@@ -1,10 +1,13 @@
 """Orchestrator: ordinary code owning LangGraph state, routing, budgets and validation."""
 import uuid
-from typing import Any, TypedDict
+from collections import Counter
+from concurrent.futures import FIRST_COMPLETED, Future, wait
+from typing import Any, Optional, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
 import access
+import dispatch
 import drift
 import sampler
 from agents import ana, evaluation, win_back
@@ -40,12 +43,12 @@ def repeat_sampled(buyer: list, n: int) -> list:
 
 STAGES = {  # node -> (UI stage, logical agent). Both strings are shown to the reader verbatim.
     "plan_brand": ("Topic planning", "Agent 2 · Question planner"),
+    "plan_aiming": ("Topic planning", "Agent 2 · Question planner"),
     "perceive": ("Perception gap", "Agent 3 · Answer evaluation"),
     "plan_buyer": ("Topic planning", "Agent 2 · Question planner"),
     "validate_and_freeze": ("Topic planning", "Orchestrator"),
     "execute_or_replay": ("Baseline / Follow-up", "Orchestrator"),
     "evaluate": ("Gap evaluation", "Agent 3 · Answer evaluation"),
-    "sample": ("Baseline / Follow-up", "Orchestrator"),
     "choose_followup": ("Follow-up", "Agent 2 · Question planner"),
     "measure_drift": ("Perception gap", "Agent 3 · Answer evaluation"),
     "build_gap_report": ("Report", "Agent 3 · Answer evaluation"),
@@ -56,6 +59,90 @@ class State(TypedDict):
     run: Run
     provider: Any
     rounds: int
+    asks: Any        # Asks: this run's questions in flight
+
+
+class Asks:
+    """A run's asks in flight. A question is submitted the moment it is frozen and collected when a
+    later step needs its answer, so the brand questions, the aimed front and the placed front are
+    asked side by side while the graph plans what depends on them. Live asks go to the process-wide
+    dispatcher (dispatch.py), under this run's key; a provider with `concurrency` 1 (the replay, and
+    tests that want one call at a time) is asked inline, in order, as before.
+    The graph thread is the only one that touches the run: a worker returns an Answer, nothing more."""
+
+    def __init__(self, provider, dispatcher: Optional[dispatch.Dispatcher], key):
+        self.provider, self.key = provider, key
+        self.dispatcher = dispatcher if getattr(provider, "concurrency", 1) > 1 else None
+        self.pending: dict[tuple[str, int], Future] = {}
+        self.decided: set = set()     # fronts the sampler has decided
+
+    def _ask(self, probe, try_no):
+        return self.provider.answer(probe) if try_no == 1 else self.provider.answer(probe, try_no=try_no)
+
+    def submit(self, jobs: list) -> None:
+        for p, t in jobs:
+            if (p.id, t) in self.pending:
+                continue
+            if self.dispatcher:
+                self.pending[(p.id, t)] = self.dispatcher.submit(self.key, self._ask, p, t)
+            else:
+                fut = Future()
+                fut.set_result(self._ask(p, t))
+                self.pending[(p.id, t)] = fut
+
+    def cancel(self) -> None:
+        if self.dispatcher:
+            self.dispatcher.cancel(self.key)
+
+
+def askable(run: Run, provider) -> list[tuple]:
+    """(probe, try) for every frozen question not answered and not waiting for look 2, plus the
+    wobble's repeat asks. Every baseline buyer question is asked once; a small deterministic sample
+    of them is asked `tries` times, each in a fresh context, which is what the wobble estimate needs.
+    Replay has one authored answer per question, so a fixture provider has no `tries`."""
+    done = {a.probe_id for a in run.answers}
+    held = set(run.sampler.held) if run.sampler else set()
+    todo = [p for p in run.probes if p.id not in done and p.id not in held]
+    tries = getattr(provider, "tries", 1)
+    have = {(a.probe_id, a.try_no) for a in run.repeat_answers}
+    buyer_probes = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline" and p.id not in held]
+    sampled = ([p for p in buyer_probes if p.id in run.sampler.wobble] if run.sampler
+               else repeat_sampled(buyer_probes, getattr(provider, "repeat_sample", 0)))
+    return [(p, 1) for p in todo] + [(p, t) for p in sampled for t in range(2, tries + 1) if (p.id, t) not in have]
+
+
+FRONT_ORDER = {"placed": 0, "both": 0, "aiming": 1, None: 2}
+
+
+def canonical(run: Run) -> None:
+    """Saved order never depends on which answer came back first. It is the order a run asking one
+    step at a time had: the placed front, the aimed one, the claims' questions, then the brand
+    questions and the follow-ups; answers brand first, then look 1, look 2 and the follow-ups."""
+    rank = lambda t: 3 if t.kind == "perception" else FRONT_ORDER[t.front]
+    run.topics.sort(key=rank)
+    of = {t.id: rank(t) for t in run.topics}
+    run.probes.sort(key=lambda p: 4 if p.phase == "followup" else of.get(p.topic_id, 3))
+    index = {p.id: i for i, p in enumerate(run.probes)}
+    look2 = set()
+    if run.sampler:
+        fronts = sampler.front_of(run)
+        for f in [f for f in run.sampler.fronts if f.look == 2]:   # its pool past look 1, in pool order
+            look2 |= set([p.id for p in run.probes if fronts.get(p.id) == f.front][run.sampler.looks[0]:])
+        run.sampler.fronts.sort(key=lambda f: FRONT_ORDER[f.front])
+        # a front's questions are numbered in pool order; the placed front's ids are the only "placed-" ones
+        for ids in (run.sampler.wobble, run.sampler.held):
+            ids.sort(key=lambda pid: (not pid.startswith("placed-"), index.get(pid, 0)))
+        run.sampler.unasked.sort(key=lambda p: not p.id.startswith("placed-"))
+    by = {p.id: p for p in run.probes}
+
+    def stage(pid: str) -> tuple:
+        p = by.get(pid)
+        if p is None:
+            return (5, 0)
+        return (3 if p.phase == "followup" else 0 if p.kind == "named" else 2 if pid in look2 else 1, index[pid])
+    run.answers.sort(key=lambda a: stage(a.probe_id))
+    run.evaluations.sort(key=lambda e: stage(e.probe_id))
+    run.repeat_answers.sort(key=lambda a: (index.get(a.probe_id, 0), a.try_no))
 
 
 class ValidationError(Exception):
@@ -76,8 +163,43 @@ def plan_brand(s: State):
         raise ValidationError("; ".join(errors))
     run.topics, run.probes = ([ana.perception_topic()] if named else []), named
     run.log.append(f"Question planner prepared {len(named)} branded questions and "
-                   f"{len(run.attributes)} attributes; unbranded questions are planned from their answers.")
+                   f"{len(run.attributes)} attributes; unbranded questions on where AI places it are "
+                   "planned from their answers.")
+    s["asks"].submit(askable(run, provider))
     return {"run": run}
+
+
+def plan_aiming(s: State):
+    """Where the company aims to be, planned and asked beside the brand questions: its category is
+    the customer's own, so nothing in it waits for a brand answer. Only a provider that plans fronts
+    one at a time offers it (live); the replay plans its one authored set after the brand answers."""
+    run, provider = s["run"], s["provider"]
+    early = getattr(provider, "plan_aiming", None)
+    if early is None or not run.profile.core_category:
+        return {"run": run}
+    topics, probes = early(run.profile)
+    if not probes:
+        return {"run": run}   # nothing to ask on it; plan_buyer says why
+    fill_fit(run, topics)
+    if errors := ana.validate_probes(probes, topics, run.profile):
+        raise ValidationError("; ".join(errors))
+    run.topics, run.probes = topics + run.topics, probes + run.probes
+    if getattr(provider, "sampler", False):
+        run.sampler = sampler.start(run)
+    buyer = [p for p in probes if p.phase == "baseline"]
+    run.log.append(f"Unbranded questions on where it aims to be ({run.profile.core_category}): {len(buyer)} "
+                   "frozen and asked beside the brand questions"
+                   + (f", {run.sampler.looks[0]} first" if run.sampler else "") + ".")
+    s["asks"].submit(askable(run, provider))
+    return {"run": run}
+
+
+def fill_fit(run: Run, topics: list) -> None:
+    """Fit evidence always resolves against the approved profile."""
+    points = {pp.id: pp for pp in run.profile.positioning_points}
+    for t in topics:
+        t.fit_evidence_ids = t.fit_evidence_ids or [e for pid in t.positioning_point_ids if pid in points
+                                                    for e in points[pid].evidence_ids]
 
 
 def perceive(s: State):
@@ -129,14 +251,10 @@ def plan_buyer(s: State):
                                     run.observations or {})
     placed = ana.placed_attribute(scores, run.attributes, run.profile)
     topics, probes = provider.plan(run.profile, placed)
-    points = {pp.id: pp for pp in run.profile.positioning_points}
-    for t in topics:  # fit evidence always resolves against the approved profile
-        t.fit_evidence_ids = t.fit_evidence_ids or [e for pid in t.positioning_point_ids if pid in points
-                                                    for e in points[pid].evidence_ids]
-    have = {t.id for t in run.topics}
-    # buyer questions first, as a run has always listed them
-    run.topics = [t for t in topics if t.id not in have] + run.topics
-    run.probes = probes + run.probes
+    fill_fit(run, topics)
+    merge_plan(run, topics, probes)
+    if "aiming" in s["asks"].decided and any(t.front == "both" for t in topics):
+        s["asks"].decided.add("both")    # the aimed front, decided already, is now the shared set
     buyer = [p for p in probes if p.phase == "baseline"]
     fronts = {t.front for t in topics if t.kind == "buyer" and t.front}
     run.missing_fronts = dict(getattr(provider, "missing_fronts", {}))
@@ -165,6 +283,33 @@ def plan_buyer(s: State):
     return {"run": run}
 
 
+def merge_plan(run: Run, topics: list, probes: list) -> None:
+    """The whole buyer plan into the run. A front planned and asked already (plan_aiming) comes back
+    in it with the same ids: it replaces its earlier self — relabelled, when AI places the company in
+    that same category, as the one shared set — and a question its sampler set aside stays aside."""
+    unasked = {p.id: i for i, p in enumerate(run.sampler.unasked)} if run.sampler else {}
+    tpos = {t.id: i for i, t in enumerate(run.topics)}
+    ppos = {p.id: i for i, p in enumerate(run.probes)}
+    for t in topics:
+        if t.id in tpos:
+            run.topics[tpos[t.id]] = t
+        else:
+            run.topics.append(t)
+    for p in probes:
+        if p.id in ppos:
+            run.probes[ppos[p.id]] = p
+        elif p.id in unasked:
+            run.sampler.unasked[unasked[p.id]] = p
+        else:
+            run.probes.append(p)
+    kept = {p.topic_id for p in run.probes}
+    run.topics = [t for t in run.topics if t.id in kept or t.kind != "buyer"]
+    if run.sampler and any(t.front == "both" for t in topics):
+        for f in run.sampler.fronts:
+            f.front = "both" if f.front == "aiming" else f.front
+    canonical(run)
+
+
 def validate_and_freeze(s: State):
     run = s["run"]
     errors = ana.validate_probes(run.probes, run.topics, run.profile)
@@ -179,6 +324,7 @@ def validate_and_freeze(s: State):
         raise ValidationError("; ".join(errors))
     if getattr(s["provider"], "sampler", False):
         run.sampler = sampler.start(run)
+        canonical(run)
         n1, n2 = run.sampler.looks
         run.log.append(f"Sampler: ±{run.sampler.margin} points at 95% on each front, so each front freezes "
                        f"{n2} questions and asks {n1} first; the rest only if the answers so far are not "
@@ -187,53 +333,89 @@ def validate_and_freeze(s: State):
     run.status = "baseline_frozen"
     run.log.append("Baseline validated (unbranded questions leak no brand, branded questions leak no attribute) "
                    f"and frozen with fingerprint {run.baseline_hash[:12]}.")
+    s["asks"].submit(askable(run, s["provider"]))
     return {"run": run}
 
 
 def execute_or_replay(s: State):
-    run, provider = s["run"], s["provider"]
-    done = {a.probe_id for a in run.answers}
-    held = set(run.sampler.held) if run.sampler else set()
-    todo = [p for p in run.probes if p.id not in done and p.id not in held]
-    # Every baseline buyer question is asked once; a small deterministic sample of them is asked
-    # `tries` times, each in a fresh context, which is what the wobble estimate needs. Replay has one
-    # authored answer per question, so a fixture provider has no `tries` and is asked once.
-    tries = getattr(provider, "tries", 1)
-    have = {(a.probe_id, a.try_no) for a in run.repeat_answers}
-    buyer_probes = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline" and p.id not in held]
-    sampled = ([p for p in buyer_probes if p.id in run.sampler.wobble] if run.sampler
-               else repeat_sampled(buyer_probes, getattr(provider, "repeat_sample", 0)))
-    again = [(p, t) for p in sampled for t in range(2, tries + 1) if (p.id, t) not in have]
-    jobs = [(p, 1) for p in todo] + again
-    ask = lambda p, t: provider.answer(p) if t == 1 else provider.answer(p, try_no=t)
-    # Live answers are two slow calls each (measured + evaluator). Serially that is ~8 minutes for a
-    # 12-probe run; results are collected in submission order so they stay deterministic.
-    workers = min(getattr(provider, "concurrency", 1), len(jobs)) if jobs else 1
-    if workers > 1:
-        got = access.pmap(lambda job: ask(*job), jobs, workers)   # the paying pass reaches each call
-    else:
-        got = [ask(p, t) for p, t in jobs]
-    new = got[:len(todo)]
-    run.answers += new
-    run.repeat_answers += got[len(todo):]
-    phase = ("follow-up" if todo[0].phase == "followup" else "brand" if all(p.kind == "named" for p in todo)
-             else todo[0].phase) if todo else "?"
+    """Collect what the next step needs: the brand answers before perception reads them, else every
+    question asked so far. Whatever else comes back meanwhile is kept, and a front whose look-1
+    answers are all in decides its look 2 there and then (`sample_fronts`), without waiting for the
+    others. Answers land in the run in `canonical` order, never in the order they came back."""
+    run, provider, asks = s["run"], s["provider"], s["asks"]
+    asks.submit(askable(run, provider))
+    brand_stage = run.baseline_hash is None
+    named = {p.id for p in run.probes if p.kind == "named"}
+    phase = {p.id: ("follow-up" if p.phase == "followup" else "brand" if p.kind == "named" else "buyer")
+             for p in run.probes}
+    got: list = []
+
+    def needed() -> list:
+        return [f for (pid, _), f in asks.pending.items() if not brand_stage or pid in named]
+
+    while True:
+        for released in sample_fronts(run, provider, asks):
+            asks.submit(released)
+        if not (waiting := needed()):
+            break
+        wait(waiting, return_when=FIRST_COMPLETED)
+        for key in [k for k, f in asks.pending.items() if f.done()]:
+            a = asks.pending.pop(key).result()   # a Refused re-raises here and stops the run
+            (run.answers if a.try_no == 1 else run.repeat_answers).append(a)
+            got.append(a)
+    canonical(run)
+    firsts = [a for a in got if a.try_no == 1]
+    repeats = len(got) - len(firsts)
     failed = sum(a.status != "ok" for a in got)
     # the log must not claim "replayed from fixtures" for answers a real provider produced
-    verb = "Replayed" if all(a.provenance == "synthetic" for a in new) else "Collected"
+    verb = "Replayed" if all(a.provenance == "synthetic" for a in firsts) else "Collected"
     src = "fixtures" if verb == "Replayed" else f"{provider.name} ({getattr(provider, 'model', '?')})"
-    extra = (f", plus {len(again)} repeat asks of {len(sampled)} sampled unbranded question(s) "
-             f"({tries} tries each)") if again else ""
+    counts = Counter(phase.get(a.probe_id, "buyer") for a in firsts)
+    what = ", ".join(f"{n} {k} answers" for k, n in counts.items()) or "no answers"
+    extra = f", plus {repeats} repeat ask(s) of sampled unbranded questions" if repeats else ""
     if shared := getattr(provider, "shared", 0):
         if run.sampler:
             run.sampler.shared = shared
         extra += f"; {shared} buyer answer(s) shared with another run in the same category today"
-    run.log.append(f"{verb} {len(todo)} {phase} answers{extra} from {src} ({failed} failed).")
+    run.log.append(f"{verb} {what}{extra} from {src} ({failed} failed).")
     return {"run": run}
 
 
-def evaluate(s: State):
-    run = s["run"]
+def sample_fronts(run: Run, provider, asks: Asks) -> list[list]:
+    """Sampler-lite's one decision (sampler.py), front by front: a front whose look-1 answers are all
+    in and already meet the margin stops; any other asks the rest of its pool. What it does not need
+    leaves the run's questions. -> the asks each decision released."""
+    if not run.sampler:
+        return []
+    out = []
+    answered = {a.probe_id for a in run.answers}
+    fronts = sampler.front_of(run)
+    held = set(run.sampler.held)
+    for f in list(run.sampler.fronts):
+        look1 = [pid for pid, fr in fronts.items() if fr == f.front and pid not in held]
+        if f.front in asks.decided or not all(pid in answered for pid in look1):
+            continue
+        evaluate_new(run)
+        waiting = sum(fronts.get(pid) == f.front for pid in held)
+        released = sampler.decide(run, getattr(provider, "spent", 0.0), f.front,
+                                  committed=sum(not fut.done() for fut in asks.pending.values()),
+                                  per_ask=getattr(provider, "per_ask", lambda: 0.0)())
+        sampler.drop_unasked(run, f.front)
+        asks.decided.add(f.front)
+        name = {"placed": "where AI places it", "aiming": "where it aims to be", "both": "the shared set"}.get(
+            f.front, "the unbranded questions")
+        run.log.append(f"Sampler, {name}: " + (
+            f"within ±{run.sampler.margin} at look 1, {waiting} question(s) not needed." if f.stopped_early
+            else f"{len(released)} more question(s) asked for look 2." if released
+            else "nothing more to ask.") + (f" {f.note}" if f.note else ""))
+        by = {p.id: p for p in run.probes}
+        out.append([(by[pid], 1) for pid in released])
+    run.sampler.decided = all(f.front in asks.decided for f in run.sampler.fronts)
+    return out
+
+
+def evaluate_new(run: Run) -> list:
+    """Every answer not evaluated yet, and every repeat ask again: deterministic, from the labels they carry."""
     done = {e.probe_id for e in run.evaluations}
     answers = {a.probe_id: a for a in run.answers}
     new = [evaluation.evaluate(p, answers[p.id], run.profile) for p in run.probes
@@ -244,6 +426,14 @@ def evaluate(s: State):
     run.repeat_evaluations = [evaluation.evaluate(by_id[a.probe_id], a, run.profile)
                               .model_copy(update={"try_no": a.try_no}) for a in run.repeat_answers]
     evaluation.merge_divisions([*run.evaluations, *run.repeat_evaluations])
+    canonical(run)
+    return new
+
+
+def evaluate(s: State):
+    run = s["run"]
+    answers = {a.probe_id: a for a in run.answers}
+    evaluate_new(run)
     ev = {e.probe_id: e for e in run.evaluations}
     run.topic_evaluations = []
     for phase in ("baseline", "followup"):
@@ -252,7 +442,9 @@ def evaluate(s: State):
                   and p.kind == "blind" and p.id in ev]
             if ps:
                 run.topic_evaluations.append(score_topic(t, phase, [answers[p.id] for p in ps], [ev[p.id] for p in ps]))
-    run.log.append(f"Evaluated {len(new)} answers ({sum(not e.valid for e in new)} need review / failed).")
+    # a front's answers may have been evaluated already, to decide its look 2: the count is the run's so far
+    run.log.append(f"Evaluated {len(run.evaluations)} answers so far "
+                   f"({sum(not e.valid for e in run.evaluations)} need review / failed).")
     return {"run": run}
 
 
@@ -523,31 +715,8 @@ def map_positioning(run: Run, build) -> None:
 
 
 def route_after_evaluate(s: State) -> str:
-    """Brand answers are in and nothing is frozen yet: read them, then plan the unbranded questions.
-    Look 1 is in and the sampler has not decided: decide first."""
-    run = s["run"]
-    if run.baseline_hash is None:
-        return "perceive"
-    return "sample" if run.sampler and not run.sampler.decided else "choose_followup"
-
-
-def sample(s: State):
-    """Sampler-lite's one decision (sampler.py): a front whose look-1 answers already meet the margin
-    stops; any other asks the rest of its pool. What no front needs leaves the run's questions."""
-    run = s["run"]
-    released = sampler.decide(run, getattr(s["provider"], "spent", 0.0))
-    sampler.drop_unasked(run)
-    early = [f for f in run.sampler.fronts if f.stopped_early]
-    run.log.append(f"Sampler: {len(early)} front(s) already within ±{run.sampler.margin} at look 1"
-                   + (f"; {len(released)} more question(s) asked for the rest." if released else "; nothing more to ask.")
-                   + "".join(f" {f.note}" for f in run.sampler.fronts if f.note))
-    return {"run": run}
-
-
-def route_after_sample(s: State) -> str:
-    run = s["run"]
-    pending = [p for p in run.probes if p.id not in {a.probe_id for a in run.answers}]
-    return "execute_or_replay" if pending else "choose_followup"
+    """Brand answers are in and nothing is frozen yet: read them, then plan the unbranded questions."""
+    return "perceive" if s["run"].baseline_hash is None else "choose_followup"
 
 
 def frozen_hash(run: Run) -> str:
@@ -558,17 +727,19 @@ def frozen_hash(run: Run) -> str:
 
 def build_graph():
     g = StateGraph(State)
-    for name, fn in [("plan_brand", plan_brand), ("perceive", perceive), ("plan_buyer", plan_buyer),
-                     ("validate_and_freeze", validate_and_freeze),
-                     ("execute_or_replay", execute_or_replay), ("evaluate", evaluate), ("sample", sample),
+    for name, fn in [("plan_brand", plan_brand), ("plan_aiming", plan_aiming), ("perceive", perceive),
+                     ("plan_buyer", plan_buyer), ("validate_and_freeze", validate_and_freeze),
+                     ("execute_or_replay", execute_or_replay), ("evaluate", evaluate),
                      ("choose_followup", choose_followup), ("measure_drift", measure_drift),
                      ("build_gap_report", build_gap_report)]:
         g.add_node(name, fn)
+    # plan_brand and plan_aiming submit their questions as they freeze them, so both are being
+    # asked while the first execute_or_replay waits for the brand answers alone (class Asks)
     g.add_edge(START, "plan_brand")
-    g.add_edge("plan_brand", "execute_or_replay")
+    g.add_edge("plan_brand", "plan_aiming")
+    g.add_edge("plan_aiming", "execute_or_replay")
     g.add_edge("execute_or_replay", "evaluate")
-    g.add_conditional_edges("evaluate", route_after_evaluate, ["perceive", "sample", "choose_followup"])
-    g.add_conditional_edges("sample", route_after_sample, ["execute_or_replay", "choose_followup"])
+    g.add_conditional_edges("evaluate", route_after_evaluate, ["perceive", "choose_followup"])
     g.add_edge("perceive", "plan_buyer")
     g.add_edge("plan_buyer", "validate_and_freeze")
     g.add_edge("validate_and_freeze", "execute_or_replay")
@@ -586,17 +757,23 @@ def new_run(profile, provider, mode="demo_replay") -> Run:
                profile=profile.model_copy(deep=True))
 
 
-def stream(run: Run, provider):
-    """Yields (node_name, run) after each graph transition."""
-    state = {"run": run, "provider": provider, "rounds": 0}
-    for update in GRAPH.stream(state, {"recursion_limit": RECURSION_LIMIT}, stream_mode="updates"):
-        for node, out in update.items():
-            if out and "run" in out:
-                run = out["run"]
-            yield node, run
+def stream(run: Run, provider, dispatcher: Optional[dispatch.Dispatcher] = None):
+    """Yields (node_name, run) after each graph transition. Live asks go to `dispatcher`, the
+    process-wide one by default, keyed by this run and the pass paying for it; a run that fails or
+    is closed early drops whatever it still has queued there, and nothing of any other run's."""
+    asks = Asks(provider, dispatcher or dispatch.shared(), (run.id, access.SPENDER.get()))
+    state = {"run": run, "provider": provider, "rounds": 0, "asks": asks}
+    try:
+        for update in GRAPH.stream(state, {"recursion_limit": RECURSION_LIMIT}, stream_mode="updates"):
+            for node, out in update.items():
+                if out and "run" in out:
+                    run = out["run"]
+                yield node, run
+    finally:
+        asks.cancel()
 
 
-def execute(run: Run, provider) -> Run:
-    for _, run in stream(run, provider):
+def execute(run: Run, provider, dispatcher: Optional[dispatch.Dispatcher] = None) -> Run:
+    for _, run in stream(run, provider, dispatcher):
         pass
     return run

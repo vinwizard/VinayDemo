@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 
 import access
 import audit
+import dispatch
 import sampler
 from why import budget as why_budget
 import demand
@@ -289,16 +290,19 @@ def run_events(scenario: str, mode: str = "demo", company_id: Optional[str] = No
     topic_labels: dict[str, str] = {}
     inner = prov.answer
 
+    counted = threading.Lock()                      # answers land from the dispatcher's workers
+
     def work(put):
         def counting_answer(probe, **kw):           # per-answer progress: the whole point
             a = inner(probe, **kw)
-            state["done"] += 1
-            put(("answer", dict(probe_id=probe.id, kind=probe.kind, phase=probe.phase, try_no=a.try_no,
-                                topic_label=topic_labels.get(probe.topic_id),
-                                text=probe.text, status=a.status,
-                                answer=a.text[:320], provenance=a.provenance,
-                                grounded=a.search_executed,
-                                done=state["done"], expected=expected)))
+            with counted:
+                state["done"] += 1
+                put(("answer", dict(probe_id=probe.id, kind=probe.kind, phase=probe.phase, try_no=a.try_no,
+                                    topic_label=topic_labels.get(probe.topic_id),
+                                    text=probe.text, status=a.status,
+                                    answer=a.text[:320], provenance=a.provenance,
+                                    grounded=a.search_executed,
+                                    done=state["done"], expected=expected)))
             return a
 
         prov.answer = counting_answer
@@ -943,6 +947,7 @@ def health(request: Request = None):
             "target_margin": sampler.margin(),
             "looks": list(sampler.looks()), "wobble_audit": sampler.wobble_audit(),
             "run_budget_usd": sampler.run_budget(),
+            "live_concurrency": dispatch.live_concurrency(),
             "why_budget_usd": why_budget(),
             # the investigation fleet (fleet.py, verify.py): its purse, its lanes, one re-check's cap
             **fleet_api.health(),

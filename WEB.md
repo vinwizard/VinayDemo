@@ -58,6 +58,7 @@ Everything else has a working default. The full list, and what each one changes:
 | `ONBOARDING_MODEL` | `gpt-4.1-mini` | Reads a company's own pages and extracts what they claim, and writes buyer questions for a category. |
 | `TARGET_MARGIN` | `20` | The margin each buyer front aims for, in points of "named you", at 95% (`sampler.py`). It sets how many questions a front freezes and asks: 10 first, and the rest of 23 only where those are not clear yet. `15` means 16 then 43 — about 2.5× the buyer calls on a mid-range brand. Clamped to 5–50. |
 | `RUN_BUDGET_USD` | unset | The most one run's measured calls may spend. A front whose look 2 would pass it stops at look 1, and its margin is reported as not met. Unset: look 2's size is the cap. |
+| `LIVE_CONCURRENCY` | `16` | How many measured asks the whole server has in flight, every run together (`dispatch.py`). Runs take turns, one ask each, so a big run never makes a small one wait for it to finish. A 429 from OpenAI pauses every call for the time it asked (`Retry-After`), then retries, up to 4 times. |
 | `WOBBLE_AUDIT` | `1` | How many times each front's first question is asked again, to show how much one question wobbles. `0` turns it off. |
 | `WHY_BUDGET_USD` | `0.60` | The most one why investigation may spend (`why.py`); it stops there and says how far it got. The mean investigation on Amgen cost $0.36 (2026-09-28). |
 | `FLEET_BUDGET_USD` | `3.00` | The most one investigation fleet may spend, every agent together (`fleet.py`, "Investigation fleet" below). |
@@ -75,7 +76,7 @@ leader's own category. Every live report names both models ("answered by gpt-6-l
 gpt-4.1-mini"); `/api/health` reports `measured_model`, `evaluator_model`, `forced_search`,
 `target_margin`, `looks`, `buyer_questions` (the questions a front freezes), `max_buyer_questions`
 (the most a run may plan: both fronts plus one front's worth for weighted claims), `wobble_audit`,
-`run_budget_usd` and `why_budget_usd`, `fleet_budget_usd`, `fleet_concurrency` and `verify_budget_usd`, plus `configured_measured_model`, `search_mode` and
+`run_budget_usd` and `why_budget_usd`, `live_concurrency`, `fleet_budget_usd`, `fleet_concurrency` and `verify_budget_usd`, plus `configured_measured_model`, `search_mode` and
 `model_fallback` when a step-down happened.
 
 Any model you point `MEASURED_MODEL` or `EVALUATOR_MODEL` at should be in `access.PRICES`, or the
@@ -107,13 +108,26 @@ Restart the API. It prints `[config] loaded from .env: OPENAI_API_KEY=<set>` —
 values. Check `curl -s http://127.0.0.1:8000/api/health` for `"live_available": true`. There is no
 mode switch in the page: every measurement it starts is live.
 
-A live run asks every brand question once, then plans its buyer questions from those answers, and
-asks each of them once to the measured model — look 1 first, look 2 only where needed, and one per
+A live run asks every brand question once and, beside them, the buyer questions on where the company
+aims to be (its own category needs no brand answer); the buyer questions on where AI places it are
+planned the moment the brand answers are read. Each buyer question is asked once to the measured model — look 1 first, look 2 only where needed, and one per
 front once more — plus one **control question** per front, and has the evaluator grade each
 answer — two calls per ask — plus one round-two comparison question when a buyer answer names a
 competitor, and one evaluator call at the end for the action plan. Without a key, live mode
 **errors** rather than falling back to fixtures — a fixture result under a live label would be a
 fabricated measurement.
+
+Asks run side by side (`graph.Asks`, `dispatch.py`): a question is submitted the moment it is frozen
+and collected when the next step needs it, and each front decides its own look 2 as soon as its look-1
+answers are in. The run is written only by the graph, and in one fixed order (`graph.canonical`), so a
+saved run never depends on which answer came back first and matches what one-at-a-time asking saved.
+Two differences follow from asking the aimed front first: a question both fronts' pools hold stays on
+the aimed front, and when AI places the company in its own category the aimed set becomes the one
+shared set as asked, without topping it up from the placed questions. Under concurrency a pass's cap
+counts the estimated cost of its calls under way; a call that would pass the cap with them waits for
+them to be charged — in the dispatcher's queue, not on a shared worker (`access.start`), so other runs
+go on — and a pass stops where it always did, about one call past its cap. With 16 at
+once a live Amgen run (`TARGET_MARGIN=33`, 28–30 asks) took 192 s against 325 s at 3.
 
 Before a live run the API makes one trivial preflight call, so a broken setup fails once with one
 message rather than once per question. It is classified on the HTTP status, never the error text: a
@@ -152,8 +166,9 @@ and a buyer question that named the brand may not name it again, so visibility m
 without anything about the company changing. That is expected, not a bug in the scoring. Three
 things make the buyer number trustworthy anyway:
 
-- **Visibility is measured on two fronts, side by side.** Brand questions are answered and read
-  first (`graph.plan_brand` → `perceive`), then `graph.plan_buyer` asks buyer questions about two
+- **Visibility is measured on two fronts, side by side.** Where you aim to be is planned and asked
+  beside the brand questions (`graph.plan_aiming`); the brand answers are read (`graph.perceive`) and
+  `graph.plan_buyer` plans where AI places you around it, so the two fronts cover two
   categories, a full pool of `ana.set_questions()` each (look 2 for `TARGET_MARGIN`), plus one topic
   for every claim the customer weighted (at most one front's worth), so each weighted claim is asked
   its own buyer questions, its Quick-wins fix can cite them, and neither front drops below look 2:
@@ -742,7 +757,7 @@ Environment. Every one has a working default.
 
 `<site>/api/health` shows what is actually in force: `measured_model`, `evaluator_model`,
 `search_mode`, `forced_search`, `target_margin`, `looks`, `buyer_questions`, `max_buyer_questions`, `wobble_audit`,
-`run_budget_usd`, `why_budget_usd`, `fleet_budget_usd`, `fleet_concurrency` and `verify_budget_usd`. If OpenAI
+`run_budget_usd`, `why_budget_usd`, `live_concurrency`, `fleet_budget_usd`, `fleet_concurrency` and `verify_budget_usd`. If OpenAI
 refuses the configured model or the live-search tool, the one preflight call steps down to
 `gpt-5-nano` — and, if that will not search either, to no search at all, with every answer marked
 ungrounded. It never substitutes a third model. `model_fallback` then says why, in the same words

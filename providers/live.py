@@ -16,6 +16,7 @@ import threading
 from datetime import datetime, timezone
 from typing import Callable, NamedTuple, Optional
 
+import dispatch
 import sampler
 import sharing
 from agents.onboarding_model import buyer_category_for, buyer_questions_for
@@ -68,7 +69,7 @@ _search: bool = True
 # How many buyer questions a front asks, and when it may stop, is sampler-lite's (sampler.py): fresh
 # questions up to a stated margin at 95%, plus WOBBLE_AUDIT re-asks per front for the wobble.
 
-LIMITS = dict(concurrency=3, per_call_timeout_s=90, investigation_deadline_s=600)
+LIMITS = dict(per_call_timeout_s=90, investigation_deadline_s=600)
 
 NEUTRAL_INSTRUCTION = ("Answer the user's question as a helpful assistant. Use web search. "
                        "Recommend specific products where appropriate and cite sources.")
@@ -333,7 +334,6 @@ class LiveProvider:
     """
     name = "openai"
     scenario = None
-    concurrency = LIMITS["concurrency"]
 
     def __init__(self, attributes: list[Attribute], named_probes: list[Probe],
                  profile: Optional[CompanyProfile] = None, model: Optional[str] = None,
@@ -349,6 +349,8 @@ class LiveProvider:
         self._profile = profile
         resolved = resolved or current()
         self.model = model or resolved.model
+        # asks go to the process-wide dispatcher, whose LIVE_CONCURRENCY workers every run shares
+        self.concurrency = dispatch.live_concurrency()
         self.search_tool = resolved.tool
         self.fallback = resolved.reason
         # sampler-lite (sampler.py) sizes the buyer fronts; a wobble-audited question is asked `tries` times
@@ -356,6 +358,7 @@ class LiveProvider:
         self.tries = 1 + sampler.wobble_audit()
         self.repeat_sample = 0
         self.spent = 0.0      # what the measured calls cost, for RUN_BUDGET_USD
+        self.asked = 0        # the measured asks in `spent`, each one or two calls
         self._spent_lock = threading.Lock()
         # buyer questions and answers shared with every run in the same category today (sharing.py);
         # an injected transport (a test) gets none unless it injects one too
@@ -387,54 +390,49 @@ class LiveProvider:
         # demand.ground, or None: every buyer question is the model-written one, as before grounding
         self._demand = demand
         self.demand_notes: list[str] = []
+        self._real: dict[str, object] = {}       # question text -> the real demand it came from
+        self._aimed: Optional[tuple] = None      # (profile, aiming_front's plan) once plan_aiming ran
+
+    def plan_aiming(self, profile: CompanyProfile) -> tuple[list[Topic], list[Probe]]:
+        """The site's own core category and its control, planned before any brand answer is in:
+        nothing in it reads one, so the run asks it beside the brand questions. plan() then plans
+        the other fronts around it rather than again."""
+        topics, blind = self._plan_aiming(profile)
+        self._save_pools(topics, blind)
+        return topics, blind
+
+    def _plan_aiming(self, profile: CompanyProfile) -> tuple[list[Topic], list[Probe]]:
+        from agents.ana import aiming_front
+        self.notes = [self.fallback] if self.fallback else []
+        self.demand_notes, self._real = [], {}
+        aiming = profile.core_category
+        if aiming:
+            # real ones first: the fronts keep the first `per_front`, so written ones only fill a shortfall
+            questions = self._shared(aiming) or [*self._ground(aiming, profile), *profile.category_questions]
+            questions += self._written(aiming, "Any product in this category, for the buyer's own situation.",
+                                       questions)
+            profile = profile.model_copy(update=dict(category_questions=questions))
+        topics, blind, skipped, missing = aiming_front(profile)
+        blind = [p.model_copy(update=dict(demand=self._real.get(p.text.strip().lower()))) for p in blind]
+        self._aimed = (profile, (topics, blind, skipped, missing))
+        self.skipped_questions, self.missing_fronts = skipped, missing
+        return topics, blind
 
     def plan(self, profile: CompanyProfile, placed: Optional[Attribute] = None
              ) -> tuple[list[Topic], list[Probe]]:
         """Buyer questions on two fronts, each with its control question: where AI places the
         company (`placed`, read off the brand answers) and the site's core category. The claims'
-        own buyer questions fill whatever budget the fronts leave: all of it with neither front."""
-        from agents.ana import blind_probes_for_fronts, brand_leaks, same_category, set_questions
-        # A preflight step-down is a caveat on the whole report, not a server-log line: graph puts
-        # `notes` into run.log AND run.drift_notes, so it reaches the report's limitations.
-        self.notes = [self.fallback] if self.fallback else []
-        self.demand_notes = []
-        per_front = set_questions()
-        real: dict[str, object] = {}              # question text -> the real demand it came from
-
-        def ground(category: str) -> list[str]:
-            """Real searches for the category, heaviest group first; [] with a stated reason if none."""
-            if not self._demand:
-                return []
-            found, note = self._demand(category, profile, per_front)
-            self.demand_notes.append(note)
-            real.update({q.strip().lower(): d for q, d in found})
-            return [q for q, _ in found]
-
-        def shared(category: str) -> list[str]:
-            """Today's questions for this category from another run, if any (sharing.py)."""
-            pool = self._share.pool(category) if self._share else []
-            if pool:
-                self.demand_notes.append(f"{category}: asked the same {len(pool)} questions another run in this "
-                                         "category asked today, so their answers are shared too.")
-            return pool
-
-        def written(category: str, description: Optional[str], have: list[str]) -> list[str]:
-            """What the writer adds to reach a full pool; stated, never swallowed, when it cannot."""
-            if len(have) >= per_front:
-                return []
-            try:
-                return self._writer(category, description, per_front - len(have))
-            except Exception as e:
-                self.notes.append(f"Unbranded questions for {category} could not be written "
-                                  f"({type(e).__name__}); its own {len(have)} were asked.")
-                return []
-
+        own buyer questions fill whatever budget the fronts leave: all of it with neither front.
+        After plan_aiming, its front is kept as planned and returned with the rest."""
+        from agents.ana import blind_probes_for_fronts, brand_leaks, same_category
+        aimed = None
+        if self._aimed:
+            profile, aimed = self._aimed
+        else:
+            self._plan_aiming(profile)
+            profile, _ = self._aimed
+            self._aimed = None   # planned here, all at once: the fronts share one plan, placed first
         aiming = profile.core_category
-        if aiming:
-            # real ones first: the fronts keep the first `per_front`, so written ones only fill a shortfall
-            questions = shared(aiming) or [*ground(aiming), *profile.category_questions]
-            questions += written(aiming, "Any product in this category, for the buyer's own situation.", questions)
-            profile = profile.model_copy(update=dict(category_questions=questions))
         placed_as = placed.label if placed else None
         if placed and self._categorize:
             try:
@@ -447,18 +445,53 @@ class LiveProvider:
                                   f"{profile.name} ({placed.label}: {type(e).__name__}), so its label was used.")
         questions = list(placed.buyer_questions) if placed else []
         if placed and not (aiming and same_category(placed_as, aiming)):
-            questions = shared(placed_as) or [*ground(placed_as), *questions]
+            questions = self._shared(placed_as) or [*self._ground(placed_as, profile), *questions]
         if placed:
-            questions += written(placed_as, placed.description, questions)
-        topics, blind, self.skipped_questions, self.missing_fronts = blind_probes_for_fronts(
-            profile, placed, questions, self._attributes, placed_as)
-        blind = [p.model_copy(update=dict(demand=real.get(p.text.strip().lower()))) for p in blind]
+            questions += self._written(placed_as, placed.description, questions)
+        topics, blind, skipped, self.missing_fronts = blind_probes_for_fronts(
+            profile, placed, questions, self._attributes, placed_as, aimed)
+        self.skipped_questions = skipped
+        blind = [p if p.demand else p.model_copy(update=dict(demand=self._real.get(p.text.strip().lower())))
+                 for p in blind]
+        self._save_pools(topics, blind)
+        return topics, blind
+
+    def _ground(self, category: str, profile: CompanyProfile) -> list[str]:
+        """Real searches for the category, heaviest group first; [] with a stated reason if none."""
+        if not self._demand:
+            return []
+        from agents.ana import set_questions
+        found, note = self._demand(category, profile, set_questions())
+        self.demand_notes.append(note)
+        self._real.update({q.strip().lower(): d for q, d in found})
+        return [q for q, _ in found]
+
+    def _shared(self, category: str) -> list[str]:
+        """Today's questions for this category from another run, if any (sharing.py)."""
+        pool = self._share.pool(category) if self._share else []
+        if pool:
+            self.demand_notes.append(f"{category}: asked the same {len(pool)} questions another run in this "
+                                     "category asked today, so their answers are shared too.")
+        return pool
+
+    def _written(self, category: str, description: Optional[str], have: list[str]) -> list[str]:
+        """What the writer adds to reach a full pool; stated, never swallowed, when it cannot."""
+        from agents.ana import set_questions
+        if len(have) >= set_questions():
+            return []
+        try:
+            return self._writer(category, description, set_questions() - len(have))
+        except Exception as e:
+            self.notes.append(f"Unbranded questions for {category} could not be written "
+                              f"({type(e).__name__}); its own {len(have)} were asked.")
+            return []
+
+    def _save_pools(self, topics: list[Topic], blind: list[Probe]) -> None:
         if self._share:
             front = {t.id: t for t in topics if t.front and t.kind == "buyer"}
             for label in dict.fromkeys(t.label for t in front.values()):
                 self._share.save_pool(label, [p.text for p in blind if p.phase == "baseline"
                                               and p.topic_id in front and front[p.topic_id].label == label])
-        return topics, blind
 
     def attributes(self) -> list[Attribute]:
         return self._attributes
@@ -482,7 +515,8 @@ class LiveProvider:
 
     def _call(self, probe: Probe) -> tuple[object, Optional[Exception]]:
         """One measured call: -> (response, None) or (None, the exception it raised)."""
-        self.calls += 1
+        with self._spent_lock:
+            self.calls += 1
         try:
             raw = self._transport(measured_prompt(probe), self.model, LIMITS["per_call_timeout_s"])
         except Exception as e:                      # surfaced as a failed answer, never swallowed
@@ -493,12 +527,18 @@ class LiveProvider:
             self.spent += cost
         return raw, None
 
+    def per_ask(self) -> float:
+        """What one measured ask has cost on average, over the asks already made."""
+        with self._spent_lock:
+            return self.spent / self.asked if self.asked else 0.0
+
     def answer(self, probe: Probe, try_no: int = 1) -> Answer:
         # A buyer question's first ask may be one another run in this category asked today: its
         # answer is reused (sharing.py) and judged again below for this brand. A re-ask never is.
         share = self._share if probe.kind == "blind" and try_no == 1 else None
         if share and (got := share.answer(probe.text, self.model)):
-            self.shared += 1
+            with self._spent_lock:
+                self.shared += 1
             return self._labelled(probe, got.model_copy(update=dict(probe_id=probe.id, shared=True)))
         answer = self._ask(probe, try_no)
         if share:
@@ -527,6 +567,8 @@ class LiveProvider:
             again, _ = self._call(probe)
             if again is not None and parse_response(again)[2]:
                 raw, err = again, None
+        with self._spent_lock:
+            self.asked += 1
         if raw is None:
             kind = "timeout" if "timeout" in type(err).__name__.lower() else "error"
             return Answer(**base, text="", status=kind, error=safe_error(err),
