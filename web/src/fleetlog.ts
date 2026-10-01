@@ -2,7 +2,7 @@
 // the log from its first line lands exactly where the live stream left off.
 // The fleet's records, mirroring schemas.py (FleetTask, Challenge, PlanItem, ActionPlan, Verification,
 // FleetEvent) — keep in sync. They live here, not in api.ts, so `node --test` can type-check this file.
-import { instant } from "./labels.ts";
+import { instant } from "./time.ts";
 
 /** One investigator's job, as the coordinator (or code, when it could not) dispatched it. */
 export interface FleetTask {

@@ -1,7 +1,7 @@
 // Stored times, run by `node --test` (CI: web unit tests).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { instant } from "./labels.ts";
+import { instant } from "./time.ts";
 
 test("a stored time is UTC, with or without its offset written down", () => {
   // Runs saved before the offset was written carry none; read as local time they moved by the viewer's offset.
