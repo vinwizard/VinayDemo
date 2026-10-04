@@ -50,20 +50,10 @@ function Count({ summary, items }: { summary: ReactNode; items: ReactNode[] }) {
   );
 }
 
-/** The whole run as JSON, workflow log included: the page shows the checks, the file keeps every step. */
-function downloadRun(run: Run) {
-  const url = URL.createObjectURL(new Blob([JSON.stringify(run, null, 2)], { type: "application/json" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${run.profile.name.replace(/\W+/g, "-")}-${run.id}.json`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 /**
  * "How we checked this report": the drift limitations, excluded answers, dropped observations and
  * discovery notes turned into a few counts in plain sentences, each with its items behind a toggle.
- * The raw workflow log stays out of the page and in the downloadable data.
+ * The raw workflow log stays out of the page and in the JSON download on the Evidence page header.
  */
 export function HowWeChecked({ run }: { run: Run }) {
   const d = run.drift!;
@@ -127,10 +117,6 @@ export function HowWeChecked({ run }: { run: Run }) {
                  items={other.map((l, i) => <Linked key={i} text={l} run={run} />)} />
         )}
       </ul>
-      <p className="muted" style={{ margin: 0 }}>
-        Every step the workflow took is in the{" "}
-        <button className="linky" onClick={() => downloadRun(run)}>full data download (JSON)</button>.
-      </p>
     </section>
   );
 }

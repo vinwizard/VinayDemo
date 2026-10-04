@@ -1,11 +1,12 @@
+import { useEffect, useState } from "react";
 import type { DriftReport, Run, VisibilitySet } from "../api";
-import { headline, plural, provenanceLabel } from "../labels";
+import { headline, provenanceLabel } from "../labels";
 import { GLOSSARY } from "../glossary";
-import { Term } from "../popover";
+import { Popover, Term } from "../popover";
 import { FrontMargin } from "../margin";
 import { wobbleText, rangeText, FRONT_TERM, frontsOf, gapSentence } from "./util";
 import type { Vis } from "./util";
-import { Logo } from "./ui";
+import { Tile } from "./ui";
 
 /** One short label per front. "both": the category AI places you in is the one you aim for. */
 export function FrontLabel({ v }: { v: VisibilitySet }) {
@@ -14,24 +15,6 @@ export function FrontLabel({ v }: { v: VisibilitySet }) {
   }
   const k = FRONT_TERM[v.front as "placed" | "aiming"];
   return <Term k={k}>{GLOSSARY[k].term}</Term>;
-}
-
-/** "0–10" beside a number: its bootstrap 95% confidence interval, explained one hover or tap away. */
-function Ci({ iv, of }: { iv?: [number, number] | null; of: string }) {
-  if (!iv) return null;
-  return (
-    <Term k="confidence_interval" note={`${of}: between ${iv[0]} and ${iv[1]}, 95% confident.`}>
-      <small className="ci">{iv[0]}–{iv[1]}</small>
-    </Term>
-  );
-}
-
-/** The ONE range under a visibility number: where it would land if the whole run were repeated.
- * The per-question wobble is not a second range — it lives in the number's own popover. */
-export function Range({ d, iv, note }: { d: Vis; iv?: [number, number] | null; note?: string | null }) {
-  if (d.visibility == null) return <>not measured</>;
-  const text = rangeText(iv);
-  return <Term k="confidence_interval" note={text ? undefined : note}>{text ?? "one run, no range yet"}</Term>;
 }
 
 /** The gap's significance test in words: real, not distinguishable, or too few questions to call. */
@@ -53,14 +36,15 @@ export function GapVerdict({ d }: { d: DriftReport }) {
 }
 
 /** Buyer visibility, never a bare number when the control question says it is not to be trusted.
- * `explain` puts what the number means, and how much one question wobbles between asks, one hover
- * or tap away on the number itself — so the summary beneath it shows one range, not two. */
-export function Visibility({ d, explain }: { d: Vis; explain?: boolean }) {
+ * `explain` puts what the number means, its range and how much one question wobbles between asks,
+ * one hover or tap away on the number itself. */
+export function Visibility({ d, iv, explain }: { d: Vis; iv?: [number, number] | null; explain?: boolean }) {
   if (d.visibility == null) return <>n/a</>;
   const score = <>{d.visibility}<small> / 100</small></>;
+  const note = [rangeText(iv), wobbleText(d)].filter(Boolean).join(". ");
   return (
     <>
-      {explain ? <Term k="buyer_visibility" note={wobbleText(d)}>{score}</Term> : score}
+      {explain ? <Term k="buyer_visibility" note={note || undefined}>{score}</Term> : score}
       {d.low_confidence && <> <Confidence note={d.low_confidence} /></>}
     </>
   );
@@ -87,10 +71,31 @@ function Confidence({ note }: { note: string }) {
   return <Term k="low_confidence" note={note}><span className="conf">Low confidence</span></Term>;
 }
 
+const still = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** A number that counts up once from 0; reduced motion shows it at once. Read aloud as the number. */
+function CountUp({ to }: { to: number }) {
+  const [at, setAt] = useState(0);
+  useEffect(() => {
+    if (still()) return;
+    const t0 = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const k = Math.min(1, (now - t0) / 1100);
+      setAt(k < 1 ? to * (1 - (1 - k) ** 3) : to);
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [to]);
+  const shown = still() || at === to ? to : at.toFixed(1);
+  return <><span aria-hidden="true">{shown}%</span><span className="sr-only">{to}%</span></>;
+}
+
 /**
- * The two fronts on one 0–100 buyer-visibility line: a numbered marker each, the likely range of
- * the one that has it shaded, the gap between them dashed. A picture of the rows beneath it, which
- * carry every number in words, so it is hidden from screen readers.
+ * The two fronts on one 0–100 buyer-visibility line: a numbered marker each, sliding into place, the
+ * likely range of the one that has it shaded, the gap between them dashed. A picture of the line
+ * beneath it, which carries every number in words, so it is hidden from screen readers.
  */
 function PositionStrip({ fronts }: { fronts: VisibilitySet[] }) {
   const shown = fronts.filter((v) => v.visibility != null);
@@ -118,112 +123,91 @@ function PositionStrip({ fronts }: { fronts: VisibilitySet[] }) {
   );
 }
 
-/** One front as a row under the strip: its marker, label and category, its score, and what it means. */
-function FrontRow({ v, n, brand, run }: { v: VisibilitySet; n: number; brand: string; run?: Run }) {
+/** Untapped potential: the number counts up and today's score fills its bar. What it means, its
+ * range, what it rests on and the best-case caveat are one hover away. */
+export function Headline({ run }: { run: Run }) {
+  const d = run.drift!;
+  const h = headline(d);
+  const brand = run.profile.name;
+  const iv = untapped(d[`${h.field}_interval`]);
+  if (h.potential == null || h.value == null) {
+    return <Tile title={h.label}><span className="hero-num">n/a</span><p>{d.na_reasons?.[h.field]}</p></Tile>;
+  }
   return (
-    <div className="front-row">
-      <span className={`front-dot ${v.front}`} aria-hidden="true">{n}</span>
-      <div className="front-name"><FrontLabel v={v} />: <strong>{v.category}</strong></div>
-      <span className="front-score"><Visibility d={v} explain /></span>
-      <p className="front-means">
-        {FRONT_MEANS[v.front as "placed" | "aiming" | "both"](brand)} {visSaid(v, brand)}
-        {" "}<Range d={v} iv={v.interval} note={v.interval_note} />
-        {run?.sampler && <> · <FrontMargin run={run} front={v.front} /></>}
-      </p>
-    </div>
+    <Tile title={(
+      <Popover wide label="Untapped potential" className="term" trigger="Untapped potential">
+        <strong className="pop-title">Untapped potential</strong>
+        <p>
+          The share of {d.lens === "claim"
+            ? <>what {brand}’s site says (claims on more pages count for more)</>
+            : <>what {brand} wants to be known for (weighted by how much each claim matters)</>}
+          {" "}that AI’s answers about {brand} do not yet say supportively.
+        </p>
+        {iv && <p className="muted">Could be {iv[0]}–{iv[1]}, 95% confident.</p>}
+        <p className="muted">
+          Based on {d.n_named} branded and {d.n_blind} unbranded answers · source: {provenanceLabel(d.provenance)}
+        </p>
+        {d.excluded_named > 0 && (
+          <p className="muted">
+            <strong>A best case:</strong> {d.excluded_named} of {d.named_asked} brand answers were left out, and a
+            left-out answer cannot count against {brand}. Read today’s {h.value}% as a best case and the{" "}
+            {h.potential}% as a minimum. The reasons are under How we checked on the Evidence page.
+          </p>
+        )}
+      </Popover>
+    )}>
+      <span className="hero-num"><CountUp to={h.potential} /></span>
+      <span className="today-bar" aria-hidden="true"><i style={{ width: `${h.value}%` }} /></span>
+      <p>{h.today}</p>
+    </Tile>
   );
 }
 
-/** The headline, buyer visibility and the quick wins. The whole block scrolls with the page; once it
- * is out of view a one-line summary pins itself above the tabs (Report). */
-export function Figures({ d, brand, run, onQuickWins }: { d: DriftReport; brand: string; run?: Run; onQuickWins?: () => void }) {
-  const h = headline(d);
-  const wins = d.lost_claims.length + d.unstated_intent.length;  // the Quick wins tab's claims
+/** Buyer visibility per front: the markers slide into place, the low-confidence badge stays in view,
+ * and what each front means, its range and the gap are one hover away. */
+export function BuyerVisibility({ run }: { run: Run }) {
+  const d = run.drift!;
+  const brand = run.profile.name;
   const fronts = frontsOf(d);
-  const gap = gapSentence(d, brand, true);
+  const gap = gapSentence(d, brand);
   const unsure = fronts.filter((v) => v.low_confidence);
   return (
-    <div className="figures">
-      <div className="fig-card headline">
-        <span className="hero-num">
-          {h.potential == null ? "n/a" : <>{h.potential}%</>}
-        </span>
-        <span className="fig-label">
-          {h.potential == null ? h.label : <Term k="untapped_potential">Untapped potential</Term>}
-        </span>
-        <span>{h.today ?? d.na_reasons?.[h.field]}</span>
-        {h.potential != null && untapped(d[`${h.field}_interval`]) && (
-          <span className="muted">Could be <Ci iv={untapped(d[`${h.field}_interval`])} of="Untapped potential" /></span>
+    <Tile wide title={(
+      <Popover wide label="Buyer visibility" className="term" trigger={`Does AI bring ${brand} up when buyers ask?`}>
+        <strong className="pop-title">{GLOSSARY.buyer_visibility.term}, 0–100</strong>
+        <p>{GLOSSARY.buyer_visibility.def}</p>
+        {fronts.map((v, i) => (
+          <p key={v.front}>
+            <strong>{i + 1} · {v.category}:</strong> {FRONT_MEANS[v.front as "placed" | "aiming" | "both"](brand)}{" "}
+            {visSaid(v, brand)} {v.visibility != null && (rangeText(v.interval) ?? v.interval_note ?? "One run, no range yet.")}
+            {run.sampler && <> · <FrontMargin run={run} front={v.front} /></>}
+          </p>
+        ))}
+        {!fronts.length && <p>{d.visibility == null ? d.na_reasons?.visibility : rangeText(d.visibility_interval) ?? d.na_reasons?.visibility_interval}</p>}
+        {gap && <p>{gap}<GapVerdict d={d} /></p>}
+        {unsure.length > 0 && (
+          <p className="muted">
+            <strong>Low confidence:</strong> for each category we also ask AI which companies lead it. If {brand} is
+            not among them, a low score says more about what AI knows than about how buyers see {brand}.
+          </p>
         )}
-        {wins > 0 && (
-          <span className="row" style={{ gap: ".3rem" }}>
-            <button type="button" className="chip-link" onClick={onQuickWins}>{plural(wins, "quick win")} →</button>
-            <Term k="quick_wins" icon />
-          </span>
-        )}
-      </div>
-      <div className="fig-card fronts">
-        <div className="fronts-head">
-          <strong>Does AI bring {brand} up when buyers ask?</strong>
-          <span className="muted"><Term k="buyer_visibility">buyer visibility</Term>, 0–100</span>
-        </div>
-        {fronts.length ? (
-          <>
-            <PositionStrip fronts={fronts} />
-            {fronts.map((v, i) => <FrontRow key={v.front} v={v} n={i + 1} brand={brand} run={run} />)}
-            {gap && <p className="gap-line">{gap}<GapVerdict d={d} /></p>}
-            {unsure.length > 0 && (
-              <details className="conf-explain">
-                <summary>What does “low confidence” mean here?</summary>
-                <p>For each category we also ask AI which companies lead it. If {brand} is not among them, a low
-                  score says more about what AI knows than about how buyers see {brand}.</p>
-                {unsure.map((v) => <p key={v.front} className="muted"><strong>{v.category}:</strong> {v.low_confidence}</p>)}
-              </details>
-            )}
-          </>
-        ) : (
-          <div className="front-row">
-            <span className="front-score"><Visibility d={d} explain /></span>
-            <p className="front-means">
-              {d.visibility == null ? d.na_reasons?.visibility
-                : <Range d={d} iv={d.visibility_interval} note={d.na_reasons?.visibility_interval} />}
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** The one line that stays pinned once the header has scrolled away: the headline and each front. */
-export function PinnedLine({ d, run }: { d: DriftReport; run: Run }) {
-  const h = headline(d);
-  const fronts = frontsOf(d).filter((v) => v.visibility != null);
-  return (
-    <div className="pinned-line">
-      <Logo name={run.profile.name} url={run.profile.logo_url} size={22} />
-      <strong>{run.profile.name}</strong>
-      {h.potential != null && <span><strong>{h.potential}%</strong> untapped</span>}
-      {fronts.length > 0 && (
-        <span className="muted">buyer visibility {fronts.map((v) => v.visibility).join(" → ")}</span>
+      </Popover>
+    )}>
+      {fronts.length ? (
+        <>
+          <PositionStrip fronts={fronts} />
+          <p className="front-line">
+            {fronts.map((v, i) => (
+              <span key={v.front}>
+                <span className={`front-dot ${v.front}`} aria-hidden="true">{i + 1}</span>
+                <strong><Visibility d={v} iv={v.interval} explain /></strong> <FrontLabel v={v} />
+              </span>
+            ))}
+          </p>
+        </>
+      ) : (
+        <p className="front-line"><strong><Visibility d={d} iv={d.visibility_interval} explain /></strong></p>
       )}
-    </div>
-  );
-}
-
-/** What the pinned figures mean, in plain words with every invented term defined in place. */
-export function Explain({ d, brand }: { d: DriftReport; brand: string }) {
-  return (
-    <p className="muted" style={{ margin: 0 }}>
-      <Term k="untapped_potential">Untapped potential</Term> is the share of{" "}
-      {d.lens === "claim"
-        ? <>what {brand}’s site says (claims on more pages count for more)</>
-        : <>what {brand} wants to be known for (weighted by how much each claim matters)</>}
-      {" "}that AI’s answers about {brand} do not yet say supportively.{" "}
-      <Term k="buyer_visibility">Buyer visibility</Term> is a separate score: how often {brand} came up
-      when a buyer asked without naming it.
-      {" "}Based on {d.n_named} <Term k="brand_question">branded question</Term> answers and{" "}
-      {d.n_blind} <Term k="buyer_question">unbranded question</Term> answers · source: {provenanceLabel(d.provenance)}
-    </p>
+    </Tile>
   );
 }

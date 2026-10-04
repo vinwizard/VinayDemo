@@ -1,15 +1,15 @@
 import { useState } from "react";
 import type { Run } from "../api";
 import { probeLabels, plural } from "../labels";
-import { PHONE, Term } from "../popover";
+import { GLOSSARY } from "../glossary";
+import { PHONE, Popover, Term } from "../popover";
 import { counts, mention, listed, placeholder } from "./util";
 import type { Source } from "./util";
-import { Logo, Block, Section, SAMPLE_NOTE } from "./ui";
+import { Logo, Block, Section, SAMPLE_NOTE, Tile } from "./ui";
 import { QuestionRow } from "./questions";
 
 /**
- * Every company named in a buyer answer, beside the line that names it, and what AI said when asked
- * to compare.
+ * Every company named in a buyer answer, beside the line that names it.
  *
  * A name here is only what the evidence supports: the model named it in an answer to a question that
  * never named the company. Many such names are obscure products a search happened to surface, or a
@@ -41,8 +41,6 @@ export function Competitors({ run }: { run: Run }) {
   const repeats = [...named.values()].some((r) => r.count > 1);
   // A stable sort: names seen once keep the order they appeared in.
   const rows = [...named.values()].sort((x, y) => (repeats ? y.count - x.count : 0));
-  const comparison = run.probes.find((p) => p.kind === "named" && p.phase === "followup");
-  const answer = comparison && answers.get(comparison.id);
   // "Nobody was named" and "nobody was asked" are different findings. With no weighted claim there
   // are no buyer questions at all, and an empty set then means silence, not absence.
   const askedBuyerQuestions = run.probes.some((p) => p.kind === "blind" && p.phase === "baseline");
@@ -54,8 +52,8 @@ export function Competitors({ run }: { run: Run }) {
         {!askedBuyerQuestions
           ? "No unbranded question was asked — nothing is weighted as intended — so the buyer axis was not measured and no other company could be named."
           : replay
-            ? "This sample scenario names no competitor in its authored buyer answers. Replay never asks the comparison question either: that round exists only in a live run."
-            : "No other company was named in any buyer answer that counts toward the scores, so there was nothing to compare against and no comparison question was asked."}
+            ? "This sample scenario names no competitor in its authored buyer answers."
+            : "No other company was named in any buyer answer that counts toward the scores."}
         </p>
       </Section>
     );
@@ -87,7 +85,7 @@ export function Competitors({ run }: { run: Run }) {
         {replay
           ? "Authored sample data, not a measurement: no model volunteered these names. A live run"
             + " puts here the brands the model itself offered when a buyer described what you do"
-            + " without naming you, and only a live run asks the comparison question below."
+            + " without naming you."
           : `Every company the model named when a buyer asked about what ${run.profile.name} does`
             + " without naming it. Being named is not being recommended, or being a competitor:"
             + " each sits beside the part of the answer that names it, so judge it yourself."}
@@ -103,46 +101,33 @@ export function Competitors({ run }: { run: Run }) {
           {namedTable(rows.slice(SHOWN_NAMED))}
         </details>
       )}
-      {comparison && (
-        <>
-          <h4 className="muted" style={{ marginTop: "1rem" }}>
-            Follow-up question, built from those names (exploratory — not counted in alignment)
-          </h4>
-          <QuestionRow p={comparison} name="Follow-up" answer={answer || undefined} replay={replay} />
-        </>
-      )}
     </Section>
   );
 }
 
-/** Brand vs the most-recommended competitors, on the buyer questions that count. One bar per name. */
+/** Who AI recommends instead: brand vs the most-recommended companies on the buyer questions that
+ * count, one bar per name, filling in once. How it is counted is one hover away. */
 export function ShareOfVoice({ run }: { run: Run }) {
   const v = run.insights?.voice;
-  const title = <><Term k="share_of_voice">Share of voice</Term> on unbranded questions</>;
   if (!v) return null;
-  if (v.reason) {
-    return (
-      <Section title={title} found="not measured">
-        <p className="muted" style={{ margin: 0 }}>{v.reason}</p>
-      </Section>
-    );
-  }
-  const top = v.rivals.filter((r) => r.count === v.rivals[0].count);
-  const others = v.tied_top - top.length;
-  const rivalText = v.tied_top > 1
-    ? `${listed([...top.map((r) => r.name), ...(others ? [plural(others, "other")] : [])])} ${v.rivals[0].count} each`
-    : `${top[0].name} ${plural(top[0].count, "time")}`;
+  const title = (
+    <Popover label="Share of voice" className="term" trigger="Who AI recommends instead">
+      <strong className="pop-title">{GLOSSARY.share_of_voice.term}</strong>
+      <p>{GLOSSARY.share_of_voice.def}</p>
+      {!v.reason && (
+        <p className="muted">
+          How many of the {v.questions} unbranded questions that count got an answer recommending each company. None
+          of those questions named {v.brand}; a mention without a recommendation does not count, and a company
+          counts once per answer, however often it repeats. The sites AI cited beside them are on the Evidence page.
+        </p>
+      )}
+    </Popover>
+  );
+  if (v.reason) return <Tile title={title}><p className="muted" style={{ margin: 0 }}>{v.reason}</p></Tile>;
   const bars = [{ name: v.brand, count: v.brand_recommended, brand: true },
                 ...v.rivals.map((r) => ({ ...r, brand: false }))];
   return (
-    <Section title={title}
-           found={`On ${v.questions} unbranded questions, AI recommended ${v.brand} ${plural(v.brand_recommended, "time")} and ${rivalText}`}>
-      <p className="muted" style={{ margin: 0 }}>
-        {run.mode !== "live_api" && <>{SAMPLE_NOTE} </>}
-        How many of the {v.questions} unbranded questions that count got an answer recommending each company. None
-        of those questions named {v.brand}; a mention without a recommendation does not count, and a company
-        counts once per answer, however often it repeats.
-      </p>
+    <Tile title={title} sample={run.mode !== "live_api"}>
       <div className="sov" role="list" aria-label={`Answers recommending each company, out of ${v.questions}`}>
         {bars.map((b) => (
           <div key={b.name} role="listitem" className="sov-row" title={`${b.name}: recommended in ${b.count} of ${v.questions} answers`}>
@@ -154,7 +139,7 @@ export function ShareOfVoice({ run }: { run: Run }) {
           </div>
         ))}
       </div>
-    </Section>
+    </Tile>
   );
 }
 

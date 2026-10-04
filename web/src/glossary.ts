@@ -40,13 +40,6 @@ export const GLOSSARY = {
       + "a couple of them are asked three times over to show how much one question wobbles between "
       + "asks. Each question counts once towards buyer visibility however often it was asked.",
   },
-  confidence_interval: {
-    term: "Confidence interval",
-    def: "How far a number could move if we ran the whole thing again. We re-draw the same answers "
-      + "2,000 times at random (a bootstrap) and keep the middle 95% of the results: the number would "
-      + "very likely land somewhere in that range. It is wide when the questions disagree with each "
-      + "other, which is why asking more different questions narrows it.",
-  },
   significant_gap: {
     term: "Real gap",
     def: "A gap we are 95% confident is not luck. We re-draw both sides' answers 2,000 times; if the "
@@ -197,69 +190,11 @@ export const GLOSSARY = {
       + "AI's own searches for it, from 0 (unrelated) to 1 (the same meaning). The AI tends to read "
       + "and cite the closest passages, so a higher score makes a citation likelier, never certain.",
   },
-  positioning_map: {
-    term: "Positioning map",
-    def: "A picture of how alike things sound, not a measurement. We turn what AI says about you, what "
-      + "it says about each rival and what your own site says into numbers by meaning. Each axis is one "
-      + "of your claims: across, how much a dot's words talk about the claim you weighted most; up, the "
-      + "claim the dots differ on most after that. Dots close together were described in similar words; the arrow runs from "
-      + "where AI places you to where you want to be (the claims you weighted) or, until you weight "
-      + "any, to where your site aims.",
-  },
   what_ai_read: {
     term: "What AI read",
     def: "The searches the AI ran before it answered, the snippets each search handed back, the pages it "
       + "opened and the lines it looked up in them, in order. The API returns them with the answer, so this "
       + "is the AI's own reading list, not a guess at it.",
-  },
-  why_investigation: {
-    term: "Why investigation",
-    def: "An experiment on what AI read. We ask a branded question live and record what the AI read, ask it "
-      + "again with web search off, then hand the AI the same reading list with one thing changed (a page "
-      + "removed, a few lines removed, your rewrite put in) and ask again, many times, until the change in "
-      + "how often it says the claim is clear. It never moves a score.",
-  },
-  replay_experiment: {
-    term: "Replay",
-    def: "The same question asked with web search off, handing the AI the recorded reading list as if its "
-      + "own search had just returned it. On four Amgen questions a replay agreed with the live answer at "
-      + "least as well as two live answers agree with each other.",
-  },
-  effect_interval: {
-    term: "Effect",
-    def: "How much a change moved the share of answers that say the claim, with its 95% confidence interval. "
-      + "The interval is widened for every experiment the investigation could run, so 95% holds for the whole "
-      + "investigation. If it excludes zero the change really moved it; if it sits inside ±20 points, it did not.",
-  },
-  copy_fix: {
-    term: "Copy fix",
-    def: "AI reads your page but does not say it: when your rewrite (or your own copy) leads a page AI already "
-      + "read, it says it much more often. Change the words on that page.",
-  },
-  authority_fix: {
-    term: "Authority fix",
-    def: "AI would say it if it read your page that states it, but its search never returns that page for this "
-      + "question. Getting the page found and cited is the fix, not rewriting it.",
-  },
-  not_movable: {
-    term: "Not movable by copy",
-    def: "Neither your rewrite (or your own copy) on a page AI reads nor your page that states it changed how "
-      + "often AI says it. This question does not ask for the claim; ask a different one or accept it.",
-  },
-  copy_lowers: {
-    term: "Copy lowers it",
-    def: "Putting your copy on a page AI reads, or adding your page search never returned, made AI say it "
-      + "decidedly less often. That copy is not the fix for this claim.",
-  },
-  prior_belief: {
-    term: "Prior belief",
-    def: "AI says it even with every page that says it removed, and says it with web search off too: it comes "
-      + "from what the model already believes, and no website change can move it.",
-  },
-  over_determined: {
-    term: "Several pages",
-    def: "More than one page AI read says it, and removing any one of them leaves the others to say it. Only "
-      + "removing them all changes the answer.",
   },
   margin: {
     term: "Margin",
@@ -281,12 +216,6 @@ export const GLOSSARY = {
       + "the branded question for each, several why investigations run at the same time, a critic challenges "
       + "the ones that did not decide, and the verdicts become a ranked plan of fixes that were tested. One "
       + "budget covers all of it, and none of it moves a score.",
-  },
-  fleet_coordinator: {
-    term: "Coordinator",
-    def: "The agent that decides who investigates what: which claims are worth the money, which branded question "
-      + "to ask for each, and, as each verdict lands, whether to accept it or send another investigator. It can "
-      + "only choose from options our code already checked, and when it cannot decide, our code does.",
   },
   fleet_critic: {
     term: "Critic",

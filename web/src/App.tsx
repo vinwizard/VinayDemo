@@ -23,6 +23,9 @@ const PASS_CODE = (() => {
   return code;
 })();
 
+/** Leaving a report drops its page from the address bar, so the next report opens on its results. */
+const closeReport = () => window.history.replaceState(null, "", window.location.pathname + window.location.search);
+
 /** A mailto link to ask for live access, subject prefilled. */
 function Contact({ email }: { email?: string }) {
   if (!email) return <>the demo's owner</>;
@@ -91,15 +94,12 @@ export default function App() {
   return (
     <div className="shell">
       <header className="topbar">
-        <div>
-          <h1>Off Message</h1>
-          <p className="sub">Is AI on message about your brand?</p>
-        </div>
+        <h1>Off Message</h1>
         <div className="topbar-end">
           <nav className="tabs" role="tablist">
             {tabs.map(([t, label]) => (
               <button key={t} role="tab" className="tab" aria-selected={tab === t}
-                      onClick={() => { setTab(t); if (t === "history") setOpened(null); }}>
+                      onClick={() => { setTab(t); if (t === "history") { closeReport(); setOpened(null); } }}>
                 {label}
               </button>
             ))}
@@ -136,25 +136,23 @@ export default function App() {
       {error && <div className="callout error">{error}</div>}
 
       <div hidden={tab !== "onboard"}>
-        {health && !health.key_configured && (
+        {health && <CompanyWorkflow onRunSaved={refreshRuns} warning={!health.key_configured ? (
           <div className="callout warn-box">
             No API key is configured on the server, so reading a site and measuring it will fail.
             {!health.public_demo && <> Put <code>OPENAI_API_KEY</code> in <code>.env</code> and restart the API.</>}
           </div>
-        )}
-        {health && health.key_configured && !health.live_available && (
+        ) : !health.live_available && (
           <div className="callout warn-box">
             Live runs need your personal pass link. Open it in this browser to run live, or email{" "}
             <Contact email={health.contact_email} /> to get one.
           </div>
-        )}
-        {health && <CompanyWorkflow onRunSaved={refreshRuns} />}
+        )} />}
       </div>
 
       {tab === "history" && (opened ? (
         <div className="stack">
-          <button className="linky back" onClick={() => setOpened(null)}>← All runs</button>
-          <Report run={opened} onRescored={(r) => { setOpened(r); refreshRuns(); }} />
+          <button className="linky back" onClick={() => { closeReport(); setOpened(null); }}>← All runs</button>
+          <Report run={opened} />
         </div>
       ) : <>
         {runsNote && <div className="callout warn-box">{runsNote}</div>}
@@ -166,7 +164,7 @@ export default function App() {
              auto={!!health && (!!pass || (!!story && !!health.public_demo && tab === "history" && !opened))}
              onOpenShowcase={() => {
                if (!showcase) return;
-               window.history.replaceState(null, "", window.location.pathname + window.location.search);
+               closeReport();
                setTab("history"); setOpened(showcase);
              }} />
     </div>

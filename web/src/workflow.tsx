@@ -12,12 +12,13 @@ import type { ReadRequest } from "./find";
 import { FindCompany, SourceList } from "./find";
 import { Report } from "./report/Report";
 import { Logo } from "./report/ui";
+import { Popover, Term } from "./popover";
 import { PROVENANCE_LABEL, headline, plain, plural, potentialText, streamingProbeLabel, unreadableNote } from "./labels";
 
 type StageState = "pending" | "active" | "done" | "skipped" | "failed";
 
-function Stage({ n, title, state, summary, children, last }: {
-  n: number; title: string; state: StageState; summary?: ReactNode; children?: ReactNode;
+function Stage({ n, title, state, summary, hint, children, last }: {
+  n: number; title: string; state: StageState; summary?: ReactNode; hint?: ReactNode; children?: ReactNode;
   last?: boolean;
 }) {
   // Open while it is the thing happening; a finished stage folds to its one-line summary and the
@@ -31,12 +32,15 @@ function Stage({ n, title, state, summary, children, last }: {
     <section className={`stage ${state}${last ? " last" : ""}`} aria-label={title}>
       <div className="stage-mark" aria-hidden>{mark}</div>
       <div className="stage-main">
-        <button className="stage-head" aria-expanded={hasBody ? open : undefined} disabled={!hasBody}
-                onClick={() => setOverride({ state, open: !open })}>
-          <span className="stage-title">{title}</span>
-          <span className="stage-summary">{summary}</span>
-          {hasBody && <span className="chev" aria-hidden>{open ? "▾" : "▸"}</span>}
-        </button>
+        <div className="stage-top">
+          <button className="stage-head" aria-expanded={hasBody ? open : undefined} disabled={!hasBody}
+                  onClick={() => setOverride({ state, open: !open })}>
+            <span className="stage-title">{title}</span>
+            <span className="stage-summary">{summary}</span>
+            {hasBody && <span className="chev" aria-hidden>{open ? "▾" : "▸"}</span>}
+          </button>
+          {hint}
+        </div>
         {open && <div className="stage-body">{children}</div>}
       </div>
     </section>
@@ -95,7 +99,9 @@ const sourcesOf = (c: CompanyDetail): Source[] =>
 
 type Onboarding = { phase: "idle" | "reading" | "extracting" | "failed"; sources: Source[]; error?: string };
 
-export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
+/** `warning` is the page's key or pass notice; on a replay the replay notice stands in for it, since a
+ * replay asks no model. */
+export function CompanyWorkflow({ onRunSaved, warning }: { onRunSaved: () => void; warning?: ReactNode }) {
   const [company, setCompany] = useState<CompanyDetail | null>(null);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");   // what is being read: a website, or "your documents"
@@ -164,7 +170,7 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
   const s1: StageState = company || onb.sources.length ? "done" : failedAt === 1 ? "failed" : "active";
   const s2: StageState = company ? "done" : failedAt === 2 ? "failed" : extracting ? "active" : "pending";
 
-  // ---------------------------------------------------------------- stages 4–7: the run
+  // ---------------------------------------------------------------- stages 4–6: the run
   const started = running || p.run || p.error || p.answers.length > 0;
   const replay = !!company?.replay || p.node?.mode === "demo_replay" || p.run?.mode === "demo_replay";
   const planned = p.node?.planned;
@@ -172,8 +178,6 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
   // every ask of every buyer question, plus a control question per front: planned.buyer counts them all
   const buyer = of((a) => a.phase !== "followup" && a.kind === "blind");
   const brand = of((a) => a.phase === "baseline" && a.kind === "named");
-  const follow = of((a) => a.phase === "followup");
-  const decided = p.nodes.includes("choose_followup");
   const finished = (s: StageState) => s === "done" || s === "skipped";
   const tally = (got: number, want: number | undefined, go: boolean): StageState =>
     !started || want == null ? "pending" : want === 0 ? "skipped" : got >= want ? "done"
@@ -184,18 +188,15 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
   let s4: StageState = started && !planned ? "active" : tally(brand.length, planned?.brand, true);
   let s5: StageState = placedPlanned ? tally(buyer.length, planned?.buyer, true)
     : started && (buyer.length > 0 || (planned?.buyer ?? 0) > 0 || finished(s4)) ? "active" : "pending";
-  let s6: StageState = decided ? tally(follow.length, planned?.followup, true)
-    : started && finished(s4) && finished(s5) ? "active" : "pending";
-  let s7: StageState = p.run ? "done" : started && finished(s6) ? "active" : "pending";
+  let s6: StageState = p.run ? "done" : started && finished(s4) && finished(s5) ? "active" : "pending";
   if (p.error) {
     // the stages running when it broke carry the failure (4 and 5 can run at once); with none
     // running it is the first one open, and a setup failure is the first
-    const stages = [s4, s5, s6, s7];
+    const stages = [s4, s5, s6];
     const firstOpen = stages.findIndex((s) => !finished(s));
     const running = stages.map((s) => s === "active");
-    const at = (i: number) => running.some(Boolean) ? running[i] : i === (firstOpen === -1 ? 3 : firstOpen);
-    [s4, s5, s6, s7] = stages.map((s, i) => (at(i) ? "failed" : s)) as
-      [StageState, StageState, StageState, StageState];
+    const at = (i: number) => running.some(Boolean) ? running[i] : i === (firstOpen === -1 ? 2 : firstOpen);
+    [s4, s5, s6] = stages.map((s, i) => (at(i) ? "failed" : s)) as [StageState, StageState, StageState];
   }
   const errorAt = (s: StageState) => s === "failed" && (
     <div className="callout error">
@@ -231,13 +232,13 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
         </header>
       )}
 
-      {replay && (
+      {replay ? (
         <div className="callout sample">
           <strong>Offline replay — sample answers, not a measurement.</strong> The claims and the answers
           in every step below come from the bundled Notion sample: authored fixtures, not a read of the
           site. No model is being asked, and model judgment is simulated.
         </div>
-      )}
+      ) : warning}
 
       <Stage n={1} title="Find the company and read its pages" state={s1}
              summary={company?.replay ? "No site was read — bundled sample data"
@@ -300,82 +301,53 @@ export function CompanyWorkflow({ onRunSaved }: { onRunSaved: () => void }) {
       </Stage>
 
 
-      <Stage n={4} title="Ask branded questions" state={s4}
+      <Stage n={4} title="Ask branded questions" state={s4} hint={<Term k="brand_question" icon />}
              summary={s4 === "skipped" ? "Skipped — no branded question survived vetting"
                : answeredSummary(brand, planned?.brand, "question")
                  ?? `Questions that name ${brandName} but never name a claim`}>
         {s4 !== "pending" && s4 !== "skipped" && (
           <div className="stack">
-            <p className="muted" style={{ margin: 0 }}>
-              Each names {brandName} and none names a claim, so whatever AI says {brandName} is
-              known for, it said unprompted.
-            </p>
             {(s4 !== "failed" || brand.length > 0) && <AnswerList answers={brand} replay={replay} />}
             {errorAt(s4)}
           </div>
         )}
       </Stage>
       <Stage n={5} title="Ask unbranded questions" state={s5}
+             hint={<Term k="buyer_question" icon note={<>Asked on two fronts: the category the brand answers place
+               {" "}{brandName} in, and the one its own site aims for.{!replay && " The site's own category is asked"
+               + " alongside the branded questions; the other starts as soon as their answers are read. Each is asked"
+               + " more than once, because the same question gets a different answer each time; the control question"
+               + " asks which companies lead the category."}</>} />}
              summary={s5 === "skipped" ? "Skipped — no weighted claim has an unbranded question"
                : (answeredSummary(buyer, planned?.buyer, "question")
                    ?.concat(!placedPlanned && s5 === "active" ? " · more once the branded answers are read" : ""))
                  ?? `Questions a buyer would ask without naming ${brandName}`}>
         {s5 !== "pending" && s5 !== "skipped" && (
           <div className="stack">
-            <p className="muted" style={{ margin: 0 }}>
-              Each one is what a buyer would type with no brand named, on two fronts: the category
-              the brand answers place {brandName} in, and the one its own site aims for. Does AI bring {brandName} up on its own?
-              {!replay && " The site's own category is asked alongside the branded questions; the other"
-                + " starts as soon as their answers are read."}
-              {!replay && " Each is asked more than once, because the same question gets a different"
-                + " answer each time; the control question asks which companies lead the category."}
-            </p>
             {(s5 !== "failed" || buyer.length > 0) && <AnswerList answers={buyer} replay={replay} />}
             {errorAt(s5)}
           </div>
         )}
       </Stage>
 
-
-      <Stage n={6} title="Follow up on companies AI named" state={s6}
-             summary={s6 === "skipped"
-               ? (p.node?.competitors.length ? "Skipped" : "Skipped — no buyer answer named another company")
-               : decided ? `${plural(planned?.followup ?? 0, "follow-up question")}${
-                   p.node?.competitors.length ? ` · AI named ${p.node.competitors.join(", ")}` : ""}`
-               : "If a buyer answer names other companies, ask AI to compare them"}>
-        {decided && (s6 === "active" || s6 === "done") && (
-          <div className="stack">
-            {p.node?.competitors.length ? (
-              <p className="muted" style={{ margin: 0 }}>
-                {replay ? "Named in the sample buyer answers:" : "Named in the buyer answers:"}{" "}
-                <strong>{p.node.competitors.join(", ")}</strong>.
-                {!replay && ` So we asked it to compare them with ${brandName}. Exploratory — not counted in alignment.`}
-              </p>
-            ) : null}
-            <AnswerList answers={follow} replay={replay} />
-          </div>
-        )}
-        {errorAt(s6)}
-      </Stage>
-
-      <Stage n={7} title="Score" state={s7} last
+      <Stage n={6} title="Score" state={s6} last
+             hint={<Popover label="How scoring works" className="term-icon"
+                            trigger={<>ⓘ<span className="sr-only">How scoring works</span></>}>
+               <strong className="pop-title">How scoring works</strong>
+               <p>An answer only counts for a claim when the quote behind it appears word for word in that answer.
+                 Unverifiable observations are dropped, never repaired.</p>
+             </Popover>}
              summary={p.run?.drift
                ? `${headline(p.run.drift).label} · ${potentialText(headline(p.run.drift))}`
                  + ` · ${PROVENANCE_LABEL[p.run.mode] ?? p.run.mode}`
-               : s7 === "active" ? "Checking every quote is verbatim, then placing each claim…"
+               : s6 === "active" ? "Checking every quote is verbatim, then placing each claim…"
                : "Every quote checked word for word against its answer, then each claim placed"}>
-        {s7 === "active" && (
-          <p className="muted working" style={{ margin: 0 }}>
-            An answer only counts for a claim when the quote behind it appears word for word in that
-            answer. Unverifiable observations are dropped, never repaired.
-          </p>
-        )}
-        {errorAt(s7)}
+        {errorAt(s6)}
       </Stage>
 
       {p.run && (
         <div ref={reportRef} className="report-wrap">
-          <Report run={p.run} onRescored={(r) => { setP((x) => ({ ...x, run: r })); onRunSaved(); }} />
+          <Report run={p.run} />
         </div>
       )}
     </div>

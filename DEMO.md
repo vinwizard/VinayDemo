@@ -33,9 +33,9 @@ fixture-backed nodes.
 
 > "Alignment 21%. Of everything Notion wants to be known for, AI echoes about a fifth of it."
 
-The number stays pinned at the top of the report while you move between its tabs. Walk the zone
-chips on the Overview: what landed, what was lost, what they never stated, what AI imposed. Every
-invented term has a dotted underline — hover it for the definition.
+The Results page is six blocks on one screen; each number animates in once. Walk the zone chips:
+what landed, what was lost, what they never stated, what AI imposed. Every invented term and block
+title has a dotted underline — hover it for the definition and what the number rests on.
 
 **1:00 — the zone chips (30s)**
 
@@ -65,9 +65,9 @@ flips from landed to lost. Different fixture data, different diagnosis — the p
 
 **Close**
 
-Open the evidence behind the report — the Questions we asked AI tab holds every question asked
-and every answer; the Overview ends with "How we checked this report" — answers counted and left
-out, quotes thrown away, traits rejected — and the full data download holds the workflow log.
+Press **Evidence →** — every question asked and every answer, then "How we checked this report" —
+answers counted and left out, quotes thrown away, traits rejected — and the JSON download in its
+header holds the workflow log.
 Nothing on the screen is unsourced.
 
 **If asked what is real:** the workflow, the validation, the arithmetic and the routing are real code.

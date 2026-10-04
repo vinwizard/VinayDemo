@@ -5,14 +5,14 @@ import { GLOSSARY } from "../glossary";
 import { Popover, Term } from "../popover";
 import { WhatItRead } from "../why";
 import { FrontMargin, SamplerNote } from "../margin";
-import { na, frontsOf, gapSentence, leftOut, counts, questionKind, TABS, searcher, tryStory, answeredOk } from "./util";
+import { na, frontsOf, gapSentence, leftOut, counts, questionKind, searcher, tryStory, answeredOk } from "./util";
 import type { Vis } from "./util";
 import { Section } from "./ui";
-import { FrontLabel, Range, GapVerdict, Visibility } from "./figures";
+import { FrontLabel, GapVerdict, Visibility } from "./figures";
 
 /**
  * "Brand question 2" as something you can read in place: hover or tap shows the question, whether
- * it counted and why not, and the AI's answer — no trip to another tab. `text` shows the question
+ * it counted and why not, and the AI's answer — no trip to another page. `text` shows the question
  * itself as the trigger instead of its short name.
  */
 export function QRef({ id, run, text }: { id: string; run: Run; text?: boolean }) {
@@ -21,7 +21,6 @@ export function QRef({ id, run, text }: { id: string; run: Run; text?: boolean }
   if (!p) return <>{name}</>;
   const a = run.answers.find((x) => x.probe_id === id), e = run.evaluations.find((x) => x.probe_id === id);
   const why = p.phase === "baseline" ? leftOut(a, e, run.profile.name) : null;
-  const tab = p.kind === "named" && p.phase === "followup" ? "sources" : "questions";
   return (
     <Popover wide label={name} className={text ? "qref qtext" : "qref"} trigger={text ? p.text : name}>
       <strong className="pop-title">{name}</strong>
@@ -35,7 +34,7 @@ export function QRef({ id, run, text }: { id: string; run: Run; text?: boolean }
         <Reused a={a} />
         {a ? plain(a.text) : "no answer"}
       </p>
-      <a href={`#report-${tab}`}>Open in the {TABS.find(([t]) => t === tab)![1]} tab</a>
+      {p.phase !== "followup" && <a href="#evidence-questions">Open on the Evidence page</a>}
     </Popover>
   );
 }
@@ -248,13 +247,7 @@ export function BuyerQuestions({ run }: { run: Run }) {
         {fronts.length > 0 && d && gapSentence(d, brand) && <p style={{ margin: 0 }}>{gapSentence(d, brand)}<GapVerdict d={d} /></p>}
         </details>
         {!fronts.length && vis != null && (
-          <p style={{ margin: 0 }}>
-            <strong>Buyer visibility <Visibility d={d!} explain /></strong>{" "}
-            <span className="muted">— <Range d={d!} iv={d!.visibility_interval} note={d!.na_reasons?.visibility_interval} /></span>
-          </p>
-        )}
-        {!fronts.length && d?.low_confidence && (
-          <p className="warn" style={{ margin: 0 }}>{d.low_confidence} The control question is below the questions.</p>
+          <p style={{ margin: 0 }}><strong>Buyer visibility <Visibility d={d!} iv={d!.visibility_interval} explain /></strong></p>
         )}
         {!control && run.mode === "live_api" && !run.profile.core_category && (
           <p className="warn" style={{ margin: 0 }}>
@@ -268,12 +261,10 @@ export function BuyerQuestions({ run }: { run: Run }) {
           return (
             <div className="front-group" key={v.front}>
               <h4 style={{ margin: ".4rem 0 0" }}>
-                <FrontLabel v={v} /> · {v.category} — <Visibility d={v} explain />{" "}
-                <span className="muted">— <Range d={v} iv={v.interval} note={v.interval_note} /></span>
+                <FrontLabel v={v} /> · {v.category} — <Visibility d={v} iv={v.interval} explain />
               </h4>
               {run.sampler && <p className="muted" style={{ margin: 0 }}><FrontMargin run={run} front={v.front} /></p>}
-              <div className="qlist">{ps.map(card)}</div>
-              {ctl && <Control run={run} p={ctl} v={v} />}
+              <div className="qlist">{ps.map(card)}{ctl && <Control run={run} p={ctl} v={v} />}</div>
             </div>
           );
         }) : <div className="qlist">{base.map(card)}</div>}
@@ -283,46 +274,34 @@ export function BuyerQuestions({ run }: { run: Run }) {
             <div className="qlist">{base.filter((p) => !topicFront.get(p.topic_id)).map(card)}</div>
           </div>
         )}
-      {!fronts.length && control && d && <Control run={run} p={control} v={d} />}
+      {!fronts.length && control && d && <div className="qlist"><Control run={run} p={control} v={d} /></div>}
     </Section>
   );
 }
 
 /**
- * The control question of one set: can the answering model name the companies leading this category, and
- * does it count the brand among them? It is not a buyer question and never moves visibility; it only
- * says whether that set's number can be trusted.
+ * The control question of one set, as one more row: can the answering model name the companies
+ * leading this category, and does it count the brand among them? It is not a buyer question and
+ * never moves visibility; it only says whether that set's number can be trusted.
  */
 function Control({ run, p, v }: { run: Run; p: Probe; v: Vis }) {
   const a = run.answers.find((x) => x.probe_id === p.id);
   const e = run.evaluations.find((x) => x.probe_id === p.id);
   const flag = v.low_confidence;
   const ok = a && e && counts(a);
-  const found = !ok ? "could not be scored"
-    : `named ${plural(e.competitor_recommendations.length + (e.mentioned ? 1 : 0), "company", "companies")}`
-      + ` · ${e.mentioned ? `including ${run.profile.name}` : `not ${run.profile.name}`}`;
+  const brand = run.profile.name;
   return (
-    <Section title="Control question"
-             found={flag ? <><Term k="low_confidence"><span className="tag warn">low confidence</span></Term> {found}</> : found}>
-      <p className="muted" style={{ margin: 0 }}>
-        One question asked beside the unbranded questions and never scored: does the answering model know
-        who leads this category, and is {run.profile.name} among them? If not, this set’s buyer
-        visibility is flagged low confidence.
-      </p>
-      {flag && <div className="callout warn-box" style={{ margin: 0 }}><strong>Low confidence.</strong> {flag}</div>}
-      {!flag && ok && v.visibility === 0 && (
-        <p style={{ margin: 0 }}>
-          The model names {run.profile.name} among the companies leading this category, yet never brought it
-          up for a buyer: the 0 is a finding, not a gap in what the model knows.
-        </p>
-      )}
-      <div className="qlist">
-        <QuestionRow p={p} name="Control question" answer={a} replay={run.mode !== "live_api"}
-                     note={ok && e.competitor_recommendations.length > 0 && (
-                       <span className="muted">Companies it named: {e.competitor_recommendations.join(", ")}</span>
-                     )} />
-      </div>
-    </Section>
+    <QuestionRow p={p} name="Control question" answer={a} replay={run.mode !== "live_api"}
+                 verdict={flag ? <span className="tag warn">low confidence</span>
+                   : !ok ? <span className="tag warn">could not be scored</span>
+                   : <span className="muted">{e.mentioned ? `named ${brand}` : `did not name ${brand}`}</span>}
+                 note={<span className="muted">
+                   {questionKind(p, brand)}{" "}
+                   {ok && e.competitor_recommendations.length > 0 && `Companies it named: ${e.competitor_recommendations.join(", ")}. `}
+                   {flag}
+                   {!flag && ok && v.visibility === 0
+                     && ` It names ${brand} among the companies leading this category, yet never brought it up for a buyer: the 0 is a finding, not a gap in what the model knows.`}
+                 </span>} />
   );
 }
 

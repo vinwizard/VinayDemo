@@ -151,7 +151,7 @@ threshold's calibration is beside `SIMILARITY`. Kept in `DATA_DIR/shared.db`.
 
 ### Investigation fleet
 
-After a live run, **Investigate the gaps** on Quick wins starts a team of agents that work out why AI
+After a live run, **Investigate the gaps** under Fixes and tests on the Evidence page starts a team of agents that work out why AI
 says what it says and what would change it (`fleet.py`, `verify.py`, `api/fleet.py`; the roles are in
 `fleet.py`'s docstring). It reads the saved run and never writes it. The plan is code's ranking of the
 accepted verdicts, every number copied from an experiment, in the template's wording.
@@ -234,11 +234,11 @@ Every source keeps its kind (`Evidence.source_type`: `page_fetch`, `search_copy`
 The page has two tabs, Onboard and History. Two committed examples ship with every clone:
 `data/companies/5eed0001.json`, a real onboarding of notion.com with example intent weights, reopened
 from step 1 of Onboard; and `data/runs/cb67186167.json`, a real live run of amgen.com (28 Sep 2026),
-listed in History as measured live. Re-weighting it re-scores in the page but never rewrites the
-committed file (`SHOWCASE_RUN`). On the hosted demo a visitor without a pass opens on History; a pass
+listed in History as measured live; `rescore` never rewrites the committed file (`SHOWCASE_RUN`).
+On the hosted demo a visitor without a pass opens on History; a pass
 holder sees only their own work, starting on Onboard.
 
-Rules every view keeps: every simulation (retrieval scores, replays, reasks, the positioning map) is
+Rules every view keeps: every simulation (retrieval scores, replays, reasks) is
 labelled and moves no score; no engine id or 0 is the only thing a reader gets; every n/a shows its
 reason from `na_reasons`; no external logo service (the logo is the site's own icon, else a letter).
 
@@ -249,25 +249,23 @@ reason from `na_reasons`; no external logo service (the logo is the site's own i
   its claims with their verbatim quotes and "How we checked", weight what it wants to be known for and
   name its core category, then measure; each stage is driven by the stream's events and folds to a
   one-line summary.
-- **Report** (`web/src/report/`): a summary of untapped potential (100 minus the score) and each
-  front's visibility with its range and confidence (`margin.tsx`), **Download summary (PDF)**
-  (`print.tsx`: print CSS, no PDF library, no server call), then five tabs kept in the URL hash, each
-  badge counting in words (`badge.ts`). One popover (`popover.tsx`) explains every question reference
-  and every invented term, from `glossary.ts`, the one place definitions live.
-  - **Overview** — where the answers came from, a chip per zone opening its claims, the optional
-    **weights** (`rescore`), and **How we checked this report** (`drift.limitations`).
-  - **Quick wins** — the action plan (`agents/win_back.py`, `web/src/quickwins.ts`): per claim a
-    question-headed passage for one of the company's pages, its proof (match check, **replay test**,
-    live check) and anything dropped with its reason; then **Investigate the gaps** (`fleet.tsx`,
-    `fleetlog.ts`).
-  - **Questions we asked AI** — every buyer and brand question with its verdict, answer, the
-    control question per front, and **What AI read** (`Answer.trace`, `live.reading_of`).
-  - **Why AI misses you** — What the AI searched (`insights.searches`), Test a fix
-    (`retrieval.py`), Site check (`audit.tsx`, `audit.py`) and Ask why (`why.tsx`, `why.py`; live,
-    last because it spends).
-  - **Sources & rivals** — the citation network as a ranked list (`sources.tsx`,
-    `insights.domain_keys`, `insights.source_kind`), share of voice, the positioning map
-    (`positioning.py`, `map.tsx`, `maplabels.ts`), who AI named instead and discovered identities.
+- **Report** (`web/src/report/`): two pages kept in the URL hash (`#evidence`, `#evidence-<part>`).
+  The provenance pill, and on a sample run the SYNTHETIC banner, are always in view. One popover
+  (`popover.tsx`) explains every question reference and every invented term, from `glossary.ts`, the
+  one place definitions live; everything beyond the figures is behind one.
+  - **Results** — six blocks, each figure animating in once: untapped potential (100 minus the score)
+    with today's score, buyer visibility per front with its low-confidence badge (range, margin
+    `margin.tsx` and gap on hover), the zone chips opening their claims, Quick wins with a diff
+    teaser, Why AI misses you in three numbers, and share of voice.
+  - **Evidence** — **Download summary (PDF)** (`print.tsx`: print CSS, no PDF library, no server call)
+    and the run as JSON; every buyer and brand question with its verdict, answer, the control
+    question per front and **What AI read** (`Answer.trace`, `live.reading_of`); What the AI searched
+    (`insights.searches`); the Quick wins plan (`agents/win_back.py`, `web/src/quickwins.ts`: per claim
+    a question-headed passage, one verdict, one next step, its proof behind a disclosure), Test a fix
+    (`retrieval.py`) and **Investigate the gaps** (`fleet.tsx`, `fleetlog.ts`); the site check
+    (`audit.tsx`, `audit.py`); the citation network (`sources.tsx`, `insights.domain_keys`,
+    `insights.source_kind`) and who AI named instead; and **How we checked this report**
+    (`drift.limitations`).
 
   Two lenses: with no weight set the report reads through the **claim lens** (claim echo is the
   headline); once weights exist the **intent lens** makes alignment the headline. Zone keys never
@@ -293,8 +291,8 @@ JSON export, `data/runs/` and the baseline hash are exactly what they were.
 `Dockerfile` builds the web app and FastAPI serves it with the API on the same origin. It sets
 `VISEXP_PUBLIC_DEMO=1`, so a visitor **without a pass** gets History only: the two bundled Notion
 sample runs and the committed Amgen live run — no model calls, no cost. Live runs, onboarding and
-company edits are refused with a message saying so. The saved reports in History can be re-scored,
-and that is not saved, so one visitor cannot change what the next one sees. The two bundled scenarios
+company edits are refused with a message saying so. A `rescore` there is not saved, so one visitor
+cannot change what the next one sees. The two bundled scenarios
 are replayed once at startup so History is not empty.
 
 **Access passes** let chosen people run it live on your OpenAI key. Each pass has a name, a dollar

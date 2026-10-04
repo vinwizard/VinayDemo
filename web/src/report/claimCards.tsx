@@ -1,29 +1,28 @@
-import { useState } from "react";
+import type { CSSProperties } from "react";
 import type { AttributeScore, Run } from "../api";
-import { OWNER_TEXT, OWNER_TITLE, ZONES, rescoreRun } from "../api";
-import { ADDED_MIN_WEIGHT, Slider } from "../claims";
+import { OWNER_TEXT, OWNER_TITLE, ZONES } from "../api";
 import { ZONE_LABEL, headline, plain, plural } from "../labels";
 import { GLOSSARY } from "../glossary";
 import { Popover, Term } from "../popover";
-import { ZONE_FILL, pct, siteShare, aiShare, leftOut, refs, openClaims, sortClaims, winBackPlan } from "./util";
-import { Block, Section } from "./ui";
+import { ZONE_FILL, pct, siteShare, aiShare, leftOut, refs, sortClaims, winBackPlan } from "./util";
+import { Tile } from "./ui";
 import { Linked } from "./questions";
 import { FixCard } from "./winback";
 
 /**
- * The six zones as chips with counts. Each opens a popover listing its claims — site share, AI
- * share, the AI's own words, the questions behind them and the fix — scrolling when there are many.
- * An empty zone is greyed but still says what it means.
+ * The six zones as chips with counts, popping in one after another. Each opens a popover listing its
+ * claims — site share, AI share, the AI's own words, the site's own words, which gap it is, and the
+ * fix — scrolling when there are many. An empty zone is greyed but still says what it means.
  */
 export function ZoneChips({ run }: { run: Run }) {
   const sorted = sortClaims(run.attribute_scores);
   return (
-    <Section title="Your claims, grouped by what AI does with them" found="hover or tap a group to see its claims">
-      <div className="chips" role="list">
-        {ZONES.map((z) => {
+    <Tile wide title="Your claims, by what AI does with them">
+      <div className="chips zone-chips" role="list">
+        {ZONES.map((z, i) => {
           const rows = sorted.filter((s) => s.zone === z);
           return (
-            <div role="listitem" key={z}>
+            <div role="listitem" key={z} style={{ "--i": i } as CSSProperties}>
               <Popover wide label={`${GLOSSARY[z].term}: ${plural(rows.length, "claim")}`}
                        className={`chip ${rows.length ? "" : "zero"}`}
                        trigger={<><span className="dot" style={{ background: ZONE_FILL[z] }} />{ZONE_LABEL[z]}
@@ -37,7 +36,7 @@ export function ZoneChips({ run }: { run: Run }) {
           );
         })}
       </div>
-    </Section>
+    </Tile>
   );
 }
 
@@ -77,53 +76,6 @@ export function Excluded({ run }: { run: Run }) {
 }
 
 /**
- * Intent weights on the finished run. The server re-scores the saved answers — no question is
- * re-asked and no model is called — and refuses (409) a run it cannot re-score, in its own words.
- */
-export function Weights({ run, onRescored }: { run: Run; onRescored: (r: Run) => void }) {
-  const claims = run.attribute_scores.filter((s) => !s.discovered);
-  const added = new Set((run.attributes ?? []).filter((a) => a.added_by_user).map((a) => a.id));
-  const [w, setW] = useState<Record<string, number>>(
-    () => Object.fromEntries(claims.map((s) => [s.attribute_id, s.intended_weight ?? 0])));
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const weighted = claims.filter((s) => (s.intended_weight ?? 0) > 0).length;
-  const submit = () => {
-    setBusy(true); setError(null);
-    rescoreRun(run.id, w).then(onRescored).catch((e: Error) => setError(e.message)).finally(() => setBusy(false));
-  };
-  return (
-    <Block title="Optional: weight what you want to be known for"
-           found={weighted ? `${plural(weighted, "claim")} weighted · headline is alignment`
-             : "nothing weighted · headline is claim echo"}>
-      <p className="lede">
-        Move a slider for each claim you want to be known for, then re-score. This re-scores this
-        run’s saved answers: <strong>no new AI calls are made</strong>, nothing is paid, and no
-        question is re-asked.
-      </p>
-      <div className="weights">
-        {claims.map((s) => (
-          <div className="weight-row" key={s.attribute_id}>
-            <span>{s.label}</span>
-            <Slider id={`rw-${run.id}-${s.attribute_id}`} label={`Intent for ${s.label}`}
-                    min={added.has(s.attribute_id) ? ADDED_MIN_WEIGHT : 0}
-                    value={w[s.attribute_id] ?? 0} disabled={busy}
-                    onChange={(v) => setW((x) => ({ ...x, [s.attribute_id]: v }))} />
-          </div>
-        ))}
-      </div>
-      {error && <div className="callout error">{error}</div>}
-      <div className="row">
-        <button className="primary" onClick={submit} disabled={busy}>
-          {busy ? "Re-scoring…" : "Re-score this run"}
-        </button>
-        <span className="muted">Re-scores saved answers only — no new AI calls.</span>
-      </div>
-    </Block>
-  );
-}
-
-/**
  * How AI raises a claim. Total width is how OFTEN AI raises it. The zone-coloured segment is
  * endorsements (echo_rate, what drives landed and alignment), the grey one neutral mentions, and
  * the red one criticism.
@@ -143,27 +95,6 @@ const standing = (s: AttributeScore) =>
     : s.intended_weight ? `intent ${s.intended_weight}`
     : s.claim_pages > 0 || (s.claim_strength ?? 0) > 0 ? "on your site, not weighted"
     : "not claimed by you";
-
-/** Every claim as a card; hovering or tapping one shows everything about it in place. */
-function ClaimCards({ scores, run }: { scores: AttributeScore[]; run: Run }) {
-  return (
-    <div className="claim-cards">
-      {sortClaims(scores).map((s) => (
-        <Popover key={s.attribute_id} wide label={s.label} className="claim-card"
-                 trigger={<>
-                   <span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span>
-                   <strong>{s.label}</strong>
-                   <AiBar s={s} />
-                   <span className="muted">Site: {siteShare(s)}</span>
-                   <span className="muted">AI: {aiShare(s)}</span>
-                   <span className="muted">{standing(s)}</span>
-                 </>}>
-          <ClaimDetail s={s} run={run} />
-        </Popover>
-      ))}
-    </div>
-  );
-}
 
 /**
  * Everything about one claim: what the site says, what AI said and where, and its win-back fix.
@@ -204,72 +135,5 @@ export function ClaimDetail({ s, run }: { s: AttributeScore; run: Run }) {
         </>
       )}
     </div>
-  );
-}
-
-/** "Where the upside is": the biggest open claims first, one compact row each. The diagnosis they
- * share is said once; each row opens everything about its claim. */
-export function UpsideTable({ run }: { run: Run }) {
-  const gaps = openClaims(run.attribute_scores).slice(0, 4);
-  if (!gaps.length) {
-    return <div className="card muted">No open opportunity: every claim has landed or is unweighted.</div>;
-  }
-  const owners = [...new Set(gaps.map((s) => s.owner))];
-  const shared = owners.length === 1 ? owners[0] : null;
-  return (
-    <div className="stack" style={{ gap: ".5rem" }}>
-      {shared && (
-        <p style={{ margin: 0 }}>
-          {gaps.length > 1 ? `All ${gaps.length} are` : "It is"} <strong>{OWNER_TITLE[shared].toLowerCase()}s</strong>: {OWNER_TEXT[shared]}
-          {shared === "messaging_gap" && " Not an AI problem: your own copy does not state this clearly enough to be repeated."}
-        </p>
-      )}
-      <div className="table-scroll">
-        <table className="compact">
-          <thead><tr><th>Claim</th><th>Type</th>{!shared && <th>Why</th>}<th>Your site</th><th>AI</th></tr></thead>
-          <tbody>
-            {gaps.map((s) => (
-              <tr key={s.attribute_id}>
-                <td><Popover wide label={s.label} className="linky row-open" trigger={s.label}><ClaimDetail s={s} run={run} /></Popover>
-                  {s.discovered && <span className="muted"> (AI's own)</span>}
-                  {s.quotes[0] && <p className="quote small-quote">{plain(s.quotes[0])}</p>}
-                  {s.limitations.filter((l) => l.includes("does not endorse it")).map((l, i) => <p className="warn" key={i} style={{ margin: 0 }}>{l}</p>)}
-                </td>
-                <td><Term k={s.zone}><span className={`pill ${s.zone}`}>{ZONE_LABEL[s.zone]}</span></Term></td>
-                {!shared && <td><strong>{OWNER_TITLE[s.owner]}.</strong> {OWNER_TEXT[s.owner]}</td>}
-                <td>{s.discovered ? "Found in the answers, not on the site" : siteShare(s)}</td>
-                <td>{aiShare(s)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="muted" style={{ margin: 0 }}>Open a claim for AI's own words and all its evidence.</p>
-    </div>
-  );
-}
-
-/** Things AI says the company is known for that neither the company nor its site ever supplied. */
-export function Discovered({ run }: { run: Run }) {
-  const found = run.attribute_scores.filter((s) => s.discovered);
-  const toShape = found.filter((s) => s.zone === "imposed").length;
-  return (
-    <Section title={<>Discovered <Term k="imposed">identities</Term></>}
-           found={found.length ? `${found.length} found in the answers${toShape ? ` · ${toShape} to shape` : ""}`
-             : "none found"}>
-      {found.length ? (
-        <>
-          <p className="muted" style={{ margin: 0 }}>
-            Found in the answers by the discovery pass — never supplied by you or your site. Each is
-            an identity AI already gives {run.profile.name}: adopt it, or reframe it.
-          </p>
-          <ClaimCards scores={found} run={run} />
-        </>
-      ) : (
-        <p className="muted" style={{ margin: 0 }}>
-          The answers raised nothing about {run.profile.name} beyond the claims on the Overview.
-        </p>
-      )}
-    </Section>
   );
 }
