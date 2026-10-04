@@ -175,7 +175,7 @@ export const money = (x: number) => `$${x.toFixed(2)}`;
 /** A page's address as a reader says it: no scheme, no www., no trailing slash. */
 export const address = (u?: string | null) => (u ?? "").replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
 
-/** A why-agent verdict as a pill: its words and the tone it is drawn in (fleet.tsx). */
+/** A why-agent verdict as a pill: its words and the tone it is drawn in (why.tsx, fleet.tsx). */
 export const WHY_VERDICT: Record<WhyVerdict["kind"], { label: string; tone: string }> = {
   caused_by: { label: "Cause found", tone: "contested" },
   over_determined: { label: "Several pages", tone: "contested" },

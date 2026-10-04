@@ -3,6 +3,7 @@ import type { RetrievalRow, Run } from "../api";
 import { PROVENANCE_LABEL, when } from "../labels";
 import { Popover } from "../popover";
 import { FleetPanel } from "../fleet";
+import { PastInvestigations } from "../why";
 import { WhyAIMisses } from "../audit";
 import { modelsOf, winBackPlan } from "./util";
 import { Logo } from "./ui";
@@ -75,7 +76,8 @@ export function Report({ run }: { run: Run }) {
   const [reasks, setReasks] = useState<Record<string, RetrievalRow["reask"]>>({});
   const reasked = (probe: string, got: RetrievalRow["reask"]) => setReasks((m) => ({ ...m, [`${run.id}:${probe}`]: got }));
   useEffect(() => {
-    const follow = () => setHash(window.location.hash);
+    // A report on a tab out of view (the onboarding one behind History) keeps its page.
+    const follow = () => { if (top.current?.getClientRects().length) setHash(window.location.hash); };
     window.addEventListener("hashchange", follow);
     window.addEventListener("popstate", follow);
     return () => { window.removeEventListener("hashchange", follow); window.removeEventListener("popstate", follow); };
@@ -87,7 +89,7 @@ export function Report({ run }: { run: Run }) {
   useEffect(() => {
     if (shown.current === hash) return;
     shown.current = hash;
-    const part = hash.length > 1 ? document.getElementById(hash.slice(1)) : null;
+    const part = hash.length > 1 ? top.current?.querySelector(`#${CSS.escape(hash.slice(1))}`) : null;
     (part ?? top.current)?.scrollIntoView({ block: "start" });
   }, [hash]);
   const go = (to: string) => {
@@ -161,6 +163,7 @@ export function Report({ run }: { run: Run }) {
           <WinBack run={run} />
           <TestAFix run={run} reasks={reasks} onReasked={reasked} />
           <FleetPanel run={run} />
+          <PastInvestigations run={run} />
         </div>
       )}
       <div id="evidence-site" className="ev-part"><WhyAIMisses run={run} /></div>
