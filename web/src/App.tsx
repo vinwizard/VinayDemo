@@ -99,7 +99,7 @@ export default function App() {
           <nav className="tabs" role="tablist">
             {tabs.map(([t, label]) => (
               <button key={t} role="tab" className="tab" aria-selected={tab === t}
-                      onClick={() => { setTab(t); if (t === "history") { closeReport(); setOpened(null); } }}>
+                      onClick={() => { setTab(t); closeReport(); if (t === "history") setOpened(null); }}>
                 {label}
               </button>
             ))}
