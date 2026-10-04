@@ -262,7 +262,8 @@ reason from `na_reasons`; no external logo service (the logo is the site's own i
     question per front and **What AI read** (`Answer.trace`, `live.reading_of`); What the AI searched
     (`insights.searches`); the Quick wins plan (`agents/win_back.py`, `web/src/quickwins.ts`: per claim
     a question-headed passage, one verdict, one next step, its proof behind a disclosure), Test a fix
-    (`retrieval.py`) and **Investigate the gaps** (`fleet.tsx`, `fleetlog.ts`); the site check
+    (`retrieval.py`), **Investigate the gaps** (`fleet.tsx`, `fleetlog.ts`) and a live run's past why
+    investigations, read-only (`why.tsx`); the site check
     (`audit.tsx`, `audit.py`); the citation network (`sources.tsx`, `insights.domain_keys`,
     `insights.source_kind`) and who AI named instead; and **How we checked this report**
     (`drift.limitations`).
