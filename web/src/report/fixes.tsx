@@ -8,7 +8,7 @@ import { GLOSSARY } from "../glossary";
 import { Popover, Term } from "../popover";
 import { WhyAIMisses } from "../audit";
 import { WhyPanel } from "../why";
-import { refs, quoted, searcher, tryStory, answeredOk, cited, score, behind } from "./util";
+import { refs, quoted, searcher, tryStory, answeredOk, cited, score, behind, tabKey } from "./util";
 import { Section, SAMPLE_NOTE } from "./ui";
 import { QRef } from "./questions";
 
@@ -34,11 +34,8 @@ export function WhyTab({ run, reasks, onReasked }: {
     if (focus) document.getElementById(`${uid}-sub-${t}`)?.focus();
   };
   const onKey = (e: KeyboardEvent) => {
-    const i = subs.findIndex(([t]) => t === sub);
-    const to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: subs.length - 1 }[e.key];
-    if (to == null) return;
-    e.preventDefault();
-    open(subs[(to + subs.length) % subs.length][0], true);
+    const to = tabKey(e, subs.findIndex(([t]) => t === sub), subs.length);
+    if (to != null) open(subs[to][0], true);
   };
   const brand = run.profile.name;
   const buyer = run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline");

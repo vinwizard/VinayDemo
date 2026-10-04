@@ -4,6 +4,7 @@ replays carry the authored sample without moving a score."""
 import pytest
 
 import positioning
+from agents.evaluation import merge_divisions
 from schemas import Answer, Attribute, CompanyProfile, PositioningPoint, Probe, QueryEvaluation, Run
 from fakes import replay
 
@@ -12,6 +13,10 @@ VOCAB = ["wiki", "task", "meeting", "ai"]
 
 def by_words(texts):
     return [[t.lower().count(w) + 0.01 for w in VOCAB] for t in texts]
+
+
+def ev(pid, *rivals):
+    return QueryEvaluation(probe_id=pid, valid=True, explanation="x", competitor_recommendations=list(rivals))
 
 
 def run():
@@ -69,7 +74,7 @@ def test_no_rival_means_no_map_and_a_reason():
     assert not m.points and "named a rival" in m.reason
 
 
-def test_replay_carries_the_authored_sample_and_moves_no_score():
+def test_replay_carries_the_authored_samples_and_moves_no_score():
     for scenario, score in (("A", 21.4), ("B", 27.9)):
         r = replay(scenario)
         m = r.positioning
@@ -80,6 +85,14 @@ def test_replay_carries_the_authored_sample_and_moves_no_score():
         for p in m.points:  # verbatim: every sentence is in an answer or on the site
             assert all(s in texts or s in [q.text for q in r.profile.positioning_points] for s in p.sentences)
         assert "authored, not computed" in " ".join(r.log)
+        # the retrieval simulation's authored sample too (retrieval.py): every row on a real question
+        assert r.retrieval.provenance == "synthetic" and r.retrieval.model is None
+        ids, fixes = {p.id for p in r.probes}, {a.attribute_id: a for a in r.win_back}
+        for row in r.retrieval.rows:
+            assert row.probe_id in ids and row.yours and row.rival
+            if row.fixed:
+                assert row.fixed.text == fixes[row.fix_attribute_id].rewrite
+                assert row.probe_id in fixes[row.fix_attribute_id].question_ids
 
 
 def test_site_basis_until_a_claim_is_weighted_then_the_weighted_claims():
@@ -141,20 +154,15 @@ def test_rescore_moves_the_aim_to_the_weighted_claims_without_asking_a_model(mon
 def test_a_division_is_counted_as_its_parent_company_and_never_shown_twice():
     # Amgen on gpt-6-luna, 22 Sep 2026: the map drew "Johnson & Johnson" and "Johnson & Johnson
     # Innovative Medicine" as two rivals, from two answers naming the one company two ways.
-    from agents.evaluation import merge_divisions
-    evals = [QueryEvaluation(probe_id="b1", valid=True, explanation="x",
-                             competitor_recommendations=["Johnson & Johnson", "Pfizer"]),
-             QueryEvaluation(probe_id="b2", valid=True, explanation="x",
-                             competitor_recommendations=["Johnson & Johnson Innovative Medicine", "Johnson & Johnson"]),
-             QueryEvaluation(probe_id="b3", valid=True, explanation="x",
-                             competitor_recommendations=["Pfizer Oncology", "Novartis"])]
+    evals = [ev("b1", "Johnson & Johnson", "Pfizer"),
+             ev("b2", "Johnson & Johnson Innovative Medicine", "Johnson & Johnson"),
+             ev("b3", "Pfizer Oncology", "Novartis")]
     merge_divisions(evals)
     assert [e.competitor_recommendations for e in evals] == [
         ["Johnson & Johnson", "Pfizer"], ["Johnson & Johnson"], ["Pfizer", "Novartis"]]
     merge_divisions(evals)  # idempotent
     assert evals[1].competitor_recommendations == ["Johnson & Johnson"]
-    other = [QueryEvaluation(probe_id="b4", valid=True, explanation="x",
-                             competitor_recommendations=["Merck", "Merck KGaA", "Merck Inc."])]
+    other = [ev("b4", "Merck", "Merck KGaA", "Merck Inc.")]
     merge_divisions(other)
     assert other[0].competitor_recommendations == ["Merck", "Merck KGaA"]
 
@@ -163,20 +171,15 @@ def test_legal_suffixes_qualifiers_and_pairs_are_named_as_the_companies_they_are
     # Amgen on gpt-6-luna, 22 Sep 2026: the committed run showed "Merck" and "Sanofi" where the judge
     # wrote "Merck & Co.", "Merck (MSD in some countries)" and "Sanofi and Regeneron", and the code on
     # main could not reproduce it. The same rule now does, with no hand edits: Regeneron is kept.
-    from agents.evaluation import merge_divisions
-    evals = [QueryEvaluation(probe_id="b1", valid=True, explanation="x",
-                             competitor_recommendations=["Merck & Co.", "Pfizer"]),
-             QueryEvaluation(probe_id="b2", valid=True, explanation="x",
-                             competitor_recommendations=["Merck", "Sanofi"]),
-             QueryEvaluation(probe_id="b3", valid=True, explanation="x",
-                             competitor_recommendations=["Sanofi and Regeneron", "Merck (MSD in some countries)",
-                                                         "CVS Specialty", "CVS", "Procter and Gamble"])]
+    evals = [ev("b1", "Merck & Co.", "Pfizer"),
+             ev("b2", "Merck", "Sanofi"),
+             ev("b3", "Sanofi and Regeneron", "Merck (MSD in some countries)", "CVS Specialty", "CVS",
+                "Procter and Gamble")]
     merge_divisions(evals)
     assert [e.competitor_recommendations for e in evals] == [
         ["Merck", "Pfizer"], ["Merck", "Sanofi"], ["Sanofi", "Regeneron", "Merck", "CVS", "Procter and Gamble"]]
     merge_divisions(evals)  # idempotent
     assert evals[2].competitor_recommendations == ["Sanofi", "Regeneron", "Merck", "CVS", "Procter and Gamble"]
-    firms = [QueryEvaluation(probe_id="b5", valid=True, explanation="x",
-                             competitor_recommendations=["McKinsey & Company", "McKinsey", "Bain and Company", "Bain"])]
+    firms = [ev("b5", "McKinsey & Company", "McKinsey", "Bain and Company", "Bain")]
     merge_divisions(firms)
     assert firms[0].competitor_recommendations == ["McKinsey", "Bain"]

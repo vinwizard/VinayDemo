@@ -202,7 +202,7 @@ def test_discover_returns_the_raw_proposals_or_none_on_a_bad_payload():
     calls = []
     ok = ModelEvaluator(model="m", transport=lambda p, m, t: calls.append(p) or
                         "```json\n" + json.dumps({"proposals": [proposal("Clunky", ("np-1", "Clunky"))]}) + "\n```")
-    assert ok.discover(PROFILE, [], pairs())[0]["label"] == "Clunky" and len(calls) == ok.calls == 1
+    assert ok.discover(PROFILE, [], pairs())[0]["label"] == "Clunky" and len(calls) == 1
     bad = ModelEvaluator(model="m", transport=lambda *_: '{"nope": 1}')
     assert bad.discover(PROFILE, [], pairs()) is None and bad.failures
 

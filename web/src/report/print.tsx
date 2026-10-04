@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { AttributeScore, Run } from "../api";
-import { GAP_ZONES, ZONE_ORDER } from "../api";
 import { PROVENANCE_LABEL, ZONE_LABEL, ZONE_MEANING, headline, when } from "../labels";
 import { GLOSSARY } from "../glossary";
-import { aiShare, printedRange, FRONT_TERM, frontsOf, gapSentence, modelsOf } from "./util";
+import { aiShare, printedRange, FRONT_TERM, frontsOf, gapSentence, modelsOf, openClaims } from "./util";
 import { Logo } from "./ui";
 import { Visibility } from "./figures";
 
@@ -12,12 +11,6 @@ import { Visibility } from "./figures";
 const topWins = (scores: AttributeScore[]) => scores
   .filter((s) => s.zone === "landed")
   .sort((a, b) => (b.echo_rate ?? 0) - (a.echo_rate ?? 0))
-  .slice(0, 3);
-
-/** Top 3 open claims, in the same order as "Where the upside is". */
-const topFixes = (scores: AttributeScore[]) => scores
-  .filter((s) => GAP_ZONES.includes(s.zone))
-  .sort((a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.intended_weight ?? 0) - (a.intended_weight ?? 0))
   .slice(0, 3);
 
 /**
@@ -47,7 +40,7 @@ function ExecSummary({ run }: { run: Run }) {
   const d = run.drift!;
   const h = headline(d);
   const wins = topWins(run.attribute_scores);
-  const fixes = topFixes(run.attribute_scores);
+  const fixes = openClaims(run.attribute_scores).slice(0, 3);
   const live = run.mode === "live_api";
   return (
     <section className="exec-summary">

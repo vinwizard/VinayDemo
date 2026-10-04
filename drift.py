@@ -89,10 +89,10 @@ def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float],
         return "lost_claim", "authority_gap"
     if target:
         return ("lost_claim" if claim_lens else "unstated_intent"), "messaging_gap"
-    # Claimed but not weighted while other claims are (the claim lens never gets here). This never
-    # arose in the fixtures — every unintended fixture attribute has claim_pages=0. `imposed` means AI asserts something the company never claimed
-    # ANYWHERE, so a claim their own site makes with a validated quote behind it can never be
-    # imposed, whatever the echo rate: keying this on the echo too would leave the ordinary
+    # Claimed but not weighted while other claims are (the claim lens never gets here). `imposed`
+    # means AI asserts something the company never claimed ANYWHERE, so a claim their own site
+    # makes with a validated quote behind it can never be imposed, whatever the echo rate: keying
+    # this on the echo too would leave the ordinary
     # [IMPOSED_MIN, ECHO_THRESHOLD) band reading "AI asserts this about you without you claiming it"
     # beside that row's own "50% of pages (3 of 6)".
     if claimed:
@@ -107,9 +107,9 @@ def named_eligibility(probes: list[Probe], answers: list[Answer],
     Exclusions must be reported, not just applied: a timeout removes an answer that would otherwise
     have counted against you, so a silent exclusion inflates alignment. Callers surface the counts.
     """
-    # Baseline only. The adaptive comparison question is a named probe too, but it is chosen from
-    # results the baseline produced, so counting it here would let the follow-up round move the
-    # score it was selected by. It is reported as exploratory evidence instead.
+    # Baseline only. The comparison question is a named probe too, but it is written from results
+    # the baseline produced, so counting it here would let it move the score it came from. It is
+    # reported as exploratory evidence instead.
     named = [p for p in probes if p.kind == "named" and p.phase == "baseline"]
     ans = {a.probe_id: a for a in answers}
     ev = {e.probe_id: e for e in evals}

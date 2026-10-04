@@ -1,6 +1,5 @@
 """Buyer questions grounded in real demand (demand.py). No network and no key: the autocomplete
-answers are recorded from Google's suggestqueries endpoint, the Reddit listing is authored in its
-real shape (Reddit refused unauthenticated search), and embeddings are a stub."""
+answers are recorded from Google's suggestqueries endpoint, and embeddings are a stub."""
 import json
 from pathlib import Path
 
@@ -13,15 +12,12 @@ F = fixture.FixtureProvider("A")
 CAT = "project management software"
 HERE = Path(__file__).resolve().parent.parent / "fixtures" / "demand"
 AUTOCOMPLETE = json.loads((HERE / "autocomplete_project_management_software.json").read_text())
-REDDIT = json.loads((HERE / "reddit_search_shape.json").read_text())
 GROUPS = ("construction", "small", "free", "choose", "excel")
 
 
 def recorded(url, calls=None):
     if calls is not None:
         calls.append(url)
-    if url.startswith(demand.REDDIT):
-        return REDDIT
     seed = demand.urllib.parse.unquote(url[len(demand.AUTOCOMPLETE):])
     return AUTOCOMPLETE[seed]
 
@@ -36,38 +32,26 @@ def embed(texts):
     return [vec(i, t) for i, t in enumerate(texts)]
 
 
-def test_harvest_reads_both_sources_states_a_refusal_and_caches_per_category(monkeypatch):
+def test_harvest_reads_autocomplete_and_caches_per_category(monkeypatch):
     calls = []
     monkeypatch.setattr(demand, "_fetch_json", lambda u: recorded(u, calls))
     phrases, notes = demand.harvest(CAT)
-    assert {p["source"] for p in phrases} == {"autocomplete", "reddit"} and notes == []
-    assert len(calls) == len(demand.SEEDS) + 1
+    assert {p["source"] for p in phrases} == {"autocomplete"} and notes == []
+    assert len(calls) == len(demand.SEEDS)
     demand.harvest(CAT)
-    assert len(calls) == len(demand.SEEDS) + 1              # second read comes from the disk cache
-
-    def no_reddit(u):
-        if u.startswith(demand.REDDIT):
-            raise demand.urllib.error.HTTPError(u, 403, "Blocked", {}, None)
-        return recorded(u)
-    monkeypatch.setattr(demand, "_fetch_json", no_reddit)
-    demand._cache(CAT).unlink()
-    _, notes = demand.harvest(CAT)
-    assert notes == ["Reddit refused the search (HTTP 403)"]
+    assert len(calls) == len(demand.SEEDS)                  # second read comes from the disk cache
 
 
 def test_clean_keeps_intent_on_the_category_and_drops_the_brand_and_the_vendor(monkeypatch):
     monkeypatch.setattr(demand, "_fetch_json", recorded)
     raw, _ = demand.harvest(CAT)
     raw += [dict(text="notion vs project management software", source="autocomplete", rank=0),
-            dict(text="does your platform replace project management software?", source="reddit", rank=9)]
+            dict(text="does your platform replace project management software?", source="autocomplete", rank=9)]
     kept = [p["text"] for p in demand.clean(raw, CAT, F.profile)]
     assert "best project management software for small teams" in kept
-    assert "Is there free project management software that isn't terrible?" in kept
     assert CAT not in kept                                   # the bare category is not a question
     assert "project management software tools" not in kept   # no buying intent
     assert "project management vs software engineering" not in kept   # off the category
-    assert "What gardening gloves do you recommend?" not in kept
-    assert "We switched project management software and here is our story" not in kept
     assert not any("notion" in k.lower() or "your platform" in k for k in kept)
     assert len(kept) == len({k.lower().rstrip("?") for k in kept})
 
@@ -86,7 +70,7 @@ def test_ground_asks_the_biggest_groups_exactly_as_people_typed_them(monkeypatch
     for q, d in found:
         assert q == d.phrase and d.phrase in [p.text for p in d.phrasings]
         assert not ana.brand_leaks(q, F.profile)
-    assert "Google autocomplete and Reddit" in note
+    assert "Google autocomplete" in note
 
 
 def test_ground_without_real_searches_falls_back_and_says_why():

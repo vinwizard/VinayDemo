@@ -1,11 +1,11 @@
 import { useState } from "react";
 import type { AttributeScore, Run } from "../api";
-import { GAP_ZONES, OWNER_TEXT, OWNER_TITLE, ZONE_ORDER, ZONES, rescoreRun } from "../api";
+import { OWNER_TEXT, OWNER_TITLE, ZONES, rescoreRun } from "../api";
 import { ADDED_MIN_WEIGHT, Slider } from "../claims";
 import { ZONE_LABEL, headline, plain, plural } from "../labels";
 import { GLOSSARY } from "../glossary";
 import { Popover, Term } from "../popover";
-import { ZONE_FILL, pct, siteShare, aiShare, leftOut, refs, sortClaims, winBackPlan } from "./util";
+import { ZONE_FILL, pct, siteShare, aiShare, leftOut, refs, openClaims, sortClaims, winBackPlan } from "./util";
 import { Block, Section } from "./ui";
 import { Linked } from "./questions";
 import { FixCard } from "./winback";
@@ -19,7 +19,7 @@ export function ZoneChips({ run }: { run: Run }) {
   const sorted = sortClaims(run.attribute_scores);
   return (
     <Section title="Your claims, grouped by what AI does with them" found="hover or tap a group to see its claims">
-      <div className="chips" role="list" data-tour="zones">
+      <div className="chips" role="list">
         {ZONES.map((z) => {
           const rows = sorted.filter((s) => s.zone === z);
           return (
@@ -210,10 +210,7 @@ export function ClaimDetail({ s, run }: { s: AttributeScore; run: Run }) {
 /** "Where the upside is": the biggest open claims first, one compact row each. The diagnosis they
  * share is said once; each row opens everything about its claim. */
 export function UpsideTable({ run }: { run: Run }) {
-  const gaps = run.attribute_scores
-    .filter((s) => GAP_ZONES.includes(s.zone))
-    .sort((a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.intended_weight ?? 0) - (a.intended_weight ?? 0))
-    .slice(0, 4);
+  const gaps = openClaims(run.attribute_scores).slice(0, 4);
   if (!gaps.length) {
     return <div className="card muted">No open opportunity: every claim has landed or is unweighted.</div>;
   }

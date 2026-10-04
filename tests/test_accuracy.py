@@ -19,7 +19,7 @@ import sampler
 from agents import ana, onboarding_model
 from providers import fixture, live
 from schemas import Company, QueryEvaluation, Answer
-from scoring import MIN_CONTROL_VENDORS, low_confidence, visibility_by_question, visibility_over_tries
+from scoring import MIN_CONTROL_VENDORS, low_confidence, visibility_by_question, visibility_range
 
 F = fixture.FixtureProvider("A")
 
@@ -61,13 +61,13 @@ def test_visibility_weighs_every_question_once_however_often_it_was_asked():
 
 
 def test_the_range_beside_the_number_is_the_per_try_wobble():
-    assert visibility_over_tries([[2, 0, 0], [0, 0, 0], [1, 1, 0]]) == (22.2, [0.0, 33.3])
-    assert visibility_over_tries([[2, 1, 0]]) == (50.0, [50.0, 50.0])   # one try is its own range
-    assert visibility_over_tries([[1], []]) == (50.0, [50.0, 50.0])       # an empty try is not a zero
-    assert visibility_over_tries([]) == (None, None)
+    assert visibility_range([[2, 0, 0], [0, 0, 0], [1, 1, 0]]) == [0.0, 33.3]
+    assert visibility_range([[2, 1, 0]]) == [50.0, 50.0]   # one try is its own range
+    assert visibility_range([[1], []]) == [50.0, 50.0]       # an empty try is not a zero
+    assert visibility_range([]) is None
 
 
-def live_run(buyer_text, control_text, wobble=1, monkeypatch=None):
+def live_run(monkeypatch, buyer_text, control_text):
     """buyer_text(ask number of that question) -> answer text. Named questions get a plain answer."""
     asked = Counter()
     profile = with_category()
@@ -82,7 +82,6 @@ def live_run(buyer_text, control_text, wobble=1, monkeypatch=None):
 
     # ±33 points: six questions frozen a front, four asked first (test_sampler.py owns the sizing)
     monkeypatch.setenv(sampler.MARGIN_ENV, "33")
-    monkeypatch.setenv(sampler.WOBBLE_ENV, str(wobble))
     prov = live.LiveProvider(F.attributes(), F.named_probes(), profile=profile, model="test-model",
                              transport=transport, evaluator=Judge())
     prov.concurrency = 1
@@ -92,8 +91,7 @@ def live_run(buyer_text, control_text, wobble=1, monkeypatch=None):
 def test_the_budget_buys_fresh_questions_and_one_re_ask_a_front(monkeypatch):
     """Sampler-lite: every question is asked once and one question a front once more, the wobble
     audit, so the money goes on questions not asked yet, which is what the number does not know."""
-    run, asked = live_run(lambda n: "Notion fits." if n == 2 else "Coda fits.", "Linear, Asana and Coda.",
-                          monkeypatch=monkeypatch)
+    run, asked = live_run(monkeypatch, lambda n: "Notion fits." if n == 2 else "Coda fits.", "Linear, Asana and Coda.")
     buyer = [p for p in run.probes if p.kind == "blind" and p.phase == "baseline"]
     audited = [p for p in buyer if p.id in run.sampler.wobble]
     assert len(audited) == 1 and asked[audited[0].text] == 2      # one front, one re-ask
@@ -109,17 +107,9 @@ def test_the_budget_buys_fresh_questions_and_one_re_ask_a_front(monkeypatch):
     assert (front.asked, front.pool, front.stopped_early, front.named, front.judged) == (4, 6, True, 0, 4)
 
 
-def test_repeat_asks_are_spread_across_the_fronts_not_taken_off_the_front_of_the_list():
-    """The fronts are contiguous in plan order, so the first two questions are the same category."""
-    buyer = [f"q{i}" for i in range(12)]
-    assert graph.repeat_sampled(buyer, 2) == ["q0", "q6"]
-    assert graph.repeat_sampled(buyer, 3) == ["q0", "q4", "q8"]
-    assert graph.repeat_sampled(buyer, 0) == [] and graph.repeat_sampled([], 2) == []
-    assert graph.repeat_sampled(["q0"], 5) == ["q0"]      # never more questions than there are
-
 
 def test_the_control_question_never_moves_visibility(monkeypatch):
-    run, _ = live_run(lambda n: "Coda fits.", "Notion, Linear and Asana lead.", monkeypatch=monkeypatch)
+    run, _ = live_run(monkeypatch, lambda n: "Coda fits.", "Notion, Linear and Asana lead.")
     control = next(p for p in run.probes if p.phase == "control")
     assert next(e for e in run.evaluations if e.probe_id == control.id).mentioned
     aiming = run.drift.sets[0]
@@ -133,24 +123,18 @@ def test_the_control_question_never_moves_visibility(monkeypatch):
     assert main.run_payload(run)["insights"]["voice"]["questions"] == 10   # buyer questions, first try
 
 
-def test_a_zero_is_low_confidence_when_the_control_names_too_few_tools(monkeypatch):
-    run, _ = live_run(lambda n: "Coda fits.", "Hard to say; Coda maybe.", monkeypatch=monkeypatch)
-    assert run.drift.visibility == 0.0
-    assert "does not seem to know this category" in run.drift.low_confidence
-
-
-def test_a_zero_is_low_confidence_when_even_the_control_leaves_the_brand_out(monkeypatch):
-    run, _ = live_run(lambda n: "Coda fits.", "Linear, Asana and Coda lead.", monkeypatch=monkeypatch)
-    assert "named Linear, Asana, Coda but not Notion" in run.drift.low_confidence
-
-
-def test_a_brand_named_in_some_buyer_answers_is_still_flagged_when_the_control_leaves_it_out(monkeypatch):
+@pytest.mark.parametrize("named_on_reask,control,says", [
+    (False, "Hard to say; Coda maybe.", "does not seem to know this category"),
+    (False, "Linear, Asana and Coda lead.", "named Linear, Asana, Coda but not Notion"),
     # an earlier live run: named once by chance, absent from 38 category leaders, and never flagged
-    run, _ = live_run(lambda n: "Notion fits." if n == 2 else "Coda fits.", "Linear, Asana and Coda.",
-                      monkeypatch=monkeypatch)
-    assert run.drift.visibility > 0 and "but not Notion" in run.drift.low_confidence
-    run, _ = live_run(lambda n: "Notion fits." if n == 2 else "Coda fits.", "Coda.", monkeypatch=monkeypatch)
-    assert "does not seem to know this category" in run.drift.low_confidence
+    (True, "Linear, Asana and Coda.", "but not Notion"),
+    (True, "Coda.", "does not seem to know this category"),
+])
+def test_a_zero_or_a_chance_mention_is_low_confidence_when_the_control_leaves_the_brand_out(
+        monkeypatch, named_on_reask, control, says):
+    run, _ = live_run(monkeypatch, lambda n: "Notion fits." if named_on_reask and n == 2 else "Coda fits.", control)
+    assert (run.drift.visibility > 0) is named_on_reask
+    assert says in run.drift.low_confidence
 
 
 def test_the_flag_rule():
@@ -177,13 +161,19 @@ def test_offline_replay_is_one_try_and_its_numbers_do_not_move(scenario, alignme
     # one authored answer per question: nothing was re-asked, so there is no wobble to show
     assert (d.tries, d.repeat_sample, d.visibility_range, d.low_confidence) == (1, 0, None, None)
     assert run.repeat_answers == [] and not [x for x in run.probes if x.phase == "control"]
+    # a run saved before these fields existed still reads, as one try
+    raw = json.loads(run.model_dump_json())
+    for k in ("tries", "visibility_range", "low_confidence"):
+        raw["drift"].pop(k)
+    raw.pop("repeat_answers"), raw.pop("repeat_evaluations")
+    old = type(run).model_validate(raw)
+    assert old.drift.tries == 1 and old.drift.visibility_range is None
 
 
 # ---------------------------------------------------------------- 2. the answering model is a setting
 def test_the_answering_model_defaults_to_a_recent_searching_model_and_is_priced_exactly(monkeypatch):
     """gpt-4.1's training stopped in 2024, so it answered about brands it had never heard of. The
     default is a 2026 model that takes web_search and costs a fraction of it."""
-    monkeypatch.delenv(live.MODEL_ENV, raising=False)
     assert live.model_name() == "gpt-6-luna" and live.MODEL_ENV == "MEASURED_MODEL"
     assert access.PRICES["gpt-6-luna"] < access.PRICES["gpt-4.1"]
     assert all(access.UNKNOWN_PRICE[i] > max(p[i] for p in access.PRICES.values()) for i in (0, 1))
@@ -191,7 +181,7 @@ def test_the_answering_model_defaults_to_a_recent_searching_model_and_is_priced_
     assert live.model_name() == "gpt-4o"
 
 
-def test_every_model_the_app_can_be_pointed_at_is_priced(monkeypatch):
+def test_every_model_the_app_can_be_pointed_at_is_priced():
     """A model missing from the table is metered at UNKNOWN_PRICE, which would bill a pass for far
     more than it spent; the defaults and the models the error message offers must all be listed."""
     from agents import evaluator_model, onboarding_model
@@ -229,7 +219,6 @@ def test_run_budget_setting(monkeypatch, raw, usd):
 
 def test_health_names_both_models_the_budget_and_that_search_is_forced(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    monkeypatch.delenv(live.MODEL_ENV, raising=False)
     h = main.health()
     assert (h["measured_model"], h["forced_search"]) == ("gpt-6-luna", True)
     # sampler-lite's defaults: ±20 at 95%, 10 then 23 questions a front, one re-ask a front, no run cap
@@ -287,8 +276,7 @@ def test_a_category_naming_the_brand_is_refused(store):
     assert e.value.status_code == 400
 
 
-def test_without_a_key_the_category_is_kept_and_the_missing_questions_are_stated(store, monkeypatch):
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+def test_without_a_key_the_category_is_kept_and_the_missing_questions_are_stated(store):
     reports.save_company(company())
     out = main.patch_company("abc123", main.CompanyPatch(core_category=CATEGORY))
     assert out["profile"]["core_category"] == CATEGORY and out["profile"]["category_questions"] == []
@@ -309,14 +297,3 @@ def test_onboarding_names_the_core_category(store, monkeypatch):
     out = main.onboard(url="https://acme.example/", name="Acme")
     assert out["profile"]["core_category"] == "payroll software for startups"
     assert out["profile"]["category_questions"] == ["Which payroll software suits a small startup?"]
-
-
-def test_an_old_run_without_the_new_fields_still_reads():
-    p = fixture.FixtureProvider("A")
-    run = graph.execute(graph.new_run(p.profile, p), p)
-    raw = json.loads(run.model_dump_json())
-    for k in ("tries", "visibility_range", "low_confidence"):
-        raw["drift"].pop(k)
-    raw.pop("repeat_answers"), raw.pop("repeat_evaluations")
-    old = type(run).model_validate(raw)
-    assert old.drift.tries == 1 and old.drift.visibility_range is None

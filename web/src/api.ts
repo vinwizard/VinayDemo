@@ -109,7 +109,6 @@ export interface Topic {
   label: string;
   kind: "buyer" | "perception" | "control";
   front?: Front;
-  buyer_need: string;
   fit: string;
 }
 
@@ -117,9 +116,9 @@ export interface Topic {
 export interface Demand {
   /** The real search, verbatim: the question asked. */
   phrase: string;
-  source: "autocomplete" | "reddit";
+  source: "autocomplete";
   /** Every real phrasing grouped with it, the phrase included. */
-  phrasings: { text: string; source: "autocomplete" | "reddit" }[];
+  phrasings: { text: string; source: "autocomplete" }[];
 }
 
 export interface Probe {
@@ -300,18 +299,14 @@ export interface RunSummary {
   scenario: string | null;
   /** "live_api" for a measured run; anything else is a replayed sample. */
   mode?: string;
-  status: string;
   company: string;
   alignment: number | null;
   claim_echo?: number | null;
   lens?: "claim" | "intent" | null;
-  visibility: number | null;
-  landed: number;
-  lost: number;
-  contested: number;
-  unstated: number;
-  imposed: number;
-  unprioritised: number;
+  /** Null on a run that finished without a report. */
+  landed: number | null;
+  lost: number | null;
+  imposed: number | null;
   /** Field name -> why that number is null. */
   na_reasons?: Record<string, string>;
 }
@@ -431,7 +426,7 @@ export interface ClaimCheck {
 export interface CompanyDetail {
   id: string;
   created_at: string;
-  profile: { name: string; domain: string; aliases: string[]; customer_types: string[];
+  profile: { name: string; domain: string; aliases: string[];
              one_liner: string | null; warnings: string[]; logo_url?: string | null;
              /** What a buyer shops for; null on companies saved before categories existed. */
              core_category?: string | null; category_questions?: string[] };
@@ -490,37 +485,17 @@ export const patchCompany = (
           review?: Record<string, "keep" | "set_aside"> },
 ) => send<CompanyDetail>(`/api/companies/${id}`, "PATCH", body);
 
+/** The fields of /api/health the app reads; the rest are for operators (WEB.md). */
 export interface Health {
-  ok: boolean;
   live_available: boolean;
   /** A key is set on the server; live_available can still be false on the public demo without a pass. */
   key_configured: boolean;
-  live_status: string;
   /** Hosted demo: saved replay only, onboarding and live runs are refused by the server. */
   public_demo: boolean;
   /** Where to ask for a personal live link, or for a pass's cap to be raised. */
   contact_email: string;
-  /** The model that answers the questions, and the separate one that judges them; null without a key. */
-  /** The models ACTUALLY in use: preflight drops to a fallback when OpenAI refuses the configured
-   * pair, and `model_fallback` then says why in words safe to show. */
-  measured_model: string | null;
-  evaluator_model: string | null;
-  configured_measured_model: string | null;
-  /** Which search mode is in force, down to "none" when no model would take the tool. */
-  search_mode: string | null;
-  model_fallback: string | null;
-  /** Every measured call is made with tool_choice forcing the web_search tool. */
-  forced_search: boolean;
-  /** Buyer questions per front, how many of them are re-asked, and how many times. */
-  buyer_questions: number;
-  repeat_sample: number;
-  buyer_tries: number;
   /** The most one why investigation may spend. */
   why_budget_usd?: number;
-  /** The investigation fleet: its purse, its lanes, and one re-check's cap. */
-  fleet_budget_usd?: number;
-  fleet_concurrency?: number;
-  verify_budget_usd?: number;
   /** The committed live example in History; the first-visit story is told with its run. */
   showcase?: { company: string; run: string } | null;
 }
@@ -555,7 +530,7 @@ export interface StreamAnswer {
 
 /** A graph node finished. `planned` counts every question the run has decided to ask so far. */
 export interface StreamNode {
-  node: string; stage: string; agent: string; log: string; mode: string;
+  node: string; log: string; mode: string;
   planned: { buyer: number; brand: number; followup: number };
   competitors: string[];
 }
@@ -673,15 +648,12 @@ export const streamWhy = (runId: string, q: { attribute: string; probe?: string;
   h: {
     onStart?: (e: { budget_usd: number; question: string; model: string }) => void;
     onLog?: (e: { text: string; spent_usd: number }) => void;
-    onArm?: (e: WhyArm) => void;
-    onVerdict?: (e: WhyVerdict) => void;
     onDone?: (e: Investigation) => void;
     onError?: (e: { message: string }) => void;
   }) => {
   const params = new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][]);
   return openStream(`/api/runs/${runId}/why/stream?${params}`,
-                    { start: h.onStart, log: h.onLog, arm: h.onArm, verdict: h.onVerdict, done: h.onDone },
-                    "done", h.onError);
+                    { start: h.onStart, log: h.onLog, done: h.onDone }, "done", h.onError);
 };
 
 /** A quick win's replay test: its rewrite against one buyer question it was written for. */

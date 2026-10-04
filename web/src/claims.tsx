@@ -7,6 +7,7 @@ import { SiteReadability } from "./audit";
 import { plural, statedOn } from "./labels";
 import { intentWord } from "./quickwins";
 import { Term } from "./popover";
+import { Block } from "./report/ui";
 
 interface Added { label: string; description: string; weight: number }
 
@@ -121,42 +122,32 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
   const load = (c: CompanyDetail) => {
     onCompany(c); setWeights(weightsOf(c)); setCategory(c.profile.core_category ?? "");
   };
+  /** One change sent to the server: the form is locked while it runs, and a refusal is shown. */
+  const act = (call: Promise<CompanyDetail>, then: (c: CompanyDetail) => void) => {
+    setSaving(true); setError(null);
+    call.then(then).catch((e: Error) => setError(e.message)).finally(() => setSaving(false));
+  };
 
   /** Saves intent, then optionally measures with the company the server just returned. */
   const save = (thenMeasure: boolean) => {
     if (company.replay) { if (thenMeasure) onMeasure(company, false); return; }
-    setSaving(true); setError(null);
     const added = draft.label.trim()
       ? [{ label: draft.label.trim(), description: draft.description.trim() || null,
            intended_weight: draft.weight }]
       : [];
     const moved = category.trim() !== (company.profile.core_category ?? "");
-    patchCompany(company.id, { weights, added, ...(moved ? { core_category: category.trim() } : {}) })
-      .then((c) => {
-        load(c); setSaved(true); setDraft(EMPTY_DRAFT);
-        if (thenMeasure) onMeasure(c, fresh);
-      })
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setSaving(false));
+    act(patchCompany(company.id, { weights, added, ...(moved ? { core_category: category.trim() } : {}) }), (c) => {
+      load(c); setSaved(true); setDraft(EMPTY_DRAFT);
+      if (thenMeasure) onMeasure(c, fresh);
+    });
   };
 
   /** A claim the customer typed leaves by an explicit deletion, never by being weighted to nothing. */
-  const remove = (attributeId: string) => {
-    setSaving(true); setError(null);
-    deleteAttribute(company.id, attributeId)
-      .then(load)
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setSaving(false));
-  };
+  const remove = (attributeId: string) => act(deleteAttribute(company.id, attributeId), load);
 
   /** A flagged claim reviewed: keep measuring it, or set it aside (and restore it later). */
-  const review = (attributeId: string, decision: "keep" | "set_aside") => {
-    setSaving(true); setError(null);
-    patchCompany(company.id, { weights: {}, added: [], review: { [attributeId]: decision } })
-      .then(onCompany)
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setSaving(false));
-  };
+  const review = (attributeId: string, decision: "keep" | "set_aside") =>
+    act(patchCompany(company.id, { weights: {}, added: [], review: { [attributeId]: decision } }), onCompany);
 
   const intended = Object.values(weights).filter((w) => w > 0).length;
   const nothingToMeasure = !company.attributes.length && !draft.label.trim();
@@ -303,23 +294,17 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
       )}
 
       {(company.checks.length > 0 || !company.replay) && (
-        <details className="block">
-          <summary>
-            <span className="block-title">How we checked</span>
-            <span className="block-found">
-              {company.checks.length > 0 && `${kept} of ${company.checks.length} claims verified${left ? `, ${left} left out` : ""}`}
-              {company.checks.length > 0 && !company.replay && " · "}
-              {!company.replay && "Can AI read your site?"}
-            </span>
-          </summary>
-          <div className="block-body">
-            {company.checks.length > 0 && <HowWeChecked checks={company.checks} />}
-            {!company.replay && (
-              <SiteReadability audit={company.audit} name={company.profile.name} siteSays={company.profile.one_liner}
-                               onRecheck={() => reaudit(company.id).then(onCompany)} />
-            )}
-          </div>
-        </details>
+        <Block title="How we checked" found={<>
+          {company.checks.length > 0 && `${kept} of ${company.checks.length} claims verified${left ? `, ${left} left out` : ""}`}
+          {company.checks.length > 0 && !company.replay && " · "}
+          {!company.replay && "Can AI read your site?"}
+        </>}>
+          {company.checks.length > 0 && <HowWeChecked checks={company.checks} />}
+          {!company.replay && (
+            <SiteReadability audit={company.audit} name={company.profile.name} siteSays={company.profile.one_liner}
+                             onRecheck={() => reaudit(company.id).then(onCompany)} />
+          )}
+        </Block>
       )}
 
       {error && <div className="callout error">{error}</div>}

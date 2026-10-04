@@ -3,11 +3,15 @@
 These prove the honesty rules hold before a real key is ever used — especially that an ungrounded
 answer cannot reach a live score.
 """
+import threading
+
 import pytest
 
-from agents import evaluation
+import access
+import graph
+from agents import ana, evaluation, evaluator_model
 from providers import fixture, live
-from schemas import Probe
+from schemas import Attribute, Probe
 from scoring import eligible
 
 PROBE = Probe(id="np-1", topic_id="perception", text="What is Notion, and who is it for?",
@@ -35,6 +39,8 @@ def test_measured_prompt_contains_only_the_question():
     blob = " ".join(m["content"] for m in msgs).lower()
     for leak in ("ai-native", "workspace", "positioning", "attribute", "notion.com", "intended"):
         assert leak not in blob, f"measured prompt leaks {leak!r}"
+    blind = live.measured_prompt(Probe(id="a", topic_id="kb", text="Best wiki tools?", phase="baseline", purpose="p"))
+    assert not ana.brand_leaks(" ".join(m["content"] for m in blind), fixture.bundled_profile("A"))
 
 
 def test_transport_receives_nothing_but_the_neutral_prompt():
@@ -54,7 +60,6 @@ def test_the_request_forces_live_web_search(monkeypatch):
     """An answer written from memory is excluded from live scores, so a call that did not search is
     money spent for nothing. tool_choice makes the tool the only way to answer, and
     external_web_access asks for the open internet rather than the tool's cache-only mode."""
-    import access
     sent = {}
     monkeypatch.setenv(access.KEY_ENV, "test-key")
     monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.update(kw) or response())
@@ -64,7 +69,6 @@ def test_the_request_forces_live_web_search(monkeypatch):
 
 
 def test_after_a_fallback_the_request_drops_the_field_the_api_refused(monkeypatch):
-    import access
     sent = []
 
     def create(timeout, **kw):
@@ -74,7 +78,6 @@ def test_after_a_fallback_the_request_drops_the_field_the_api_refused(monkeypatc
         return response()
 
     monkeypatch.setenv(access.KEY_ENV, "test-key")
-    monkeypatch.delenv(live.MODEL_ENV, raising=False)
     monkeypatch.setattr(access, "_create", create)
     resolved = live.preflight()
     live.LiveProvider(fixture.FixtureProvider("A").attributes(), [], resolved=resolved).answer(PROBE)
@@ -90,7 +93,7 @@ def test_an_answer_that_still_did_not_search_is_asked_once_more():
 
     p = provider(transport=flaky)
     a = p.answer(PROBE)
-    assert len(calls) == 2 and p.calls == 2
+    assert len(calls) == 2
     assert a.search_executed is True and a.text == "Answer 2." and a.status == "ok"
 
 
@@ -121,17 +124,11 @@ def test_a_retry_that_fails_keeps_the_ungrounded_answer_rather_than_losing_it():
 
 def test_a_grounded_answer_is_never_asked_twice():
     calls = []
-    p = provider(transport=lambda *_: (calls.append(1), response())[1])
-    p.answer(PROBE)
-    assert len(calls) == 1
+    a = provider(transport=lambda *_: (calls.append(1), response())[1]).answer(PROBE)
+    assert len(calls) == 1 and a.search_executed is True and a.status == "ok"
 
 
 # --- grounding is read, never assumed ---------------------------------------
-def test_search_executed_true_only_when_web_search_call_present():
-    a = provider(transport=lambda *_: response(searched=True)).answer(PROBE)
-    assert a.search_executed is True and a.status == "ok"
-    b = provider(transport=lambda *_: response(searched=False)).answer(PROBE)
-    assert b.search_executed is False and b.status == "ok"
 
 
 def test_ungrounded_live_answer_is_excluded_from_scores():
@@ -165,7 +162,6 @@ def test_timeout_becomes_a_failed_answer_not_a_zero():
 def test_a_failed_call_the_ledger_charged_counts_against_the_run_budget(monkeypatch):
     # A timeout may have been billed, so the ledger charges it the unknown-usage estimate; the run's
     # own budget (RUN_BUDGET_USD) read only successful calls, so it fell behind what the pass paid.
-    import access
     monkeypatch.setenv(access.KEY_ENV, "k")
 
     def boom(timeout, **kw):
@@ -231,7 +227,6 @@ def test_live_plan_includes_attribute_derived_blind_probes():
 
 
 def test_placebo_questions_never_name_the_brand():
-    from agents import ana
     p = provider(transport=lambda *_: response())
     profile = fixture.bundled_profile("A")
     _, probes = p.plan(profile)
@@ -249,8 +244,6 @@ def test_aspiration_alone_is_not_strong_product_fit():
 
 
 def test_brand_leaking_buyer_question_is_rejected_not_rewritten():
-    from agents import ana
-    from schemas import Attribute
     profile = fixture.bundled_profile("A")
     bad = [Attribute(id="x", label="X", intended_weight=1.0,
                      buyer_questions=["Is Notion the best wiki?"])]
@@ -260,7 +253,6 @@ def test_brand_leaking_buyer_question_is_rejected_not_rewritten():
 
 def test_a_saved_vendor_addressed_question_is_named_in_the_run_log_not_fatal():
     """A company saved before the vendor guard still runs, without that question, and says so."""
-    import graph
     prov = provider(transport=lambda *_: response(text="Notion is a notes app."))
     a = prov._attributes[0]
     a.buyer_questions = ["How does your platform help teams share docs?", *a.buyer_questions[1:]]
@@ -271,14 +263,12 @@ def test_a_saved_vendor_addressed_question_is_named_in_the_run_log_not_fatal():
                for l in run.log)
 
 
-def test_adapter_is_disabled_without_a_key(monkeypatch):
-    monkeypatch.delenv(live.KEY_ENV, raising=False)
+def test_adapter_is_disabled_without_a_key():
     assert not live.available() and "Disabled" in live.status()
 
 
 def test_live_run_is_not_labelled_synthetic():
     """Regression: measure_drift hardcoded 'synthetic', so a live run published a synthetic label."""
-    import graph
     prov = provider(transport=lambda *_: response(text="Notion is a notes app."))
     run = graph.execute(graph.new_run(fixture.bundled_profile("A"), prov, mode="live_api"), prov)
     assert run.drift.provenance == "live_api"
@@ -288,7 +278,6 @@ def test_live_run_is_not_labelled_synthetic():
 
 
 def test_fixture_run_is_still_labelled_synthetic():
-    import graph
     f = fixture.FixtureProvider("A")
     run = graph.execute(graph.new_run(fixture.bundled_profile("A"), f), f)
     assert run.drift.provenance == "synthetic"
@@ -296,7 +285,6 @@ def test_fixture_run_is_still_labelled_synthetic():
 
 
 def test_mixed_provenance_named_answers_are_refused():
-    import graph
     f = fixture.FixtureProvider("A")
     prov = provider(transport=lambda *_: response(text="Notion is a notes app."))
     run = graph.new_run(fixture.bundled_profile("A"), prov, mode="live_api")
@@ -304,7 +292,7 @@ def test_mixed_provenance_named_answers_are_refused():
     run.probes = f.named_probes()
     run.answers = [prov.answer(run.probes[0])] + [f.answer(p) for p in run.probes[1:]]
     with pytest.raises(graph.ValidationError, match="mix provenance"):
-        graph.measure_drift({"run": run, "provider": prov, "rounds": 0})
+        graph.measure_drift({"run": run, "provider": prov})
 
 
 def test_fixture_answers_never_claim_search_executed():
@@ -346,10 +334,9 @@ def _no_leftover_fallback():
     live._fallback, live._search = None, True
 
 
-def test_a_refused_model_falls_back_once_and_says_so(monkeypatch):
+def test_a_refused_model_falls_back_once_and_says_so():
     """A 400 means this model or this tool shape is not accepted — worth one retry on the pair that
     has always worked, rather than failing a run the account could still have measured."""
-    monkeypatch.delenv(live.MODEL_ENV, raising=False)
     seen = []
 
     def picky(messages, model, timeout):
@@ -372,8 +359,6 @@ def test_a_refused_model_falls_back_once_and_says_so(monkeypatch):
 
 def test_the_judge_follows_the_measured_fallback_rather_than_failing_every_answer(monkeypatch):
     """Both default to the same model, so a refusal of it refuses the judge too."""
-    from agents import evaluator_model
-    monkeypatch.delenv(evaluator_model.MODEL_ENV, raising=False)
     assert evaluator_model.model_name() == live.DEFAULT_MODEL
     live._fallback = "refused"
     assert evaluator_model.model_name() == live.FALLBACK_MODEL
@@ -382,8 +367,6 @@ def test_the_judge_follows_the_measured_fallback_rather_than_failing_every_answe
 
 
 def test_the_judge_follows_only_the_model_preflight_refused(monkeypatch):
-    from agents import evaluator_model
-    monkeypatch.delenv(evaluator_model.MODEL_ENV, raising=False)
     monkeypatch.setenv(live.MODEL_ENV, "gpt-4.1")
     live._fallback = "refused"                  # gpt-4.1 was refused; the default judge never was
     assert evaluator_model.model_name() == evaluator_model.DEFAULT_MODEL
@@ -393,7 +376,6 @@ def test_the_judge_follows_only_the_model_preflight_refused(monkeypatch):
 
 def test_a_run_keeps_the_tool_it_was_built_with_when_another_preflight_resets(monkeypatch):
     """Preflight state is process-wide; a second run's preflight must not retarget this run's calls."""
-    import access
     sent = []
     monkeypatch.setenv(access.KEY_ENV, "test-key")
     monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.append(kw.get("tools")) or response())
@@ -404,16 +386,9 @@ def test_a_run_keeps_the_tool_it_was_built_with_when_another_preflight_resets(mo
     assert sent == [[live.FALLBACK_TOOL]]
 
 
-def test_a_working_model_records_no_fallback():
-    assert live.preflight("gpt-4o-mini", transport=lambda *_: response()).reason is None
-    assert live.fallback_reason() is None and live.search_tool() == live.SEARCH_TOOL
-
-
 def test_a_fallback_that_cannot_search_measures_ungrounded_rather_than_swapping_model(monkeypatch):
     """The captain's rule: no third model. If the fallback will not take the tool, the run goes
     ahead with no search at all, every answer is marked ungrounded, and the report says so."""
-    monkeypatch.delenv(live.MODEL_ENV, raising=False)
-    import access
     sent = []
 
     def toolless_only(timeout, **kw):
@@ -437,7 +412,6 @@ def test_a_fallback_that_cannot_search_measures_ungrounded_rather_than_swapping_
 
 
 def test_a_step_down_is_a_caveat_on_the_report_not_just_a_health_field(monkeypatch):
-    import graph
     monkeypatch.setattr(live, "_fallback", "OpenAI would not take it, so this run used something else.")
     prov = provider(transport=lambda *_: response(text="Notion is a notes app."),
                     profile=fixture.bundled_profile("A"))
@@ -455,11 +429,9 @@ def test_with_no_search_asked_for_an_answer_is_not_retried(monkeypatch):
     assert len(calls) == 1 and a.search_executed is False
 
 
-def test_concurrent_preflights_each_get_the_pair_their_own_transport_accepted(monkeypatch):
+def test_concurrent_preflights_each_get_the_pair_their_own_transport_accepted():
     """Two runs starting together: one account refuses the default model, the other takes it. Each
     run's resolution must be its own, whatever the other preflight wrote meanwhile."""
-    import threading
-    monkeypatch.delenv(live.MODEL_ENV, raising=False)
     stepping_down, other_done = threading.Event(), threading.Event()
     out = {}
 
@@ -489,27 +461,12 @@ def test_concurrent_preflights_each_get_the_pair_their_own_transport_accepted(mo
     assert out["fine"][:2] == (live.DEFAULT_MODEL, live.SEARCH_TOOL) and out["fine"].reason is None
 
 
-def test_every_pair_refused_is_fatal_and_names_what_to_set(monkeypatch):
-    monkeypatch.delenv(live.MODEL_ENV, raising=False)
+def test_every_pair_refused_is_fatal_and_names_what_to_set():
     with pytest.raises(live.ModelUnsupported) as info:
         live.preflight(transport=raising(StatusError(400, "not supported")))
     assert live.MODEL_ENV in str(info.value) and live.FALLBACK_MODEL in str(info.value)
     assert "with or without the web_search tool" in str(info.value)
     assert live.fallback_reason() is None and live.search_tool() == live.SEARCH_TOOL
-
-
-def test_only_a_400_is_retried(monkeypatch):
-    """A bad key or a region block is not a model problem: retrying spends a second call for nothing."""
-    for exc in (BAD_KEY, REGION):
-        calls = []
-
-        def boom(messages, model, timeout):
-            calls.append(model)
-            raise exc
-
-        with pytest.raises(live.PreflightFailed):
-            live.preflight(transport=boom)
-        assert len(calls) == 1 and live.fallback_reason() is None
 
 
 def test_preflight_rejects_a_model_that_cannot_take_the_tool():
@@ -521,39 +478,34 @@ def test_preflight_rejects_a_model_that_cannot_take_the_tool():
         live.preflight("gpt-4o-mini-search-preview", transport=raising(exc))
 
 
-def test_preflight_bad_key_is_a_credential_error_not_an_unsupported_model():
+@pytest.mark.parametrize("exc,error,says", [
+    (BAD_KEY, live.CredentialRejected, "refused your API key"),
+    (StatusError(None, "bad", code="invalid_api_key"), live.CredentialRejected, "refused your API key"),
+    (REGION, live.AccessDenied, "region"),
+])
+def test_a_bad_key_or_a_region_block_is_tried_once_named_and_leaks_nothing(exc, error, says):
+    """Neither is a model problem: retrying spends a second call for nothing, and no message or
+    payload carries the provider's body or a fragment of the key."""
+    calls = []
+
+    def boom(messages, model, timeout):
+        calls.append(model)
+        raise exc
+
     with pytest.raises(live.PreflightFailed) as info:
-        live.preflight("gpt-4o-mini", transport=raising(BAD_KEY))
-    assert type(info.value) is live.CredentialRejected
-    assert "refused your API key" in str(info.value)
+        live.preflight(transport=boom)
+    assert len(calls) == 1 and live.fallback_reason() is None
+    assert type(info.value) is error and says in str(info.value)
     assert "does not accept" not in str(info.value) and live.MODEL_ENV not in str(info.value)
-
-
-def test_preflight_invalid_api_key_code_alone_is_a_credential_error():
-    with pytest.raises(live.CredentialRejected):
-        live.preflight("gpt-4o-mini", transport=raising(StatusError(None, "bad", code="invalid_api_key")))
-
-
-def test_preflight_region_block_is_not_an_unsupported_model():
-    with pytest.raises(live.PreflightFailed) as info:
-        live.preflight("gpt-4o-mini", transport=raising(REGION))
-    assert type(info.value) is live.AccessDenied
-    assert "region" in str(info.value) and "does not accept" not in str(info.value)
-
-
-@pytest.mark.parametrize("exc", [BAD_KEY, REGION])
-def test_no_payload_carries_the_provider_body_or_a_key_fragment(exc):
-    with pytest.raises(live.PreflightFailed) as info:
-        live.preflight("gpt-4o-mini", transport=raising(exc))
     a = provider(transport=raising(exc)).answer(PROBE)
     for text in (str(info.value), a.error, a.model_dump_json()):
         assert KEY_FRAGMENT not in text and "abcd" not in text and "Error code" not in text
 
 
-def test_preflight_passes_a_working_model():
-    from agents import evaluator_model
+def test_preflight_passes_a_working_model_and_records_no_fallback():
     assert live.preflight("gpt-4o-mini", transport=lambda *_: response()) == (
         "gpt-4o-mini", live.SEARCH_TOOL, evaluator_model.model_name(), None)
+    assert live.fallback_reason() is None and live.search_tool() == live.SEARCH_TOOL
 
 
 def test_preflight_reraises_unrelated_failures():

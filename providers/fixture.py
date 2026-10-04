@@ -17,9 +17,9 @@ DEV_DELAY_ENV = "VISEXP_DEV_DELAY"
 def dev_delay() -> float:
     """Seconds to stall per replayed answer — a DEVELOPMENT aid only, off unless the env var is set.
 
-    .claude/skills/build-history forbids simulated latency in the demo, and this must never be used to imply a
-    provider was called. Its only purpose is to expose how the UI behaves when `execute_or_replay`
-    blocks, which is what a real per-call provider will do. When it is on, the app says so loudly.
+    .claude/skills/evidence-modes forbids simulated latency in the demo, and this must never be used to
+    imply a provider was called. Its only purpose is to expose how the UI behaves when
+    `execute_or_replay` blocks, which is what a real per-call provider will do.
     """
     return setting(DEV_DELAY_ENV, 0.0, cast=float)
 
@@ -43,7 +43,6 @@ class FixtureProvider:
     def __init__(self, scenario: str):
         self.scenario = scenario
         self.data = load(scenario)
-        self.title = self.data["title"]
 
     @property
     def profile(self) -> CompanyProfile:
@@ -72,8 +71,6 @@ class FixtureProvider:
         """Perception probes: they name the brand, never the attribute being measured."""
         return [Probe(**p) for p in self.data.get("named_probes", [])]
 
-    def followup_bank(self) -> dict[str, list[dict]]:
-        return self.data["followup_bank"]
 
     def win_back(self, prompt: str):
         """The authored action plan. Like `answer`, it ignores what a model would be sent."""
@@ -91,17 +88,13 @@ class FixtureProvider:
         sample = self.data.get("positioning")
         return PositioningMap(provenance="synthetic", **sample) if sample else None
 
-    def answer(self, probe: Probe) -> Answer:
-        """Only the probe id is used to look up the answer; a live provider would receive only probe.text."""
+    def answer(self, probe: Probe, try_no: int = 1) -> Answer:
+        """Only the probe id is used to look up the answer; a live provider would receive only
+        probe.text. Replay has one authored answer per question, so it is never asked twice."""
         CALLS["answer"] += 1
         if d := dev_delay():
             time.sleep(d)  # dev-only stall; see dev_delay(). Never on by default.
-        if probe.kind == "named":
-            pool = self.data.get("named_answers", [])
-        elif probe.phase == "baseline":
-            pool = self.data["baseline_answers"]
-        else:
-            pool = list(self.data["followup_answers"].values())
+        pool = self.data.get("named_answers", []) if probe.kind == "named" else self.data["baseline_answers"]
         raw = next((a for a in pool if a["probe_id"] == probe.id), None)
         if raw is None:
             return Answer(probe_id=probe.id, provenance="synthetic", provider="fixture", status="error",

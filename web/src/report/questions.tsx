@@ -12,9 +12,9 @@ import { FrontLabel, Range, GapVerdict, Visibility } from "./figures";
 
 /**
  * "Brand question 2" as something you can read in place: hover or tap shows the question, whether
- * it counted and why not, and the AI's answer — no trip to another tab.
+ * it counted and why not, and the AI's answer — no trip to another tab. `text` shows the question
+ * itself as the trigger instead of its short name.
  */
-/** A question, opened in place. `text` shows the question itself as the trigger instead of its short name. */
 export function QRef({ id, run, text }: { id: string; run: Run; text?: boolean }) {
   const p = run.probes.find((x) => x.id === id);
   const name = probeLabels(run.probes, run.topics)[id] ?? id;
@@ -54,7 +54,6 @@ export function Linked({ text, run }: { text: string; run: Run }) {
   return <>{parts.map((t, i) => (i % 2 ? <QRef key={i} id={byName.get(t)!} run={run} /> : t))}</>;
 }
 
-const SOURCE = { autocomplete: "Google", reddit: "Reddit" } as const;
 
 /** "real demand · Google": the question is a real search; the popover lists its group's phrasings. */
 function DemandBadge({ d }: { d: Demand }) {
@@ -62,16 +61,14 @@ function DemandBadge({ d }: { d: Demand }) {
   return (
     // inside a <summary>: a tap on the badge opens the popover, not the answer
     <span className="demand" onClick={(e) => e.preventDefault()}>
-      <Popover label="Real demand" className="demand-badge" trigger={<>real demand · {SOURCE[d.source]}</>}>
+      <Popover label="Real demand" className="demand-badge" trigger={<>real demand · Google</>}>
         <strong className="pop-title">{GLOSSARY.real_demand.term}</strong>
-        <p>
-          People {d.source === "reddit" ? "ask exactly this on Reddit" : "search exactly this on Google"}.
-        </p>
+        <p>People search exactly this on Google.</p>
         {n > 1 && (
           <>
             <p className="muted">{n} real searches that mean the same, grouped together:</p>
             <ul className="demand-list">
-              {d.phrasings.map((ph) => <li key={ph.text}>{ph.text} <span className="muted">· {SOURCE[ph.source]}</span></li>)}
+              {d.phrasings.map((ph) => <li key={ph.text}>{ph.text}</li>)}
             </ul>
           </>
         )}
@@ -80,8 +77,6 @@ function DemandBadge({ d }: { d: Demand }) {
     </span>
   );
 }
-
-/** A cited page without its scheme, "www." or trailing slash. */
 
 /** What the model searched for one buyer question, every try, or that it was not recorded. */
 function Searched({ run, p }: { run: Run; p: Probe }) {
@@ -148,7 +143,6 @@ export function BuyerQuestions({ run }: { run: Run }) {
   const answers = new Map(run.answers.map((a) => [a.probe_id, a]));
   const evals = new Map(run.evaluations.map((e) => [e.probe_id, e]));
   const base = run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline");
-  const follow = run.probes.filter((p) => p.kind === "blind" && p.phase === "followup");
   const control = run.probes.find((p) => p.phase === "control");
   const realAsked = base.filter((p) => p.demand).length;
   const tries = d?.tries ?? 1;
@@ -288,12 +282,6 @@ export function BuyerQuestions({ run }: { run: Run }) {
             <h4 style={{ margin: ".4rem 0 0" }}>Your claims <span className="muted">— counted in neither front</span></h4>
             <div className="qlist">{base.filter((p) => !topicFront.get(p.topic_id)).map(card)}</div>
           </div>
-        )}
-        {follow.length > 0 && (
-          <>
-            <h4>Follow-up questions (exploratory — not counted in the scores)</h4>
-            <div className="qlist">{follow.map(card)}</div>
-          </>
         )}
       {!fronts.length && control && d && <Control run={run} p={control} v={d} />}
     </Section>

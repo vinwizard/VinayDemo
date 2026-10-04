@@ -78,11 +78,10 @@ class Fake:
     """access._create's stand-in. `coordinator` is a list of turns (lists of tool calls); `hooks` let a
     test slow, fail or synchronise the live asks of one question."""
 
-    def __init__(self, coordinator=None, pages=None, usage=USAGE, live_says=None, hooks=None, writer=None):
+    def __init__(self, coordinator=None, pages=None, usage=USAGE, live_says=None, hooks=None):
         self.turns = list(coordinator or [])
         self.pages = pages or PAGES
         self.usage, self.live_says, self.hooks = usage, live_says or {}, hooks or {}
-        self.writer = writer
         self.calls, self.lock = [], threading.Lock()
 
     def __call__(self, timeout, **kw):
@@ -94,11 +93,6 @@ class Fake:
                 turn = self.turns.pop(0) if self.turns else [("finish", {"reason": "Nothing else is worth it."})]
             return {"output": [{"type": "function_call", "name": n, "arguments": json.dumps(a)} for n, a in turn],
                     "usage": self.usage}
-        if kind == "writer":
-            items = re.findall(r"^(\d+)\. ", kw["input"], re.M)
-            lines = (self.writer(items) if self.writer else
-                     [{"rank": int(r), "text": "Lead acme.com/about with the rewrite."} for r in items])
-            return message(json.dumps({"lines": lines}), self.usage)
         if kind == "judge":
             return SimpleNamespace(output_text=judge(kw["input"]), output=[], usage=self.usage)
         if kind == "off":
@@ -120,7 +114,7 @@ class Fake:
         if any(t.get("name") == "dispatch" for t in tools):
             return "coordinator"
         if isinstance(kw.get("input"), str):
-            return "writer" if kw["input"].startswith("You write the action plan") else "judge"
+            return "judge"
         if kw.get("include"):
             return "live"
         return "replay" if tools else "off"
@@ -145,7 +139,6 @@ def world(tmp_path, monkeypatch):
                            (reports, "FLEETS", "fleets")):
         monkeypatch.setattr(mod, attr, tmp_path / sub if sub else tmp_path)
     monkeypatch.setenv(access.KEY_ENV, "k")
-    fleet.EventLog._next.clear()
 
     def install(fake):
         monkeypatch.setattr(access, "_create", fake)
@@ -181,7 +174,7 @@ def test_the_shortlist_is_claims_to_win_back_and_perceptions_ai_raised():
 
 
 def test_invalid_coordinator_calls_are_rejected_with_reasons_and_code_steps_in(world):
-    fake = world(Fake(coordinator=[[dispatch("nope", "np-1"), dispatch("fast", "np-1", term="ships"),
+    world(Fake(coordinator=[[dispatch("nope", "np-1"), dispatch("fast", "np-1", term="ships"),
                                     dispatch("fast", "np-9"), ("dispatch", {"attribute_id": "fast", "probe_id": "np-2"})],
                                    [dispatch("nope", "np-1")]]))    # the repair turn fails too
     status, events = execute(world_run())
@@ -240,17 +233,12 @@ def test_a_copy_fix_and_a_cause_are_found_and_ranked(world):
     cause = next(i for i in plan.items if i.attribute_id == "emergent_debt")
     assert cause.fix == "source" and cause.sources == [NEWS]
     assert "None of them is your page to edit" in cause.text    # news.example.com is not Acme's
-    assert plan.written_by == "gpt-6-luna" and fix.text == "Lead acme.com/about with the rewrite."
-    assert status == "complete"
-    # the writer and the coordinator were each paid for through the same metered path; the writer is
-    # handed only the tested fixes, never a source to "remove" or an undecided claim to act on
-    [(_, _, sent)] = fake.of("writer")
-    assert "[copy]" in sent["input"] and "[source]" not in sent["input"] and fake.of("coordinator")
+    assert status == "complete" and fake.of("coordinator")
 
 
 def test_a_challenged_task_is_redispatched_with_one_change(world):
     # on np-1 the live answers say the claim but the replays never do: not reproducible
-    fake = world(Fake(coordinator=[[dispatch("fast", "np-1")],
+    world(Fake(coordinator=[[dispatch("fast", "np-1")],
                                    [("redispatch", {"task_id": "t1", "probe_id": "np-2", "reason": "Another question."})]],
                       live_says={Q["np-1"]: "Acme ships every order in one day (CLAIM:fast:positive)."}))
     status, events = execute(world_run())
@@ -284,7 +272,7 @@ def test_one_investigator_failing_never_stalls_the_rest(world):
         raise RuntimeError("upstream fell over")
     world(Fake(coordinator=[[dispatch("fast", "np-2"), dispatch("emergent_debt", "np-3", term="debt"),
                              dispatch("emergent_big", "np-1", term="big")]],
-               hooks={Q["np-3"]: fail}, writer=lambda ranks: []))
+               hooks={Q["np-3"]: fail}))
     status, events = execute(world_run())
     assert status == "complete"
     assert [e.task_id for e in of(events, "failed")] == ["t2"]
@@ -305,16 +293,15 @@ def test_a_task_past_its_deadline_is_cancelled_and_keeps_what_it_found(world):
 
 
 def test_the_purse_stops_every_agent_and_still_leaves_the_plan_written(world, monkeypatch):
-    # each task alone is affordable, both together are not: the shared purse, not a task's cap, stops
-    # the second; the first, a copy fix, is what the writer's reserve is kept for
+    # each task alone is affordable, both together are not: the shared purse, not a task's cap, stops the second
     monkeypatch.setenv(why.BUDGET_ENV, "0.30")
-    fake = world(Fake(coordinator=[[dispatch("fast", "np-2"), dispatch("emergent_debt", "np-1", term="debt")]],
-                      usage={"input_tokens": 20_000, "output_tokens": 4_000}))   # $0.004 a call
-    status, events = execute(world_run(), budget_usd=0.45, lanes=1)
+    world(Fake(coordinator=[[dispatch("fast", "np-2"), dispatch("emergent_debt", "np-1", term="debt")]],
+               usage={"input_tokens": 20_000, "output_tokens": 4_000}))   # $0.004 a call
+    status, events = execute(world_run(), budget_usd=0.40, lanes=1)
     stopped = [v for e in of(events, "finished") for v in e.data["verdicts"] if v["kind"] == "budget"]
-    assert stopped and "the fleet's $0.45 budget" in stopped[0]["text"]
-    assert of(events, "done")[0].data["spent_usd"] <= 0.45 + 0.02     # the limit, plus what an estimate misses
-    assert fake.of("writer") and fleet.plan_of(events).written_by == "gpt-6-luna"   # the reserve paid for it
+    assert stopped and "the fleet's $0.40 budget" in stopped[0]["text"]
+    assert of(events, "done")[0].data["spent_usd"] <= 0.40 + 0.02     # the limit, plus what an estimate misses
+    assert fleet.plan_of(events).items                                 # code writes the plan: no call left to pay
 
 
 def test_a_capped_pass_stops_the_fleet_and_the_plan_falls_back_to_the_template(world):
@@ -323,15 +310,7 @@ def test_a_capped_pass_stops_the_fleet_and_the_plan_falls_back_to_the_template(w
     with access.spending(pid):
         status, events = execute(world_run())
     assert status == "stopped" and of(events, "stopped")
-    plan = fleet.plan_of(events)
-    assert plan.written_by == "template"
-    assert [i.fix for i in plan.items] == ["untested"]                # nothing ran; the run's rewrite stays, untested
-    # a writer the pass refuses leaves every line the template's
-    fix = fleet.PlanItem(rank=1, attribute_id="fast", claim="Fast", fix="copy", text="Lead acme.com/about.")
-    worded = fleet.ActionPlan(items=[fix])
-    with access.spending(pid):
-        fleet.write(worded, world_run(), "gpt-6-luna")
-    assert worded.written_by == "template" and "writer's call failed" in worded.notes[0]
+    assert [i.fix for i in fleet.plan_of(events).items] == ["untested"]   # nothing ran; the run's rewrite stays, untested
 
 
 # ---------------------------------------------------------------- passes, provenance, the log
@@ -376,7 +355,7 @@ def test_the_log_is_ordered_and_reads_back_the_same(world):
     for t in ("t1", "t2"):
         order = [e.kind for e in events if e.task_id == t]
         assert order[0] == "dispatched" and order[1] == "began"
-        assert order.index("finished") > max(i for i, k in enumerate(order) if k in ("progress", "arm", "verdict"))
+        assert order.index("finished") > max(i for i, k in enumerate(order) if k in ("progress", "arm"))
     log = fleet.EventLog(events[0].data["fleet_id"])
     assert log.read() == events and log.read(after=5) == events[5:]
     assert fleet.summary(events)["status"] == "complete" and fleet.summary(events)["planned"]
@@ -485,23 +464,6 @@ def test_an_investigation_records_what_it_counted(world):
     assert perception.counts == "mentions" and "any mention" in perception.judge
 
 
-# ---------------------------------------------------------------- the writer's checks
-def test_the_writer_may_reword_but_never_add_a_number_or_a_page():
-    old = "With your rewrite leading acme.com/about, AI says it in 14 of 18 answers against 6 of 18."
-    assert fleet.acceptable("Lead acme.com/about with the rewrite: 14 of 18 answers said it, from 6 of 18.", old)
-    assert not fleet.acceptable("Lead acme.com/about with the rewrite: 90% of answers will say it.", old)
-    assert not fleet.acceptable("Put it on acme.com/shipping instead: 14 of 18.", old)
-    assert not fleet.acceptable("A seamless rewrite of acme.com/about.", old)
-    assert not fleet.acceptable("Rewrite the page: 14 of 18 answers said it.", old)   # dropped which page
-
-
-def test_a_writer_line_that_adds_a_number_keeps_the_template(world):
-    world(Fake(coordinator=[[dispatch("fast", "np-2")]],
-               writer=lambda ranks: [{"rank": int(r), "text": "Guaranteed 99% lift."} for r in ranks]))
-    _, events = execute(world_run())
-    plan = fleet.plan_of(events)
-    assert plan.written_by == "template" and "Guaranteed" not in plan.items[0].text
-
 
 # ---------------------------------------------------------------- the verifier
 def verification(live_kn, pred=(14, 18), base=(6, 18), control=(0, 0)):
@@ -519,8 +481,8 @@ def test_the_verifier_concludes_from_where_the_live_interval_falls():
     assert moved[0] == "model_moved" and "model itself changed" in moved[1]
 
 
-def finished_fleet(world, monkeypatch, pages=None):
-    world(Fake(coordinator=[[dispatch("fast", "np-2")]], pages=pages))
+def finished_fleet(world):
+    world(Fake(coordinator=[[dispatch("fast", "np-2")]]))
     run = world_run()
     reports.save_run(run)
     status, events = execute(run)
@@ -528,7 +490,7 @@ def finished_fleet(world, monkeypatch, pages=None):
 
 
 def test_an_unpublished_fix_is_checked_for_free(world, monkeypatch):
-    fid, plan = finished_fleet(world, monkeypatch)
+    fid, plan = finished_fleet(world)
     monkeypatch.setattr(verify.audit, "get", lambda url: (url, 200, "text/html", "<p>" + "Acme builds widgets. " * 20 + "</p>"))
     before = len(access._create.calls)
     v = verify.verify(fid, 1, resolve=lambda: pytest.fail("no model is needed"))
@@ -536,20 +498,8 @@ def test_an_unpublished_fix_is_checked_for_free(world, monkeypatch):
     assert len(access._create.calls) == before
 
 
-def test_a_live_fix_ai_now_reads_is_confirmed(world, monkeypatch):
-    fid, plan = finished_fleet(world, monkeypatch)
-    live_page = {**PAGES, ABOUT: REWRITE + " " + PAGES[ABOUT]}
-    access._create.pages = live_page    # the fix is published and crawled: search now returns it
-    monkeypatch.setattr(verify.audit, "get", lambda url: (url, 200, "text/html", "<p>" + (REWRITE + " ") * 10 + "</p>"))
-    v = verify.verify(fid, 1, resolve=lambda: RESOLVED)
-    assert v.page_has_copy and v.read_by_ai.k == v.read_by_ai.n == 16
-    assert (v.live.k, v.live.n) == (16, 16) and v.live_provenance == "live_api"
-    assert v.control.n == verify.CONTROL_ASKS and v.control.k == 0          # the old reading list: unchanged
-    assert v.verdict == "confirmed" and 0 < v.spent_usd <= v.budget_usd
-
-
 def test_a_published_fix_search_has_not_read_is_not_crawled_yet(world, monkeypatch):
-    fid, plan = finished_fleet(world, monkeypatch)
+    fid, plan = finished_fleet(world)
     monkeypatch.setattr(verify.audit, "get", lambda url: (url, 200, "text/html", "<p>" + (REWRITE + " ") * 10 + "</p>"))
     v = verify.verify(fid, 1, resolve=lambda: RESOLVED)
     assert v.verdict == "not_crawled" and v.read_by_ai.n == verify.LOOKS[0] and v.read_by_ai.k == 0
@@ -559,8 +509,9 @@ def test_a_published_fix_search_has_not_read_is_not_crawled_yet(world, monkeypat
 @pytest.fixture
 def client(world, monkeypatch):
     from fastapi.testclient import TestClient
-    from api import main
+    from api import fleet as api_fleet, main
     monkeypatch.setattr(live, "preflight", lambda *a, **k: RESOLVED)
+    monkeypatch.setattr(api_fleet, "POLL_S", 0.01)
     return TestClient(main.app)
 
 
@@ -588,15 +539,6 @@ def test_a_sample_run_is_refused_before_anything_is_spent(client):
     reports.save_run(run)
     r = client.post(f"/api/runs/{run.id}/fleet")
     assert r.status_code == 400 and "Only a live run" in r.json()["detail"]
-
-
-def test_a_recheck_logged_later_keeps_what_the_fleet_spent(world):
-    world(Fake(coordinator=[[dispatch("fast", "np-2")]]))
-    status, events = execute(world_run())
-    spent = fleet.summary(events)["spent_usd"]
-    log = fleet.EventLog(events[0].data["fleet_id"])
-    log.append("verified", rank=1)
-    assert spent > 0 and fleet.summary(log.read())["spent_usd"] == spent
 
 
 def test_a_second_start_during_the_first_ones_preflight_is_refused(world, client, monkeypatch):
@@ -636,7 +578,7 @@ def test_no_more_investigators_than_the_concurrency_limit_ask_at_once(world, mon
     assert peak[0] == 2      # two questions asked at the same moment, never three
 
 
-def test_a_source_item_cannot_be_rechecked(world, monkeypatch):
+def test_a_source_item_cannot_be_rechecked(world):
     world(Fake(coordinator=[[dispatch("emergent_debt", "np-1", term="debt")]]))
     run = world_run()
     reports.save_run(run)
@@ -648,7 +590,7 @@ def test_a_source_item_cannot_be_rechecked(world, monkeypatch):
 
 
 def test_an_authority_fix_of_two_quotes_apart_on_the_page_is_not_held_back_as_unpublished(world, monkeypatch):
-    fid, plan = finished_fleet(world, monkeypatch)
+    fid, plan = finished_fleet(world)
     item = plan.items[0]
     inv = reports.load_investigation(item.investigation_id)
     arm = next(a for a in inv.arms if a.id == item.arm_id)
@@ -666,8 +608,8 @@ def test_an_authority_fix_of_two_quotes_apart_on_the_page_is_not_held_back_as_un
     assert v.read_by_ai.n >= verify.LOOKS[0] and v.read_by_ai.k > 0     # it was asked live, and read the page
 
 
-def test_mark_fix_live_streams_the_recheck_and_keeps_run_and_spent(world, client, monkeypatch):
-    fid, plan = finished_fleet(world, monkeypatch)
+def test_mark_fix_live_confirms_a_fix_ai_now_reads_and_keeps_run_and_spent(world, client, monkeypatch):
+    fid, plan = finished_fleet(world)
     run_file = (reports.RUNS / "aaaaaa0001.json").read_bytes()
     spent = fleet.summary(fleet.EventLog(fid).read())["spent_usd"]
     access._create.pages = {**PAGES, ABOUT: REWRITE + " " + PAGES[ABOUT]}
@@ -677,6 +619,9 @@ def test_mark_fix_live_streams_the_recheck_and_keeps_run_and_spent(world, client
     assert [e["kind"] for e in events][0] == "verify" and events[-1]["kind"] == "verified" and "event: end" in body
     v = events[-1]["data"]["verification"]
     assert v["verdict"] == "confirmed" and v["live_provenance"] == "live_api"
+    assert v["page_has_copy"] and v["read_by_ai"]["k"] == v["read_by_ai"]["n"] == 16
+    assert (v["live"]["k"], v["live"]["n"]) == (16, 16) and 0 < v["spent_usd"] <= v["budget_usd"]
+    assert v["control"]["n"] == verify.CONTROL_ASKS and v["control"]["k"] == 0   # the old reading list: unchanged
     # the live answers live in the Verification only: the run is untouched, the fleet's spent total kept
     assert (reports.RUNS / "aaaaaa0001.json").read_bytes() == run_file
     assert client.get("/api/runs/aaaaaa0001/fleets").json()["fleets"][0]["spent_usd"] == spent > 0

@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 
 ENV_FILE = Path(__file__).resolve().parent / ".env"
-SECRET_HINTS = ("key", "token", "secret", "password")
 
 
 def load_env(path: Path = ENV_FILE) -> list[str]:
@@ -35,14 +34,3 @@ def setting(env: str, default, floor=0, cast=int):
         return max(floor, cast(os.environ.get(env) or default))
     except ValueError:
         return default
-
-
-def is_secret(name: str) -> bool:
-    return any(h in name.lower() for h in SECRET_HINTS)
-
-
-def redacted_status(names: list[str]) -> str:
-    """Safe to log: names only, and secrets are reported as set/unset, never shown."""
-    if not names:
-        return "no .env values loaded"
-    return "loaded from .env: " + ", ".join(f"{n}=<set>" if is_secret(n) else n for n in names)

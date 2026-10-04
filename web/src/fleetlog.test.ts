@@ -48,7 +48,7 @@ test("an event already folded is ignored, so a resumed stream never double count
 
 test("the plan, a re-check and the end land where the panel reads them", () => {
   seq = 0;
-  const plan = { items: [{ rank: 1, fix: "copy" }], written_by: "template", provenance: "counterfactual_replay", notes: [] };
+  const plan = { items: [{ rank: 1, fix: "copy" }], provenance: "counterfactual_replay", notes: [] };
   const v = [
     ev("started", { budget_usd: 3 }),
     ev("planned", { plan }),

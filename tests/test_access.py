@@ -32,7 +32,6 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setenv(access.SECRET_ENV, "test-secret")
     monkeypatch.setenv(access.ADMIN_ENV, "hunter2-long-password")
     monkeypatch.setenv(live.KEY_ENV, "sk-fake-never-sent")
-    monkeypatch.delenv(main.OFFLINE_ENV, raising=False)
     monkeypatch.setattr(access, "_failures", [])
     monkeypatch.setattr(access, "_create", lambda timeout, **kw: pytest.fail(f"unexpected model call {kw}"))
     access.seed_passes()
@@ -163,7 +162,6 @@ def test_seeding_on_start_never_touches_admin_made_passes_their_spend_or_links(e
 def test_storage_is_persistent_only_on_a_writable_mounted_disk(env, monkeypatch, tmp_path):
     disk = tmp_path / "disk"
     disk.mkdir()
-    monkeypatch.delenv("DATA_DIR", raising=False)
     assert "DATA_DIR is not set" in access.storage()["reason"]
     monkeypatch.setenv("DATA_DIR", str(disk / "data"))
     monkeypatch.setattr(access.os.path, "ismount", lambda p: False)

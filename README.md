@@ -83,9 +83,4 @@ CI runs the same on every pull request ([`.github/workflows/ci.yml`](.github/wor
 
 ### Deploy to Render
 
-1. Sign in at [render.com](https://render.com) with GitHub.
-2. **New → Blueprint** and pick this repository; it reads [`render.yaml`](render.yaml).
-3. Enter the secrets it asks for (`OPENAI_API_KEY`, `ADMIN_PASSWORD`) and **Apply**.
-4. Check `<site>/api/health` shows persistent storage, then open `<site>/admin` to hand out access links.
-
-Passes, the admin page and storage checks: [`WEB.md`](WEB.md#deploy-to-render).
+A Render Blueprint ([`render.yaml`](render.yaml)); steps, passes and storage checks: [`WEB.md`](WEB.md#deploy-to-render).

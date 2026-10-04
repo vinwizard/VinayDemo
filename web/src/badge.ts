@@ -1,3 +1,4 @@
+// Kept apart from labels.ts: node --test (tsconfig.node.json, nodenext) would otherwise type-check labels.ts and, through it, api.ts, which needs DOM and Vite types.
 /** A report tab's badge: what it counts, in words ("3 claims"), never a bare 0 that reads as a
  * grade ("Win it back 0" did). `none` is what a tab with nothing to count shows: a tick where empty
  * is good news, else no badge at all. */

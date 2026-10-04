@@ -1,6 +1,8 @@
 """The model-backed evaluator's input framing and quote repair. No key, no network."""
 import json
 
+import pytest
+
 from agents.evaluator_model import ModelEvaluator, answer_lines, build_prompt, repair_quotes
 from schemas import Answer, Attribute, CompanyProfile, Probe
 
@@ -48,18 +50,17 @@ def test_a_near_miss_quote_is_replaced_by_an_exact_copy():
     assert "Its interface opens issues instantly." in asked[0]   # shown the one line it came from
 
 
-def test_an_invented_quote_is_never_offered_for_repair():
-    def ask(prompt):
-        raise AssertionError("an invention must not get a second chance")
-    got = repair_quotes(labels(evidence_quotes=["Linear is loved by every Fortune 500 company"]), TEXT, ask)
-    assert got["evidence_quotes"] == ["Linear is loved by every Fortune 500 company"]  # left to fail
+def never_asked(prompt):
+    raise AssertionError("an invention must not get a second chance")
 
 
-def test_a_repair_that_is_still_not_verbatim_changes_nothing():
-    bad = "linear is a fast issue tracker"
-    got = repair_quotes(labels(evidence_quotes=[bad]), TEXT,
-                        lambda _: json.dumps({"fixed": {bad: "Linear is a really fast issue tracker"}}))
-    assert got["evidence_quotes"] == [bad]
+@pytest.mark.parametrize("quote,ask", [
+    ("Linear is loved by every Fortune 500 company", never_asked),   # invented: never offered for repair
+    ("linear is a fast issue tracker",                                # a "repair" still not verbatim
+     lambda _: json.dumps({"fixed": {"linear is a fast issue tracker": "Linear is a really fast issue tracker"}})),
+])
+def test_a_quote_no_repair_can_make_verbatim_is_left_to_fail(quote, ask):
+    assert repair_quotes(labels(evidence_quotes=[quote]), TEXT, ask)["evidence_quotes"] == [quote]
 
 
 def test_evaluator_runs_the_repair_round_once():
@@ -68,7 +69,7 @@ def test_evaluator_runs_the_repair_round_once():
                json.dumps({"fixed": {slip: "Its interface opens issues instantly"}})]
     ev = ModelEvaluator(model="test", transport=lambda *_: replies.pop(0))
     got = ev.label(PROBE, ANSWER, ATTRS, PROFILE)
-    assert got["evidence_quotes"] == ["Its interface opens issues instantly"] and ev.calls == 2
+    assert got["evidence_quotes"] == ["Its interface opens issues instantly"] and not replies   # both asked
 
 
 def test_a_repair_cannot_swap_in_a_different_span_or_a_blank():

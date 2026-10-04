@@ -16,7 +16,6 @@ What counts as the company's own words is decided here, in code, never by the mo
   * anything else that names the company is third-party: shown to the user apart, never extracted
 """
 import re
-from datetime import datetime, timezone
 from typing import Callable, Optional
 from urllib.parse import urlparse
 
@@ -165,7 +164,6 @@ def gather(name: str, domain: str, limit: int, have: list[str] = (), transport: 
     response = _search(GATHER_PROMPT.format(name=name.strip(), domain=domain), transport)
     names = names_of(name, domain)
     done = {_key(u) for u in have}
-    today = datetime.now(timezone.utc).date().isoformat()
     turned_away: set[str] = set()   # one refusal per host is enough: the rest would only time out too
     pages, meta, others, own = [], [], [], []
     for r in results(response):
@@ -176,7 +174,7 @@ def gather(name: str, domain: str, limit: int, have: list[str] = (), transport: 
                 own.append(r)
         elif len(others) < MAX_OTHERS:
             others.append(Evidence(id=f"tp{len(others) + 1}", url=r.url, excerpt=r.text[:600],
-                                   source_type="third_party", title=r.title, retrieved_at=today))
+                                   source_type="third_party", title=r.title))
     for r in sorted(own, key=lambda r: rank(r.url))[:limit]:
         host, direct = urlparse(r.url).hostname, None
         if host not in turned_away:
@@ -189,5 +187,5 @@ def gather(name: str, domain: str, limit: int, have: list[str] = (), transport: 
             meta.append({})
         else:
             pages.append((r.url, r.text))
-            meta.append(dict(source_type="search_copy", saved=r.crawled, retrieved_at=today, title=r.title))
+            meta.append(dict(source_type="search_copy", saved=r.crawled, title=r.title))
     return pages, meta, others
