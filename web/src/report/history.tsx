@@ -7,17 +7,12 @@ export function History({ runs, onOpen }: { runs: RunSummary[]; onOpen: (id: str
   if (!runs.length) return <div className="card muted">No saved runs yet. Onboard a company and measure it to create one.</div>;
   return (
     <div className="stack">
-      <p className="lede" style={{ margin: ".9rem 0 0" }}>
-        Each run asked AI about one company and compared its answers with what the company’s own site
-        says. Open one to see the gap, and what to change.
-      </p>
       <div className="card">
         <table className="runs">
           <thead>
             <tr>
               <th>Run</th><th>Company</th><th>When</th><th>Source</th>
-              <th><Term k="untapped_potential">Untapped potential</Term></th><th><Term k="landed">Landed</Term></th>
-              <th><Term k="lost_claim">To win back</Term></th><th><Term k="imposed">To shape</Term></th>
+              <th><Term k="untapped_potential">Untapped potential</Term></th>
               <th><span className="sr-only">Open</span></th>
             </tr>
           </thead>
@@ -32,14 +27,9 @@ export function History({ runs, onOpen }: { runs: RunSummary[]; onOpen: (id: str
                     ? <span className="pill live">{PROVENANCE_LABEL.live_api}</span>
                     : <span className="pill" title={r.scenario ? `Bundled scenario ${r.scenario}` : undefined}>Sample</span>}
                 </td>
-                <td>
+                <td title={headline(r).today ?? r.na_reasons?.headline ?? r.na_reasons?.[headline(r).field]}>
                   <strong>{potentialText(headline(r))}</strong>
-                  <div className="muted">
-                    {headline(r).today ?? r.na_reasons?.headline ?? r.na_reasons?.[headline(r).field]}
-                  </div>
                 </td>
-                <td data-label="Landed">{r.landed}</td><td data-label="To win back">{r.lost}</td>
-                <td data-label="To shape">{r.imposed}</td>
                 <td className="open-cell">
                   <button className="linky" onClick={(e) => { e.stopPropagation(); onOpen(r.id); }}>
                     Open report →<span className="sr-only"> for {r.company}, {names[r.id]?.short}</span>

@@ -226,8 +226,6 @@ export interface Run {
   win_back_notes?: string[];
   /** Simulated retrieval and the fixes re-scored; absent on runs saved before it existed. */
   retrieval?: RetrievalSim | null;
-  /** The positioning map; absent on runs saved before it existed. */
-  positioning?: PositioningMap | null;
   /** The company's site audit when the run started; absent on replays and older runs. */
   audit?: SiteAudit | null;
   /** How sampler-lite spent the buyer questions; absent on replays and older runs. */
@@ -248,18 +246,6 @@ export interface RetrievalRow {
 export interface RetrievalSim {
   provenance: string; model: string | null; pages: number; passages: number;
   rows: RetrievalRow[]; skipped: string[];
-}
-
-/** One dot on the positioning map: the mean embedding of the sentences it was built from. */
-export interface MapPoint {
-  name: string; kind: "seen" | "intended" | "rival"; x: number; y: number;
-  sentences: string[]; similarity: number | null;
-}
-/** Where AI places the brand, its rivals and where it aims (positioning.py): a similarity picture, no score. */
-export interface PositioningMap {
-  provenance: string; model: string | null; aim?: "intended" | "site"; points: MapPoint[];
-  x_axis: string[]; y_axis: string[]; explained: number | null;
-  closest: string[]; toward: string | null; reason: string | null; notes: string[];
 }
 
 /** Two panels the API reads off a run's counted baseline answers (insights.py). `reason` says why one is empty. */
@@ -303,10 +289,6 @@ export interface RunSummary {
   alignment: number | null;
   claim_echo?: number | null;
   lens?: "claim" | "intent" | null;
-  /** Null on a run that finished without a report. */
-  landed: number | null;
-  lost: number | null;
-  imposed: number | null;
   /** Field name -> why that number is null. */
   na_reasons?: Record<string, string>;
 }
@@ -517,10 +499,6 @@ export const getRun = (id: string) => json<Run>(`/api/runs/${id}`);
 export const reaskRun = (id: string, probe_id: string) =>
   send<Run>(`/api/runs/${id}/reask`, "POST", { probe_id });
 
-/** Re-scores a finished run's saved answers with intent weights. No model is asked. */
-export const rescoreRun = (id: string, weights: Record<string, number>) =>
-  send<Run>(`/api/runs/${id}/rescore`, "POST", { weights });
-
 /** One answer, the moment the model returns it. `answer` is the first few hundred characters. */
 export interface StreamAnswer {
   probe_id: string; kind: "blind" | "named"; phase: string; topic_label: string | null;
@@ -642,19 +620,6 @@ export interface Investigation {
 }
 
 export const getInvestigations = (runId: string) => json<Investigation[]>(`/api/runs/${runId}/why`);
-
-/** One why investigation as it runs: its budget first, then log lines, experiments and verdicts. */
-export const streamWhy = (runId: string, q: { attribute: string; probe?: string; question?: string; term?: string },
-  h: {
-    onStart?: (e: { budget_usd: number; question: string; model: string }) => void;
-    onLog?: (e: { text: string; spent_usd: number }) => void;
-    onDone?: (e: Investigation) => void;
-    onError?: (e: { message: string }) => void;
-  }) => {
-  const params = new URLSearchParams(Object.entries(q).filter(([, v]) => v) as [string, string][]);
-  return openStream(`/api/runs/${runId}/why/stream?${params}`,
-                    { start: h.onStart, log: h.onLog, done: h.onDone }, "done", h.onError);
-};
 
 /** A quick win's replay test: its rewrite against one buyer question it was written for. */
 export const streamRewriteTest = (runId: string, attribute: string, probe: string, h: {

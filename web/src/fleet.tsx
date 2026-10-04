@@ -145,7 +145,8 @@ function PlanCard({ i, check, running, onCheck }: {
 }
 
 /**
- * The investigation fleet on a live run: a button to start it, then its log as it lands. Lanes for the
+ * The investigation fleet on a live run: one button to start it, what it does one hover away, then its
+ * log as it lands. Lanes for the
  * investigators, the coordinator's picks and the critic's challenges, and the tested plan with a
  * re-check on each fix. Everything shown is folded from the fleet's own event log.
  */
@@ -204,33 +205,25 @@ export function FleetPanel({ run }: { run: Run }) {
   const decided = view?.lanes.filter((l) => l.status === "finished" || l.status === "failed").length ?? 0;
   return (
     <section className="panel-sec fleet-panel" aria-live="polite">
-      <div className="panel-sec-head">
-        <h3><Term k="investigation_fleet">Investigate the gaps</Term></h3>
-        <span className="block-found">
-          {view ? (view.done
-            ? `${plural(view.lanes.length, "investigation")} · ${minutes(view.done.wall_s ?? 0)} · ${money(view.done.spent_usd ?? view.spent)} of ${money(view.budget ?? 0)}`
-            : `${decided} of ${plural(view.lanes.length, "investigation")} done · ${money(view.spent)} spent`)
-            : "agents that test each fix before you publish it"}
-        </span>
-      </div>
-      <p className="muted" style={{ margin: 0 }}>
-        A <Term k="fleet_coordinator">coordinator</Term> picks the claims worth investigating and the branded question
-        for each, several <Term k="why_investigation">why investigations</Term> run at the same time, the{" "}
-        <Term k="fleet_critic">critic</Term> challenges the ones that did not decide, and the verdicts become a{" "}
-        <Term k="tested_plan">tested plan</Term>. {PROVENANCE_LABEL.counterfactual_replay}: nothing here moves a score.
-      </p>
+      {view && (
+        <div className="panel-sec-head">
+          <h3><Term k="investigation_fleet">Investigate the gaps</Term></h3>
+          <span className="block-found">
+            {view.done
+              ? `${plural(view.lanes.length, "investigation")} · ${minutes(view.done.wall_s ?? 0)} · ${money(view.done.spent_usd ?? view.spent)} of ${money(view.budget ?? 0)}`
+              : `${decided} of ${plural(view.lanes.length, "investigation")} done · ${money(view.spent)} spent`}
+          </span>
+        </div>
+      )}
       {(!view || view.done) && (
         <div className="fleet-start">
           <button className="primary" type="button" onClick={start} disabled={!liveOk || runningNow}>
             {view ? "Investigate again" : "Investigate the gaps"}
             {estimate && ` (≈ ${money(estimate.usd)}, ≈ ${estimate.minutes} min)`}
           </button>
-          {estimate && (
-            <span className="muted">
-              {plural(estimate.candidates, "claim")} on the shortlist; it spends at most {money(estimate.budget_usd)}.
-              {!liveOk && " Needs a live model."}
-            </span>
-          )}
+          <Term k="investigation_fleet" icon note={estimate
+            && `${plural(estimate.candidates, "claim")} on the shortlist; it spends at most ${money(estimate.budget_usd)}.${liveOk ? "" : " Needs a live model."}`} />
+          <span className="muted">{PROVENANCE_LABEL.counterfactual_replay}: nothing here moves a score.</span>
         </div>
       )}
       {error && <div className="callout error">{error}</div>}

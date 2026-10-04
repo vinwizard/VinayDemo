@@ -1,4 +1,3 @@
-import type { KeyboardEvent } from "react";
 import type { Answer, AttributeScore, DriftReport, Exclusion, Probe, QueryEvaluation, RetrievalRow, Run, SearchTry, VisibilitySet, Zone } from "../api";
 import { GAP_ZONES, ZONE_ORDER } from "../api";
 import { claimShare, plain, plural } from "../labels";
@@ -54,9 +53,8 @@ export const FRONT_TERM = { placed: "where_placed", aiming: "where_aiming" } as 
 /** The labelled fronts of a run, placed first; empty for one unlabelled set or an older run. */
 export const frontsOf = (d: DriftReport): VisibilitySet[] => (d.sets ?? []).filter((v) => v.front);
 
-/** The gap between the two fronts in one plain sentence, or why there is only one. `short` leaves out the
- * categories and numbers, for the header, where the strip and its rows already show them. */
-export function gapSentence(d: DriftReport, brand: string, short = false): string | null {
+/** The gap between the two fronts in one plain sentence, or why there is only one. */
+export function gapSentence(d: DriftReport, brand: string): string | null {
   const fronts = frontsOf(d);
   const placed = fronts.find((v) => v.front === "placed"), aiming = fronts.find((v) => v.front === "aiming");
   const both = fronts.find((v) => v.front === "both");
@@ -64,11 +62,6 @@ export function gapSentence(d: DriftReport, brand: string, short = false): strin
   if (placed && aiming) {
     if (d.visibility_gap == null) return null;
     const flagged = placed.low_confidence || aiming.low_confidence ? " (low confidence: see Unbranded questions)" : "";
-    if (short) {
-      return d.visibility_gap > 0 ? `AI brings ${brand} up more where its brand answers place it than where its site aims to be.`
-        : d.visibility_gap < 0 ? `AI brings ${brand} up more where its site aims to be than where its brand answers place it.`
-        : `AI brings ${brand} up as often in both.`;
-    }
     if (d.visibility_gap > 0) {
       return `AI already brings ${brand} up for ${placed.category} (${placed.visibility}) but less for ${aiming.category}, `
         + `where its site aims to be (${aiming.visibility}): a gap of ${d.visibility_gap} points${flagged}.`;
@@ -128,25 +121,10 @@ export const refs = (ids: string[], run: Run) => ids.map((id, i) => (
   <span key={id}>{i ? (i === ids.length - 1 ? " and " : ", ") : ""}<QRef id={id} run={run} /></span>
 ));
 
-export const TABS = [
-  ["overview", "Overview"], ["questions", "Questions we asked AI"], ["win-back", "Quick wins"],
-  ["why", "Why AI misses you"], ["sources", "Sources & rivals"],
-] as const;
-
-export type ReportTab = (typeof TABS)[number][0];
-
-/** The open claims, biggest first: the order of "Where the upside is" and the PDF summary. */
+/** The open claims, biggest first: the order of the PDF summary's fixes. */
 export const openClaims = (scores: AttributeScore[]) => scores
   .filter((s) => GAP_ZONES.includes(s.zone))
   .sort((a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.intended_weight ?? 0) - (a.intended_weight ?? 0));
-
-/** Arrow, Home and End across a strip of tabs: the index to move to, or null for any other key. */
-export function tabKey(e: KeyboardEvent, i: number, n: number) {
-  const to = ({ ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: n - 1 } as Record<string, number>)[e.key];
-  if (to == null) return null;
-  e.preventDefault();
-  return (to + n) % n;
-}
 
 export const sortClaims = (scores: AttributeScore[]) => [...scores].sort(
   (a, b) => ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] || (b.mention_rate ?? b.echo_rate ?? 0) - (a.mention_rate ?? a.echo_rate ?? 0),

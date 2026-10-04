@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Answer, Investigation, ReadStep, Run, WhyArm, WhyVerdict } from "./api";
-import { getHealth, getInvestigations, streamWhy } from "./api";
+import { getInvestigations } from "./api";
 import { latestPerClaim } from "./investigations";
 import type { TermKey } from "./glossary";
 import { PROVENANCE_LABEL, WHY_VERDICT, money, plural, signed } from "./labels";
@@ -175,85 +175,24 @@ function InvestigationCard({ inv }: { inv: Investigation }) {
   );
 }
 
-/**
- * Ask why: pick a claim and a branded question and the why agent runs its experiments, streaming
- * what it does; past investigations of the run are listed below it. Live runs only.
- */
-export function WhyPanel({ run }: { run: Run }) {
+/** The why investigations already run on a live run, read only; hidden when there are none. */
+export function PastInvestigations({ run }: { run: Run }) {
   const [past, setPast] = useState<Investigation[]>([]);
-  const [budget, setBudget] = useState<number | null>(null);
-  const named = run.probes.filter((p) => p.kind === "named" && p.phase === "baseline");
-  const claims = [...(run.attributes ?? [])].sort((a, b) => Number(!!a.discovered) - Number(!!b.discovered));
-  const [attribute, setAttribute] = useState(claims[0]?.id ?? "");
-  const [probe, setProbe] = useState(named[0]?.id ?? OWN);
-  const [question, setQuestion] = useState("");
-  const [term, setTerm] = useState("");
-  const [log, setLog] = useState<string[]>([]);
-  const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const stop = useRef<(() => void) | null>(null);
   const live = run.mode === "live_api";
-
   useEffect(() => {
     if (!live) return;
     getInvestigations(run.id).then(setPast)
       .catch((e: Error) => setError(`Could not load the investigations already run: ${e.message}`));
-    // without a health reading the budget line is left out; the server still enforces the budget
-    getHealth().then((h) => setBudget(h.why_budget_usd ?? null)).catch(() => {});
-    return () => stop.current?.();
   }, [run.id, live]);
-
   if (!live) return null;
-  const start = () => {
-    setRunning(true); setError(null); setLog([]);
-    stop.current = streamWhy(run.id, {
-      attribute, term, ...(probe === OWN ? { question } : { probe }),
-    }, {
-      onStart: (e) => setBudget(e.budget_usd),
-      onLog: (e) => setLog((l) => [...l, e.text]),
-      onDone: (inv) => { setPast((p) => [inv, ...p]); setRunning(false); },
-      onError: (e) => { setError(e.message); setRunning(false); },
-    });
-  };
+  if (error) return <div className="callout error">{error}</div>;
+  if (!past.length) return null;
+  const groups = latestPerClaim(past);
   return (
-    <Section className="why-panel" title={<Term k="why_investigation">Why AI says it</Term>}
-             found={past.length ? `${plural(latestPerClaim(past).length, "claim")} investigated on this run` : "experiments on what AI read"}>
-      <p className="muted" style={{ margin: 0 }}>
-        Pick a claim and a branded question. We ask it live and record <Term k="what_ai_read">what AI read</Term>, ask
-        it with web search off, then change one thing at a time in what it read and ask again until the change is
-        clear: which page makes AI say it, and whether your copy or your authority would change it.
-        {budget != null && ` Each investigation spends at most ${money(budget)}.`}
-      </p>
-      <form className="why-form" onSubmit={(e) => { e.preventDefault(); start(); }}>
-        <label>Claim
-          <select value={attribute} onChange={(e) => setAttribute(e.target.value)} disabled={running}>
-            {claims.map((a) => <option key={a.id} value={a.id}>{a.label}{a.discovered ? " (AI's own)" : ""}</option>)}
-          </select>
-        </label>
-        <label>Branded question
-          <select value={probe} onChange={(e) => setProbe(e.target.value)} disabled={running}>
-            {named.map((p) => <option key={p.id} value={p.id}>{p.text}</option>)}
-            <option value={OWN}>Your own question…</option>
-          </select>
-        </label>
-        {probe === OWN && (
-          <label>Your question (must name {run.profile.name}, not the claim)
-            <input value={question} maxLength={200} onChange={(e) => setQuestion(e.target.value)} disabled={running}
-                   placeholder={`What makes ${run.profile.name} different?`} />
-          </label>
-        )}
-        <label>Word that counts as saying it <span className="muted">(optional; otherwise a separate model judges)</span>
-          <input value={term} maxLength={40} onChange={(e) => setTerm(e.target.value)} disabled={running} placeholder="e.g. AI" />
-        </label>
-        <button className="primary" type="submit" disabled={running || !attribute || (probe === OWN && !question.trim())}>
-          {running ? "Running…" : "Ask why"}
-        </button>
-      </form>
-      {error && <div className="callout error">{error}</div>}
-      {(running || log.length > 0) && !error && (
-        <ol className="why-log" aria-live="polite">{log.map((l, i) => <li key={i}>{l}</li>)}</ol>
-      )}
-      {latestPerClaim(past).map(({ latest, earlier }) => (
+    <Section title={<Term k="why_investigation">Why AI says it</Term>}
+             found={`${plural(groups.length, "claim")} investigated on this run`}>
+      {groups.map(({ latest, earlier }) => (
         <div key={latest.id} className="why-group">
           <InvestigationCard inv={latest} />
           {earlier.length > 0 && (
@@ -267,5 +206,3 @@ export function WhyPanel({ run }: { run: Run }) {
     </Section>
   );
 }
-
-const OWN = "__own__";

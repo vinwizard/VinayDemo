@@ -16,7 +16,7 @@ interface Added { label: string; description: string; weight: number }
 // drop it out of the report unseen. Changing your mind is the Remove button, not a slider position.
 // Mirrors api.ADDED_MIN_WEIGHT / AddedAttribute.
 const ADDED_DEFAULT_WEIGHT = 0.5;
-export const ADDED_MIN_WEIGHT = 0.1;
+const ADDED_MIN_WEIGHT = 0.1;
 
 
 const EMPTY_DRAFT: Added = { label: "", description: "", weight: ADDED_DEFAULT_WEIGHT };
@@ -29,7 +29,7 @@ const EMPTY_DRAFT: Added = { label: "", description: "", weight: ADDED_DEFAULT_W
  * typing it was itself the intent; it leaves by the Remove button, which is visible and deliberate,
  * never by a drag to zero that silently deletes the row from the report.
  */
-export function Slider({ value, onChange, id, label, min = 0, disabled }: {
+function Slider({ value, onChange, id, label, min = 0, disabled }: {
   value: number; onChange: (v: number) => void; id: string; label: string; min?: number;
   disabled?: boolean;
 }) {
@@ -157,7 +157,8 @@ export function ClaimsStep({ company, running, onCompany, onMeasure }: {
   const kept = company.checks.filter((c) => c.kept).length;
   const left = company.checks.length - kept;
   const where = company.profile.domain ? `${company.profile.name}'s own pages` : "your documents";
-  const [firstNote, ...moreNotes] = company.warnings;
+  // A replay's one note is the replay itself, which the notice above the stages already says.
+  const [firstNote, ...moreNotes] = company.replay ? [] : company.warnings;
   return (
     <div className="stack claims-step">
       <section className="part" aria-labelledby={`p1-${company.id}`}>

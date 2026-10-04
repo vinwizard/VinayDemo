@@ -40,13 +40,6 @@ export const GLOSSARY = {
       + "a couple of them are asked three times over to show how much one question wobbles between "
       + "asks. Each question counts once towards buyer visibility however often it was asked.",
   },
-  confidence_interval: {
-    term: "Confidence interval",
-    def: "How far a number could move if we ran the whole thing again. We re-draw the same answers "
-      + "2,000 times at random (a bootstrap) and keep the middle 95% of the results: the number would "
-      + "very likely land somewhere in that range. It is wide when the questions disagree with each "
-      + "other, which is why asking more different questions narrows it.",
-  },
   significant_gap: {
     term: "Real gap",
     def: "A gap we are 95% confident is not luck. We re-draw both sides' answers 2,000 times; if the "
@@ -197,15 +190,6 @@ export const GLOSSARY = {
       + "AI's own searches for it, from 0 (unrelated) to 1 (the same meaning). The AI tends to read "
       + "and cite the closest passages, so a higher score makes a citation likelier, never certain.",
   },
-  positioning_map: {
-    term: "Positioning map",
-    def: "A picture of how alike things sound, not a measurement. We turn what AI says about you, what "
-      + "it says about each rival and what your own site says into numbers by meaning. Each axis is one "
-      + "of your claims: across, how much a dot's words talk about the claim you weighted most; up, the "
-      + "claim the dots differ on most after that. Dots close together were described in similar words; the arrow runs from "
-      + "where AI places you to where you want to be (the claims you weighted) or, until you weight "
-      + "any, to where your site aims.",
-  },
   what_ai_read: {
     term: "What AI read",
     def: "The searches the AI ran before it answered, the snippets each search handed back, the pages it "
@@ -281,12 +265,6 @@ export const GLOSSARY = {
       + "the branded question for each, several why investigations run at the same time, a critic challenges "
       + "the ones that did not decide, and the verdicts become a ranked plan of fixes that were tested. One "
       + "budget covers all of it, and none of it moves a score.",
-  },
-  fleet_coordinator: {
-    term: "Coordinator",
-    def: "The agent that decides who investigates what: which claims are worth the money, which branded question "
-      + "to ask for each, and, as each verdict lands, whether to accept it or send another investigator. It can "
-      + "only choose from options our code already checked, and when it cannot decide, our code does.",
   },
   fleet_critic: {
     term: "Critic",

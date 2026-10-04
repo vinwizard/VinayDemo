@@ -7,25 +7,27 @@ import type { MatchVerdict } from "../quickwins";
 import { ZONE_LABEL, address, plural } from "../labels";
 import { Popover, Term } from "../popover";
 import { refs, winBackPlan } from "./util";
-import { Block, Section } from "./ui";
+import { Block, Section, Tile } from "./ui";
 import { QRef } from "./questions";
 import { ClaimDetail } from "./claimCards";
 
-/** What a rewrite changes on its page: a word diff when it replaces copy, else the new passage. The
- * heading is the buyer question the passage answers. */
+/** A rewrite as a word diff when it replaces copy, else the new passage. */
+function Diff({ a }: { a: WinBackAction }) {
+  const parts = a.current_copy ? wordDiff(a.current_copy, a.rewrite) : null;
+  if (!parts) return <ins>{a.rewrite}</ins>;
+  return <>{parts.map((d, i) => d.op === "same" ? <span key={i}>{d.text} </span>
+    : d.op === "add" ? <ins key={i}>{d.text}</ins> : <del key={i}>{d.text}</del>).reduce<ReactNode[]>(
+    (out, el, i) => (i ? [...out, " ", el] : [el]), [])}</>;
+}
+
+/** What a rewrite changes on its page. The heading is the buyer question the passage answers. */
 function WhatChanges({ a }: { a: WinBackAction }) {
   const parts = a.current_copy ? wordDiff(a.current_copy, a.rewrite) : null;
   return (
     <div className="changes">
       <h4>What changes on <a href={a.page_url} target="_blank" rel="noreferrer">{address(a.page_url)}</a></h4>
       {a.heading && <p className="diff-heading"><ins>{a.heading}</ins></p>}
-      {parts ? (
-        <p className="diff">
-          {parts.map((d, i) => d.op === "same" ? <span key={i}>{d.text} </span>
-            : d.op === "add" ? <ins key={i}>{d.text}</ins> : <del key={i}>{d.text}</del>).reduce<ReactNode[]>(
-            (out, el, i) => (i ? [...out, " ", el] : [el]), [])}
-        </p>
-      ) : <p className="diff"><ins>{a.rewrite}</ins></p>}
+      <p className="diff"><Diff a={a} /></p>
       <p className="muted">
         {parts ? `${plural(wordsIn(parts, "add"), "word")} added, ${wordsIn(parts, "del")} removed`
           : "A new passage: nothing on the page is replaced"}
@@ -38,8 +40,8 @@ function WhatChanges({ a }: { a: WinBackAction }) {
 /** A replay test that proved the rewrite moves AI. */
 const isProven = (i: Investigation) => i.verdicts.some((v) => v.fix === "copy" || v.fix === "authority");
 
-/** Step ① as a table: per targeted question, today's best passage, the page AI cited, and with the
- * rewrite, from the retrieval simulation (the same scores as Why AI misses you → Test a fix). */
+/** The match check as a table: per targeted question, today's best passage, the page AI cited, and
+ * with the rewrite, from the retrieval simulation (the same scores as Test a fix). */
 function MatchTable({ a, run }: { a: WinBackAction; run: Run }) {
   const rows = matchRows(a, run.retrieval?.rows ?? []);
   const cited = new Map((run.retrieval?.rows ?? []).map((r) => [r.probe_id, r.rival?.url]));
@@ -79,7 +81,7 @@ const REPLAY_LABEL: Partial<Record<WhyVerdict["kind"], { label: string; tone: st
   ceiling: { label: "Already at the top", tone: "plain" },
 };
 
-/** Step ② for one buyer question: its latest replay test, or the button that runs one. */
+/** The replay test for one buyer question: its latest result, or the button that runs one. */
 function ReplayTest({ run, a, probe, inv, budget, onDone }: {
   run: Run; a: WinBackAction; probe: string; inv?: Investigation; budget: number | null; onDone: (i: Investigation) => void;
 }) {
@@ -115,18 +117,17 @@ function ReplayTest({ run, a, probe, inv, budget, onDone }: {
   );
 }
 
-/** Step ③: "Mark fix live" on a proven rewrite, once it is published. */
-function LiveCheck({ inv, onChecked }: { inv?: Investigation; onChecked?: (v: Verification) => void }) {
+/** "Mark fix live" on a proven rewrite, once it is published. */
+function LiveCheck({ inv, onChecked }: { inv: Investigation; onChecked: (v: Verification) => void }) {
   const [log, setLog] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  if (!inv || !isProven(inv)) return <p className="muted">Once a replay test proves the rewrite, publish it, then check it here.</p>;
   const v = inv.verification;
   const run = () => {
     setBusy(true); setError(null); setLog([]);
     streamRecheck(inv.id, {
       onLog: (e) => setLog((l) => [...l, e.text]),
-      onDone: (x) => { setBusy(false); onChecked?.(x); },
+      onDone: (x) => { setBusy(false); onChecked(x); },
       onError: (e) => { setBusy(false); setError(e.message); },
     });
   };
@@ -144,32 +145,33 @@ function LiveCheck({ inv, onChecked }: { inv?: Investigation; onChecked?: (v: Ve
 }
 
 /** One rewrite's verdict line, from the strongest evidence there is: live, replay, then the match check. */
-function rewriteVerdict(match: MatchVerdict, tests: Investigation[]): { text: string; tone: string } {
+function rewriteVerdict(match: MatchVerdict, tests: Investigation[]): { label: string; text: string; tone: string } {
   const kinds = tests.map((t) => t.verdicts.at(-1)?.kind);
   const does = (t: Investigation) => (t.counts === "recommends" ? "recommends" : "names");
   const confirmed = tests.find((t) => t.verification?.verdict === "confirmed");
-  if (confirmed) return { text: `Confirmed live: AI now ${does(confirmed)} you for it.`, tone: "good" };
-  if (kinds.some((k) => k === "copy_fix" || k === "authority_fix")) return { text: "Proven in replay: publish it, then mark it live.", tone: "good" };
+  if (confirmed) return { label: "Confirmed live", text: `Confirmed live: AI now ${does(confirmed)} you for it.`, tone: "good" };
+  if (kinds.some((k) => k === "copy_fix" || k === "authority_fix")) return { label: "Proven in replay", text: "Proven in replay: publish it, then mark it live.", tone: "good" };
   const lowers = tests.find((t) => t.verdicts.at(-1)?.kind === "copy_lowers");
-  if (lowers) return { text: `Disproven: in replay it makes AI ${does(lowers) === "recommends" ? "recommend" : "name"} you less. Don't publish it.`, tone: "caution" };
+  if (lowers) return { label: "Disproven", text: `Disproven: in replay it makes AI ${does(lowers) === "recommends" ? "recommend" : "name"} you less. Don't publish it.`, tone: "caution" };
   const moved = kinds.filter((k) => k !== "ceiling");
-  if (moved.length && moved.every((k) => k === "not_movable")) return { text: "Disproven: in replay it changes nothing. Don't publish it as is.", tone: "caution" };
-  if (tests.length && !moved.length) return { text: `Already at the top: in replay AI already ${does(tests[0])} you for ${tests.length === 1 ? "this question" : "these questions"}, so no rewrite can show a gain.`, tone: "plain" };
-  if (match === "worse") return { text: "Don't publish: it matches the buyer questions worse than today's copy.", tone: "caution" };
-  return { text: "Not proven yet: run a replay test before publishing.", tone: "plain" };
+  if (moved.length && moved.every((k) => k === "not_movable")) return { label: "Disproven", text: "Disproven: in replay it changes nothing. Don't publish it as is.", tone: "caution" };
+  if (tests.length && !moved.length) return { label: "Already at the top", text: `Already at the top: in replay AI already ${does(tests[0])} you for ${tests.length === 1 ? "this question" : "these questions"}, so no rewrite can show a gain.`, tone: "plain" };
+  if (match === "worse") return { label: "Don't publish", text: "Don't publish: it matches the buyer questions worse than today's copy.", tone: "caution" };
+  return { label: "Not proven yet", text: "Not proven yet: run a replay test before publishing.", tone: "plain" };
 }
 
-/** One rewrite as a ranked row: a one-line summary, then what changes, why, and its proof. */
+/** One rewrite as a ranked row: a one-line verdict, then what changes, the one next step, and its
+ * proof behind a disclosure. */
 function RewriteRow({ a, rank, run, invs, budget, onInv }: {
   a: WinBackAction; rank: number | null; run: Run; invs: Investigation[]; budget: number | null;
   onInv: (i: Investigation) => void;
 }) {
-  const rows = matchRows(a, run.retrieval?.rows ?? []);
-  const m = matchVerdict(rows);
+  const m = matchVerdict(matchRows(a, run.retrieval?.rows ?? []));
   const tests = a.question_ids.map((q) => latestTest(invs, a.attribute_id, q)).filter(Boolean) as Investigation[];
   const verdict = rewriteVerdict(m.verdict, tests);
+  const proven = tests.filter(isProven);
+  const next = a.question_ids.find((q) => !latestTest(invs, a.attribute_id, q));
   const score = run.attribute_scores.find((s) => s.attribute_id === a.attribute_id);
-  const one = rows.length === 1 && rows[0].change != null;
   return (
     <li>
       <details open={rank === 1}>
@@ -178,46 +180,26 @@ function RewriteRow({ a, rank, run, invs, budget, onInv }: {
           <span className="r-title">{a.label}</span>
           <span className="chev" aria-hidden="true">▸</span>
           <span className="r-meta">
-            <span className={`pill ${m.verdict === "worse" ? "caution" : m.verdict === "closer" ? "good" : "plain"}`}>
-              {one ? `Match ${rows[0].today?.toFixed(2)} → ${rows[0].fixed?.toFixed(2)}`
-                : m.verdict === "not_scored" ? "Match not scored"
-                : `Match: closer on ${m.closer} of ${m.scored}, worse on ${m.worse}`}
-            </span>
-            <span className={`pill ${tests.length ? verdict.tone : "plain"}`}>{tests.length ? `Replay: ${tests.length} of ${a.question_ids.length} tested` : "Replay: not tested"}</span>
+            <span className={`pill ${verdict.tone}`}>{verdict.label}</span>
             <span>{plural(a.question_ids.length, "buyer question")}</span>
           </span>
         </summary>
         <div className="x-body">
           <WhatChanges a={a} />
-          <div>
+          <p className={`verdict-line ${verdict.tone}`}><strong>Verdict:</strong> {verdict.text}</p>
+          {proven.length ? proven.map((t) => <LiveCheck key={t.id} inv={t} onChecked={(v) => onInv({ ...t, verification: v })} />)
+            : next && <ReplayTest run={run} a={a} probe={next} budget={budget} onDone={onInv} />}
+          <details className="proof">
+            <summary>Proof details</summary>
             <h4>Why this rewrite</h4>
             <p>{a.why || "No reason was given."}</p>
-          </div>
-          <div className="proof">
-            <h4>Proof</h4>
-            <ol className="ladder">
-              <li className={m.verdict === "worse" ? "bad-step" : ""}>
-                <strong>① <Term k="retrieval_score">Match check</Term></strong> <span className="muted">free, already done</span>
-                <MatchTable a={a} run={run} />
-              </li>
-              <li>
-                <strong>② <Term k="replay_test">Replay test</Term></strong> <span className="muted">before you publish</span>
-                {a.question_ids.map((q) => (
-                  <ReplayTest key={q} run={run} a={a} probe={q} inv={latestTest(invs, a.attribute_id, q)} budget={budget}
-                              onDone={onInv} />
-                ))}
-              </li>
-              <li>
-                <strong>③ <Term k="fix_recheck">Live check</Term></strong> <span className="muted">after you publish</span>
-                {tests.filter(isProven).map((t) => (
-                  <LiveCheck key={t.id} inv={t} onChecked={(v) => onInv({ ...t, verification: v })} />
-                ))}
-                {!tests.some(isProven) && <LiveCheck />}
-              </li>
-            </ol>
-          </div>
-          <p className={`verdict-line ${verdict.tone}`}><strong>Verdict:</strong> {verdict.text}</p>
-          {score && <div><Popover wide label={a.label} className="linky" trigger="All evidence"><ClaimDetail s={score} run={run} /></Popover></div>}
+            <h4><Term k="retrieval_score">Match check</Term> · free, already done</h4>
+            <MatchTable a={a} run={run} />
+            <h4><Term k="replay_test">Replay tests</Term> · before you publish</h4>
+            {tests.length ? tests.map((t) => <ReplayTest key={t.id} run={run} a={a} probe={t.probe_id!} inv={t} budget={budget} onDone={onInv} />)
+              : <p className="muted">None run yet.</p>}
+            {score && <p><Popover wide label={a.label} className="linky" trigger="All evidence for this claim"><ClaimDetail s={score} run={run} /></Popover></p>}
+          </details>
         </div>
       </details>
     </li>
@@ -228,7 +210,7 @@ const latestTest = (invs: Investigation[], attribute: string, probe: string) =>
   invs.filter((i) => i.kind === "buyer" && i.attribute_id === attribute && i.probe_id === probe)
     .sort((x, y) => y.created_at.localeCompare(x.created_at))[0];
 
-/** A fix inside a claim's popover: the rewrite and where it goes, briefly. The proof lives on Quick wins. */
+/** A fix inside a claim's popover: the rewrite and where it goes, briefly. The proof is on Evidence. */
 export function FixCard({ a, run }: { a: WinBackAction; run: Run }) {
   const zone = run.attribute_scores.find((s) => s.attribute_id === a.attribute_id)?.zone ?? a.zone;
   return (
@@ -242,7 +224,7 @@ export function FixCard({ a, run }: { a: WinBackAction; run: Run }) {
       {a.question_ids.length ? <p className="muted" style={{ margin: 0 }}>For {refs(a.question_ids, run)}.</p>
         : <span className="muted">No unbranded question in this run asks for this — add one to the next run to measure it.</span>}
       {a.why && <span className="muted">{a.why}</span>}
-      <a href="#report-win-back">Its proof is on Quick wins</a>
+      <a href="#evidence-fixes">Its proof is on the Evidence page</a>
     </div>
   );
 }
@@ -275,19 +257,13 @@ export function WinBack({ run }: { run: Run }) {
              + (actions.length ? `${proven} of ${plural(actions.length, "rewrite")} proven`
                  + (questions ? ` · ${plural(questions, "unbranded question")} to win` : "")
                : "no suggested fix passed our checks yet")}>
-      <p style={{ margin: 0 }}>
-        For each claim with room to grow: a new passage for one of your pages, headed by a buyer's own question,
-        why it should make AI name {run.profile.name}, and its proof. A draft — check every statement against the
-        product before publishing. It changes no number in this report.
+      <p className="muted" style={{ margin: 0 }}>
+        A draft per claim with room to grow: check every statement against the product before publishing. It
+        changes no number in this report.
       </p>
       {loadError && <div className="callout error">{loadError}</div>}
       {actions.length > 0 && (
         <>
-          <p className="ladder-legend muted">
-            <span>① <Term k="retrieval_score">Match check</Term>: free, already done</span>
-            <span>② <Term k="replay_test">Replay test</Term>: before you publish{budget != null ? `, up to $${budget.toFixed(2)} a question` : ""}</span>
-            <span>③ <Term k="fix_recheck">Live check</Term>: after you publish</span>
-          </p>
           <ul className="ranked">
             {stand.map((a, i) => <RewriteRow key={a.attribute_id} a={a} rank={i + 1} run={run} invs={invs} budget={budget} onInv={onInv} />)}
             {fall.length > 0 && (
@@ -313,5 +289,19 @@ export function WinBack({ run }: { run: Run }) {
         </Block>
       )}
     </Section>
+  );
+}
+
+/** The Quick wins result block: how many rewrites, and the first one as a diff teaser. */
+export function QuickWins({ run, onOpen }: { run: Run; onOpen: () => void }) {
+  const { targets, actions } = winBackPlan(run);
+  const first = actions.find((a) => matchVerdict(matchRows(a, run.retrieval?.rows ?? [])).verdict !== "worse") ?? actions[0];
+  return (
+    <Tile title={<Term k="quick_wins">Quick wins</Term>} sample={run.mode !== "live_api" && !!first}>
+      <span className="tile-big">{actions.length ? plural(actions.length, "rewrite") : "None yet"}</span>
+      {first ? <p className="diff teaser"><span className="muted">{address(first.page_url)}: </span><Diff a={first} /></p>
+        : <p className="muted">{targets.length ? "No suggested fix passed our checks yet." : "No claim with room to grow."}</p>}
+      {actions.length > 0 && <button type="button" className="linky" onClick={onOpen}>See and test them →</button>}
+    </Tile>
   );
 }

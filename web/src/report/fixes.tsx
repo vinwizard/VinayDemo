@@ -1,107 +1,66 @@
-import { useId, useState } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import { useState } from "react";
+import type { ReactNode } from "react";
 import type { Probe, RetrievalRow, Run, ScoredPassage } from "../api";
 import { reaskRun } from "../api";
 import { MATCH_STEP, checkProblems, missedQuestions, moved } from "../quickwins";
 import { address, plural } from "../labels";
 import { GLOSSARY } from "../glossary";
 import { Popover, Term } from "../popover";
-import { WhyAIMisses } from "../audit";
-import { WhyPanel } from "../why";
-import { refs, quoted, searcher, tryStory, answeredOk, cited, score, behind, tabKey } from "./util";
-import { Section, SAMPLE_NOTE } from "./ui";
+import { refs, quoted, searcher, tryStory, answeredOk, cited, score, behind } from "./util";
+import { Section, SAMPLE_NOTE, Tile } from "./ui";
 import { QRef } from "./questions";
 
-type WhySub = "searches" | "fix" | "site" | "ask";
+type Why = "searches" | "fixes" | "site";
 
 /**
- * "Why AI misses you": one headline, a summary card per reason, then the detail behind each reason
- * on its own sub-tab: the AI's searches, the match test, the site check, and the live experiment.
+ * "Why AI misses you" in three numbers, each opening its table on the Evidence page: the AI's
+ * searches, the match test and the site check. What each rests on is one hover away.
  */
-export function WhyTab({ run, reasks, onReasked }: {
-  run: Run; reasks: Record<string, RetrievalRow["reask"]>; onReasked: (probe: string, got: RetrievalRow["reask"]) => void;
-}) {
-  const uid = useId();
+export function WhyNumbers({ run, onOpen }: { run: Run; onOpen: (to: Why) => void }) {
   const s = run.insights?.searches;
   const sim = run.retrieval;
-  const subs = ([
-    ["searches", "What the AI searched", !!s], ["fix", "Test a fix", !!sim], ["site", "Site check", true],
-    ["ask", "Ask why (live)", run.mode === "live_api"],
-  ] as [WhySub, string, boolean][]).filter(([, , on]) => on);
-  const [sub, setSub] = useState<WhySub>(subs[0][0]);
-  const open = (t: WhySub, focus = false) => {
-    setSub(t);
-    if (focus) document.getElementById(`${uid}-sub-${t}`)?.focus();
-  };
-  const onKey = (e: KeyboardEvent) => {
-    const to = tabKey(e, subs.findIndex(([t]) => t === sub), subs.length);
-    if (to != null) open(subs[to][0], true);
-  };
   const brand = run.profile.name;
   const buyer = run.probes.filter((p) => p.kind === "blind" && p.phase === "baseline");
-  const recorded = s ? buyer.filter((p) => s.questions[p.id]?.length) : [];
+  const recorded = s && !s.reason ? buyer.filter((p) => s.questions[p.id]?.length) : [];
   const missed = s ? missedQuestions(s.questions, recorded.map((p) => p.id)) : [];
   const placed = new Set(buyerGroups(run)[0]?.probes.map((p) => p.id));
   const compared = sim?.rows.filter((r) => r.yours && r.rival) ?? [];
   const withFix = sim?.rows.filter((r) => r.fixed && r.yours) ?? [];
   const up = withFix.filter((r) => moved(r.yours!.score, r.fixed!.score) >= MATCH_STEP).length;
   const down = withFix.filter((r) => moved(r.yours!.score, r.fixed!.score) <= -MATCH_STEP).length;
-  const checks = run.audit ? checkProblems(run.audit.claims) : null;
+  const checks = run.audit?.claims.length ? checkProblems(run.audit.claims) : null;
   const facts = (source: string) => run.audit?.entities.find((e) => e.source === source)?.status;
-  const card = (t: WhySub, label: string) => (
-    <button type="button" className="linky go" onClick={() => { open(t); document.getElementById(`${uid}-panel`)?.scrollIntoView({ block: "start" }); }}>{label}</button>
+  const cell = (to: Why, big: string, text: string) => (
+    <button type="button" className="why-num" onClick={() => onOpen(to)}><b>{big}</b><span>{text}</span></button>
   );
+  if (!recorded.length && !compared.length && !checks) return null;
   return (
-    <>
-      {s && !s.reason && recorded.length > 0 && (
-        <h3 className="why-headline">
-          On {missed.length} of {plural(recorded.length, "buyer question")}, none of the pages AI cited was {brand}'s.
-        </h3>
-      )}
-      <div className="summary-cards">
-        {s && !s.reason && (
-          <div className="card sumcard">
-            <span className="sum-title">Its searches don't reach you</span>
-            <span className="big">{s.owned} <small>of {plural(s.searches.length, "search", "searches")}</small></span>
-            <p>ended in an answer that cited your site.
-              {placed.size > 0 && [...placed].every((id) => missed.includes(id))
-                && <> None of the {placed.size} “<Term k="where_placed">where AI places you</Term>” questions did.</>}</p>
-            {card("searches", "See the searches")}
-          </div>
+    <Tile wide sample={run.mode !== "live_api"} title={(
+      <Popover wide label="Why AI misses you" className="term" trigger="Why AI misses you">
+        <strong className="pop-title">Why AI misses you</strong>
+        {recorded.length > 0 && (
+          <p>{searcher(run)} ran {plural(s!.searches.length, "search", "searches")}; {s!.owned} ended in an answer that cited your site.
+            {placed.size > 0 && [...placed].every((id) => missed.includes(id))
+              && ` None of the ${placed.size} “where AI places you” questions did.`}</p>
         )}
-        {sim && compared.length > 0 && (
-          <div className="card sumcard">
-            <span className="sum-title">Your pages lose the match</span>
-            <span className="big">{compared.filter(behind).length} <small>of {plural(compared.length, "question")}</small></span>
-            <p>Your best page matches the question less closely than the page AI cited.
-              {withFix.length > 0 && ` The suggested rewrites score higher on ${up} of the ${withFix.length} questions they target, lower on ${down}.`}</p>
-            {card("fix", "See the scores")}
-          </div>
+        {compared.length > 0 && (
+          <p>Your best page matches the question less closely than the page AI cited.
+            {withFix.length > 0 && ` The suggested rewrites score higher on ${up} of the ${withFix.length} questions they target, lower on ${down}.`}</p>
         )}
-        {checks && run.audit!.claims.length > 0 && (
-          <div className="card sumcard">
-            <span className="sum-title">Something in AI's way</span>
-            <span className="big">{checks.pages} <small>of {plural(run.audit!.claims.length, "claim page")}</small></span>
-            <p>{checks.failing.length ? checks.failing.slice(0, 2).map((f) => `${GLOSSARY[f.key].term} fails on ${f.n}`).join("; ") + "." : "Nothing fails."}
-              {facts("Wikidata") === "found" && facts("Wikipedia") === "found" ? ` Wikipedia and Wikidata know ${brand}.`
-                : facts("Wikidata") === "missing" ? " No Wikidata entry." : ""}</p>
-            {card("site", "See the site check")}
-          </div>
+        {checks && (
+          <p>{checks.failing.length ? checks.failing.slice(0, 2).map((f) => `${GLOSSARY[f.key].term} fails on ${f.n}`).join("; ") + "." : "Nothing fails."}
+            {facts("Wikidata") === "found" && facts("Wikipedia") === "found" ? ` Wikipedia and Wikidata know ${brand}.`
+              : facts("Wikidata") === "missing" ? " No Wikidata entry." : ""}</p>
         )}
+        <p className="muted">Each number opens its table on the Evidence page.</p>
+      </Popover>
+    )}>
+      <div className="why-nums">
+        {recorded.length > 0 && cell("searches", `${missed.length} of ${recorded.length}`, `buyer questions: no page AI cited was ${brand}'s`)}
+        {compared.length > 0 && cell("fixes", `${compared.filter(behind).length} of ${compared.length}`, "your best page loses the match to the page AI cited")}
+        {checks && cell("site", `${checks.pages} of ${run.audit!.claims.length}`, "claim pages have something in AI's way")}
       </div>
-      <div className="subtabs" role="tablist" aria-label="Why AI misses you, in detail" onKeyDown={onKey}>
-        {subs.map(([t, label]) => (
-          <button key={t} id={`${uid}-sub-${t}`} type="button" role="tab" aria-selected={sub === t}
-                  aria-controls={`${uid}-panel`} tabIndex={sub === t ? 0 : -1} onClick={() => open(t)}>{label}</button>
-        ))}
-      </div>
-      <div id={`${uid}-panel`} role="tabpanel" aria-labelledby={`${uid}-sub-${sub}`} className="subpanel">
-        {sub === "searches" && <WhatItSearched run={run} />}
-        {sub === "fix" && <TestAFix run={run} reasks={reasks} onReasked={onReasked} />}
-        {sub === "site" && <WhyAIMisses run={run} />}
-        {sub === "ask" && <WhyPanel run={run} />}
-      </div>
-    </>
+    </Tile>
   );
 }
 
@@ -127,7 +86,7 @@ function buyerGroups(run: Run): { title: ReactNode; probes: Probe[] }[] {
  * any answer to it cite a page of yours? One question opens to its searches; the flat list of every
  * search, near-duplicates grouped, is one click away.
  */
-function WhatItSearched({ run }: { run: Run }) {
+export function WhatItSearched({ run }: { run: Run }) {
   const [flat, setFlat] = useState(false);
   const s = run.insights?.searches;
   if (!s) return null;
@@ -234,12 +193,6 @@ function WhatItSearched({ run }: { run: Run }) {
   );
 }
 
-/** The one gap a fix does the most for: the question where the rewrite lifts your score the most. */
-function biggestFix(run: Run): RetrievalRow | undefined {
-  const lift = (r: RetrievalRow) => (r.fixed && r.yours ? r.fixed.score - r.yours.score : -1);
-  return (run.retrieval?.rows ?? []).filter((r) => behind(r) && lift(r) > 0).sort((a, b) => lift(b) - lift(a))[0];
-}
-
 /** A passage in place: its page, the words, and which search it matched best. */
 function PassageQuote({ title, p }: { title: string; p: ScoredPassage }) {
   return (
@@ -306,7 +259,7 @@ const SHOWN_FIX_ROWS = 8;
  * and yours again with the win-back rewrite in the page. Similarity only, labelled as a simulation.
  * One table, rows with a suggested fix first; a question opens its passages and the quick check.
  */
-function TestAFix({ run, reasks, onReasked }: {
+export function TestAFix({ run, reasks, onReasked }: {
   run: Run; reasks: Record<string, RetrievalRow["reask"]>;
   onReasked: (probe: string, got: RetrievalRow["reask"]) => void;
 }) {
@@ -388,21 +341,5 @@ function TestAFix({ run, reasks, onReasked }: {
       )}
       {!replay && <p className="muted" style={{ margin: 0 }}>{plural(sim.passages, "passage")} from {plural(sim.pages, "page")}, scored with {sim.model}.</p>}
     </Section>
-  );
-}
-
-/** Overview's one line on the gap a suggested fix does the most for. */
-export function FixLine({ run, onOpen }: { run: Run; onOpen: () => void }) {
-  const r = biggestFix(run);
-  if (!r?.yours || !r.rival || !r.fixed) return null;
-  const q = run.probes.find((p) => p.id === r.probe_id);
-  return (
-    <p className="callout story-line">
-      {run.retrieval?.provenance !== "live_api" && <span className="tag sample">sample</span>}{" "}
-      <strong>Biggest fixable gap:</strong> for “{q?.text}”, your best page scores {score(r.yours.score)} and
-      the page AI cited {score(r.rival.score)}. With the suggested rewrite yours scores {score(r.fixed.score)}{" "}
-      (<Term k="retrieval_score">simulated</Term>).{" "}
-      <button type="button" className="pop-trigger linky" onClick={onOpen}>Test a fix</button>
-    </p>
   );
 }
