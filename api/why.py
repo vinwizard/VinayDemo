@@ -23,7 +23,7 @@ def investigations(run_id: str, request: Request = None):
     """A run's investigations, newest first, each the whole record."""
     from api import main
     pid = main.pass_id(main.holder_of(request))
-    if not access.visible("run", run_id, pid) or not reports.ID.fullmatch(run_id):
+    if not main.sees_run(run_id, pid) or not reports.ID.fullmatch(run_id):
         raise HTTPException(404, f"run {run_id} not found")
     return [inv.model_dump() for inv in reports.list_investigations(run_id)
             if access.visible("investigation", inv.id, pid)]

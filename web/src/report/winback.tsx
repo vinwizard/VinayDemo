@@ -297,7 +297,7 @@ export function QuickWins({ run, onOpen }: { run: Run; onOpen: () => void }) {
   const { targets, actions } = winBackPlan(run);
   const first = actions.find((a) => matchVerdict(matchRows(a, run.retrieval?.rows ?? [])).verdict !== "worse") ?? actions[0];
   return (
-    <Tile title={<Term k="quick_wins">Quick wins</Term>} sample={run.mode !== "live_api" && !!first}>
+    <Tile tour="quick-wins" title={<Term k="quick_wins">Quick wins</Term>} sample={run.mode !== "live_api" && !!first}>
       <span className="tile-big">{actions.length ? plural(actions.length, "rewrite") : "None yet"}</span>
       {first ? <p className="diff teaser"><span className="muted">{address(first.page_url)}: </span><Diff a={first} /></p>
         : <p className="muted">{targets.length ? "No suggested fix passed our checks yet." : "No claim with room to grow."}</p>}

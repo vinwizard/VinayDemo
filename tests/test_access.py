@@ -259,14 +259,15 @@ def preload_examples(tmp_path):
         (tmp_path / kind / f"{item}.json").write_bytes((reports.BUNDLED / kind / f"{item}.json").read_bytes())
 
 
-def test_a_pass_sees_none_of_the_preloaded_examples_and_a_visitor_still_does(env, tmp_path):
+def test_a_pass_lists_none_of_the_preloaded_examples_and_a_visitor_still_does(env, tmp_path):
     preload_examples(tmp_path)
     access.own("company", CO, "person-1", "Notion")
     c, _, _ = with_pass()
     public = browser()
     for viewer, shown in ((public, True), (c, False)):
         assert (main.SHOWCASE_RUN in [r["id"] for r in viewer.get("/api/runs").json()]) is shown
-        assert (viewer.get(f"/api/runs/{main.SHOWCASE_RUN}").status_code == 200) is shown
+        # the first-visit story and tour are told with the showcase, so every viewer can open it
+        assert viewer.get(f"/api/runs/{main.SHOWCASE_RUN}").status_code == 200
         companies = {x["id"] for x in viewer.get("/api/companies").json()}
         assert {main.SEED_COMPANY, main.SHOWCASE_COMPANY} <= companies if shown else \
             companies == {CO}                                            # only what the pass onboarded

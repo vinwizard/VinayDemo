@@ -5,8 +5,9 @@ import { Report } from "./report/Report";
 import { History } from "./report/history";
 import { CompanyWorkflow } from "./workflow";
 import { Guide } from "./guide";
+import { requestTour } from "./guideBus";
 import { headline, money, unreadableNote } from "./labels";
-import { pickStory } from "./tour";
+import { pickStory, replayPart } from "./tour";
 
 type Tab = "onboard" | "history";
 
@@ -41,8 +42,9 @@ export default function App() {
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [runsNote, setRunsNote] = useState<string | null>(null);   // runs that could not be listed
   const [opened, setOpened] = useState<Run | null>(null);
-  // The committed live run the "how it works" story is told with; a pass holder cannot read it.
+  // The committed live run the "how it works" story is told with, and whether reading it has settled.
   const [showcase, setShowcase] = useState<Run | null>(null);
+  const [showcaseRead, setShowcaseRead] = useState(false);
   const [replay, setReplay] = useState(0);
   const story = useMemo(() => (showcase ? pickStory(showcase) : null), [showcase]);
   const storyVars = useMemo(() => {
@@ -71,11 +73,18 @@ export default function App() {
       setHealth(h);
       // The public demo cannot onboard without a pass, so its visitors land on the saved runs.
       if (h.public_demo && !p) setTab("history");
-      // A pass holder cannot read the showcase run, by design: the guide then shows the welcome alone.
-      if (h.showcase?.run) getRun(h.showcase.run).then(setShowcase).catch(() => {});
+      // Without the showcase run the guide shows the welcome alone.
+      if (h.showcase?.run) getRun(h.showcase.run).then(setShowcase).catch(() => {}).finally(() => setShowcaseRead(true));
+      else setShowcaseRead(true);
     })
       .catch(() => setError(`Could not reach the API at ${API}. Start it first — see WEB.md.`));
   }, [refreshRuns]);
+
+  // A pass holder's first look at onboarding gets its tour, once the story has had its turn.
+  const hasPass = !!pass;
+  useEffect(() => {
+    if (hasPass && showcaseRead && tab === "onboard") requestTour("onboard", true);
+  }, [hasPass, showcaseRead, tab]);
 
   const openRun = (id: string) => { getRun(id).then(setOpened).catch((e) => setError(String(e))); };
 
@@ -104,7 +113,10 @@ export default function App() {
               </button>
             ))}
           </nav>
-          {health && <button type="button" className="ghost how" onClick={() => setReplay((n) => n + 1)}>How it works</button>}
+          {health && <button type="button" className="ghost how" onClick={() => {
+            if (replayPart(!!story, tab === "history" && !!opened) === "onboard" && tabs.some(([t]) => t === "onboard")) setTab("onboard");
+            setReplay((n) => n + 1);
+          }}>How it works</button>}
         </div>
       </header>
 

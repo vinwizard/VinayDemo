@@ -35,7 +35,7 @@ export function WhyNumbers({ run, onOpen }: { run: Run; onOpen: (to: Why) => voi
   );
   if (!recorded.length && !compared.length && !checks) return null;
   return (
-    <Tile wide sample={run.mode !== "live_api"} title={(
+    <Tile wide tour="why" sample={run.mode !== "live_api"} title={(
       <Popover wide label="Why AI misses you" className="term" trigger="Why AI misses you">
         <strong className="pop-title">Why AI misses you</strong>
         {recorded.length > 0 && (

@@ -131,10 +131,10 @@ export function Headline({ run }: { run: Run }) {
   const brand = run.profile.name;
   const iv = untapped(d[`${h.field}_interval`]);
   if (h.potential == null || h.value == null) {
-    return <Tile title={h.label}><span className="hero-num">n/a</span><p>{d.na_reasons?.[h.field]}</p></Tile>;
+    return <Tile tour="headline" title={h.label}><span className="hero-num">n/a</span><p>{d.na_reasons?.[h.field]}</p></Tile>;
   }
   return (
-    <Tile title={(
+    <Tile tour="headline" title={(
       <Popover wide label="Untapped potential" className="term" trigger="Untapped potential">
         <strong className="pop-title">Untapped potential</strong>
         <p>
@@ -172,7 +172,7 @@ export function BuyerVisibility({ run }: { run: Run }) {
   const gap = gapSentence(d, brand);
   const unsure = fronts.filter((v) => v.low_confidence);
   return (
-    <Tile wide title={(
+    <Tile wide tour="fronts" title={(
       <Popover wide label="Buyer visibility" className="term" trigger={`Does AI bring ${brand} up when buyers ask?`}>
         <strong className="pop-title">{GLOSSARY.buyer_visibility.term}, 0–100</strong>
         <p>{GLOSSARY.buyer_visibility.def}</p>

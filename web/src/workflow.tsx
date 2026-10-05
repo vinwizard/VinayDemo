@@ -13,6 +13,7 @@ import { FindCompany, SourceList } from "./find";
 import { Report } from "./report/Report";
 import { Logo } from "./report/ui";
 import { Popover, Term } from "./popover";
+import { requestTour } from "./guideBus";
 import { PROVENANCE_LABEL, headline, plain, plural, potentialText, streamingProbeLabel, unreadableNote } from "./labels";
 
 type StageState = "pending" | "active" | "done" | "skipped" | "failed";
@@ -21,6 +22,7 @@ function Stage({ n, title, state, summary, hint, children, last }: {
   n: number; title: string; state: StageState; summary?: ReactNode; hint?: ReactNode; children?: ReactNode;
   last?: boolean;
 }) {
+  // The first-visit tour lights each stage up by its number (`stage-<n>`, tour.ONBOARD_STEPS).
   // Open while it is the thing happening; a finished stage folds to its one-line summary and the
   // reader can unfold it. The override resets when the stage changes state.
   const [override, setOverride] = useState<{ state: StageState; open: boolean } | null>(null);
@@ -29,7 +31,7 @@ function Stage({ n, title, state, summary, hint, children, last }: {
   const open = hasBody && (override?.state === state ? override.open : auto);
   const mark = state === "done" ? "✓" : state === "failed" ? "!" : state === "skipped" ? "–" : n;
   return (
-    <section className={`stage ${state}${last ? " last" : ""}`} aria-label={title}>
+    <section className={`stage ${state}${last ? " last" : ""}`} aria-label={title} data-tour={`stage-${n}`}>
       <div className="stage-mark" aria-hidden>{mark}</div>
       <div className="stage-main">
         <div className="stage-top">
@@ -152,7 +154,12 @@ export function CompanyWorkflow({ onRunSaved, warning }: { onRunSaved: () => voi
       onAnswer: (e) => setP((x) => ({ ...x, answers: [...x.answers, e] })),
       onDone: (e) => {
         setP((x) => ({ ...x, run: e.run })); setRunning(false); onRunSaved();
-        requestAnimationFrame(() => reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+        requestAnimationFrame(() => {
+          reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          // A live result: point the way to Investigate the gaps (once per browser). A first report's
+          // own tour, asked for as it rendered, goes first and already ends there.
+          if (e.run.mode === "live_api") requestTour("investigate", true);
+        });
       },
       onError: (e) => { setP((x) => ({ ...x, error: e.message })); setRunning(false); },
     });
@@ -307,23 +314,31 @@ export function CompanyWorkflow({ onRunSaved, warning }: { onRunSaved: () => voi
                  ?? `Questions that name ${brandName} but never name a claim`}>
         {s4 !== "pending" && s4 !== "skipped" && (
           <div className="stack">
+            <p className="muted" style={{ margin: 0 }}>
+              Each names {brandName} and none names a claim, so whatever AI says {brandName} is
+              known for, it said unprompted.
+            </p>
             {(s4 !== "failed" || brand.length > 0) && <AnswerList answers={brand} replay={replay} />}
             {errorAt(s4)}
           </div>
         )}
       </Stage>
       <Stage n={5} title="Ask unbranded questions" state={s5}
-             hint={<Term k="buyer_question" icon note={<>Asked on two fronts: the category the brand answers place
-               {" "}{brandName} in, and the one its own site aims for.{!replay && " The site's own category is asked"
-               + " alongside the branded questions; the other starts as soon as their answers are read. Each is asked"
-               + " more than once, because the same question gets a different answer each time; the control question"
-               + " asks which companies lead the category."}</>} />}
+             hint={<Term k="buyer_question" icon />}
              summary={s5 === "skipped" ? "Skipped — no weighted claim has an unbranded question"
                : (answeredSummary(buyer, planned?.buyer, "question")
                    ?.concat(!placedPlanned && s5 === "active" ? " · more once the branded answers are read" : ""))
                  ?? `Questions a buyer would ask without naming ${brandName}`}>
         {s5 !== "pending" && s5 !== "skipped" && (
           <div className="stack">
+            <p className="muted" style={{ margin: 0 }}>
+              Each one is what a buyer would type with no brand named, on two fronts: the category
+              the brand answers place {brandName} in, and the one its own site aims for. Does AI bring {brandName} up on its own?
+              {!replay && " The site's own category is asked alongside the branded questions; the other"
+                + " starts as soon as their answers are read."}
+              {!replay && " Each is asked more than once, because the same question gets a different"
+                + " answer each time; the control question asks which companies lead the category."}
+            </p>
             {(s5 !== "failed" || buyer.length > 0) && <AnswerList answers={buyer} replay={replay} />}
             {errorAt(s5)}
           </div>
@@ -342,6 +357,12 @@ export function CompanyWorkflow({ onRunSaved, warning }: { onRunSaved: () => voi
                  + ` · ${PROVENANCE_LABEL[p.run.mode] ?? p.run.mode}`
                : s6 === "active" ? "Checking every quote is verbatim, then placing each claim…"
                : "Every quote checked word for word against its answer, then each claim placed"}>
+        {s6 === "active" && (
+          <p className="muted working" style={{ margin: 0 }}>
+            An answer only counts for a claim when the quote behind it appears word for word in that
+            answer. Unverifiable observations are dropped, never repaired.
+          </p>
+        )}
         {errorAt(s6)}
       </Stage>
 

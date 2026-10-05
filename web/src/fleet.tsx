@@ -206,7 +206,7 @@ export function FleetPanel({ run }: { run: Run }) {
   return (
     <section className="panel-sec fleet-panel" aria-live="polite">
       {view && (
-        <div className="panel-sec-head">
+        <div className="panel-sec-head" data-tour="ev-investigate">
           <h3><Term k="investigation_fleet">Investigate the gaps</Term></h3>
           <span className="block-found">
             {view.done
@@ -216,7 +216,7 @@ export function FleetPanel({ run }: { run: Run }) {
         </div>
       )}
       {(!view || view.done) && (
-        <div className="fleet-start">
+        <div className="fleet-start" data-tour="ev-investigate">
           <button className="primary" type="button" onClick={start} disabled={!liveOk || runningNow}>
             {view ? "Investigate again" : "Investigate the gaps"}
             {estimate && ` (≈ ${money(estimate.usd)}, ≈ ${estimate.minutes} min)`}

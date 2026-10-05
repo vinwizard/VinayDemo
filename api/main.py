@@ -119,9 +119,15 @@ def paying(pid: Optional[str]):
         raise HTTPException(403, e.message)
 
 
+def sees_run(run_id: str, pid: Optional[str]) -> bool:
+    """Whether this pass may read a run. The committed live example is readable by everyone, since
+    the first-visit story and tour are told with it; History still lists a pass holder's runs only."""
+    return run_id == SHOWCASE_RUN or access.visible("run", run_id, pid)
+
+
 def visible_run(run_id: str, pid: Optional[str]):
     """The saved run, or a 404 when this pass may not see it or it is not there."""
-    if not access.visible("run", run_id, pid):
+    if not sees_run(run_id, pid):
         raise HTTPException(404, f"run {run_id} not found")
     try:
         return load_run(run_id)
