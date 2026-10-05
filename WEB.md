@@ -308,7 +308,7 @@ cap and a personal link, `<site>/?pass=<code>`. Opening the link signs the brows
 session cookie; the code leaves the address bar), after which the holder can onboard and measure
 companies live, sees a meter such as "$1.40 of $5.00 used", and sees only their own runs and companies
 — nobody else's, and none of the preloaded examples, except that the committed Amgen run (`SHOWCASE_RUN`)
-opens for everyone, unlisted, since the first-visit guide is told with it (`api.main.sees_run`). Every run a pass makes, replay or live, is saved
+opens for everyone, unlisted, since the first-visit guide is told with it (`api.main.sees_run`), and read-only: no pass investigates, re-asks or tests a fix on it. Every run a pass makes, replay or live, is saved
 under `DATA_DIR` and owned by that pass. Every OpenAI call is checked against the cap before it is
 made and charged afterwards from the usage OpenAI reports, at the dated per-model prices in
 [`access.py`](access.py); a call whose usage or model price is unknown is charged a deliberately high

@@ -5,6 +5,7 @@ import type { FleetView, Lane } from "./fleetlog";
 import { emptyView, fold } from "./fleetlog";
 import { PROVENANCE_LABEL, WHY_VERDICT, address, money, plural, signed, when } from "./labels";
 import { Term } from "./popover";
+import { READ_ONLY_NOTE } from "./report/ui";
 
 const minutes = (s: number) => (s >= 90 ? `${(s / 60).toFixed(1)} min` : `${Math.round(s)} s`);
 
@@ -217,13 +218,13 @@ export function FleetPanel({ run }: { run: Run }) {
       )}
       {(!view || view.done) && (
         <div className="fleet-start" data-tour="ev-investigate">
-          <button className="primary" type="button" onClick={start} disabled={!liveOk || runningNow}>
+          <button className="primary" type="button" onClick={start} disabled={!liveOk || runningNow || run.read_only}>
             {view ? "Investigate again" : "Investigate the gaps"}
             {estimate && ` (≈ ${money(estimate.usd)}, ≈ ${estimate.minutes} min)`}
           </button>
           <Term k="investigation_fleet" icon note={estimate
             && `${plural(estimate.candidates, "claim")} on the shortlist; it spends at most ${money(estimate.budget_usd)}.${liveOk ? "" : " Needs a live model."}`} />
-          <span className="muted">{PROVENANCE_LABEL.counterfactual_replay}: nothing here moves a score.</span>
+          <span className="muted">{run.read_only ? READ_ONLY_NOTE : `${PROVENANCE_LABEL.counterfactual_replay}: nothing here moves a score.`}</span>
         </div>
       )}
       {error && <div className="callout error">{error}</div>}

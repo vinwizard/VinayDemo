@@ -68,4 +68,5 @@ export function Tile({ title, children, wide, sample, tour }: {
   );
 }
 
+export const READ_ONLY_NOTE = "This live example is read-only: measure your own brand to investigate it.";
 export const SAMPLE_NOTE = "Authored sample data, not a measurement: a live run fills this from the model's own answers.";

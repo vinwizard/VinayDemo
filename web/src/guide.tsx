@@ -355,7 +355,8 @@ export function Guide({ story, vars, auto, replay, onOpenShowcase }: {
   useEffect(() => {
     if (!replay || busy.current) return;
     back.current = document.activeElement as HTMLElement | null;
-    const part = replayPart(!!story, !!document.querySelector('[data-tour="headline"], [data-tour="ev-tabs"]'));
+    const part = replayPart(!!story, !!document.querySelector('[data-tour="headline"], [data-tour="ev-tabs"]'),
+                            !!document.querySelector('[data-tour="stage-1"]'));
     if (part === "story") { busy.current = true; requestAnimationFrame(() => setActive({ kind: "story" })); return; }
     startTour(part, false);
     // A replay is one press of the button: only its count starts it.

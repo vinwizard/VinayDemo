@@ -58,8 +58,9 @@ app = FastAPI(title="Off Message API")
 
 def run_payload(run) -> dict:
     """The run as the browser reads it, plus the panels derived from its saved answers. Each answer
-    carries `excluded`: why scoring left it out (scoring.exclusion), "missing" with no evaluation."""
-    out = {**json.loads(run.model_dump_json()), "insights": insights(run)}
+    carries `excluded`: why scoring left it out (scoring.exclusion), "missing" with no evaluation;
+    `read_only` marks the committed live example, which no pass spends on."""
+    out = {**json.loads(run.model_dump_json()), "insights": insights(run), "read_only": run.id == SHOWCASE_RUN}
     evs = {(e.probe_id, e.try_no): e for e in [*run.evaluations, *run.repeat_evaluations]}
     for field in ("answers", "repeat_answers"):
         for a, sent in zip(getattr(run, field), out[field]):
@@ -150,6 +151,7 @@ OFFLINE_ENV = "VISEXP_OFFLINE_REPLAY"
 # clone and the public demo have one measured report in History. Never rewritten in place.
 SHOWCASE_COMPANY = "b5aced577f"
 SHOWCASE_RUN = "cb67186167"
+SHOWCASE_READ_ONLY = "The live example is read-only: measure your own brand to investigate it."
 OFFLINE_FIXED = "offline replay: the bundled sample's claims and weights are fixed"
 
 
@@ -772,6 +774,8 @@ def reask_run(run_id: str, req: ReaskRequest, request: Request = None):
     pid = pass_id(holder)
     run = visible_run(run_id, pid)
     refuse_in_public("asking the model again", holder)
+    if run.id == SHOWCASE_RUN:
+        raise HTTPException(403, SHOWCASE_READ_ONLY)
     if run.mode != "live_api":
         raise HTTPException(400, "Only a live run can be asked again: this sample's passages were written by hand.")
     if not live.available():

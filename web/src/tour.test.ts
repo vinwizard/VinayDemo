@@ -99,9 +99,10 @@ test("captions fill their slots and keep glossary terms apart", () => {
 });
 
 test("\"How it works\" always replays something, even with no report open and no story to tell", () => {
-  assert.equal(replayPart(true, false), "story");
-  assert.equal(replayPart(false, true), "report");
-  assert.equal(replayPart(false, false), "onboard");   // the app switches to the Onboard tab first
+  assert.equal(replayPart(true, false, false), "story");
+  assert.equal(replayPart(true, true, true), "onboard");   // on the Onboard tab, its own tour, never the story
+  assert.equal(replayPart(false, true, false), "report");
+  assert.equal(replayPart(false, false, false), "onboard");   // the app switches to the Onboard tab first
 });
 
 test("without a story to tell, the welcome still comes first, once, and on every replay", () => {

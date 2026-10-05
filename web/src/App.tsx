@@ -114,7 +114,7 @@ export default function App() {
             ))}
           </nav>
           {health && <button type="button" className="ghost how" onClick={() => {
-            if (replayPart(!!story, tab === "history" && !!opened) === "onboard" && tabs.some(([t]) => t === "onboard")) setTab("onboard");
+            if (replayPart(!!story, tab === "history" && !!opened, tab === "onboard") === "onboard" && tabs.some(([t]) => t === "onboard")) setTab("onboard");
             setReplay((n) => n + 1);
           }}>How it works</button>}
         </div>

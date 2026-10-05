@@ -7,7 +7,7 @@ import type { MatchVerdict } from "../quickwins";
 import { ZONE_LABEL, address, plural } from "../labels";
 import { Popover, Term } from "../popover";
 import { refs, winBackPlan } from "./util";
-import { Block, Section, Tile } from "./ui";
+import { Block, READ_ONLY_NOTE, Section, Tile } from "./ui";
 import { QRef } from "./questions";
 import { ClaimDetail } from "./claimCards";
 
@@ -107,9 +107,12 @@ function ReplayTest({ run, a, probe, inv, budget, onDone }: {
         <p>{tag && <span className={`pill ${tag.tone}`}>{tag.label}</span>} {verdict.text}{" "}
           <span className="muted">({inv!.spent_usd.toFixed(2)} USD, replays with search off; {inv!.judge})</span></p>
       ) : run.mode === "live_api" ? (
-        <button type="button" className="ghost" disabled={busy} onClick={start}>
-          {busy ? "Testing…" : `Run replay test${budget != null ? ` (up to $${budget.toFixed(2)})` : ""}`}
-        </button>
+        <>
+          <button type="button" className="ghost" disabled={busy || run.read_only} onClick={start}>
+            {busy ? "Testing…" : `Run replay test${budget != null ? ` (up to $${budget.toFixed(2)})` : ""}`}
+          </button>
+          {run.read_only && <span className="muted"> {READ_ONLY_NOTE}</span>}
+        </>
       ) : <p className="muted">A sample run cannot be tested: its answers were written by hand.</p>}
       {busy && log.length > 0 && <ol className="why-log" aria-live="polite">{log.map((l, i) => <li key={i}>{l}</li>)}</ol>}
       {error && <div className="callout error">{error}</div>}

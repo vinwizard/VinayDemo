@@ -244,9 +244,12 @@ export const ONBOARD_STEPS: Step[] = [
     text: "Every quote is checked word for word against its answer, then each claim is placed. Your report opens right here." },
 ];
 
-/** What "How it works" replays: the story when it can be told, else the tour of the screen it opens on. */
-export const replayPart = (hasStory: boolean, reportOpen: boolean): Part =>
-  hasStory ? "story" : reportOpen ? "report" : "onboard";
+/**
+ * What "How it works" replays: on the Onboard tab its own tour, else the story when it can be told,
+ * else the tour of the screen it opens on.
+ */
+export const replayPart = (hasStory: boolean, reportOpen: boolean, onOnboard: boolean): Part =>
+  onOnboard ? "onboard" : hasStory ? "story" : reportOpen ? "report" : "onboard";
 
 /**
  * Without a story to tell (the showcase run could not be read), the welcome scene still opens the

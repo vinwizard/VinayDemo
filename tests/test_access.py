@@ -273,6 +273,21 @@ def test_a_pass_lists_none_of_the_preloaded_examples_and_a_visitor_still_does(en
             companies == {CO}                                            # only what the pass onboarded
 
 
+@pytest.mark.parametrize("ask", [
+    lambda c, run: c.post(f"/api/runs/{run}/fleet"),
+    lambda c, run: c.post(f"/api/runs/{run}/reask", json={"probe_id": "biologic_medicines-b1"}),
+    lambda c, run: c.get(f"/api/runs/{run}/why/stream?attribute=biologic_medicines&probe=np-1"),
+    lambda c, run: c.get(f"/api/runs/{run}/rewrite-test/stream?attribute=biologic_medicines&probe=biologic_medicines-b1"),
+], ids=["fleet", "reask", "why", "rewrite-test"])
+def test_a_pass_reads_the_showcase_but_never_spends_on_it(env, tmp_path, ask):
+    preload_examples(tmp_path)
+    c, _, _ = with_pass()
+    assert c.get(f"/api/runs/{main.SHOWCASE_RUN}").json()["read_only"] is True
+    r = ask(c, main.SHOWCASE_RUN)
+    refusal = r.json()["detail"] if r.status_code != 200 else events(r.text)[-1][1]["message"]
+    assert refusal == main.SHOWCASE_READ_ONLY                           # before any model call (env fails on one)
+
+
 def test_a_pass_holders_runs_survive_a_restart_and_a_new_session(env, tmp_path):
     """The reproduction: a pass holder's replay was shown and never saved, so it was gone from History
     by their next visit. Every run a pass makes is now on disk under DATA_DIR, owned by that pass."""
