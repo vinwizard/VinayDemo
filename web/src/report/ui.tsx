@@ -55,15 +55,18 @@ export function Section({ title, found, children, className }: {
 
 /** One result block on the Results page: a title, the figure, and anything more one hover or tap away.
  * `sample` tags authored data where it appears, beside the page's banner. */
-export function Tile({ title, children, wide, sample }: {
+export function Tile({ title, children, wide, sample, tour }: {
   title: ReactNode; children: ReactNode; wide?: boolean; sample?: boolean;
+  /** The first-visit tour's anchor for this block (guide.tsx). */
+  tour?: string;
 }) {
   return (
-    <section className={wide ? "tile wide" : "tile"}>
+    <section className={wide ? "tile wide" : "tile"} data-tour={tour}>
       <h3 className="tile-title">{title}{sample && <span className="tag sample">sample</span>}</h3>
       {children}
     </section>
   );
 }
 
+export const READ_ONLY_NOTE = "This live example is read-only: measure your own brand to investigate it.";
 export const SAMPLE_NOTE = "Authored sample data, not a measurement: a live run fills this from the model's own answers.";

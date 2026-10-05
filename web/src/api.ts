@@ -232,6 +232,7 @@ export interface Run {
   sampler?: SamplerReport | null;
   log: string[];
   insights?: Insights;  // derived by the API from the saved answers; absent on a run read raw
+  read_only?: boolean;  // the committed live example: readable by every pass, never investigated
 }
 
 /** One passage and how closely it matches a buyer question or search: cosine similarity of embeddings. */

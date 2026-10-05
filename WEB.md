@@ -151,7 +151,7 @@ threshold's calibration is beside `SIMILARITY`. Kept in `DATA_DIR/shared.db`.
 
 ### Investigation fleet
 
-After a live run, **Investigate the gaps** under Fixes and tests on the Evidence page starts a team of agents that work out why AI
+After a live run, **Investigate the gaps**, its own tab on the Evidence page, starts a team of agents that work out why AI
 says what it says and what would change it (`fleet.py`, `verify.py`, `api/fleet.py`; the roles are in
 `fleet.py`'s docstring). It reads the saved run and never writes it. The plan is code's ranking of the
 accepted verdicts, every number copied from an experiment, in the template's wording.
@@ -236,20 +236,27 @@ The page has two tabs, Onboard and History. Two committed examples ship with eve
 from step 1 of Onboard; and `data/runs/cb67186167.json`, a real live run of amgen.com (28 Sep 2026),
 listed in History as measured live; `rescore` never rewrites the committed file (`SHOWCASE_RUN`).
 On the hosted demo a visitor without a pass opens on History; a pass
-holder sees only their own work, starting on Onboard.
+holder lists only their own work, starting on Onboard, but can open the Amgen run the guide is told with.
 
 Rules every view keeps: every simulation (retrieval scores, replays, reasks) is
 labelled and moves no score; no engine id or 0 is the only thing a reader gets; every n/a shows its
 reason from `na_reasons`; no external logo service (the logo is the site's own icon, else a letter).
 
-- **First-visit guide** (`web/src/guide.tsx`, `web/src/tour.ts`, tests in `tour.test.ts`): a
-  welcome, then for a visitor without a pass a four-scene "how it works" story told with the showcase
-  run's own words (`tour.pickStory`), once per browser; **How it works** in the top bar replays it.
+- **First-visit guide** (`web/src/guide.tsx`, `web/src/tour.ts`, `web/src/guideBus.ts`, tests in
+  `tour.test.ts`): a welcome and a four-scene "how it works" story told with the showcase run's own
+  words (`tour.pickStory`), then a spotlight tour that lights up one block at a time, each anchored by
+  `data-tour`: the Results blocks, on into the Evidence tabs and Investigate the gaps
+  (`tour.REPORT_STEPS`); onboarding's six stages for a pass holder (`ONBOARD_STEPS`); and after a live
+  result is generated, a short walk to Investigate with a worked example from that run
+  (`INVESTIGATE_STEPS`, `tour.investigateExample`). Each part starts on its own once per browser;
+  **How it works** in the top bar replays the onboarding tour on Onboard, elsewhere the story, or
+  without one the tour of the screen (`tour.replayPart`).
 - **Onboard** (`web/src/find.tsx`, `claims.tsx`, `workflow.tsx`): find and read the company, review
   its claims with their verbatim quotes and "How we checked", weight what it wants to be known for and
   name its core category, then measure; each stage is driven by the stream's events and folds to a
   one-line summary.
-- **Report** (`web/src/report/`): two pages kept in the URL hash (`#evidence`, `#evidence-<part>`).
+- **Report** (`web/src/report/`): two pages kept in the URL hash (`#evidence`, `#evidence-<part>`
+  picks the Evidence tab).
   The provenance pill, and on a sample run the SYNTHETIC banner, are always in view. One popover
   (`popover.tsx`) explains every question reference and every invented term, from `glossary.ts`, the
   one place definitions live; everything beyond the figures is behind one.
@@ -258,15 +265,16 @@ reason from `na_reasons`; no external logo service (the logo is the site's own i
     `margin.tsx` and gap on hover), the zone chips opening their claims, Quick wins with a diff
     teaser, Why AI misses you in three numbers, and share of voice.
   - **Evidence** — **Download summary (PDF)** (`print.tsx`: print CSS, no PDF library, no server call)
-    and the run as JSON; every buyer and brand question with its verdict, answer, the control
-    question per front and **What AI read** (`Answer.trace`, `live.reading_of`); What the AI searched
-    (`insights.searches`); the Quick wins plan (`agents/win_back.py`, `web/src/quickwins.ts`: per claim
-    a question-headed passage, one verdict, one next step, its proof behind a disclosure), Test a fix
-    (`retrieval.py`), **Investigate the gaps** (`fleet.tsx`, `fleetlog.ts`) and a live run's past why
-    investigations, read-only (`why.tsx`); the site check
-    (`audit.tsx`, `audit.py`); the citation network (`sources.tsx`, `insights.domain_keys`,
-    `insights.source_kind`) and who AI named instead; and **How we checked this report**
-    (`drift.limitations`).
+    and the run as JSON, then one tab per part, only that part shown (the one on show is solid violet):
+    What we asked AI — every buyer and brand question with its verdict, answer, the control
+    question per front and **What AI read** (`Answer.trace`, `live.reading_of`); What AI searched
+    (`insights.searches`); Fixes and tests — the Quick wins plan (`agents/win_back.py`, `web/src/quickwins.ts`: per claim
+    a question-headed passage, one verdict, one next step, its proof behind a disclosure) and Test a fix
+    (`retrieval.py`); Site check (`audit.tsx`, `audit.py`); Cited sites and rivals — the citation network
+    (`sources.tsx`, `insights.domain_keys`, `insights.source_kind`) and who AI named instead; How we
+    checked (`drift.limitations`); and on a live run **Investigate the gaps** — what it does, told with
+    the run's own Quick win, the fleet (`fleet.tsx`, `fleetlog.ts`) and the past why investigations,
+    read-only (`why.tsx`).
 
   Two lenses: with no weight set the report reads through the **claim lens** (claim echo is the
   headline); once weights exist the **intent lens** makes alignment the headline. Zone keys never
@@ -300,7 +308,8 @@ are replayed once at startup so History is not empty.
 cap and a personal link, `<site>/?pass=<code>`. Opening the link signs the browser in (an HttpOnly
 session cookie; the code leaves the address bar), after which the holder can onboard and measure
 companies live, sees a meter such as "$1.40 of $5.00 used", and sees only their own runs and companies
-— nobody else's, and none of the preloaded examples. Every run a pass makes, replay or live, is saved
+— nobody else's, and none of the preloaded examples, except that the committed Amgen run (`SHOWCASE_RUN`)
+opens for everyone, unlisted, since the first-visit guide is told with it (`api.main.sees_run`), and read-only: no pass investigates, re-asks or tests a fix on it (`api.main.showcase_locked`; a local clone with no pass keeps it live). Every run a pass makes, replay or live, is saved
 under `DATA_DIR` and owned by that pass. Every OpenAI call is checked against the cap before it is
 made and charged afterwards from the usage OpenAI reports, at the dated per-model prices in
 [`access.py`](access.py); a call whose usage or model price is unknown is charged a deliberately high

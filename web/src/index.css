@@ -500,8 +500,8 @@ details.skipped ul { margin: .2rem 0 0; padding-left: 1.1rem; font-size: .85rem;
 .front-margin { overflow-wrap: anywhere; }
 
 /* ---------------------------------------------------------------- first-visit guide (guide.tsx)
-   The story sits under popovers (z-index 50), so a glossary term in it still opens its
-   definition above it. Nothing here moves under reduced motion. */
+   The story and the spotlight sit under popovers (z-index 50), so a glossary term in a caption
+   still opens its definition above them. Nothing here moves under reduced motion. */
 .topbar-end { display: flex; align-items: flex-end; gap: .6rem; flex-wrap: wrap; }
 button.ghost.how { margin-bottom: .45rem; padding: .3rem .75rem; font-size: .85rem; color: var(--accent); border-color: var(--accent); }
 table.runs .open-cell { text-align: right; white-space: nowrap; }
@@ -572,7 +572,38 @@ table.runs .open-cell { text-align: right; white-space: nowrap; }
 @keyframes story-grow { from { width: 0; } }
 @keyframes story-strike { from { text-decoration-color: transparent; } }
 
+/* The spotlight: the page dims, the step's element is cut out and outlined, and the outline slides to
+   the next step, pulsing gently; each caption rises in as its step starts. */
+.tour-block { position: fixed; inset: 0; z-index: 44; }
+.tour-spot { position: fixed; z-index: 45; border-radius: 10px; pointer-events: none;
+  box-shadow: 0 0 0 9999px rgb(15 20 30 / 58%); outline: 2px solid #fff; }
+.tour-spot.none { left: 50%; top: 50%; width: 0; height: 0; outline: none; }
+.tour-cap { position: fixed; z-index: 46; width: min(360px, calc(100vw - 16px)); background: var(--surface);
+  border-radius: 12px; padding: .85rem .95rem .75rem; box-shadow: 0 12px 32px rgb(0 0 0 / 30%); font-size: .92rem; }
+.tour-cap h4 { font-size: .98rem; margin: 0 0 .25rem; }
+.tour-cap p { margin: 0; }
+.tour-count { display: block; font-size: .74rem; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--win-back); margin-bottom: .15rem; }
+.tour-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-top: .7rem; }
+.tour-skip { color: var(--muted) !important; font-size: .84rem !important; text-decoration: none !important; }
+.tour-dots { display: flex; gap: 4px; }
+.tour-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+.tour-dots i.past { background: var(--accent-soft); outline: 1px solid var(--accent); }
+.tour-dots i.on { background: var(--accent); width: 16px; border-radius: 4px; }
+.tour-nav { margin-left: auto; display: flex; gap: .4rem; white-space: nowrap; }
+.tour-nav button { padding: .35rem .8rem; }
+@media (prefers-reduced-motion: no-preference) {
+  .tour-spot { transition: left .35s ease, top .35s ease, width .35s ease, height .35s ease; animation: tour-pulse 1.8s ease-in-out infinite; }
+  .tour-step { animation: tour-in .3s ease both; }
+  .tour-dots i { transition: width .25s ease, background .25s ease; }
+}
+@keyframes tour-pulse { 50% { outline-offset: 4px; outline-color: rgb(255 255 255 / 60%); } }
+@keyframes tour-in { from { opacity: 0; transform: translateY(6px); } }
+
 @media (max-width: 600px) {
+  .tour-cap { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto; border-radius: 14px 14px 0 0;
+    padding-bottom: max(.9rem, env(safe-area-inset-bottom)); }
+  /* room to scroll the last block on a page clear of the caption sheet */
+  body:has(.tour-cap) .shell { padding-bottom: 60vh; }
   .story .scene h3 { padding-right: 0; margin-top: 1.6rem; }
   .guide-backdrop { padding: .5rem; }
 }
@@ -676,11 +707,18 @@ th .pop-trigger.term { font: inherit; color: inherit; text-transform: inherit; l
 @media (max-width: 480px) { .why-nums { gap: .35rem; } .why-num { padding: .4rem .45rem; } .why-num b { font-size: 1.1rem; } .why-num span { font-size: .76rem; } }
 
 /* ---------------------------------------------------------------- evidence page */
-.ev-nav { display: flex; flex-wrap: wrap; gap: .35rem; position: sticky; top: 0; z-index: 5; background: var(--bg); padding: .4rem 0; }
-.ev-nav a { font-size: .88rem; padding: .3rem .75rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface);
-            text-decoration: none; color: var(--text); }
-.ev-nav a:hover { border-color: var(--accent); color: var(--accent); }
-.ev-part { display: flex; flex-direction: column; gap: 1rem; scroll-margin-top: 3.5rem; }
+/* One part at a time: the tabs stay pinned while a long part scrolls; on a phone they scroll sideways
+   inside their strip, never the page. The tab on show is a solid violet button. */
+.ev-tabs { display: flex; gap: .35rem; position: sticky; top: 0; z-index: 5; background: var(--bg); padding: .45rem 0;
+           overflow-x: auto; scrollbar-width: thin; }
+.ev-tab { flex: none; font: inherit; font-size: .88rem; padding: .35rem .8rem; border: 1px solid var(--border); border-radius: 999px;
+          background: var(--surface); color: var(--text); cursor: pointer; white-space: nowrap; min-height: 36px; }
+.ev-tab:hover { border-color: var(--win-back); color: var(--win-back); }
+.ev-tab[aria-selected="true"] { background: var(--win-back); border-color: var(--win-back); color: #fff; font-weight: 600; }
+.ev-tab.investigate { margin-left: auto; }
+.ev-tab.investigate:not([aria-selected="true"]) { border-color: var(--win-back); color: var(--win-back); }
+.investigate-intro p { margin: .45rem 0 0; }
+.ev-part { display: flex; flex-direction: column; gap: 1rem; }
 .ev-part.qboard { display: grid; }
 .proof > summary { cursor: pointer; color: var(--accent); font-size: .9rem; min-height: 32px; display: flex; align-items: center; }
 .proof[open] { display: flex; flex-direction: column; gap: .4rem; }

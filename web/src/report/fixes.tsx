@@ -7,7 +7,7 @@ import { address, plural } from "../labels";
 import { GLOSSARY } from "../glossary";
 import { Popover, Term } from "../popover";
 import { refs, quoted, searcher, tryStory, answeredOk, cited, score, behind } from "./util";
-import { Section, SAMPLE_NOTE, Tile } from "./ui";
+import { READ_ONLY_NOTE, Section, SAMPLE_NOTE, Tile } from "./ui";
 import { QRef } from "./questions";
 
 type Why = "searches" | "fixes" | "site";
@@ -35,7 +35,7 @@ export function WhyNumbers({ run, onOpen }: { run: Run; onOpen: (to: Why) => voi
   );
   if (!recorded.length && !compared.length && !checks) return null;
   return (
-    <Tile wide sample={run.mode !== "live_api"} title={(
+    <Tile wide tour="why" sample={run.mode !== "live_api"} title={(
       <Popover wide label="Why AI misses you" className="term" trigger="Why AI misses you">
         <strong className="pop-title">Why AI misses you</strong>
         {recorded.length > 0 && (
@@ -228,12 +228,12 @@ function Reask({ run, r, got, onReasked }: {
           {got.named ? <strong className="own">named {run.profile.name}.</strong> : <strong>still did not name {run.profile.name}.</strong>}
         </p>
       ) : (
-        <button type="button" className="primary" disabled={busy} onClick={ask}>
+        <button type="button" className="primary" disabled={busy || run.read_only} onClick={ask}>
           {busy ? "Asking…" : "Quick check: 1 ask, not proof"}
         </button>
       )}
       <p className="muted" style={{ margin: 0 }}>
-        {got ? "One ask, not a measurement: it changes no number." : "One model call on your pass. A simulation: the AI is handed both passages as its only sources, so it shows whether the rewrite would be used, not whether a real search finds it."}
+        {got ? "One ask, not a measurement: it changes no number." : run.read_only ? READ_ONLY_NOTE : "One model call on your pass. A simulation: the AI is handed both passages as its only sources, so it shows whether the rewrite would be used, not whether a real search finds it."}
       </p>
       {error && <div className="callout error">{error}</div>}
     </div>

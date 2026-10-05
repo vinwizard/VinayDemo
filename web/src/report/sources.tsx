@@ -123,11 +123,11 @@ export function ShareOfVoice({ run }: { run: Run }) {
       )}
     </Popover>
   );
-  if (v.reason) return <Tile title={title}><p className="muted" style={{ margin: 0 }}>{v.reason}</p></Tile>;
+  if (v.reason) return <Tile tour="share" title={title}><p className="muted" style={{ margin: 0 }}>{v.reason}</p></Tile>;
   const bars = [{ name: v.brand, count: v.brand_recommended, brand: true },
                 ...v.rivals.map((r) => ({ ...r, brand: false }))];
   return (
-    <Tile title={title} sample={run.mode !== "live_api"}>
+    <Tile tour="share" title={title} sample={run.mode !== "live_api"}>
       <div className="sov" role="list" aria-label={`Answers recommending each company, out of ${v.questions}`}>
         {bars.map((b) => (
           <div key={b.name} role="listitem" className="sov-row" title={`${b.name}: recommended in ${b.count} of ${v.questions} answers`}>

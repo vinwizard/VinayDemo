@@ -56,10 +56,11 @@ print(f"[config] loaded from .env: {', '.join(_LOADED) or 'nothing'}")  # names 
 app = FastAPI(title="Off Message API")
 
 
-def run_payload(run) -> dict:
+def run_payload(run, pid: Optional[str] = None) -> dict:
     """The run as the browser reads it, plus the panels derived from its saved answers. Each answer
-    carries `excluded`: why scoring left it out (scoring.exclusion), "missing" with no evaluation."""
-    out = {**json.loads(run.model_dump_json()), "insights": insights(run)}
+    carries `excluded`: why scoring left it out (scoring.exclusion), "missing" with no evaluation;
+    `read_only` marks the committed live example when a pass is involved (`showcase_locked`)."""
+    out = {**json.loads(run.model_dump_json()), "insights": insights(run), "read_only": showcase_locked(run.id, pid)}
     evs = {(e.probe_id, e.try_no): e for e in [*run.evaluations, *run.repeat_evaluations]}
     for field in ("answers", "repeat_answers"):
         for a, sent in zip(getattr(run, field), out[field]):
@@ -119,9 +120,21 @@ def paying(pid: Optional[str]):
         raise HTTPException(403, e.message)
 
 
+def sees_run(run_id: str, pid: Optional[str]) -> bool:
+    """Whether this pass may read a run. The committed live example is readable by everyone, since
+    the first-visit story and tour are told with it; History still lists a pass holder's runs only."""
+    return run_id == SHOWCASE_RUN or access.visible("run", run_id, pid)
+
+
+def showcase_locked(run_id: str, pid: Optional[str]) -> bool:
+    """Whether paid experiments are refused on this run: the committed live example, read by every
+    pass, is spent on by none; a local clone with no pass and its own key keeps it fully live."""
+    return run_id == SHOWCASE_RUN and (access.public_demo() or pid is not None)
+
+
 def visible_run(run_id: str, pid: Optional[str]):
     """The saved run, or a 404 when this pass may not see it or it is not there."""
-    if not access.visible("run", run_id, pid):
+    if not sees_run(run_id, pid):
         raise HTTPException(404, f"run {run_id} not found")
     try:
         return load_run(run_id)
@@ -144,6 +157,7 @@ OFFLINE_ENV = "VISEXP_OFFLINE_REPLAY"
 # clone and the public demo have one measured report in History. Never rewritten in place.
 SHOWCASE_COMPANY = "b5aced577f"
 SHOWCASE_RUN = "cb67186167"
+SHOWCASE_READ_ONLY = "The live example is read-only: measure your own brand to investigate it."
 OFFLINE_FIXED = "offline replay: the bundled sample's claims and weights are fixed"
 
 
@@ -369,7 +383,8 @@ def list_all(request: Request = None, response: Response = None):
 
 @app.get("/api/runs/{run_id}")
 def get_run(run_id: str, request: Request = None):
-    return run_payload(visible_run(run_id, pass_id(holder_of(request))))
+    pid = pass_id(holder_of(request))
+    return run_payload(visible_run(run_id, pid), pid)
 
 
 CRAWL_PAGES = 8  # the homepage and up to seven pages that say how the company positions itself
@@ -751,7 +766,7 @@ def rescore_run(run_id: str, req: RescoreRequest, request: Request = None):
     # and the committed live example is never rewritten, so re-weighting it leaves the working tree clean
     if run.id != SHOWCASE_RUN and (not access.public_demo() or (pid and access.owner("run", run_id) == pid)):
         save_run(run)
-    return run_payload(run)
+    return run_payload(run, pid)
 
 
 class ReaskRequest(BaseModel):
@@ -766,6 +781,8 @@ def reask_run(run_id: str, req: ReaskRequest, request: Request = None):
     pid = pass_id(holder)
     run = visible_run(run_id, pid)
     refuse_in_public("asking the model again", holder)
+    if showcase_locked(run.id, pid):
+        raise HTTPException(403, SHOWCASE_READ_ONLY)
     if run.mode != "live_api":
         raise HTTPException(400, "Only a live run can be asked again: this sample's passages were written by hand.")
     if not live.available():
@@ -789,7 +806,7 @@ def reask_run(run_id: str, req: ReaskRequest, request: Request = None):
             r.reask = answer
     if run.id != SHOWCASE_RUN and (not access.public_demo() or (pid and access.owner("run", run_id) == pid)):
         save_run(run)
-    return run_payload(run)
+    return run_payload(run, pid)
 
 
 @app.get("/api/companies")

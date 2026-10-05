@@ -65,9 +65,9 @@ flips from landed to lost. Different fixture data, different diagnosis — the p
 
 **Close**
 
-Press **Evidence →** — every question asked and every answer, then "How we checked this report" —
-answers counted and left out, quotes thrown away, traits rejected — and the JSON download in its
-header holds the workflow log.
+Press **Evidence →** — every question asked and every answer under What we asked AI, then the How we
+checked tab — answers counted and left out, quotes thrown away, traits rejected — and the JSON
+download in its header holds the workflow log.
 Nothing on the screen is unsourced.
 
 **If asked what is real:** the workflow, the validation, the arithmetic and the routing are real code.

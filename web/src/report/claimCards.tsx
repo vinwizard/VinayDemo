@@ -17,7 +17,7 @@ import { FixCard } from "./winback";
 export function ZoneChips({ run }: { run: Run }) {
   const sorted = sortClaims(run.attribute_scores);
   return (
-    <Tile wide title="Your claims, by what AI does with them">
+    <Tile wide tour="zones" title="Your claims, by what AI does with them">
       <div className="chips zone-chips" role="list">
         {ZONES.map((z, i) => {
           const rows = sorted.filter((s) => s.zone === z);

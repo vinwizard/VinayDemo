@@ -259,17 +259,40 @@ def preload_examples(tmp_path):
         (tmp_path / kind / f"{item}.json").write_bytes((reports.BUNDLED / kind / f"{item}.json").read_bytes())
 
 
-def test_a_pass_sees_none_of_the_preloaded_examples_and_a_visitor_still_does(env, tmp_path):
+def test_a_pass_lists_none_of_the_preloaded_examples_and_a_visitor_still_does(env, tmp_path):
     preload_examples(tmp_path)
     access.own("company", CO, "person-1", "Notion")
     c, _, _ = with_pass()
     public = browser()
     for viewer, shown in ((public, True), (c, False)):
         assert (main.SHOWCASE_RUN in [r["id"] for r in viewer.get("/api/runs").json()]) is shown
-        assert (viewer.get(f"/api/runs/{main.SHOWCASE_RUN}").status_code == 200) is shown
+        # the first-visit story and tour are told with the showcase, so every viewer can open it
+        assert viewer.get(f"/api/runs/{main.SHOWCASE_RUN}").status_code == 200
         companies = {x["id"] for x in viewer.get("/api/companies").json()}
         assert {main.SEED_COMPANY, main.SHOWCASE_COMPANY} <= companies if shown else \
             companies == {CO}                                            # only what the pass onboarded
+
+
+@pytest.mark.parametrize("ask", [
+    lambda c, run: c.post(f"/api/runs/{run}/fleet"),
+    lambda c, run: c.post(f"/api/runs/{run}/reask", json={"probe_id": "biologic_medicines-b1"}),
+    lambda c, run: c.get(f"/api/runs/{run}/why/stream?attribute=biologic_medicines&probe=np-1"),
+    lambda c, run: c.get(f"/api/runs/{run}/rewrite-test/stream?attribute=biologic_medicines&probe=biologic_medicines-b1"),
+], ids=["fleet", "reask", "why", "rewrite-test"])
+@pytest.mark.parametrize("public", [True, False])
+def test_a_pass_reads_the_showcase_but_never_spends_on_it(env, tmp_path, monkeypatch, ask, public):
+    preload_examples(tmp_path)
+    if public:
+        c, _, _ = with_pass()
+    else:                                    # a local clone, no pass: refused only for the missing key
+        monkeypatch.delenv(access.PUBLIC_ENV)
+        monkeypatch.delenv(live.KEY_ENV)
+        c = browser()
+    assert c.get(f"/api/runs/{main.SHOWCASE_RUN}").json()["read_only"] is public
+    r = ask(c, main.SHOWCASE_RUN)
+    refusal = r.json()["detail"] if r.status_code != 200 else events(r.text)[-1][1]["message"]
+    assert (refusal == main.SHOWCASE_READ_ONLY) is public               # before any model call (env fails on one)
+    assert public or live.KEY_ENV in refusal
 
 
 def test_a_pass_holders_runs_survive_a_restart_and_a_new_session(env, tmp_path):
