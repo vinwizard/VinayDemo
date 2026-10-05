@@ -172,7 +172,7 @@ export default function App() {
       </>)}
 
       <footer className="foot">Independent portfolio demo.</footer>
-      <Guide story={story} vars={storyVars} replay={replay}
+      <Guide story={story} vars={storyVars} replay={replay} onOnboard={tab === "onboard"}
              auto={!!health && (!!pass || (!!story && !!health.public_demo && tab === "history" && !opened))}
              onOpenShowcase={() => {
                if (!showcase) return;

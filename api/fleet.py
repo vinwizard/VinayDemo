@@ -29,7 +29,7 @@ def live_run(run_id: str, holder, what: str):
     from api import main
     main.refuse_in_public(what, holder)
     run = main.visible_run(run_id, main.pass_id(holder))
-    if run.id == main.SHOWCASE_RUN:
+    if main.showcase_locked(run.id, main.pass_id(holder)):
         raise HTTPException(403, main.SHOWCASE_READ_ONLY)
     if run.mode != "live_api":
         raise HTTPException(400, "Only a live run can be investigated: a sample run's answers were written by hand.")

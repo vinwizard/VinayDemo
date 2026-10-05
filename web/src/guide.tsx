@@ -301,8 +301,8 @@ function whenAnchored(steps: Step[], then: (present: Step[]) => void) {
  * per browser; `replay` increments when the top bar's "How it works" is pressed, after the app has
  * switched to the tab that tour needs. Tours are asked for through guideBus.requestTour.
  */
-export function Guide({ story, vars, auto, replay, onOpenShowcase }: {
-  story: Story | null; vars: Vars; auto: boolean; replay: number;
+export function Guide({ story, vars, auto, replay, onOnboard, onOpenShowcase }: {
+  story: Story | null; vars: Vars; auto: boolean; replay: number; onOnboard: boolean;
   onOpenShowcase: () => void;
 }) {
   const [active, setActive] = useState<Active>(null);
@@ -356,7 +356,7 @@ export function Guide({ story, vars, auto, replay, onOpenShowcase }: {
     if (!replay || busy.current) return;
     back.current = document.activeElement as HTMLElement | null;
     const part = replayPart(!!story, !!document.querySelector('[data-tour="headline"], [data-tour="ev-tabs"]'),
-                            !!document.querySelector('[data-tour="stage-1"]'));
+                            onOnboard);
     if (part === "story") { busy.current = true; requestAnimationFrame(() => setActive({ kind: "story" })); return; }
     startTour(part, false);
     // A replay is one press of the button: only its count starts it.
