@@ -249,7 +249,8 @@ reason from `na_reasons`; no external logo service (the logo is the site's own i
   (`tour.REPORT_STEPS`); onboarding's six stages for a pass holder (`ONBOARD_STEPS`); and after a live
   result is generated, a short walk to Investigate with a worked example from that run
   (`INVESTIGATE_STEPS`, `tour.investigateExample`). Each part starts on its own once per browser;
-  **How it works** in the top bar replays the story, or the tour of the screen when there is no story.
+  **How it works** in the top bar replays the onboarding tour on Onboard, elsewhere the story, or
+  without one the tour of the screen (`tour.replayPart`).
 - **Onboard** (`web/src/find.tsx`, `claims.tsx`, `workflow.tsx`): find and read the company, review
   its claims with their verbatim quotes and "How we checked", weight what it wants to be known for and
   name its core category, then measure; each stage is driven by the stream's events and folds to a
