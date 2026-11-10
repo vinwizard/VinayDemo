@@ -17,7 +17,7 @@ import threading
 import uuid
 from typing import Callable, NamedTuple, Optional
 
-from core import access
+from core import llm
 from measure import dispatch
 from measure import sampler
 from measure import sharing
@@ -315,7 +315,7 @@ def default_transport(messages: list[dict], model: str, timeout: int,
     extra = dict(tools=[tool], tool_choice=TOOL_CHOICE, include=INCLUDE) if tool else {}
     if reasoning := reasoning_for(model):
         extra["reasoning"] = reasoning
-    return access.openai_response(timeout, model=model, input=messages, **extra)
+    return llm.openai_response(timeout, model=model, input=messages, **extra)
 
 
 class LiveProvider:
@@ -519,7 +519,7 @@ class LiveProvider:
             with self._spent_lock:                  # what the ledger charged for it counts here too
                 self.spent += getattr(e, "billed_usd", 0.0)
             return None, e
-        cost = access.cost(self.model, raw)[0]
+        cost = llm.cost(self.model, raw)[0]
         with self._spent_lock:
             self.spent += cost
         return raw, None

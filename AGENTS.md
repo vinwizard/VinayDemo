@@ -46,7 +46,7 @@ fill a gap.
   checks).
 - Code is one folder per question (core, onboard, measure, judge, score, fix, providers, api, web,
   tests). Each has a short CLAUDE.md that loads when you work there.
-- Every OpenAI call goes through `core/access.py` (`openai_response`, `openai_embedding`): it refuses
+- Every OpenAI call goes through `core/llm.py` (`openai_response`, `openai_embedding`): it refuses
   at an access pass's cap, charges the pass from reported usage, and fails closed on the public demo
   when no pass is set. A new model call site must use it. Passes, admin and hosting: WEB.md "Deploy to Render".
 - Independent portfolio demo.

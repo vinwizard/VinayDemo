@@ -3,7 +3,7 @@ answers are recorded from Google's suggestqueries endpoint, and embeddings are a
 import json
 from pathlib import Path
 
-from core import access
+from core import llm
 from measure import demand
 from measure import ana
 from providers import fixture, live
@@ -103,5 +103,5 @@ def test_a_probe_without_demand_hashes_as_before():
 
 
 def test_embeddings_are_priced_from_their_input_tokens():
-    usd, f = access.cost(demand.EMBED_MODEL, {"usage": {"prompt_tokens": 1_000_000, "total_tokens": 1_000_000}})
+    usd, f = llm.cost(demand.EMBED_MODEL, {"usage": {"prompt_tokens": 1_000_000, "total_tokens": 1_000_000}})
     assert round(usd, 4) == 0.02 and f["estimated"] == 0

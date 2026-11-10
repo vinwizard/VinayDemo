@@ -181,13 +181,13 @@ def reask(run: Run, row: RetrievalRow, model: str) -> Reask:
     """Asks the buyer question once more with the page AI cited and the rewritten passage as the only
     sources, cited page first, and reads whether the brand is named. Metered like every model call;
     a simulation that feeds no score."""
-    from core import access
+    from core import llm
     from providers.live import parse_response
     question = next(p.text for p in run.probes if p.id == row.probe_id)
     sources = [s for s in (row.rival, row.fixed) if s]
     user = question + "\n\nSources:\n" + "\n\n".join(f"[{i}] {s.url}\n\"\"\"\n{s.text}\n\"\"\""
                                                      for i, s in enumerate(sources, 1))
-    response = access.openai_response(60, model=model, input=[{"role": "system", "content": REASK_INSTRUCTION},
+    response = llm.openai_response(60, model=model, input=[{"role": "system", "content": REASK_INSTRUCTION},
                                                               {"role": "user", "content": user}])
     text, _, _ = parse_response(response)
     return Reask(named=mentions_alias(text, run.profile.names()), answer=text, model=model,

@@ -60,7 +60,7 @@ most a run may plan), `wobble_audit`, `run_budget_usd`, `why_budget_usd`, `live_
 `fleet_budget_usd`, `fleet_concurrency` and `verify_budget_usd`, plus `configured_measured_model`,
 `search_mode` and `model_fallback` when a step-down happened. Every live report names both models.
 
-Any model you point `MEASURED_MODEL` or `EVALUATOR_MODEL` at should be in `access.PRICES`, or the
+Any model you point `MEASURED_MODEL` or `EVALUATOR_MODEL` at should be in `llm.PRICES`, or the
 spend meter charges it `UNKNOWN_PRICE` — deliberately above every listed model, so a pass is never
 under-charged for a model nobody priced.
 
@@ -158,7 +158,7 @@ accepted verdicts, every number copied from an experiment, in the template's wor
 
 Agents never call each other: they write typed `FleetEvent`s to one append-only log,
 `DATA_DIR/fleets/<id>.jsonl`, which the page streams, resuming from the last event it saw. Every model
-call of every agent goes through `access.openai_response` and draws on one `access.Purse`
+call of every agent goes through `llm.openai_response` and draws on one `access.Purse`
 (`FLEET_BUDGET_USD`) inside the pass that started the fleet; the pass cap still applies call by call.
 Investigations are `counterfactual_replay` and never scored; a re-check's live asks are `live_api`
 but kept in its `Verification`, never added to a run. A server restart mid-fleet marks it stopped and
@@ -312,7 +312,7 @@ companies live, sees a meter such as "$1.40 of $5.00 used", and sees only their 
 opens for everyone, unlisted, since the first-visit guide is told with it (`api.main.sees_run`), and read-only: no pass investigates, re-asks or tests a fix on it (`api.main.showcase_locked`; a local clone with no pass keeps it live). Every run a pass makes, replay or live, is saved
 under `DATA_DIR` and owned by that pass. Every OpenAI call is checked against the cap before it is
 made and charged afterwards from the usage OpenAI reports, at the dated per-model prices in
-[`core/access.py`](core/access.py); a call whose usage or model price is unknown is charged a deliberately high
+[`core/llm.py`](core/llm.py); a call whose usage or model price is unknown is charged a deliberately high
 estimate, never zero. A run or onboarding that reaches the cap stops with a message and saves nothing.
 
 - **Admin**: `<site>/admin`, behind `ADMIN_PASSWORD`. It lists every pass — spent against cap, runs and

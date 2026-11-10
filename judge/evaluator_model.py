@@ -17,6 +17,7 @@ import os
 import re
 from typing import Callable, Optional
 
+from core.llm import json_object
 from judge.evaluation import CITATION
 from core.schemas import Answer, Attribute, CompanyProfile, Probe
 
@@ -122,10 +123,10 @@ def build_prompt(probe: Probe, answer: Answer, attributes: list[Attribute],
 
 
 def default_transport(prompt: str, model: str, timeout: int) -> str:
-    from core import access  # metered: refused at a pass's cap, charged to it after
+    from core import llm  # metered: refused at a pass's cap, charged to it after
     from providers import live
     extra = {"reasoning": r} if (r := live.reasoning_for(model)) else {}
-    r = access.openai_response(timeout, model=model, input=prompt, **extra)
+    r = llm.openai_response(timeout, model=model, input=prompt, **extra)
     return getattr(r, "output_text", None) or live.parse_response(r)[0]
 
 
@@ -244,18 +245,6 @@ def build_discovery_prompt(profile: CompanyProfile, attributes: list[Attribute],
 
 REQUIRED = ("mentioned", "recommended", "negative_mention", "competitor_recommendations",
             "evidence_quotes", "on_topic")
-
-
-def json_object(raw: str, what: str = "evaluator") -> dict:
-    """The JSON object in a model's reply, around whatever prose it added. Tolerates a fenced code block."""
-    text = (raw or "").strip()
-    if text.startswith("```"):
-        text = text.split("```")[1] if "```" in text[3:] else text.lstrip("`")
-        text = text[4:] if text.lower().startswith("json") else text
-    start, end = text.find("{"), text.rfind("}")
-    if start == -1 or end == -1:
-        raise ValueError(f"{what} returned no JSON object")
-    return json.loads(text[start:end + 1])
 
 
 def parse_labels(raw: str) -> dict:

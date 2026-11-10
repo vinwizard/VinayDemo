@@ -20,7 +20,7 @@ from typing import Callable, Optional
 from urllib.parse import urlparse
 
 from onboard import fetching
-from judge.evaluator_model import json_object
+from core.llm import json_object
 from providers import live
 from core.schemas import Evidence, ReadResult
 from score.scoring import domain_matches

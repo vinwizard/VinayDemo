@@ -8,7 +8,7 @@ with what the company wants to be known for.
 ```
 web/          React app: the product UI
 api/          FastAPI server and the /admin page
-core/         shared by everything: data types, settings, storage, access passes and metering
+core/         shared by everything: data types, settings, storage, access passes, and every model call (llm.py)
 onboard/      who the company is and what its own pages claim: fetching, discovery, site audit
 measure/      the run workflow: questions, sizing, dispatch, shared answer cache
 judge/        what each answer said about each claim

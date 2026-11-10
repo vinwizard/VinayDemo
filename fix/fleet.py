@@ -26,6 +26,7 @@ from contextvars import copy_context
 from typing import Optional
 
 from core import access
+from core import llm
 from core import config
 from core import reports
 from fix import why
@@ -329,7 +330,7 @@ def digest(st: State) -> str:
 
 
 def coordinator_calls(st: State, model: str) -> list[tuple[str, dict]]:
-    r = access.openai_response(live.CALL_TIMEOUT_S, model=model, tools=TOOLS, tool_choice="required",
+    r = llm.openai_response(live.CALL_TIMEOUT_S, model=model, tools=TOOLS, tool_choice="required",
                                input=[{"role": "system", "content": COORDINATOR}, {"role": "user", "content": digest(st)}])
     calls = []
     for item in live._output_items(r):

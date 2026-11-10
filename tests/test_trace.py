@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from core import access
+from core import llm
 from providers import fixture, live
 from core.schemas import Answer, Probe
 
@@ -51,7 +52,7 @@ def test_no_search_no_trace():
 def test_the_measured_call_asks_for_what_was_read(monkeypatch):
     sent = {}
     monkeypatch.setenv(access.KEY_ENV, "test-key")
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.update(kw) or STRENGTHS)
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: sent.update(kw) or STRENGTHS)
     live.default_transport(live.measured_prompt(PROBE), "test-model", 30)
     assert sent["include"] == ["web_search_call.action.sources", "web_search_call.results"]
     sent.clear()
