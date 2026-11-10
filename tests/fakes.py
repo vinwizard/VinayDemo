@@ -3,7 +3,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from core import access
+from core import llm
 import api.main as main
 from measure import graph
 from core import reports
@@ -64,7 +64,7 @@ def why_client(tmp_path, monkeypatch, runs, model) -> TestClient:
         reports.save_run(run)
     monkeypatch.setenv(live.KEY_ENV, "test-key")
     monkeypatch.setattr(live, "preflight", lambda: live.Resolved("gpt-6-luna", live.SEARCH_TOOL, "gpt-6-luna", None))
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: model(**kw))
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: model(**kw))
     return TestClient(main.app, raise_server_exceptions=False)
 
 

@@ -9,7 +9,7 @@ answer to "are these even real questions?", not a volume estimate.
     Google's result pages, and getting it means scraping them.
   * Clean in code: a phrasing that names the brand or addresses the vendor is dropped, as any
     buyer question is (measure/ana.py); so is one off the category or with no buying intent.
-  * Group with embeddings (text-embedding-3-small, metered through access.py) and average-link
+  * Group with embeddings (text-embedding-3-small, metered through core/llm.py) and average-link
     clustering at a cosine threshold; the most central member stands for its group, and a group's
     weight is how many real phrasings it holds, autocomplete rank breaking ties.
   * The representative phrase is asked exactly as people typed it; no model rewords it.
@@ -109,8 +109,8 @@ def cluster(vectors: list[list[float]], threshold: float = SAME_GROUP) -> tuple[
 
 
 def embed(texts: list[str]) -> list[list[float]]:
-    from core import access  # metered: refused at a pass's cap, charged to it after
-    r = access.openai_embedding(30, model=EMBED_MODEL, input=texts, dimensions=256)
+    from core import llm  # metered: refused at a pass's cap, charged to it after
+    r = llm.openai_embedding(30, model=EMBED_MODEL, input=texts, dimensions=256)
     return [d.embedding for d in r.data]
 
 

@@ -6,7 +6,7 @@ taken from each run in turn (round-robin by run key), so a 55-question run never
 run wait for it to finish. Each ask runs in a copy of the context that submitted it, so the pass
 paying for it (access.SPENDER) is that run's own, and its answer comes back on that run's future
 only: nothing a run asked reaches another. Rate limits are handled where every model call passes,
-in access._metered (a 429 pauses every call in the process for the time the API asked). An ask
+in llm._metered (a 429 pauses every call in the process for the time the API asked). An ask
 whose pass has calls under way that may reach its cap waits in the queue (access.start), not on a
 worker, so the other runs' asks go ahead.
 

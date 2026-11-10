@@ -216,7 +216,7 @@ def test_amgen_is_never_placed_as_a_stock_pick():
     from score import drift
     from measure import ana
     from onboard import onboarding_model
-    from judge.evaluator_model import json_object
+    from core.llm import json_object
     from core.schemas import Run
     root = Path(__file__).parent.parent
     rec = json.loads((root / "tests/cassettes/amgen_discovery.json").read_text())

@@ -1,5 +1,5 @@
 """The investigation fleet (fleet.py, verify.py, api/fleet.py), offline. One fake OpenAI stands in at
-access._create, so every call goes through the real metering, purse and pass: its answers depend only
+llm._create, so every call goes through the real metering, purse and pass: its answers depend only
 on what it is handed to read, so every cause is planted and each agent must find it. No network."""
 import json
 import re
@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from core import access
+from core import llm
 from fix import fleet
 from fakes import openai_reply
 from fakes import sse_events
@@ -75,7 +76,7 @@ def answer_to(reading: str, question: str = "") -> str:
 
 
 class Fake:
-    """access._create's stand-in. `coordinator` is a list of turns (lists of tool calls); `hooks` let a
+    """llm._create's stand-in. `coordinator` is a list of turns (lists of tool calls); `hooks` let a
     test slow, fail or synchronise the live asks of one question."""
 
     def __init__(self, coordinator=None, pages=None, usage=USAGE, live_says=None, hooks=None):
@@ -141,7 +142,7 @@ def world(tmp_path, monkeypatch):
     monkeypatch.setenv(access.KEY_ENV, "k")
 
     def install(fake):
-        monkeypatch.setattr(access, "_create", fake)
+        monkeypatch.setattr(llm, "_create", fake)
         return fake
     return install
 
@@ -492,10 +493,10 @@ def finished_fleet(world):
 def test_an_unpublished_fix_is_checked_for_free(world, monkeypatch):
     fid, plan = finished_fleet(world)
     monkeypatch.setattr(verify.audit, "get", lambda url: (url, 200, "text/html", "<p>" + "Acme builds widgets. " * 20 + "</p>"))
-    before = len(access._create.calls)
+    before = len(llm._create.calls)
     v = verify.verify(fid, 1, resolve=lambda: pytest.fail("no model is needed"))
     assert v.verdict == "not_published" and v.page_has_copy is False and v.spent_usd == 0
-    assert len(access._create.calls) == before
+    assert len(llm._create.calls) == before
 
 
 def test_a_published_fix_search_has_not_read_is_not_crawled_yet(world, monkeypatch):
@@ -612,7 +613,7 @@ def test_mark_fix_live_confirms_a_fix_ai_now_reads_and_keeps_run_and_spent(world
     fid, plan = finished_fleet(world)
     run_file = (reports.RUNS / "aaaaaa0001.json").read_bytes()
     spent = fleet.summary(fleet.EventLog(fid).read())["spent_usd"]
-    access._create.pages = {**PAGES, ABOUT: REWRITE + " " + PAGES[ABOUT]}
+    llm._create.pages = {**PAGES, ABOUT: REWRITE + " " + PAGES[ABOUT]}
     monkeypatch.setattr(verify.audit, "get", lambda url: (url, 200, "text/html", "<p>" + (REWRITE + " ") * 10 + "</p>"))
     body = client.get(f"/api/fleets/{fid}/verify/stream", params={"rank": 1}).text
     events = fleet_events(body)

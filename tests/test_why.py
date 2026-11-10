@@ -285,25 +285,27 @@ def test_it_stops_at_its_budget(monkeypatch):
 
 def test_the_default_calls_go_through_the_metered_path(monkeypatch):
     from core import access
+    from core import llm
     sent = []
     monkeypatch.setenv(access.KEY_ENV, "k")
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.append(kw) or message("Amgen."))
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: sent.append(kw) or message("Amgen."))
     why.Lab("gpt-6-luna").off("What is Amgen?")
     assert sent and sent[0]["model"] == "gpt-6-luna"
 
 
 def test_a_failed_call_the_ledger_charged_counts_against_the_why_budget(monkeypatch):
     from core import access
+    from core import llm
     monkeypatch.setenv(access.KEY_ENV, "k")
 
     def boom(timeout, **kw):
         raise TimeoutError("took too long")
 
-    monkeypatch.setattr(access, "_create", boom)
+    monkeypatch.setattr(llm, "_create", boom)
     lab = why.Lab("gpt-6-luna")
     with pytest.raises(TimeoutError):
         lab.off("What is Amgen?")
-    assert lab.spent == access.cost("gpt-6-luna", None)[0] > 0
+    assert lab.spent == llm.cost("gpt-6-luna", None)[0] > 0
 
 
 def test_a_live_ask_that_did_not_search_is_asked_once_more():

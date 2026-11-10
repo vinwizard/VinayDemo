@@ -6,6 +6,7 @@ import time
 import pytest
 
 from core import access
+from core import llm
 from measure import dispatch
 from core import embeddings
 from measure import graph
@@ -225,7 +226,7 @@ def test_reasoning_effort_is_sent_only_to_models_that_take_it(monkeypatch):
     assert live.reasoning_for("gpt-6-luna") == {"effort": "low"}
     assert live.reasoning_for("gpt-4.1-mini") is None
     sent = []
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: (sent.append(kw), openai_reply("ok", True, USAGE))[1])
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: (sent.append(kw), openai_reply("ok", True, USAGE))[1])
     live.default_transport([{"role": "user", "content": "q"}], "gpt-6-luna", 5)
     from judge import evaluator_model
     evaluator_model.default_transport("p", "gpt-6-luna", 5)

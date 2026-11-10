@@ -26,6 +26,7 @@ from contextvars import copy_context
 from typing import Optional
 
 from core import access
+from core import llm
 from core import config
 from core import reports
 from fix import why
@@ -224,15 +225,7 @@ def critic(inv: Investigation, task: FleetTask, attribute, others: list[tuple[Fl
 
 
 # ---------------------------------------------------------------- the coordinator (a model, bounded)
-COORDINATOR = """You coordinate the investigators of Off Message, which measures how AI answer engines describe a company.
-
-Each investigator takes one claim and one branded question (a question that names the company, never the claim). It asks the question live and records what the AI read, then re-asks many times with one thing changed in that reading, to find which pages make AI say the claim and whether the company's copy or its authority would change it. Each costs money, so choose.
-
-Choose the claims worth investigating for this company: claims it wants AI to repeat, and perceptions AI raises on its own that harm it. Skip perceptions that are harmless or flattering: there is nothing for the company to fix.
-
-Choose the question. For a claim of the company's, pick one where AI does not say it yet but plausibly could: if AI already says it, no fix can show a rise. For a perception AI raises, pick one where AI said it, so the investigator can find the pages behind it; you may give a literal term (such as "debt") that counts as saying it, which makes judging exact and free. Never give a term for a claim of the company's.
-
-When a finished task is challenged, redispatch it once changing one thing (another question, a term, or more_budget), or accept it. Call finish when nothing left is worth the money. Every reason is one plain sentence a marketer will read. Respond only with tool calls."""
+COORDINATOR = llm.prompt(__file__, "COORDINATOR")
 
 
 def _tool(name: str, description: str, properties: dict, required: list[str]) -> dict:
@@ -329,7 +322,7 @@ def digest(st: State) -> str:
 
 
 def coordinator_calls(st: State, model: str) -> list[tuple[str, dict]]:
-    r = access.openai_response(live.CALL_TIMEOUT_S, model=model, tools=TOOLS, tool_choice="required",
+    r = llm.openai_response(live.CALL_TIMEOUT_S, model=model, tools=TOOLS, tool_choice="required",
                                input=[{"role": "system", "content": COORDINATOR}, {"role": "user", "content": digest(st)}])
     calls = []
     for item in live._output_items(r):
