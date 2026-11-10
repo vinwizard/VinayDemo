@@ -16,10 +16,10 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Optional
 
-import embeddings
-import fetching
-from schemas import Reask, RetrievalRow, RetrievalSim, Run, ScoredPassage, utc_now
-from scoring import domain_matches, mentions_alias
+from core import embeddings
+from onboard import fetching
+from core.schemas import Reask, RetrievalRow, RetrievalSim, Run, ScoredPassage, utc_now
+from score.scoring import domain_matches, mentions_alias
 
 PASSAGE_MIN, PASSAGE_MAX = 80, 150  # words per passage
 MAX_OWN_PAGES = 6
@@ -181,7 +181,7 @@ def reask(run: Run, row: RetrievalRow, model: str) -> Reask:
     """Asks the buyer question once more with the page AI cited and the rewritten passage as the only
     sources, cited page first, and reads whether the brand is named. Metered like every model call;
     a simulation that feeds no score."""
-    import access
+    from core import access
     from providers.live import parse_response
     question = next(p.text for p in run.probes if p.id == row.probe_id)
     sources = [s for s in (row.rival, row.fixed) if s]

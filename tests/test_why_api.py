@@ -3,11 +3,11 @@ The model is the fake one from test_why; every file lives under tmp_path."""
 
 import pytest
 
-import access
-import reports
-import why
+from core import access
+from core import reports
+from fix import why
 from providers import live
-from schemas import Probe, Run
+from core.schemas import Probe, Run
 from test_why import AI, DIFFERENT, PROFILE, Fake, ai_model
 from fakes import sse_events as events, why_client
 

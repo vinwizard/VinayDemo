@@ -21,8 +21,8 @@ from pathlib import Path
 from typing import Optional
 from xml.etree import ElementTree
 
-import reports
-from schemas import utc_now
+from core import reports
+from core.schemas import utc_now
 
 MAX_BYTES = 10 * 1024 * 1024   # per file
 MAX_FILES = 5                  # per onboarding

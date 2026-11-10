@@ -13,13 +13,13 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-import access
+from core import access
 import api.main as main
-import reports
-from agents import onboarding_model
+from core import reports
+from onboard import onboarding_model
 from providers import live
 from fakes import replay, seeded_data, sse_events
-from scoring import eligible
+from score.scoring import eligible
 
 SENTINEL = "sk-SENTINEL-do-not-leak-7f3a9c"
 CO = "abcdef0123"            # a copy of the seed company under an id with no offline special case

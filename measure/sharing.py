@@ -25,10 +25,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import NamedTuple, Optional
 
-import access
-import embeddings
-import reports
-from schemas import Answer
+from core import access
+from core import embeddings
+from core import reports
+from core.schemas import Answer
 
 REUSE_HOURS = 24
 # Cosine between two questions' text-embedding-3-small vectors at or above which one's answer is

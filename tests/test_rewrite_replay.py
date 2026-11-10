@@ -4,10 +4,10 @@ reads, so a working rewrite, a useless one and a harmful one each have to be tol
 import pytest
 
 from fakes import why_client
-import verify
-import why
+from fix import verify
+from fix import why
 from providers import live
-from schemas import Attribute, Probe, QueryEvaluation, Run, WinBackAction
+from core.schemas import Attribute, Probe, QueryEvaluation, Run, WinBackAction
 from test_why import PROFILE, STRENGTHS, Fake
 
 ABOUT = "https://www.amgen.com/about"

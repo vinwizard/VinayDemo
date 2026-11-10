@@ -6,9 +6,9 @@ stands in for the API.
 import json
 from pathlib import Path
 
-import access
+from core import access
 from providers import fixture, live
-from schemas import Answer, Probe
+from core.schemas import Answer, Probe
 
 CASSETTES = Path(__file__).parent / "cassettes"
 STRENGTHS = json.loads((CASSETTES / "amgen_strengths.json").read_text())

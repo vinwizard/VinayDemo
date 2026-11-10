@@ -7,11 +7,11 @@ from pathlib import Path
 
 import pytest
 
-import why
+from fix import why
 from fakes import Judge, openai_reply
 from providers import live
-from schemas import Answer, Attribute, CompanyProfile, Evidence, QueryEvaluation, Run, WinBackAction
-from scoring import eligible, newcombe, z_for
+from core.schemas import Answer, Attribute, CompanyProfile, Evidence, QueryEvaluation, Run, WinBackAction
+from score.scoring import eligible, newcombe, z_for
 
 CASSETTES = Path(__file__).parent / "cassettes"
 STRENGTHS = json.loads((CASSETTES / "amgen_strengths.json").read_text())
@@ -284,7 +284,7 @@ def test_it_stops_at_its_budget(monkeypatch):
 
 
 def test_the_default_calls_go_through_the_metered_path(monkeypatch):
-    import access
+    from core import access
     sent = []
     monkeypatch.setenv(access.KEY_ENV, "k")
     monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.append(kw) or message("Amgen."))
@@ -293,7 +293,7 @@ def test_the_default_calls_go_through_the_metered_path(monkeypatch):
 
 
 def test_a_failed_call_the_ledger_charged_counts_against_the_why_budget(monkeypatch):
-    import access
+    from core import access
     monkeypatch.setenv(access.KEY_ENV, "k")
 
     def boom(timeout, **kw):
@@ -333,7 +333,7 @@ def test_every_call_is_charged_to_the_pass_that_asked():
     # Regression: the experiments run on a thread pool, and a context copied inside a pool thread is
     # empty, so every replay and judgment went out with no pass: refused on the public demo, unmetered
     # everywhere else.
-    import access
+    from core import access
     fake, seen = Fake(STRENGTHS, says_debt, live_text="Amgen carries meaningful debt."), []
 
     def spy(**kw):

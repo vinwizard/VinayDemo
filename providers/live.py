@@ -17,12 +17,12 @@ import threading
 import uuid
 from typing import Callable, NamedTuple, Optional
 
-import access
-import dispatch
-import sampler
-import sharing
-from agents.onboarding_model import buyer_category_for, buyer_questions_for
-from schemas import Answer, Attribute, CompanyProfile, Probe, ReadResult, ReadStep, Topic, utc_now
+from core import access
+from measure import dispatch
+from measure import sampler
+from measure import sharing
+from onboard.onboarding_model import buyer_category_for, buyer_questions_for
+from core.schemas import Answer, Attribute, CompanyProfile, Probe, ReadResult, ReadStep, Topic, utc_now
 
 KEY_ENV = "OPENAI_API_KEY"
 # The model that ANSWERS the questions — the one being measured; the judge is separate
@@ -118,7 +118,7 @@ class Resolved(NamedTuple):
 
 def current() -> Resolved:
     """The most recent preflight's record, for a provider built without one."""
-    from agents import evaluator_model
+    from judge import evaluator_model
     return Resolved(model_name(), search_tool(), evaluator_model.model_name(), _fallback)
 
 
@@ -181,7 +181,7 @@ def preflight(model: Optional[str] = None, transport: Optional[Callable] = None)
          third model nobody chose would be a quiet substitution, and measuring the wrong model is
          worse than measuring nothing.
     """
-    from agents import evaluator_model
+    from judge import evaluator_model
     model = model or configured_model()
 
     def step(m: str, tool: Optional[dict]) -> Optional[Exception]:
@@ -368,11 +368,11 @@ class LiveProvider:
         # run -> RetrievalSim. The real one fetches pages and embeds them, so an injected transport
         # (a test) gets none unless it injects one too.
         if retrieval is None and transport is None:
-            import retrieval as sim
+            from fix import retrieval as sim
             retrieval = sim.simulate
         self.retrieval = retrieval
         if positioning is None and transport is None:  # run -> PositioningMap, embeds like retrieval
-            import positioning as pos
+            from score import positioning as pos
             positioning = pos.build
         self.positioning = positioning
         self.evaluator = evaluator          # None -> answers come back unlabelled ("needs review")
@@ -400,7 +400,7 @@ class LiveProvider:
         return topics, blind
 
     def _plan_aiming(self, profile: CompanyProfile) -> tuple[list[Topic], list[Probe]]:
-        from agents.ana import aiming_front
+        from measure.ana import aiming_front
         self.notes = [self.fallback] if self.fallback else []
         self.demand_notes, self._real = [], {}
         aiming = profile.core_category
@@ -422,7 +422,7 @@ class LiveProvider:
         company (`placed`, read off the brand answers) and the site's core category. The claims'
         own buyer questions fill whatever budget the fronts leave: all of it with neither front.
         After plan_aiming, its front is kept as planned and returned with the rest."""
-        from agents.ana import blind_probes_for_fronts, brand_leaks, same_category
+        from measure.ana import blind_probes_for_fronts, brand_leaks, same_category
         aimed = None
         if self._aimed:
             profile, aimed = self._aimed
@@ -458,7 +458,7 @@ class LiveProvider:
         """Real searches for the category, heaviest group first; [] with a stated reason if none."""
         if not self._demand:
             return []
-        from agents.ana import set_questions
+        from measure.ana import set_questions
         found, note = self._demand(category, profile, set_questions())
         self.demand_notes.append(note)
         self._real.update({q.strip().lower(): d for q, d in found})
@@ -474,7 +474,7 @@ class LiveProvider:
 
     def _written(self, category: str, description: Optional[str], have: list[str]) -> list[str]:
         """What the writer adds to reach a full pool; stated, never swallowed, when it cannot."""
-        from agents.ana import set_questions
+        from measure.ana import set_questions
         if len(have) >= set_questions():
             return []
         try:
@@ -540,7 +540,7 @@ class LiveProvider:
         firsts = [p for p, t in jobs if t == 1 and p.id not in self._reuse]
         buyer = [p.text for p in firsts if p.kind == "blind" and p.phase == "baseline" and p.text not in self._vecs]
         if buyer:
-            import embeddings
+            from core import embeddings
             try:
                 self._vecs.update(zip(buyer, embeddings.embed(buyer)))
             except Exception as e:      # stated: exact reuse still works, near-identical does not

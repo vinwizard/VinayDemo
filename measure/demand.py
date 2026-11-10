@@ -24,11 +24,11 @@ import urllib.parse
 import urllib.request
 from typing import Callable
 
-import embeddings
-import reports
-from agents.ana import brand_leaks, vendor_address
-from fetching import USER_AGENT
-from schemas import CompanyProfile, Demand, DemandPhrase
+from core import embeddings
+from core import reports
+from measure.ana import brand_leaks, vendor_address
+from onboard.fetching import USER_AGENT
+from core.schemas import CompanyProfile, Demand, DemandPhrase
 
 TIMEOUT = 4
 CACHE_S = 7 * 24 * 3600
@@ -109,7 +109,7 @@ def cluster(vectors: list[list[float]], threshold: float = SAME_GROUP) -> tuple[
 
 
 def embed(texts: list[str]) -> list[list[float]]:
-    import access  # metered: refused at a pass's cap, charged to it after
+    from core import access  # metered: refused at a pass's cap, charged to it after
     r = access.openai_embedding(30, model=EMBED_MODEL, input=texts, dimensions=256)
     return [d.embedding for d in r.data]
 

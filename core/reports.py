@@ -5,8 +5,8 @@ import re
 import sqlite3
 from pathlib import Path
 
-from agents.ana import baseline_hash
-from schemas import SCHEMA_VERSION, Company, Investigation, Run
+from measure.ana import baseline_hash
+from core.schemas import SCHEMA_VERSION, Company, Investigation, Run
 
 BUNDLED = Path(__file__).resolve().parent / "data"
 # DATA_DIR moves runs, companies and the access database onto a persistent disk (WEB.md, "Deploy to Render").

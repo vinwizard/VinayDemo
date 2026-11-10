@@ -16,11 +16,11 @@ one that repeats most of the words it would replace is dropped.
 import json
 from typing import Optional
 
-from agents.ana import brand_leaks, vendor_address
-from agents.evaluation import content_words, quoted_in, real
-from agents.onboarding_model import MARKETING
-from labels import probe_name
-from schemas import Run, WinBackAction
+from measure.ana import brand_leaks, vendor_address
+from judge.evaluation import content_words, quoted_in, real
+from onboard.onboarding_model import MARKETING
+from core.labels import probe_name
+from core.schemas import Run, WinBackAction
 
 TARGET_ZONES = ("lost_claim", "unstated_intent")  # "claim to win back", "claim to amplify"
 MAX_REWRITE_WORDS = 60

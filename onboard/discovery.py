@@ -19,11 +19,11 @@ import re
 from typing import Callable, Optional
 from urllib.parse import urlparse
 
-import fetching
-from agents.evaluator_model import json_object
+from onboard import fetching
+from judge.evaluator_model import json_object
 from providers import live
-from schemas import Evidence, ReadResult
-from scoring import domain_matches
+from core.schemas import Evidence, ReadResult
+from score.scoring import domain_matches
 
 TIMEOUT = 90
 MAX_CANDIDATES = 3

@@ -10,12 +10,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 import api.main as main
-import graph
-import reports
-from agents import ana, onboarding_model
+from measure import graph
+from core import reports
+from measure import ana
+from onboard import onboarding_model
 from providers import fixture, live
 from providers.fixture import FixtureProvider
-from schemas import Company
+from core.schemas import Company
 
 
 def unweighted(provider):

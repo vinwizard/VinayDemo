@@ -6,14 +6,16 @@ from typing import Any, Optional, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-import access
-import dispatch
-import drift
-import sampler
-from agents import ana, evaluation, win_back
-from labels import probe_name
-from schemas import Run, VisibilitySet
-from scoring import (MIN_INTERVAL_ANSWERS, echo_draws, gap_verdict, interval, low_confidence, score_topic,
+from core import access
+from measure import dispatch
+from score import drift
+from measure import sampler
+from measure import ana
+from judge import evaluation
+from fix import win_back
+from core.labels import probe_name
+from core.schemas import Run, VisibilitySet
+from score.scoring import (MIN_INTERVAL_ANSWERS, echo_draws, gap_verdict, interval, low_confidence, score_topic,
                      visibility_by_question, visibility_draws, visibility_range)
 
 MAX_NAMED = 8
@@ -593,8 +595,8 @@ def rescore(run: Run, weights: dict[str, float]) -> Run:
     evaluation.merge_divisions([*run.evaluations, *run.repeat_evaluations])  # a run saved before it existed
     score_drift(run)
     if run.positioning is not None and run.positioning.provenance == "live_api":
-        import embeddings
-        import positioning
+        from core import embeddings
+        from score import positioning
         try:
             run.positioning = positioning.build(run, embed=embeddings.cached)
         except Exception as e:

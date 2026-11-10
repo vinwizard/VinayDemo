@@ -25,14 +25,15 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextvars import copy_context
 from typing import Optional
 
-import access
-import config
-import reports
-import why
-from agents import ana, evaluation
+from core import access
+from core import config
+from core import reports
+from fix import why
+from measure import ana
+from judge import evaluation
 from providers import live
-from scoring import domain_matches
-from schemas import (ActionPlan, Challenge, FleetEvent, FleetTask, Investigation, PlanItem, Run, utc_now)
+from score.scoring import domain_matches
+from core.schemas import (ActionPlan, Challenge, FleetEvent, FleetTask, Investigation, PlanItem, Run, utc_now)
 
 BUDGET_ENV, DEFAULT_BUDGET = "FLEET_BUDGET_USD", 3.00
 CONCURRENCY_ENV, DEFAULT_CONCURRENCY = "FLEET_CONCURRENCY", 3

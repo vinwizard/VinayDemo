@@ -3,9 +3,9 @@ brand to where its site aims, both axes are always named after one of the compan
 replays carry the authored sample without moving a score."""
 import pytest
 
-import positioning
-from agents.evaluation import merge_divisions
-from schemas import Answer, Attribute, CompanyProfile, PositioningPoint, Probe, QueryEvaluation, Run
+from score import positioning
+from judge.evaluation import merge_divisions
+from core.schemas import Answer, Attribute, CompanyProfile, PositioningPoint, Probe, QueryEvaluation, Run
 from fakes import replay
 
 VOCAB = ["wiki", "task", "meeting", "ai"]
@@ -124,9 +124,9 @@ def test_rivals_named_but_never_described_get_their_own_reason():
 
 
 def test_rescore_moves_the_aim_to_the_weighted_claims_without_asking_a_model(monkeypatch, tmp_path):
-    import access
-    import embeddings
-    import graph
+    from core import access
+    from core import embeddings
+    from measure import graph
     sample = replay("A")
     live = replay("A")
     live.positioning = positioning.build(live)  # embeds once, through the (faked) metered call

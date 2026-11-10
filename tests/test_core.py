@@ -6,13 +6,14 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-import graph
-from agents import ana, evaluation
+from measure import graph
+from measure import ana
+from judge import evaluation
 from providers import fixture, live
 from fakes import replay as run_scenario
-from reports import from_json, load_run, save_run, to_json
-from schemas import Answer, CompanyProfile, PositioningPoint, Probe, QueryEvaluation, Topic
-from scoring import domain_matches, score_topic, visibility_score
+from core.reports import from_json, load_run, save_run, to_json
+from core.schemas import Answer, CompanyProfile, PositioningPoint, Probe, QueryEvaluation, Topic
+from score.scoring import domain_matches, score_topic, visibility_score
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -278,7 +279,7 @@ def test_bundled_questions_are_neutral():
 
 # --- export / import / persistence -------------------------------------------------
 def test_export_import_roundtrip(runs, tmp_path, monkeypatch):
-    import reports
+    from core import reports
     monkeypatch.setattr(reports, "RUNS", tmp_path)
     r = runs["B"]
     back = from_json(to_json(r))
@@ -324,7 +325,7 @@ def test_secrets_not_exported_or_committed(monkeypatch):
 def test_every_stored_time_is_utc_with_its_offset_written():
     # A run's created_at was local time while its answers' collected_at was UTC: the same moment
     # 4 hours apart in one file, and the browser read the bare one as the viewer's local time.
-    from schemas import Investigation, utc_now
+    from core.schemas import Investigation, utc_now
     assert utc_now().endswith("+00:00")
     assert Investigation.model_fields["created_at"].default_factory is utc_now
     root = Path(__file__).resolve().parent.parent

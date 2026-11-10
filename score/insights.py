@@ -9,8 +9,8 @@ import re
 from collections import Counter
 from urllib.parse import urlparse
 
-from schemas import Run
-from scoring import domain_matches, eligible
+from core.schemas import Run
+from score.scoring import domain_matches, eligible
 
 RIVALS = 3      # competitors shown beside the brand
 

@@ -5,8 +5,8 @@ brand questions — and deliberately has no `answer()`. A company onboarded from
 authored answers, so `LiveProvider` does the measuring; there is no fixture fallback, because a
 fixture answer served under a real company's name would be a fabricated measurement.
 """
-from agents.onboarding import named_probes_for
-from schemas import Attribute, Company, CompanyProfile, Probe
+from onboard.onboarding import named_probes_for
+from core.schemas import Attribute, Company, CompanyProfile, Probe
 
 
 class CompanyProvider:

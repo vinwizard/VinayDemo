@@ -5,16 +5,16 @@ import time
 
 import pytest
 
-import access
-import dispatch
-import embeddings
-import graph
-import reports
-import sampler
-import sharing
+from core import access
+from measure import dispatch
+from core import embeddings
+from measure import graph
+from core import reports
+from measure import sampler
+from measure import sharing
 from fakes import Judge, openai_reply
 from providers import fixture, live
-from schemas import Answer, Probe
+from core.schemas import Answer, Probe
 from test_fronts import AIM_QS, AIMING, ENDORSE, WRITTEN
 from test_parallel import USAGE, Clock, content, says
 
@@ -227,7 +227,7 @@ def test_reasoning_effort_is_sent_only_to_models_that_take_it(monkeypatch):
     sent = []
     monkeypatch.setattr(access, "_create", lambda timeout, **kw: (sent.append(kw), openai_reply("ok", True, USAGE))[1])
     live.default_transport([{"role": "user", "content": "q"}], "gpt-6-luna", 5)
-    from agents import evaluator_model
+    from judge import evaluator_model
     evaluator_model.default_transport("p", "gpt-6-luna", 5)
     evaluator_model.default_transport("p", "gpt-4.1-mini", 5)
     assert [kw.get("reasoning") for kw in sent] == [{"effort": "low"}, {"effort": "low"}, None]

@@ -44,13 +44,13 @@ import uuid
 from typing import Callable, Optional
 from urllib.parse import urlparse
 
-import access
-import config
-from agents import evaluation
+from core import access
+from core import config
+from judge import evaluation
 from providers import live
-from schemas import (Answer, Attribute, CompanyProfile, Investigation, Probe, ReadResult, ReadStep,
+from core.schemas import (Answer, Attribute, CompanyProfile, Investigation, Probe, ReadResult, ReadStep,
                      WhyArm, WhyRate, WhyVerdict)
-from scoring import domain_matches, mentions_alias, newcombe, wilson, z_for
+from score.scoring import domain_matches, mentions_alias, newcombe, wilson, z_for
 
 BUDGET_ENV = "WHY_BUDGET_USD"
 DEFAULT_BUDGET = 0.60      # the pilot's mean investigation cost $0.36 (2026-09-28)
@@ -318,7 +318,7 @@ class Lab:
 
     def evaluator(self, model: Optional[str] = None):
         """The run's judge (EVALUATOR_MODEL unless `model`), its calls metered here."""
-        from agents.evaluator_model import ModelEvaluator
+        from judge.evaluator_model import ModelEvaluator
         return ModelEvaluator(model=model, transport=self.judge_transport)
 
 
@@ -731,7 +731,7 @@ def test_rewrite(run, attribute_id: str, probe_id: str, *, lab: Lab, evaluator=N
     """One quick win's replay test: the rewrite for `attribute_id` against the buyer question `probe_id`
     it was written for. -> the Investigation (kind "buyer"), complete or stopped. It counts the gap the
     question has: names, or recommends when the question already named the company."""
-    from agents.win_back import verdicts
+    from fix.win_back import verdicts
     action = next((a for a in run.win_back if a.attribute_id == attribute_id), None)
     probe = next((p for p in run.probes if p.id == probe_id), None)
     if action is None or probe is None or probe.kind != "blind" or probe_id not in action.question_ids:

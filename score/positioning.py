@@ -13,9 +13,9 @@ import re
 from collections import Counter
 from typing import Callable, Optional
 
-import embeddings
-from embeddings import dot, unit
-from schemas import MapPoint, PositioningMap, Run
+from core import embeddings
+from core.embeddings import dot, unit
+from core.schemas import MapPoint, PositioningMap, Run
 
 MAX_RIVALS = 6         # rivals drawn, most-named first; more crowd a phone screen
 MAX_SENTENCES = 20     # per point

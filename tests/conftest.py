@@ -13,13 +13,13 @@ import socket
 
 import pytest
 
-import access
-import audit
-import demand
-import discovery
-import embeddings
-import retrieval
-import sharing
+from core import access
+from onboard import audit
+from measure import demand
+from onboard import discovery
+from core import embeddings
+from fix import retrieval
+from measure import sharing
 
 # Every setting the app reads from the environment (providers/, agents/*_model.py, access.py, the
 # budget modules). A test that wants one sets it itself with monkeypatch.

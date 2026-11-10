@@ -16,15 +16,15 @@ import html
 import re
 from typing import Callable, Optional
 
-import access
-import config
-import audit
-import fleet
-import reports
-import why
+from core import access
+from core import config
+from onboard import audit
+from fix import fleet
+from core import reports
+from fix import why
 from providers import live
-from schemas import Verification, WhyRate
-from scoring import wilson
+from core.schemas import Verification, WhyRate
+from score.scoring import wilson
 
 BUDGET_ENV, DEFAULT_BUDGET = "VERIFY_BUDGET_USD", 0.75
 LOOKS = (3, 8, 16)          # live asks after each look; none reading the fix at the first is "not crawled"

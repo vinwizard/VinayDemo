@@ -4,7 +4,7 @@ import json
 import re
 from collections import Counter
 
-from schemas import Attribute, AttributeScore, CompanyProfile, Probe, Topic, TopicEvaluation
+from core.schemas import Attribute, AttributeScore, CompanyProfile, Probe, Topic, TopicEvaluation
 
 # Buyer questions per front, asked ONCE each: re-asking one question moved visibility a few points
 # while different questions disagreed by tens, so the budget buys questions, not tries. How many a
@@ -18,7 +18,7 @@ COMPARISON_PROBE_ID = "np-cmp"
 def set_questions() -> int:
     """Unbranded questions frozen per front: sampler-lite's look 2 for TARGET_MARGIN, at least one
     topic's worth."""
-    import sampler
+    from measure import sampler
     return max(PER_TOPIC, sampler.looks()[1])
 
 
@@ -74,7 +74,7 @@ def attribute_leaks(text: str, attributes: list[Attribute]) -> list[str]:
     Best-effort against rewordings: synonyms and other variants get through, and that is accepted
     rather than answered with more rules.
     """
-    from agents.evaluation import content_words   # evaluation imports this module
+    from judge.evaluation import content_words   # evaluation imports this module
 
     def roots(s: str) -> set[str]:
         return {re.sub(r"(?:ie|i|y|e|s)$", "", w) if len(w) > 4 else w for w in content_words(s)}
@@ -182,7 +182,7 @@ def same_category(a: str, b: str) -> bool:
     """Case-insensitive, and near-duplicates too: "AI search visibility" is the category "AI search
     visibility tracking". Same only when every content word of one is in the other, so "Project
     management" and "Product management" stay two categories."""
-    from agents.evaluation import content_words  # evaluation imports this module
+    from judge.evaluation import content_words  # evaluation imports this module
     x, y = content_words(a), content_words(b)
     return a.strip().lower() == b.strip().lower() or bool(x and y) and (x <= y or y <= x)
 

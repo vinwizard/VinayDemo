@@ -1,9 +1,10 @@
 """Offline acceptance checks for the drift layer."""
 import pytest
 
-import drift
-from agents import ana, evaluation
-from schemas import (Answer, Attribute, AttributeObservation, AttributeScore,
+from score import drift
+from measure import ana
+from judge import evaluation
+from core.schemas import (Answer, Attribute, AttributeObservation, AttributeScore,
                      Probe, QueryEvaluation)
 
 mk = lambda **k: Attribute(id=k.pop("id", "x"), label=k.pop("label", "X"), **k)

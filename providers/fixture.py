@@ -3,9 +3,9 @@ import json
 import time
 from pathlib import Path
 
-from agents.onboarding import structural_fingerprint
-from config import setting
-from schemas import Answer, Attribute, CompanyProfile, PositioningMap, Probe, RetrievalSim, Run, Topic
+from onboard.onboarding import structural_fingerprint
+from core.config import setting
+from core.schemas import Answer, Attribute, CompanyProfile, PositioningMap, Probe, RetrievalSim, Run, Topic
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 SCENARIOS = {"A": "demo_a.json", "B": "demo_b.json"}

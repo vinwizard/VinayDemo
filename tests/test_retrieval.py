@@ -6,15 +6,15 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-import access
+from core import access
 import api.main as main
-import embeddings
+from core import embeddings
 from fakes import openai_reply
-import reports
-import retrieval
+from core import reports
+from fix import retrieval
 from fakes import replay
 from providers import live
-from schemas import WinBackAction
+from core.schemas import WinBackAction
 
 VOCAB = ["track", "task", "project", "meeting", "note", "wiki", "doc", "transcrib", "offline"]
 

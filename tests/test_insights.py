@@ -2,7 +2,7 @@
 import re
 
 from fakes import replay as run_scenario
-from insights import cited_sources, domain_keys, searches, share_of_voice, source_kind
+from score.insights import cited_sources, domain_keys, searches, share_of_voice, source_kind
 
 
 def test_sources_rank_owned_and_third_party_separately():

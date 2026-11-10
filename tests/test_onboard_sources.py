@@ -6,13 +6,13 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-import access
+from core import access
 import api.main as main
-import discovery
-import drift
-import fetching
-import reports
-from agents import onboarding_model
+from onboard import discovery
+from score import drift
+from onboard import fetching
+from core import reports
+from onboard import onboarding_model
 from providers import live
 from test_discovery import recorded
 from test_documents import make_pdf

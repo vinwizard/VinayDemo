@@ -17,8 +17,8 @@ import os
 import re
 from typing import Callable, Optional
 
-from agents.evaluation import CITATION
-from schemas import Answer, Attribute, CompanyProfile, Probe
+from judge.evaluation import CITATION
+from core.schemas import Answer, Attribute, CompanyProfile, Probe
 
 MODEL_ENV = "EVALUATOR_MODEL"
 # The evaluator reads text it is handed: it needs no web search — `default_transport` below sends no
@@ -122,7 +122,7 @@ def build_prompt(probe: Probe, answer: Answer, attributes: list[Attribute],
 
 
 def default_transport(prompt: str, model: str, timeout: int) -> str:
-    import access  # metered: refused at a pass's cap, charged to it after
+    from core import access  # metered: refused at a pass's cap, charged to it after
     from providers import live
     extra = {"reasoning": r} if (r := live.reasoning_for(model)) else {}
     r = access.openai_response(timeout, model=model, input=prompt, **extra)

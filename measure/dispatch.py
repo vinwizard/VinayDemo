@@ -18,8 +18,8 @@ from concurrent.futures import Future
 from contextvars import copy_context
 from typing import Callable, Hashable, Optional
 
-import access
-from config import setting
+from core import access
+from core.config import setting
 
 CONCURRENCY_ENV = "LIVE_CONCURRENCY"
 DEFAULT_CONCURRENCY = 16

@@ -15,8 +15,8 @@ import os
 import re
 from typing import Callable, Optional, Sequence
 
-from agents.evaluator_model import json_object
-from schemas import (Attribute, ClaimCheck, CompanyProfile, Evidence, PositioningPoint,
+from judge.evaluator_model import json_object
+from core.schemas import (Attribute, ClaimCheck, CompanyProfile, Evidence, PositioningPoint,
                      distinctive_alias)
 
 MODEL_ENV = "ONBOARDING_MODEL"
@@ -171,7 +171,7 @@ def build_prompt(name: str, pages: list[tuple[str, str]]) -> str:
 
 
 def default_transport(prompt: str, model: str, timeout: int) -> str:
-    import access  # metered: refused at a pass's cap, charged to it after
+    from core import access  # metered: refused at a pass's cap, charged to it after
     r = access.openai_response(timeout, model=model, input=prompt,
                                text={"format": {"type": "json_object"}})
     return getattr(r, "output_text", None) or ""

@@ -10,10 +10,10 @@ which is the whole point: a gap where the company never stated the claim is not 
 """
 from typing import Optional
 
-from labels import probe_name
-from schemas import (Attribute, AttributeObservation, AttributeScore, DriftReport, QueryEvaluation,
+from core.labels import probe_name
+from core.schemas import (Attribute, AttributeObservation, AttributeScore, DriftReport, QueryEvaluation,
                      Answer, Probe)
-from scoring import eligible, rate
+from score.scoring import eligible, rate
 
 ECHO_THRESHOLD = 0.5   # share of eligible named answers that must echo an attribute to count as present
 IMPOSED_MIN = 0.25     # an attribute you never claimed is worth flagging at a lower bar than one you want

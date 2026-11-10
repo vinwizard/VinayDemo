@@ -9,15 +9,15 @@ from types import SimpleNamespace
 
 import pytest
 
-import access
-import fleet
+from core import access
+from fix import fleet
 from fakes import openai_reply
 from fakes import sse_events
-import reports
-import verify
-import why
+from core import reports
+from fix import verify
+from fix import why
 from providers import live
-from schemas import (Answer, Attribute, AttributeObservation, AttributeScore, CompanyProfile, Evidence,
+from core.schemas import (Answer, Attribute, AttributeObservation, AttributeScore, CompanyProfile, Evidence,
                      FleetTask, Investigation, Probe, Run, WhyArm, WhyRate, WhyVerdict, WinBackAction)
 
 ABOUT = "https://acme.com/about"
@@ -457,7 +457,7 @@ def test_an_investigation_records_what_it_counted(world):
     world(Fake())
     run = world_run()
     lab = why.Lab("gpt-6-luna", live.SEARCH_TOOL)
-    from agents.evaluator_model import ModelEvaluator
+    from judge.evaluator_model import ModelEvaluator
     claim = why.start(run, "fast", Q["np-2"], lab=lab, evaluator=ModelEvaluator(model="gpt-6-luna", transport=lab.judge_transport))
     assert claim.counts == "endorsements" and "endorsements only" in claim.judge
     perception = why.start(run, "emergent_debt", Q["np-1"], term="debt", lab=why.Lab("gpt-6-luna", live.SEARCH_TOOL))

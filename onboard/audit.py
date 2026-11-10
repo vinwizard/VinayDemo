@@ -30,8 +30,8 @@ from typing import Optional
 from urllib.parse import quote, urlencode, urlparse
 from urllib.robotparser import RobotFileParser
 
-import fetching
-from schemas import AuditCheck, ClaimAudit, Company, EntitySource, SiteAudit
+from onboard import fetching
+from core.schemas import AuditCheck, ClaimAudit, Company, EntitySource, SiteAudit
 
 TIMEOUT = 5
 SLOW_SECONDS = 3.0

@@ -17,9 +17,9 @@ so neither is here. One re-ask per front (WOBBLE_AUDIT) keeps the wobble visible
 """
 from typing import Optional
 
-from config import setting
-from schemas import FrontSample, Probe, Run, SamplerReport
-from scoring import eligible, wilson, z_for
+from core.config import setting
+from core.schemas import FrontSample, Probe, Run, SamplerReport
+from score.scoring import eligible, wilson, z_for
 
 MARGIN_ENV = "TARGET_MARGIN"         # points of "named you", ± at 95%
 DEFAULT_MARGIN = 20

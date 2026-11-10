@@ -7,10 +7,10 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-import access
+from core import access
 from fakes import openai_reply
 import api.main as main
-import reports
+from core import reports
 from providers import live
 from fakes import seeded_data, sse_events as events
 

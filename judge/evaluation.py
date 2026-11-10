@@ -6,9 +6,9 @@ Live: agents/evaluator_model.py proposes the labels, and they are validated here
 """
 import re
 
-from agents.ana import brand_leaks
-from schemas import Answer, Attribute, AttributeObservation, CompanyProfile, Probe, QueryEvaluation
-from scoring import OFF_TOPIC, domain_matches, mentions_alias
+from measure.ana import brand_leaks
+from core.schemas import Answer, Attribute, AttributeObservation, CompanyProfile, Probe, QueryEvaluation
+from score.scoring import OFF_TOPIC, domain_matches, mentions_alias
 
 # The `([host](url))` inline citations, the source-card lines that are nothing but a link, and every
 # naked URL. A link inside a sentence ("Try [Asana](https://asana.com)") is the answer's own words.

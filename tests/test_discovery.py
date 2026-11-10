@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-import discovery
-import fetching
+from onboard import discovery
+from onboard import fetching
 
 FIXTURES = Path(__file__).parent / "discovery_fixtures"
 

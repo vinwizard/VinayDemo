@@ -7,7 +7,7 @@ when their words differ.
 """
 import re
 
-from schemas import Probe
+from core.schemas import Probe
 
 
 PROVENANCE_LABEL = {"synthetic": "Sample data", "demo_replay": "Sample run",

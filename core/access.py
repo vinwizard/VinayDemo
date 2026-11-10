@@ -29,8 +29,8 @@ from contextvars import ContextVar, copy_context
 from pathlib import Path
 from typing import Optional
 
-import reports
-from schemas import utc_now
+from core import reports
+from core.schemas import utc_now
 
 KEY_ENV = "OPENAI_API_KEY"
 PUBLIC_ENV = "VISEXP_PUBLIC_DEMO"

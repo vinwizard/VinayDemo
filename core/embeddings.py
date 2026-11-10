@@ -9,8 +9,8 @@ import hashlib
 import math
 from array import array
 
-import access
-import reports
+from core import access
+from core import reports
 
 MODEL = "text-embedding-3-small"
 BATCH = 256        # texts per request, well under the API's limit

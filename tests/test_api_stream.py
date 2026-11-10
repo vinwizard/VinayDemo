@@ -10,7 +10,7 @@ because that detail can carry the API key.
 import pytest
 
 import api.main as main
-import reports
+from core import reports
 from fakes import sse_events
 
 

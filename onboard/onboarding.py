@@ -6,8 +6,8 @@ its own website is agents/onboarding_model.py.
 import hashlib
 import json
 
-from agents.ana import attribute_leaks
-from schemas import Attribute, CompanyProfile, Probe
+from measure.ana import attribute_leaks
+from core.schemas import Attribute, CompanyProfile, Probe
 
 
 # Brand questions live HERE, not in AnA. Onboarding is the only agent allowed to know the brand

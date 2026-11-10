@@ -3,9 +3,9 @@ answers are recorded from Google's suggestqueries endpoint, and embeddings are a
 import json
 from pathlib import Path
 
-import access
-import demand
-from agents import ana
+from core import access
+from measure import demand
+from measure import ana
 from providers import fixture, live
 
 F = fixture.FixtureProvider("A")

@@ -7,7 +7,7 @@ from statistics import NormalDist
 from typing import Optional
 from urllib.parse import urlparse
 
-from schemas import Answer, QueryEvaluation, Topic, TopicEvaluation
+from core.schemas import Answer, QueryEvaluation, Topic, TopicEvaluation
 
 
 def domain_matches(url: str, domains: list[str]) -> bool:
