@@ -1,6 +1,6 @@
 ---
 name: evaluation-and-scoring
-description: Load when changing agents/evaluation.py, scoring.py, or the offline acceptance tests. Per-query evaluation rules and the acceptance checklist.
+description: Load when changing judge/evaluation.py, score/scoring.py, or the offline acceptance tests. Per-query evaluation rules and the acceptance checklist.
 ---
 
 # Evaluation, scoring and acceptance checks

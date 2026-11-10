@@ -1,6 +1,6 @@
 ---
 name: product-workflow
-description: Load when changing the engine's agents (onboarding, AnA, evaluation), the LangGraph workflow in graph.py, or the Pydantic state contracts in schemas.py. Agent scopes, node order, routing and budget rules.
+description: Load when changing the engine's agents (onboarding, AnA, evaluation), the LangGraph workflow in measure/graph.py, or the Pydantic state contracts in core/schemas.py. Agent scopes, node order, routing and budget rules.
 ---
 
 # Product workflow, agent scopes and state

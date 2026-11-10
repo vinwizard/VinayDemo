@@ -54,7 +54,7 @@ def classify(a: Attribute, echo_rate: Optional[float], cs: Optional[float],
              negative_rate: Optional[float] = None, claim_lens: bool = False) -> tuple[str, str]:
     """Zone x owner. Pure function of the three layers; deliberately has no access to an LLM.
 
-    The model already judged each mention's polarity (agents/evaluation.py extract_attributes); this
+    The model already judged each mention's polarity (judge/evaluation.py extract_attributes); this
     function consumes that judgment, it does not second-guess it.
 
     An intended attribute needs a majority of its answers to endorse it before it counts as landed:

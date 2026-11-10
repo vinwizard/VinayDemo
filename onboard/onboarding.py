@@ -1,7 +1,7 @@
 """Agent 1 — Onboarding: establish what the company offers and how it positions itself.
 
 This module holds the brand questions and the replay fingerprint. Onboarding a real company from
-its own website is agents/onboarding_model.py.
+its own website is onboard/onboarding_model.py.
 """
 import hashlib
 import json

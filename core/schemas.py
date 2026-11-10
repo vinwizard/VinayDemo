@@ -416,7 +416,7 @@ class ClaimCheck(BaseModel):
 class WinBackAction(BaseModel):
     """One fix for a claim to win back or amplify: a page the run read, and buyer questions it asked.
 
-    Proposed by a model (or authored, in replay) and kept only after agents/win_back.py checked
+    Proposed by a model (or authored, in replay) and kept only after fix/win_back.py checked
     every reference. A suggestion for the company's copy, never a measurement: it moves no number.
     """
     attribute_id: str

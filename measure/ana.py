@@ -368,7 +368,7 @@ def discovered_competitors(topic_evals: list[TopicEvaluation], limit: int = MAX_
     Nobody supplied these and nobody was asked for them: a blind question describes what the
     company does without naming it, so any brand the model offers back is, by definition, who it
     thinks the buyer should use instead. Each name has already been checked verbatim against the
-    answer it came from (agents/evaluation.py), so nothing here is invented.
+    answer it came from (judge/evaluation.py), so nothing here is invented.
     """
     counts = Counter(c for te in topic_evals if te.phase == "baseline" for c in te.top_competitors)
     return [name for name, _ in counts.most_common(limit)]

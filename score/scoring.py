@@ -162,7 +162,7 @@ def low_confidence(brand: str, category: str, control: Optional[QueryEvaluation]
     return None
 
 
-OFF_TOPIC = "Off-topic answer."   # the validator's warning (agents/evaluation.py)
+OFF_TOPIC = "Off-topic answer."   # the validator's warning (judge/evaluation.py)
 # Why an answer is left out, as the engine's own notes say it; "failed" says the answer's status.
 EXCLUDED_REASON = {"snapshot": "search snapshot (not a chatbot observation)",
                    "replay": "why-agent experiment (a replayed reading list, not a measurement)",

@@ -8,15 +8,13 @@ with what the company wants to be known for.
 ```
 web/          React app: the product UI
 api/          FastAPI server and the /admin page
-agents/       the steps of a run
+core/         shared by everything: data types, settings, storage, access passes and metering
+onboard/      who the company is and what its own pages claim: fetching, discovery, site audit
+measure/      the run workflow: questions, sizing, dispatch, shared answer cache
+judge/        what each answer said about each claim
+score/        the numbers: scoring, drift, report panels, positioning map
+fix/          why AI says it and what would change it: why agent, fleet, re-check, win-back
 providers/    answer sources: live model calls and bundled sample replays
-graph.py      the run workflow
-why.py        the why agent
-fleet.py      the investigation fleet: coordinator, critic, planner (verify.py re-checks a live fix)
-sampler.py    question sizing
-sharing.py    shared answer cache
-schemas.py    shared data types
-other *.py    supporting modules: site checks, scoring, reports, access passes, config
 fixtures/     bundled sample scenarios for offline demos and tests
 data/         saved companies and runs
 tests/        Python test suite (offline, no network)

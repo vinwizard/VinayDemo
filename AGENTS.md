@@ -24,7 +24,7 @@ is a *messaging gap* (AI does not say it because they never clearly did). Naming
 - **Named (brand) probes** name the brand but never the attribute being measured → measure
   **perception**. A named probe that names the attribute invites the model to agree.
 
-Leaks are rejected in code (`agents/ana.py`: `attribute_leaks`, `vendor_address`, `brand_leaks`).
+Leaks are rejected in code (`measure/ana.py`: `attribute_leaks`, `vendor_address`, `brand_leaks`).
 The measured model gets only the neutral question in a fresh context, never the company profile.
 `run.answers` holds one answer per probe; re-asks live in `run.repeat_answers`. Reused answers
 (`sharing.py`, planned on the graph thread) never count twice. The why agent's and fleet's replays are

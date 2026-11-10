@@ -26,7 +26,7 @@ from core.schemas import Answer, Attribute, CompanyProfile, Probe, ReadResult, R
 
 KEY_ENV = "OPENAI_API_KEY"
 # The model that ANSWERS the questions — the one being measured; the judge is separate
-# (agents/evaluator_model.py). It must accept the Responses API web_search tool and know the
+# (judge/evaluator_model.py). It must accept the Responses API web_search tool and know the
 # present. Whether the account may call it is only knowable from a real call: `preflight`.
 MODEL_ENV = "MEASURED_MODEL"
 DEFAULT_MODEL = "gpt-6-luna"
@@ -51,7 +51,7 @@ INCLUDE = ["web_search_call.action.sources", "web_search_call.results"]
 # questions: the companies named and the claim verdicts matched the saved answers as closely as a
 # re-ask at the default did, at about half the latency (9 s against 15-17 s) and 60% of the cost.
 # "none" was no faster (it searched more) and a lighter `search_context_size` changed nothing (WEB.md
-# "Why a run takes the time it does"). The judge thinks at "low" too (agents/evaluator_model.py). A
+# "Why a run takes the time it does"). The judge thinks at "low" too (judge/evaluator_model.py). A
 # model outside REASONING_MODELS (gpt-4.1, gpt-4o) is sent no setting: it would refuse the field.
 REASONING = {"effort": "low"}
 REASONING_MODELS = ("gpt-5", "gpt-6")

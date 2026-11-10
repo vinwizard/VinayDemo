@@ -2,7 +2,7 @@
 
 Replay: authored fixture labels propose the judgment; deterministic code validates every
 quote, mention, competitor and citation against the raw answer and computes all numbers.
-Live: agents/evaluator_model.py proposes the labels, and they are validated here identically.
+Live: judge/evaluator_model.py proposes the labels, and they are validated here identically.
 """
 import re
 

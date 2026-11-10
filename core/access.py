@@ -43,7 +43,7 @@ PASS_COOKIE, ADMIN_COOKIE = "vd_pass", "vd_admin"
 ADMIN_TTL_S = 12 * 3600
 
 # USD per 1M tokens (input, output), OpenAI list prices as of 2026-09-21 for the models this app
-# uses or documents (providers/live.py, agents/evaluator_model.py, agents/onboarding_model.py).
+# uses or documents (providers/live.py, judge/evaluator_model.py, onboard/onboarding_model.py).
 # Cached input is charged at the full input price: overcounting is the safe direction.
 PRICES = {
     "gpt-4o-mini": (0.15, 0.60),

@@ -1,6 +1,6 @@
 # Web frontend (React + FastAPI)
 
-The product UI. The Python engine — `graph.py`, `drift.py`, `agents/`, `scoring.py` and the fixtures —
+The product UI. The Python engine — the folders in README.md's code map, and the fixtures —
 is imported, not reimplemented. The API runs the graph on a worker thread and pushes an SSE event per
 **answer** as well as per node, so the browser sees progress while a long batch is still running.
 
@@ -268,7 +268,7 @@ reason from `na_reasons`; no external logo service (the logo is the site's own i
     and the run as JSON, then one tab per part, only that part shown (the one on show is solid violet):
     What we asked AI — every buyer and brand question with its verdict, answer, the control
     question per front and **What AI read** (`Answer.trace`, `live.reading_of`); What AI searched
-    (`insights.searches`); Fixes and tests — the Quick wins plan (`agents/win_back.py`, `web/src/quickwins.ts`: per claim
+    (`insights.searches`); Fixes and tests — the Quick wins plan (`fix/win_back.py`, `web/src/quickwins.ts`: per claim
     a question-headed passage, one verdict, one next step, its proof behind a disclosure) and Test a fix
     (`retrieval.py`); Site check (`audit.tsx`, `audit.py`); Cited sites and rivals — the citation network
     (`sources.tsx`, `insights.domain_keys`, `insights.source_kind`) and who AI named instead; How we
@@ -362,7 +362,7 @@ curl localhost:8000/ && curl localhost:8000/api/companies
 
 - The onboard screen does not show the brand questions it will ask. Showing them would fit this
   product's habit of showing its work, and is worth doing deliberately rather than as a payload
-  field nothing renders — `agents.onboarding.named_probes_for` already produces them
+  field nothing renders — `onboard.onboarding.named_probes_for` already produces them
 - Report-surface attribute descriptions still render nothing: `AttributeScore` carries no
   `description` field
 - Three.js 3-axis drift visual (deferred deliberately; the three layers are literally three axes)

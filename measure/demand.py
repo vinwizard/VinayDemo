@@ -8,7 +8,7 @@ answer to "are these even real questions?", not a volume estimate.
     a refusal is stated, never worked around. "People also ask" is skipped: it exists only inside
     Google's result pages, and getting it means scraping them.
   * Clean in code: a phrasing that names the brand or addresses the vendor is dropped, as any
-    buyer question is (agents/ana.py); so is one off the category or with no buying intent.
+    buyer question is (measure/ana.py); so is one off the category or with no buying intent.
   * Group with embeddings (text-embedding-3-small, metered through access.py) and average-link
     clustering at a cosine threshold; the most central member stands for its group, and a group's
     weight is how many real phrasings it holds, autocomplete rank breaking ties.
