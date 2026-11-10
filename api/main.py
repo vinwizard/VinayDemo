@@ -966,7 +966,7 @@ def health(request: Request = None):
             "run_budget_usd": sampler.run_budget(),
             "live_concurrency": dispatch.live_concurrency(),
             "why_budget_usd": why_budget(),
-            # the investigation fleet (fleet.py, verify.py): its purse, its lanes, one re-check's cap
+            # the investigation fleet (fix/fleet.py, fix/verify.py): its purse, its lanes, one re-check's cap
             **fleet_api.health(),
             # a model grading its own output has a self-preference bias worth surfacing
             "same_model_warning": bool(measured and evaluator and measured == evaluator)}

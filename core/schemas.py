@@ -6,7 +6,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, model_validator
 
 SCHEMA_VERSION = 1
-# counterfactual_replay: an answer to a recorded reading list the why agent changed (why.py). An
+# counterfactual_replay: an answer to a recorded reading list the why agent changed (fix/why.py). An
 # experiment, never a measurement: it lives only in an Investigation and is never scored.
 Provenance = Literal["synthetic", "web_research_snapshot", "live_api", "counterfactual_replay"]
 SYNTHETIC_PROVIDERS = {None, "fixture"}
@@ -634,7 +634,7 @@ class WhyVerdict(BaseModel):
 
 
 class Investigation(BaseModel):
-    """Why AI says (or does not say) one claim to one branded question, and what changes it (why.py).
+    """Why AI says (or does not say) one claim to one branded question, and what changes it (fix/why.py).
 
     `live` and `off` are real asks, search on and off; every arm is a counterfactual replay of
     `reading`, the reading list one live answer was built from. None of it feeds a run's scores."""
@@ -656,7 +656,7 @@ class Investigation(BaseModel):
     # "claim": a branded question, does AI say the claim. "buyer": a quick win's replay test, does AI
     # name the company for an unbranded question once it reads the rewrite (why.test_rewrite)
     kind: Literal["claim", "buyer"] = "claim"
-    fleet_id: Optional[str] = None          # the fleet that dispatched it (fleet.py), if any
+    fleet_id: Optional[str] = None          # the fleet that dispatched it (fix/fleet.py), if any
     model: str
     judge: str
     provenance: Literal["counterfactual_replay"] = "counterfactual_replay"
@@ -673,7 +673,7 @@ class Investigation(BaseModel):
     verification: Optional["Verification"] = None   # a buyer replay test's fix, re-checked once it is live
 
 
-# ---------------------------------------------------------------- the investigation fleet (fleet.py)
+# ---------------------------------------------------------------- the investigation fleet (fix/fleet.py)
 class FleetTask(BaseModel):
     """One investigator's job as the coordinator dispatched it: a claim, a branded question, a budget."""
     id: str                                  # t1, t2, ... in dispatch order

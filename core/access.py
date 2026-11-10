@@ -584,7 +584,7 @@ def _metered(call, timeout: int, kwargs: dict):
             purse.settle(held, usd)
 
 
-# ---------------------------------------------------------------- a fleet's purse (fleet.py)
+# ---------------------------------------------------------------- a fleet's purse (fix/fleet.py)
 class PurseEmpty(BaseException):
     """A fleet call its purse cannot afford. BaseException for the reason Refused is: the evaluator
     turns an Exception into "could not judge" and carries on, which would keep an investigator

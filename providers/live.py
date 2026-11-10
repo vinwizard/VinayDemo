@@ -44,7 +44,7 @@ SEARCH_TOOL = {"type": "web_search", "external_web_access": True}
 FALLBACK_TOOL = {"type": "web_search"}
 # What the model read rides on the same call, at no extra charge: `sources` are the URLs each search
 # consulted and `results` the text it was handed — ranked snippets, the window of an opened page,
-# the lines a find-in-page matched (reading_of). This is what the why agent replays (why.py).
+# the lines a find-in-page matched (reading_of). This is what the why agent replays (fix/why.py).
 INCLUDE = ["web_search_call.action.sources", "web_search_call.results"]
 # How hard the model thinks before it answers: gpt-6-luna takes none/low/medium (its default)/high
 # (model reference, read 2026-10-01). "low" was measured on 26 saved Amgen buyer and 11 brand
