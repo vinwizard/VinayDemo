@@ -24,14 +24,9 @@ is a *messaging gap* (AI does not say it because they never clearly did). Naming
 - **Named (brand) probes** name the brand but never the attribute being measured → measure
   **perception**. A named probe that names the attribute invites the model to agree.
 
-Leaks are rejected in code (`measure/ana.py`: `attribute_leaks`, `vendor_address`, `brand_leaks`).
-The measured model gets only the neutral question in a fresh context, never the company profile.
-`run.answers` holds one answer per probe; re-asks live in `run.repeat_answers`. Reused answers
-(`sharing.py`, planned on the graph thread) never count twice. The why agent's and fleet's replays are
-`counterfactual_replay`, kept in their own record, never scored. Only the graph thread writes a run, in
-`graph.canonical` order. A thread pool must copy the context in the submitting thread (`access.pmap`,
-or `pool.submit(copy_context().run, ...)`), or the paying pass and purse are lost. Every live ask
-forces web search (`live.TOOL_CHOICE`) and retries once when none ran. Settings: WEB.md "Live mode".
+Leaks are rejected in code (measure/CLAUDE.md). The measured model gets only the neutral question in a
+fresh context, never the company profile. A thread pool must copy the context in the submitting
+thread (`access.pmap`, or `pool.submit(copy_context().run, ...)`), or the paying pass and purse are lost.
 
 ## Authored evidence is never presented as measured
 
@@ -49,12 +44,11 @@ fill a gap.
 - Detailed rules load on demand from `.claude/skills/`: `product-workflow` (agents, graph, state),
   `evidence-modes` (providers, provenance, budgets), `evaluation-and-scoring` (scoring, acceptance
   checks).
-- Tests never touch the network: `audit.py` (the no-model site check) fetches only through
-  `audit.get`, which `tests/conftest.py` refuses unless a test records responses.
-- Every OpenAI call goes through `access.openai_response` (embeddings: `access.openai_embedding`,
-  via `demand.py` and `embeddings.py`): it refuses at an access pass's cap, charges the pass from
-  reported usage, and fails closed on the public demo when no pass is set. A new model call site
-  must use it. Passes, admin and hosting: WEB.md "Deploy to Render".
+- Code is one folder per question (core, onboard, measure, judge, score, fix, providers, api, web,
+  tests). Each has a short CLAUDE.md that loads when you work there.
+- Every OpenAI call goes through `core/access.py` (`openai_response`, `openai_embedding`): it refuses
+  at an access pass's cap, charges the pass from reported usage, and fails closed on the public demo
+  when no pass is set. A new model call site must use it. Passes, admin and hosting: WEB.md "Deploy to Render".
 - Independent portfolio demo.
 
 ## Keep it small
