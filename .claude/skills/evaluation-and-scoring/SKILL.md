@@ -5,7 +5,7 @@ description: Load when changing judge/evaluation.py, score/scoring.py, or the of
 
 # Evaluation, scoring and acceptance checks
 
-From the original brief. Where this disagrees with the code, README.md or WEB.md, the code wins; the formulas live in `scoring.py` and its tests.
+From the original brief. Where this disagrees with the code, README.md or WEB.md, the code wins; the formulas live in `score/scoring.py` and its tests.
 
 ## Evaluations and scoring
 

@@ -64,7 +64,7 @@ export function WhatItRead({ a }: { a?: Answer }) {
   );
 }
 
-// ---------------------------------------------------------------- the why agent (why.py)
+// ---------------------------------------------------------------- the why agent (fix/why.py)
 
 const VERDICT_TERM: Partial<Record<WhyVerdict["kind"], TermKey>> = {
   copy_fix: "copy_fix", authority_fix: "authority_fix", not_movable: "not_movable",

@@ -1,6 +1,6 @@
 // A fleet's event log folded into what the fleet panel shows (fleet.tsx). Pure, so a reload that replays
 // the log from its first line lands exactly where the live stream left off.
-// The fleet's records, mirroring schemas.py (FleetTask, Challenge, PlanItem, ActionPlan, Verification,
+// The fleet's records, mirroring core/schemas.py (FleetTask, Challenge, PlanItem, ActionPlan, Verification,
 // FleetEvent) — keep in sync. They live here, not in api.ts, so `node --test` can type-check this file.
 import { instant } from "./time.ts";
 
