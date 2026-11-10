@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from agents.onboarding_model import _useful_description, build_attributes, onboard, parse
+from onboard.onboarding_model import _useful_description, build_attributes, onboard, parse
 
 PAGES = [
     ("https://example.com/",
@@ -247,9 +247,9 @@ def test_own_products_count_as_the_brand_and_are_never_its_rivals():
     # Amgen on gpt-6-luna, 22 Sep 2026: an answer's table row "**Tezepelumab** (Tezspire)" was
     # scored "Amgen absent", and judged again it listed Tezspire as Amgen's rival. Only "Amgen" and
     # "Amgen Inc." counted as naming it.
-    from agents.evaluation import evaluate
-    from agents.onboarding_model import build_profile
-    from schemas import Answer, Probe
+    from judge.evaluation import evaluate
+    from onboard.onboarding_model import build_profile
+    from core.schemas import Answer, Probe
     profile = build_profile({"name": "Amgen", "aliases": ["Amgen Inc."], "products": ["Tezspire", "Repatha", "Humira"]},
                             [("https://www.amgen.com/", "Amgen makes Tezspire and Repatha.")], "amgen.com")
     assert {"Amgen", "Amgen Inc.", "Tezspire", "Repatha"} <= set(profile.names())
@@ -269,9 +269,10 @@ def test_own_products_count_as_the_brand_and_are_never_its_rivals():
 def test_no_question_assumes_the_company_sells_software():
     # A drugmaker got "Which software supports oncology treatment planning?", "the leading tools for
     # biologic medicines" (answered with no tool at all) and "…to a 200-person company?".
-    from agents import ana, onboarding
-    from agents.onboarding_model import QUESTIONS_PROMPT
-    from schemas import CompanyProfile
+    from measure import ana
+    from onboard import onboarding
+    from onboard.onboarding_model import QUESTIONS_PROMPT
+    from core.schemas import CompanyProfile
     assert "software" not in QUESTIONS_PROMPT and "which companies" in QUESTIONS_PROMPT.lower()
     profile = CompanyProfile(name="Amgen", domain="amgen.com")
     assert ana.control_probe(profile, "biologic medicines").text == "Which companies lead in biologic medicines?"

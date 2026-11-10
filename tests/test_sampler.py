@@ -3,14 +3,14 @@ judge that labels what the answer says."""
 import random
 from collections import Counter
 
-import access
+from core import access
 from fakes import CAT_QS, CATEGORY, Judge, openai_reply
-import graph
-import reports
-import sampler
-import sharing
+from measure import graph
+from core import reports
+from measure import sampler
+from measure import sharing
 from providers import fixture, live
-from scoring import wilson, z_for
+from score.scoring import wilson, z_for
 
 F = fixture.FixtureProvider("A")
 

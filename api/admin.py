@@ -12,7 +12,7 @@ from urllib.parse import parse_qs
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-import access
+from core import access
 
 router = APIRouter()
 

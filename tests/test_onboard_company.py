@@ -9,15 +9,16 @@ import pytest
 from fastapi import HTTPException
 
 import api.main as main
-import drift
+from score import drift
 from fakes import openai_reply
-import fetching
-import graph
-import reports
-from agents import ana, onboarding, onboarding_model
+from onboard import fetching
+from measure import graph
+from core import reports
+from measure import ana
+from onboard import onboarding, onboarding_model
 from providers import fixture
 from providers.company import CompanyProvider
-from schemas import Attribute, Company, CompanyProfile, TopicEvaluation
+from core.schemas import Attribute, Company, CompanyProfile, TopicEvaluation
 
 PROFILE = CompanyProfile(name="Acme", domain="acme.example", aliases=["Acme"])
 

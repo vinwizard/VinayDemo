@@ -3,10 +3,10 @@ import json
 
 from fastapi.testclient import TestClient
 
-import access
+from core import access
 import api.main as main
-import graph
-import reports
+from measure import graph
+from core import reports
 from providers import fixture, live
 
 CATEGORY = "connected workspace software"

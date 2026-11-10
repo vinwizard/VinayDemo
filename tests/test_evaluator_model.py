@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-from agents.evaluator_model import ModelEvaluator, answer_lines, build_prompt, repair_quotes
-from schemas import Answer, Attribute, CompanyProfile, Probe
+from judge.evaluator_model import ModelEvaluator, answer_lines, build_prompt, repair_quotes
+from core.schemas import Answer, Attribute, CompanyProfile, Probe
 
 TEXT = ("**Linear** is a fast issue tracker. ([linear.app](https://linear.app/?utm_source=openai))\n\n"
         "[Linear review: the best tracker](https://example.com/review?utm_source=openai)\n"

@@ -5,9 +5,9 @@ import zipfile
 
 import pytest
 
-import documents
-import reports
-from documents import Unreadable
+from onboard import documents
+from core import reports
+from onboard.documents import Unreadable
 
 
 def make_pdf(*lines: str) -> bytes:

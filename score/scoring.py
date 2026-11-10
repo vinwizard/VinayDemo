@@ -1,0 +1,235 @@
+"""Deterministic arithmetic (.claude/skills/evaluation-and-scoring). No model judgment lives here."""
+import random
+import re
+from collections import Counter
+from math import sqrt
+from statistics import NormalDist
+from typing import Optional
+from urllib.parse import urlparse
+
+from core.schemas import Answer, QueryEvaluation, Topic, TopicEvaluation
+
+
+def domain_matches(url: str, domains: list[str]) -> bool:
+    """Exact host or dot-delimited subdomain match; never substring."""
+    host = (urlparse(url if "://" in url else "//" + url).hostname or "").lower().rstrip(".")
+    return any(host == d or host.endswith("." + d) for d in (d.lower().strip(".") for d in domains))
+
+
+def mentions_alias(text: str, aliases: list[str]) -> bool:
+    """Case-sensitive, word-bounded: 'the notion of' is not a brand mention."""
+    return any(re.search(rf"(?<![\w.]){re.escape(a)}(?![\w])", text) for a in aliases)
+
+
+def visibility_score(strengths: list[int]) -> Optional[float]:
+    return None if not strengths else round(100 * sum(strengths) / (2 * len(strengths)), 1)
+
+
+def visibility_by_question(per_question: list[list[int]]) -> Optional[float]:
+    """Buyer visibility: the mean over QUESTIONS, each question worth the mean of its own tries.
+
+    Questions carry equal weight however many times they were asked, so re-asking the sampler's
+    wobble questions sharpens the wobble estimate without giving them extra votes. A question with
+    no eligible answer is left out rather than counted as zero.
+    """
+    values = [sum(q) / len(q) for q in per_question if q]
+    return None if not values else round(100 * sum(values) / (2 * len(values)), 1)
+
+
+def visibility_range(per_try: list[list[int]]) -> Optional[list[float]]:
+    """The wobble: the same questions re-asked, scored try by try -> [lowest, highest]. A try with
+    no eligible answer has no score and is left out rather than counted as zero."""
+    scores = [v for v in map(visibility_score, per_try) if v is not None]
+    return [min(scores), max(scores)] if scores else None
+
+
+# Bootstrap 95% intervals, with a fixed seed so the same saved answers always give the same interval.
+BOOT_RESAMPLES, BOOT_SEED = 2000, 7
+MIN_INTERVAL_ANSWERS = 5  # fewer eligible brand answers, or scored buyer questions, than this: no interval
+
+
+def interval(draws: list[float]) -> list[float]:
+    """The middle 95% of the bootstrap draws, as [low, high]."""
+    xs = sorted(draws)
+    return [round(xs[int(0.025 * len(xs))], 1), round(xs[int(0.975 * len(xs)) - 1], 1)]
+
+
+def visibility_draws(per_question: list[list[int]], key: str = "") -> Optional[list[float]]:
+    """Bootstrap draws of visibility: resample the questions, then each chosen question's tries.
+
+    per_question: one list per buyer question of its tries' strengths. Drawn exactly as
+    `visibility_by_question` scores, so a question re-asked three times still counts once — the
+    interval is dominated by how much DIFFERENT questions disagree, which is where the width
+    actually comes from. None when no question has a second try (one try shows nothing of how
+    answers vary between asks) or fewer than MIN_INTERVAL_ANSWERS questions were scored. `key`
+    seeds each set apart, so two fronts are resampled independently.
+    """
+    qs = [q for q in per_question if q]
+    if len(qs) < MIN_INTERVAL_ANSWERS or max(map(len, qs)) < 2:
+        return None
+    rng = random.Random(f"{BOOT_SEED}:{key}")
+    out = []
+    for _ in range(BOOT_RESAMPLES):
+        picked = [rng.choice(qs) for _ in qs]
+        out.append(visibility_by_question([[rng.choice(q) for _ in q] for q in picked]))
+    return out
+
+
+def gap_verdict(a: list[float], b: list[float]) -> Optional[tuple[list[float], bool]]:
+    """-> (95% interval of a minus b, draw by draw; whether it excludes 0: a real gap), or None when
+    either side's interval has zero width: answers that never varied cannot say how sure the gap is."""
+    if any(lo == hi for lo, hi in (interval(a), interval(b))):
+        return None
+    lo, hi = interval([x - y for x, y in zip(a, b)])
+    return [lo, hi], lo > 0 or hi < 0
+
+
+def echo_draws(kept: list[str], weights: dict[str, float],
+               endorsed: dict[str, set[str]]) -> Optional[list[float]]:
+    """Bootstrap draws of a weighted echo score (claim echo, alignment), resampling brand answers.
+
+    kept: eligible brand answer ids; weights: attribute id -> its weight in the score; endorsed:
+    answer id -> the attributes it endorsed. None below MIN_INTERVAL_ANSWERS or with no weight.
+    """
+    total = sum(weights.values())
+    if len(kept) < MIN_INTERVAL_ANSWERS or not total:
+        return None
+    rng = random.Random(f"{BOOT_SEED}:echo")
+    out = []
+    for _ in range(BOOT_RESAMPLES):
+        picked = [rng.choice(kept) for _ in kept]
+        out.append(100 * sum(w * sum(a in endorsed.get(p, ()) for p in picked)
+                             for a, w in weights.items()) / (total * len(picked)))
+    return out
+
+
+def z_for(alpha: float) -> float:
+    """Two-sided normal quantile: 1.96 for alpha 0.05."""
+    return NormalDist().inv_cdf(1 - alpha / 2)
+
+
+def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """Wilson score interval for k successes in n, as rates in [0, 1]. Well-behaved at 0 and n,
+    where the textbook interval collapses to a point. n = 0 knows nothing: (0, 1)."""
+    if n <= 0:
+        return 0.0, 1.0
+    p, d = k / n, 1 + z * z / n
+    c, h = (p + z * z / (2 * n)) / d, z * sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
+    return max(0.0, c - h), min(1.0, c + h)
+
+
+def newcombe(k1: int, n1: int, k0: int, n0: int, z: float = 1.96) -> tuple[float, float]:
+    """Interval for the difference of two rates, k1/n1 minus k0/n0 (Newcombe's hybrid score method,
+    built from each side's Wilson interval)."""
+    (l1, u1), (l0, u0) = wilson(k1, n1, z), wilson(k0, n0, z)
+    p1, p0 = k1 / n1 if n1 else 0.0, k0 / n0 if n0 else 0.0
+    d = p1 - p0
+    return d - sqrt((p1 - l1) ** 2 + (u0 - p0) ** 2), d + sqrt((u1 - p1) ** 2 + (p0 - l0) ** 2)
+
+
+MIN_CONTROL_VENDORS = 2  # a control answer naming fewer companies than this does not know the category
+
+
+def low_confidence(brand: str, category: str, control: Optional[QueryEvaluation],
+                   control_answer: Optional[Answer]) -> Optional[str]:
+    """Why a set's buyer visibility is not to be trusted, or None.
+
+    The set's control question ("Which companies lead in <category>?") decides it, whatever
+    the buyer answers scored — a brand named once by chance is still not known in the category:
+      * the control could not be scored          -> low confidence: nothing to check the number against
+      * it names fewer than MIN_CONTROL_VENDORS  -> low confidence: the model does not know the category
+      * it names companies but not the brand     -> low confidence: the model does not count the brand
+                                                    among the category's leaders, so buyer questions
+                                                    were unlikely to surface it
+      * it names the brand                       -> None: the model knows the brand as a leader, so
+                                                    the buyer number is a finding
+    """
+    if control is None or control_answer is None or not eligible(control_answer, control)[0]:
+        why = control.explanation if control else "the control question was not answered"
+        return (f"The control question on {category} could not be scored ({why}), so this number "
+                f"cannot be checked against what the answering model knows about the category.")
+    vendors = control.competitor_recommendations
+    if len(vendors) < MIN_CONTROL_VENDORS:
+        found = f"only {', '.join(vendors)}" if vendors else "no company at all"
+        return (f"Asked which companies lead in {category}, the answering model named {found}. It "
+                f"does not seem to know this category, so this number says more about the model "
+                f"than about {brand}.")
+    if not control.mentioned:
+        return (f"Asked which companies lead in {category}, the answering model named "
+                f"{', '.join(vendors[:5])} but not {brand}. It does not count {brand} among this "
+                f"category's leaders, so unbranded questions were unlikely to surface it: low confidence, "
+                f"not a finding about how buyers see {brand}.")
+    return None
+
+
+OFF_TOPIC = "Off-topic answer."   # the validator's warning (judge/evaluation.py)
+# Why an answer is left out, as the engine's own notes say it; "failed" says the answer's status.
+EXCLUDED_REASON = {"snapshot": "search snapshot (not a chatbot observation)",
+                   "replay": "why-agent experiment (a replayed reading list, not a measurement)",
+                   "ungrounded": "ungrounded (no search executed)",
+                   "off_topic": "needs review", "unconfirmed": "needs review"}
+
+
+def exclusion(answer: Answer, ev: QueryEvaluation) -> Optional[str]:
+    """Why an answer is left out of every score, as a code, or None when it counts. The one rule:
+    the report words these codes (web/src/report/util.tsx, leftOut) instead of re-deriving them."""
+    if answer.provenance == "web_research_snapshot":
+        return "snapshot"
+    if answer.provenance == "counterfactual_replay":
+        return "replay"
+    if answer.status != "ok":
+        return "failed"
+    if answer.provenance == "live_api" and not answer.search_executed:
+        return "ungrounded"
+    if not ev.valid:
+        return "off_topic" if OFF_TOPIC in ev.warnings else "unconfirmed"
+    return None
+
+
+def eligible(answer: Answer, ev: QueryEvaluation) -> tuple[bool, Optional[str]]:
+    code = exclusion(answer, ev)
+    return code is None, None if code is None else answer.status if code == "failed" else EXCLUDED_REASON[code]
+
+
+def rate(k: int, n: int) -> Optional[float]:
+    return None if n == 0 else round(k / n, 3)
+
+
+def score_topic(topic: Topic, answers: list[Answer], evals: list[QueryEvaluation]) -> TopicEvaluation:
+    """answers/evals: same order, already filtered to this topic's baseline + one provenance."""
+    provenance = answers[0].provenance if answers else "synthetic"
+    assert all(a.provenance == provenance for a in answers), "never pool provenance types"
+    kept, reasons = [], []
+    for a, e in zip(answers, evals):
+        ok, why = eligible(a, e)
+        kept.append(e) if ok else reasons.append(f"{a.probe_id}: {why}")
+    te = TopicEvaluation(
+        topic_id=topic.id, provenance=provenance, n=len(kept), excluded=len(reasons), excluded_reasons=reasons,
+        mentions=sum(e.mentioned for e in kept), recommendations=sum(e.recommended for e in kept),
+        visibility_score=visibility_score([e.strength for e in kept]),
+        # A competitor is whoever AI names in a buyer answer that never names the brand: a name beside
+        # the brand is alongside it — often a tool it integrates with — not instead of it.
+        top_competitors=[c for c, _ in Counter(c for e in kept if not e.mentioned
+                                               for c in e.competitor_recommendations).most_common(4)],
+        limitations=["Small sample: at most three baseline questions per topic."],
+    )
+    if provenance == "synthetic":
+        te.limitations.append("Simulated score from sample answers; not a chatbot measurement.")
+    return te
+
+
+if __name__ == "__main__":
+    assert visibility_score([2, 1, 0]) == 50.0 and visibility_score([]) is None
+    assert visibility_range([[2, 0], [0, 0], [1, 0]]) == [0.0, 50.0]
+    assert visibility_by_question([[2, 2, 2], [0], [1]]) == 50.0   # one vote per question
+    assert visibility_by_question([[1], []]) == 50.0 and visibility_by_question([]) is None
+    assert domain_matches("https://help.notion.com/x", ["notion.com"])
+    assert not domain_matches("https://notion.com.evil.net", ["notion.com"])
+    assert not domain_matches("https://mynotion.com", ["notion.com"])
+    assert not mentions_alias("the notion of a second brain", ["Notion"])
+    assert abs(z_for(0.05) - 1.96) < 0.001 and wilson(0, 0) == (0.0, 1.0)
+    lo, hi = wilson(0, 10, z_for(0.01))
+    assert lo == 0 and round(hi, 2) == 0.40            # ten misses: at most 40%, 99% sure
+    lo, hi = newcombe(0, 6, 6, 6)
+    assert round(lo, 2) == -1.0 and round(hi, 2) == -0.45   # 6/6 -> 0/6 is decided even at n=6
+    print("ok")

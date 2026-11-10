@@ -1,4 +1,4 @@
-// Typed client for the Python engine's HTTP API. Mirrors schemas.py — keep in sync.
+// Typed client for the Python engine's HTTP API. Mirrors core/schemas.py — keep in sync.
 // VITE_API lets a second checkout run beside the first without fighting over port 8000.
 import type { FleetEvent, Verification } from "./fleetlog.ts";
 
@@ -580,7 +580,7 @@ export interface UploadedDoc { id: string; filename: string; chars: number }
 export const uploadDocument = (body: Blob, filename: string) =>
   json<UploadedDoc>(`/api/onboard/documents?filename=${encodeURIComponent(filename)}`, { method: "POST", body });
 
-/** One experiment on the recorded reading list (why.py). */
+/** One experiment on the recorded reading list (fix/why.py). */
 export interface WhyArm {
   id: string;
   kind: "base" | "drop_source" | "drop_passage" | "edit" | "inject";
@@ -640,7 +640,7 @@ export const streamRecheck = (invId: string, h: {
   }) =>
   openStream(`/api/investigations/${invId}/verify/stream`, { log: h.onLog, done: h.onDone }, "done", h.onError);
 
-// ---------------------------------------------------------------- the investigation fleet (fleet.py)
+// ---------------------------------------------------------------- the investigation fleet (fix/fleet.py)
 // Its records live in fleetlog.ts, which the node unit tests read without this file's Vite globals.
 export type { Challenge, PlanItem, Verification } from "./fleetlog.ts";
 export interface FleetSummary {

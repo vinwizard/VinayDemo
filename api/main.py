@@ -22,33 +22,33 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-import access
-import audit
-import dispatch
-import sampler
-from why import budget as why_budget
-import demand
-import discovery
-import documents
-import fetching
-import graph
-import reports
-import retrieval
-from insights import insights
-from agents.ana import brand_leaks, discovered_competitors, set_questions, vendor_address
-from agents.evaluator_model import ModelEvaluator
-from agents.onboarding import NAMED_TEMPLATES, named_probes_for
-from agents.onboarding_model import MIN_CLAIMS, buyer_questions_for, onboard as extract
-from drift import MIN_NAMED
-from config import load_env
+from core import access
+from onboard import audit
+from measure import dispatch
+from measure import sampler
+from fix.why import budget as why_budget
+from measure import demand
+from onboard import discovery
+from onboard import documents
+from onboard import fetching
+from measure import graph
+from core import reports
+from fix import retrieval
+from score.insights import insights
+from measure.ana import brand_leaks, discovered_competitors, set_questions, vendor_address
+from judge.evaluator_model import ModelEvaluator
+from onboard.onboarding import NAMED_TEMPLATES, named_probes_for
+from onboard.onboarding_model import MIN_CLAIMS, buyer_questions_for, onboard as extract
+from score.drift import MIN_NAMED
+from core.config import load_env
 from providers import fixture, live
 from providers.company import CompanyProvider
 from api import admin
 from api import fleet as fleet_api
 from api import why as why_api
-from reports import list_companies, load_company, load_run, save_company, save_run
-from schemas import Attribute, Company, Evidence
-from scoring import exclusion
+from core.reports import list_companies, load_company, load_run, save_company, save_run
+from core.schemas import Attribute, Company, Evidence
+from score.scoring import exclusion
 
 _LOADED = load_env()
 print(f"[config] loaded from .env: {', '.join(_LOADED) or 'nothing'}")  # names only, never a value
@@ -941,7 +941,7 @@ def reaudit(company_id: str, request: Request = None):
 @app.get("/api/health")
 def health(request: Request = None):
     """Reports whether live mode is usable — never the key itself."""
-    from agents import evaluator_model
+    from judge import evaluator_model
     measured = live.model_name() if live.available() else None
     evaluator = evaluator_model.model_name() if live.available() else None
     return {"ok": True, "seed_company": SEED_COMPANY,
@@ -966,7 +966,7 @@ def health(request: Request = None):
             "run_budget_usd": sampler.run_budget(),
             "live_concurrency": dispatch.live_concurrency(),
             "why_budget_usd": why_budget(),
-            # the investigation fleet (fleet.py, verify.py): its purse, its lanes, one re-check's cap
+            # the investigation fleet (fix/fleet.py, fix/verify.py): its purse, its lanes, one re-check's cap
             **fleet_api.health(),
             # a model grading its own output has a self-preference bias worth surfacing
             "same_model_warning": bool(measured and evaluator and measured == evaluator)}

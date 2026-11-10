@@ -8,13 +8,14 @@ No key, no network: transports, the judge and the question writer are injected.
 from collections import Counter
 
 from fakes import CAT_QS, Judge, openai_reply
-import graph
-import reports
-import sampler
-from agents import ana, evaluation
+from measure import graph
+from core import reports
+from measure import sampler
+from measure import ana
+from judge import evaluation
 from providers import fixture, live
-from schemas import Answer, CompanyProfile, Probe, distinctive_alias
-from scoring import mentions_alias
+from core.schemas import Answer, CompanyProfile, Probe, distinctive_alias
+from score.scoring import mentions_alias
 
 F = fixture.FixtureProvider("A")
 AIMING = "connected workspace software"
@@ -234,7 +235,7 @@ def test_a_different_product_is_not_a_mention():
 
 
 def test_onboarding_keeps_only_distinctive_aliases():
-    from agents.onboarding_model import build_profile
+    from onboard.onboarding_model import build_profile
     p = build_profile({"name": "Acme", "aliases": ["AI Marketer", "Acme Agents", "AI Agents"]},
                       [], "acme.example")
     assert p.aliases == ["Acme", "Acme Agents"]

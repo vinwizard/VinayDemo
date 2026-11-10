@@ -10,9 +10,9 @@ import pytest
 from fastapi import HTTPException
 
 import api.main as main
-import fetching
-import reports
-from agents import onboarding_model
+from onboard import fetching
+from core import reports
+from onboard import onboarding_model
 from fakes import sse_events as events
 
 
@@ -40,7 +40,7 @@ def test_the_committed_live_example_is_what_the_code_makes_of_its_saved_answers(
     # The first committed Amgen run showed "Merck" and "Sanofi" where its answers and the code gave
     # "Merck & Co." and "Sanofi and Regeneron": its data had been edited by hand. Run data is never
     # hand-edited, so the example's rival names, mentions and strengths must be re-derivable.
-    from agents.evaluation import evaluate, merge_divisions
+    from judge.evaluation import evaluate, merge_divisions
     run = reports.load_run(main.SHOWCASE_RUN)
     probes = {p.id: p for p in run.probes}
     first = [evaluate(probes[a.probe_id], a, run.profile) for a in run.answers]

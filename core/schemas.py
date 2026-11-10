@@ -1,0 +1,772 @@
+"""Pydantic state contracts (.claude/skills/product-workflow)."""
+import re
+from datetime import datetime, timezone
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field, model_validator
+
+SCHEMA_VERSION = 1
+# counterfactual_replay: an answer to a recorded reading list the why agent changed (fix/why.py). An
+# experiment, never a measurement: it lives only in an Investigation and is never scored.
+Provenance = Literal["synthetic", "web_research_snapshot", "live_api", "counterfactual_replay"]
+SYNTHETIC_PROVIDERS = {None, "fixture"}
+
+
+def utc_now() -> str:
+    """Every stored time is UTC with its offset written; the browser shows it in local time."""
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+class Evidence(BaseModel):
+    id: str
+    url: Optional[str] = None
+    excerpt: str
+    # illustrative | web_research_snapshot | user_provided | page_fetch | search_copy |
+    # uploaded_document | third_party. A search_copy is the company's own page as a search engine
+    # saved it, read when the page itself turns us away; third_party is about the company, never by
+    # it, and never counts as a claim (discovery.py).
+    source_type: str
+    title: Optional[str] = None       # an uploaded document's file name, or a page's title
+    saved: Optional[str] = None       # a search copy's age as the search engine gave it: "3 days ago"
+    private: bool = False             # an uploaded document: nothing AI can read, unlike a public page
+
+
+class PositioningPoint(BaseModel):
+    id: str
+    text: str
+    evidence_ids: list[str] = []
+
+
+# Words that name a kind of product, not a company. An alias made only of these, without the brand's
+# own name, is a category ("AI Marketer", "AI Agents"): counting it as a mention credits the brand
+# with every answer about any product of that kind.
+GENERIC_WORDS = frozenset(
+    "ai agent agents agentic assistant assistants analytics app apps automation bot bots brand cloud "
+    "copilot crm data engine hub insights labs manager market marketer marketers marketing monitor "
+    "optimizer platform platforms pro search seo software studio suite tool tools tracker visibility "
+    "workspace writer".split())
+
+
+def distinctive_alias(alias: str, brand: str) -> bool:
+    """Keep an alias unless every word in it is a generic noun ("AI Marketer", "Agents"): a phrase
+    any answer about the category can contain. One without the brand's name is still kept when a
+    word in it is distinctive (a product name such as "Conversation Explorer" or "Jira")."""
+    words = re.findall(r"[\w'-]+", alias)
+    if not words:
+        return False
+    if re.search(rf"(?<!\w){re.escape(brand)}(?!\w)", alias, re.I):
+        return True
+    if len(words) == 1 and len(words[0]) <= 2:
+        return False
+    return any(w.lower() not in GENERIC_WORDS for w in words)
+
+
+class CompanyProfile(BaseModel):
+    name: str
+    domain: str
+    owned_domains: list[str] = []
+    aliases: list[str] = []
+    branded_terms: list[str] = []  # distinctive feature names that would identify the target
+    positioning_points: list[PositioningPoint] = []
+    evidence: list[Evidence] = []
+    warnings: list[str] = []
+    logo_url: Optional[str] = None  # the site's own icon, from the homepage fetch; display only
+    # What a buyer would call the market it competes in ("AI search visibility tracking"): the
+    # "where you aim to be" buyer front. None: saved before categories existed, so that front is
+    # not measured and the run says why.
+    core_category: Optional[str] = None
+    category_questions: list[str] = []  # blind buyer questions for the core category; vetted like any
+
+    def all_domains(self) -> list[str]:
+        # A company onboarded from documents alone has no domain: "" would match every URL
+        return sorted({d for d in (self.domain, *self.owned_domains) if d})
+
+    def names(self) -> list[str]:
+        """Every name that counts as a mention. The name itself always does: onboarding asks for
+        *other* names, so aliases like ["Notion Labs"] used to replace "Notion" rather than add to it.
+        A generic alias ("AI Marketer") is never one: it names a kind of product, not this company."""
+        return list(dict.fromkeys([self.name, *(a for a in self.aliases if distinctive_alias(a, self.name))]))
+
+
+class Attribute(BaseModel):
+    """One thing a brand can be known for. The unit of drift.
+
+    `intended` — the customer says they want to own it (aspirational; never counts as product fit).
+    `claimed`  — their own public copy states it (evidence-backed).
+    `emergent` — neither; AI assigned it. Discovered from answers, never declared up front.
+    """
+    id: str
+    label: str
+    # What the claim actually MEANS for this company, in one concrete sentence. A bare label like
+    # "Enterprise ready" asserts a category and explains nothing; the description carries the
+    # substance ("SSO, audit logs and SCIM for org-wide rollout").
+    description: Optional[str] = None
+    aliases: list[str] = []  # phrasings that count as an echo of this attribute
+    intended_weight: Optional[float] = None  # set only when the customer named it
+    claim_evidence_ids: list[str] = []       # set only when their own copy states it
+    added_by_user: bool = False              # typed in by the customer, not extracted from a page
+    # found by the discovery pass over the answers — neither the company nor the crawler supplied it
+    discovered: bool = False
+    # about the company as a business (stock, revenue, cash, debt, size, deals), not what it sells:
+    # an answer read as a stock pick is never where AI places the company (ana.placed_attribute)
+    business: bool = False
+    claim_quotes: list[str] = []             # verbatim site copy stating it, per page
+    # Why the customer should look at this claim before trusting it (its statement leans on marketing
+    # words, onboarding_model.marketing_words), or None. Flagged claims are kept and measured.
+    review: Optional[str] = None
+    set_aside: bool = False                  # the customer set it aside: kept on file, never measured
+    claim_pages: int = 0                     # DERIVED: public pages whose text contains a validated quote
+    claim_pages_total: int = 0               # DERIVED: public pages read (own pages and search copies)
+    # DERIVED: every validated quote is in a private uploaded document and on no public page. AI
+    # cannot read those, so a claim it does not repeat is a messaging gap, never an authority gap.
+    private_only: bool = False
+    in_documents: bool = False               # DERIVED: a validated quote is also in an uploaded document
+    # The buyer questions this claim implies, with no brand name anywhere. If the positioning were
+    # landing, the company should surface for these. This is the placebo test.
+    buyer_questions: list[str] = []
+    note: Optional[str] = None
+
+    @property
+    def intended(self) -> bool:
+        return self.intended_weight is not None
+
+    @property
+    def claimed(self) -> bool:
+        return bool(self.claim_evidence_ids)
+
+
+class AttributeObservation(BaseModel):
+    """One attribute AI associated with the target in one answer, with the quote that proves it."""
+    attribute_id: str
+    quote: str  # must appear verbatim in the answer or the observation is dropped
+    polarity: Literal["positive", "neutral", "negative"] = "neutral"
+
+
+class Topic(BaseModel):
+    id: str
+    label: str
+    # perception holds named probes; control holds the one category-knowledge question. Neither is a
+    # buyer use case, so neither gets a topic score.
+    kind: Literal["buyer", "perception", "control"] = "buyer"
+    # Which visibility set a buyer or control topic belongs to: "placed" (the category AI's brand
+    # answers most associate with the company), "aiming" (the site's own core category), "both"
+    # (they are the same category, asked once), or None (one unlabelled set, as in replay).
+    front: Optional[Literal["placed", "aiming", "both"]] = None
+    positioning_point_ids: list[str]
+    fit: Literal["strong", "partial", "unsupported"]
+
+
+class DemandPhrase(BaseModel):
+    text: str                                    # verbatim, as the source returned it
+    source: Literal["autocomplete"]
+
+
+class Demand(BaseModel):
+    """Where a buyer question came from when it is grounded in real demand (demand.py): the real
+    search phrase it asks and every real phrasing grouped with it. Not search volume."""
+    phrase: str                     # the group's most central real phrase, verbatim
+    source: Literal["autocomplete"]
+    phrasings: list[DemandPhrase]   # the whole group, the phrase included; its size is the weight
+
+
+class Probe(BaseModel):
+    id: str
+    topic_id: str
+    text: str
+    kind: Literal["blind", "named"] = "blind"  # blind: never names the brand. named: may, but never names an attribute.
+    # control: asked once beside the baseline, never scored as visibility (ana.control_probe)
+    phase: Literal["baseline", "followup", "control"]
+    purpose: str
+    parent_probe_ids: list[str] = []
+    demand: Optional[Demand] = None  # set only when the question is a real search (demand.py)
+
+
+class ReadResult(BaseModel):
+    """One thing the answering model read: a search snippet, an opened page's window of lines, or a
+    find-in-page hit. The text is the model's own copy as the Responses API returned it — untrusted
+    third-party DATA, shown and replayed, never followed."""
+    url: str
+    title: Optional[str] = None
+    text: str = ""
+    crawled: Optional[str] = None  # the crawler's own stamp, e.g. "last week"
+
+
+class ReadStep(BaseModel):
+    """One web_search_call, in order: a search (its queries), an opened page, or a find in a page."""
+    kind: Literal["search", "open_page", "find_in_page"]
+    queries: list[str] = []
+    url: Optional[str] = None
+    pattern: Optional[str] = None
+    results: list[ReadResult] = []
+
+
+class Answer(BaseModel):
+    probe_id: str
+    text: str = ""
+    citations: list[str] = []
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    collected_at: Optional[str] = None
+    provenance: Provenance
+    search_executed: Optional[bool] = None
+    status: Literal["ok", "timeout", "error"] = "ok"
+    error: Optional[str] = None
+    fixture_labels: Optional[dict] = None    # authored labels; synthetic only
+    evaluator_labels: Optional[dict] = None  # model-produced labels; live only
+    evaluator_model: Optional[str] = None
+    try_no: int = 1  # which ask of the same question this is; buyer questions are asked several times
+    # The web searches the answering model ran, in order (web_search_call "search" actions).
+    # None: not recorded (a run saved before this field, or a source that cannot see them).
+    searches: Optional[list[str]] = None
+    # What the answering model read, step by step (providers/live.reading_of). None: not recorded (a
+    # run saved before this field, a replay, or a response that carried no results).
+    trace: Optional[list[ReadStep]] = None
+    # Reused: an earlier run asked this question, or a near-identical one, of the same model in the
+    # same search mode in the last 24 hours (sharing.py). The text, citations, trace and collected_at
+    # are that answer's; the labels were made again for this run.
+    shared: bool = False
+    # Set only when it was answered for a near-identical question: that question, and the cosine
+    # between the two (sharing.SIMILARITY is the least that is reused).
+    reused_question: Optional[str] = None
+    reused_similarity: Optional[float] = None
+
+    @property
+    def labels(self) -> Optional[dict]:
+        """Whoever proposed the judgment. Downstream code validates it the same way either way."""
+        return self.evaluator_labels if self.evaluator_labels is not None else self.fixture_labels
+
+    @model_validator(mode="after")
+    def _honest_provenance(self):
+        if self.provenance == "synthetic":
+            if self.provider not in SYNTHETIC_PROVIDERS or self.model or self.collected_at:
+                raise ValueError("synthetic answers may not carry a real provider, model or live timestamp")
+            if self.search_executed:
+                raise ValueError("synthetic answers may not claim search_executed=true")
+            if self.evaluator_labels is not None:
+                raise ValueError("evaluator labels are only allowed on live answers")
+        elif self.fixture_labels is not None:
+            raise ValueError("fixture labels are only allowed on synthetic answers")
+        return self
+
+
+class QueryEvaluation(BaseModel):
+    probe_id: str
+    valid: bool
+    mentioned: bool = False
+    recommended: bool = False
+    negative_mention: bool = False
+    competitor_recommendations: list[str] = []
+    evidence_quotes: list[str] = []
+    owned_citation: bool = False
+    strength: Optional[int] = None  # 0/1/2, None when invalid
+    explanation: str
+    warnings: list[str] = []
+    try_no: int = 1
+
+
+class TopicEvaluation(BaseModel):
+    topic_id: str
+    phase: Literal["baseline", "followup"] = "baseline"   # followup: runs saved before it was cut
+    provenance: Provenance
+    n: int
+    excluded: int
+    excluded_reasons: list[str] = []
+    mentions: int = 0
+    recommendations: int = 0
+    visibility_score: Optional[float] = None
+    top_competitors: list[str] = []
+    limitations: list[str] = []
+
+
+Zone = Literal["landed", "lost_claim", "contested", "imposed", "unstated_intent", "unprioritised"]
+Owner = Literal["authority_gap", "messaging_gap", "contested_identity", "imposed_identity",
+                "unprioritised_claim", "none"]
+
+
+class AttributeScore(BaseModel):
+    """One row of the drift map: intended vs claimed vs perceived, and whose problem the gap is.
+
+    zone/owner are assigned by deterministic rules in drift.py, never by a model.
+    """
+    attribute_id: str
+    label: str
+    discovered: bool = False                # emergent: found in the answers, not declared up front
+    intended_weight: Optional[float] = None
+    claim_strength: Optional[float] = None  # fraction of known pages stating it
+    claim_pages: int = 0                    # carried through so a percentage can show its counts
+    claim_pages_total: int = 0
+    n: int = 0                              # eligible named-probe answers
+    echoes: int = 0                         # answers where AI associated it with the target
+    echo_rate: Optional[float] = None       # positive echoes only: a neutral mention is not conviction
+    negative_echoes: int = 0
+    mention_rate: Optional[float] = None    # any mention, whatever its polarity
+    negative_rate: Optional[float] = None
+    zone: Zone
+    owner: Owner
+    quotes: list[str] = []      # verbatim, from answers
+    probe_ids: list[str] = []
+    limitations: list[str] = []
+    na_reasons: dict[str, str] = {}  # field name -> why that number is null
+
+
+class VisibilitySet(BaseModel):
+    """Buyer visibility on one front: the questions about one category, with their repeat sample,
+    wobble and control question. Arithmetic in graph.score_drift; never pooled across provenance."""
+    front: Optional[Literal["placed", "aiming", "both"]] = None
+    category: Optional[str] = None
+    visibility: Optional[float] = None
+    tries: int = 1              # how many times a repeat-sampled question was asked
+    visibility_range: Optional[list[float]] = None  # the wobble: see DriftReport.visibility_range
+    n_blind: int = 0            # eligible buyer answers, every try counted
+    questions: int = 0          # buyer questions asked in this set, each once
+    repeat_sample: int = 0      # how many of them were also asked `tries` times
+    control_probe_id: Optional[str] = None
+    low_confidence: Optional[str] = None  # why this set's number is not to be trusted, or None
+    interval: Optional[list[float]] = None  # bootstrap 95% interval of `visibility` (scoring.visibility_draws)
+    interval_note: Optional[str] = None     # why there is no interval
+
+
+class FrontSample(BaseModel):
+    """One front as sampler-lite asked it (sampler.py): how many questions, and how sure the rate is."""
+    front: Optional[Literal["placed", "aiming", "both"]] = None
+    pool: int = 0                   # questions frozen for this front
+    asked: int = 0                  # questions asked, each once (the wobble re-ask not counted)
+    look: Literal[1, 2] = 1         # the look it stopped at
+    stopped_early: bool = False     # look 1 already met the margin
+    named: int = 0                  # answers that named the company, first ask of each question
+    judged: int = 0                 # answers that counted
+    rate: Optional[float] = None    # 0-100
+    interval: Optional[list[float]] = None  # 0-100, 95% whichever look it stopped at
+    margin_met: bool = False
+    note: Optional[str] = None
+
+
+class SamplerReport(BaseModel):
+    """How a live run spent its buyer questions: a stated margin at 95%, two looks, fresh questions."""
+    margin: int                                  # ± points of "named you", at 95%
+    looks: list[int]                             # [look 1, look 2] questions per front
+    budget_usd: Optional[float] = None
+    fronts: list[FrontSample] = []
+    held: list[str] = []                         # probe ids waiting for look 2; empty once decided
+    wobble: list[str] = []                       # probe ids re-asked once to show the wobble
+    decided: bool = False
+    unasked: list[Probe] = []                    # frozen questions a front never needed
+    shared: int = 0                              # answers reused from an earlier run (sharing.py)
+
+
+class DriftReport(BaseModel):
+    """The single-screen result. Claim echo needs no input; alignment is over intended attributes only."""
+    provenance: Provenance
+    # claim: nothing weighted, the site's own claims are the reference. intent: weights exist.
+    lens: Literal["claim", "intent"] = "intent"
+    claim_echo: Optional[float] = None      # 0-100, prominence-weighted supportive echo of claims
+    n_named: int = 0           # eligible named-probe answers behind the perception layer
+    n_blind: int = 0           # eligible blind-probe answers behind the visibility layer
+    named_asked: int = 0       # how many were attempted, so a reader can see what was lost
+    excluded_named: int = 0
+    excluded_reasons: list[str] = []
+    alignment: Optional[float] = None       # 0-100, weighted echo of intended attributes
+    visibility: Optional[float] = None      # 0-100, mean over buyer questions (scoring.visibility_by_question)
+    tries: int = 1                          # how many times a repeat-sampled question was asked
+    repeat_sample: int = 0                  # how many buyer questions were asked more than once
+    # The wobble, NOT a second estimate of the run: [lowest, highest] visibility of the repeat-sampled
+    # questions alone, try by try. How sure the whole number is lives in `visibility_interval`.
+    visibility_range: Optional[list[float]] = None
+    # Why a buyer visibility with no brand mention is not trusted (scoring.low_confidence), or None.
+    low_confidence: Optional[str] = None
+    # Buyer visibility per front, side by side: where AI places the company and where it aims to be.
+    # One entry when both are the same category or the run has one unlabelled set.
+    sets: list[VisibilitySet] = []
+    placed_category: Optional[str] = None
+    aiming_category: Optional[str] = None
+    visibility_gap: Optional[float] = None  # placed minus aiming, when both were measured
+    # Bootstrap 95% intervals (scoring.interval); why one is missing is na_reasons["<field>_interval"].
+    visibility_interval: Optional[list[float]] = None
+    gap_interval: Optional[list[float]] = None
+    gap_real: Optional[bool] = None         # the gap's interval excludes 0
+    claim_echo_interval: Optional[list[float]] = None
+    alignment_interval: Optional[list[float]] = None
+    missing_fronts: dict[str, str] = {}     # "placed"/"aiming" -> why that front was not measured
+    landed: list[str] = []
+    lost_claims: list[str] = []
+    contested: list[str] = []
+    imposed: list[str] = []
+    unstated_intent: list[str] = []
+    unprioritised: list[str] = []
+    scores: list[AttributeScore] = []
+    limitations: list[str] = []
+    na_reasons: dict[str, str] = {}  # field name -> why that number is null
+
+
+class ClaimCheck(BaseModel):
+    """How one extracted claim fared against the fetched pages, for the "how we checked" panel.
+
+    Structured so the page never parses warning strings. Companies saved before this field existed
+    have an empty list and their quote problems as plain strings in `Company.warnings`.
+    """
+    id: str
+    label: str
+    kept: bool
+    quotes_matched: int = 0
+    quotes_removed: int = 0  # too short, or not verbatim on any fetched page
+    not_found: bool = False  # left out because no quote was on any fetched page
+    notes: list[str] = []    # plain sentences: why quotes were removed or the claim left out
+
+
+class WinBackAction(BaseModel):
+    """One fix for a claim to win back or amplify: a page the run read, and buyer questions it asked.
+
+    Proposed by a model (or authored, in replay) and kept only after fix/win_back.py checked
+    every reference. A suggestion for the company's copy, never a measurement: it moves no number.
+    """
+    attribute_id: str
+    label: str
+    zone: Zone
+    page_url: str                       # one of the pages actually read
+    current_copy: Optional[str] = None  # verbatim on that page; None = add new copy
+    heading: Optional[str] = None       # the buyer question heading the new passage, verbatim; None on older runs
+    rewrite: str                        # the passage's body: what the company does, in plain facts
+    question_ids: list[str] = []        # baseline buyer questions that did not recommend the company
+    why: str = ""
+    provenance: Provenance
+
+    def passage(self) -> str:
+        """The copy as it would go on the page: the question that heads it, then its answer."""
+        return f"{self.heading}\n{self.rewrite}" if self.heading else self.rewrite
+
+
+class ScoredPassage(BaseModel):
+    """One passage of a page and how closely it matches a question, by embedding similarity."""
+    url: str
+    text: str
+    score: float  # cosine similarity, 2 decimals: a simulation of retrieval, not a citation odds
+    query: str    # the buyer question or fan-out search it matched best
+
+
+class Reask(BaseModel):
+    """The buyer question asked once more, with the rewritten passage and the rival's as the only
+    sources. A simulation: it never feeds a score."""
+    named: bool
+    answer: str
+    model: str
+    collected_at: str
+
+
+class RetrievalRow(BaseModel):
+    """One buyer question: your best passage against the best passage of a page AI cited for it,
+    and your best passage once the win-back rewrite is in the page."""
+    probe_id: str
+    queries: int = 1                        # the question plus the fan-out searches scored
+    yours: Optional[ScoredPassage] = None
+    rival: Optional[ScoredPassage] = None   # None: no page cited for it could be read
+    fixed: Optional[ScoredPassage] = None   # None: no win-back fix targets this question
+    fix_attribute_id: Optional[str] = None
+    reask: Optional[Reask] = None
+
+
+class RetrievalSim(BaseModel):
+    """A mini version of how an AI search picks what to read (retrieval.py). Moves no score."""
+    provenance: Provenance
+    model: Optional[str] = None     # the embedding model; None for the authored sample
+    pages: int = 0                  # pages split into passages
+    passages: int = 0
+    rows: list[RetrievalRow] = []
+    skipped: list[str] = []         # plain sentences: what was not read, and why
+
+
+class MapPoint(BaseModel):
+    """One dot on the positioning map: the mean embedding of the sentences it was built from."""
+    name: str
+    kind: Literal["seen", "intended", "rival"]  # the brand as AI describes it, as its site does, a rival
+    x: float
+    y: float
+    sentences: list[str] = []            # verbatim, from the answers or the site
+    similarity: Optional[float] = None   # cosine to the brand as AI describes it; None on that point
+
+
+class PositioningMap(BaseModel):
+    """Where AI places the brand, its rivals, and where the brand aims to be (positioning.py): a
+    similarity picture in 2D, never a measurement. Moves no score."""
+    provenance: Provenance
+    model: Optional[str] = None      # the embedding model; None for the authored sample
+    # what the arrow's head is built from: the claims the customer weighted, or the site's positioning
+    aim: Literal["intended", "site"] = "site"
+    points: list[MapPoint] = []
+    # [claim] the axis measures (a live map: positioning.claim_axes), or [low end, high end] (the
+    # authored sample). Never [] on a drawn map: every axis carries a name.
+    x_axis: list[str] = []
+    y_axis: list[str] = []
+    explained: Optional[float] = None  # share of the spread between the points the two axes show
+    closest: list[str] = []          # rivals nearest the brand as AI describes it, nearest first
+    toward: Optional[str] = None     # the axis end the aim lies toward, when an axis is labelled
+    reason: Optional[str] = None     # why no map was drawn
+    notes: list[str] = []            # what was left out, in plain sentences
+
+
+AuditStatus = Literal["pass", "fail", "unknown"]
+
+
+class AuditCheck(BaseModel):
+    """One red/green line of the retrievability audit, with its root cause as a plain sentence."""
+    key: str                  # crawlers | raw_text | markup | headings | speed | llms_txt | no_js
+    status: AuditStatus       # unknown = could not check, never a guess
+    detail: str
+
+
+class ClaimAudit(BaseModel):
+    attribute_id: str
+    label: str
+    page_url: Optional[str] = None  # the page checked: the first that states it and AI can read; None = none states it
+    checks: list[AuditCheck] = []
+    advice: list[str] = []          # never a failure: other pages that state it but AI cannot read, heading tips
+
+
+class EntitySource(BaseModel):
+    """What one outside source that AI leans on for facts says about the company, if anything."""
+    source: str                           # Wikipedia | Wikidata | Crunchbase | G2 | LinkedIn
+    status: Literal["found", "missing", "not_checked"]
+    summary: str                          # one plain sentence, including how we looked
+    says: Optional[str] = None            # its own short description, verbatim
+    url: Optional[str] = None
+
+
+class SiteAudit(BaseModel):
+    """Could AI even read the site, and where else it could learn about the company.
+
+    Plain fetches and parsing (audit.py), no model: every line is a deterministic check.
+    """
+    checked_at: str = Field(default_factory=utc_now)
+    site: list[AuditCheck] = []
+    claims: list[ClaimAudit] = []
+    entities: list[EntitySource] = []
+
+
+class Company(BaseModel):
+    """One onboarded company: what its own pages claim, plus what the customer says they intend.
+
+    A company used to BE a fixture filename, so only the two bundled demos could be measured. This
+    is the saved form of an onboarding crawl, and it is the other thing `build_provider` can start
+    from. It holds no answers: a company onboarded from a URL has none, which is exactly why
+    measuring one needs a live provider.
+    """
+    id: str
+    schema_version: int = SCHEMA_VERSION
+    created_at: str = Field(default_factory=utc_now)
+    profile: CompanyProfile
+    attributes: list[Attribute] = []
+    pages: list[str] = []      # the URLs read (directly or as search copies); the audit re-reads these
+    # Pages about the company by someone else (Wikipedia, news), shown apart and never extracted
+    third_party: list[Evidence] = []
+    warnings: list[str] = []
+    checks: list[ClaimCheck] = []
+    audit: Optional[SiteAudit] = None  # None: onboarded before the audit existed
+
+
+class Run(BaseModel):
+    id: str
+    schema_version: int = SCHEMA_VERSION
+    mode: Literal["demo_replay", "live_api"]
+    scenario: Optional[str] = None
+    created_at: str = Field(default_factory=utc_now)
+    profile: CompanyProfile
+    topics: list[Topic] = []
+    baseline_hash: Optional[str] = None
+    probes: list[Probe] = []
+    answers: list[Answer] = []
+    evaluations: list[QueryEvaluation] = []
+    # Buyer questions asked again (try 2 onward). Kept apart so every consumer of `answers` still
+    # sees one answer per question; only buyer visibility and its range read these.
+    repeat_answers: list[Answer] = []
+    repeat_evaluations: list[QueryEvaluation] = []
+    topic_evaluations: list[TopicEvaluation] = []
+    attributes: list[Attribute] = []
+    attribute_scores: list[AttributeScore] = []
+    # validated observations per named probe id, kept so a re-score never needs the model again
+    observations: Optional[dict[str, list[AttributeObservation]]] = None  # None: saved before re-scoring
+    drift_notes: list[str] = []  # limitations measure_drift adds beyond the report's own
+    missing_fronts: dict[str, str] = {}  # set by plan_buyer, copied to the drift report
+    demand_notes: list[str] = []  # per front: how many buyer questions are real searches, or why none
+    drift: Optional[DriftReport] = None
+    win_back: list[WinBackAction] = []  # how to win it back; additive, never feeds a score
+    win_back_notes: list[str] = []      # why a proposed action was dropped, or none was proposed
+    retrieval: Optional[RetrievalSim] = None  # simulated retrieval and the fix re-scored; no score
+    positioning: Optional[PositioningMap] = None  # the positioning map; a picture, no score
+    # The company's retrievability audit as it stood when the run started; None for replays and
+    # companies onboarded before the audit existed.
+    audit: Optional[SiteAudit] = None
+    # sampler-lite's record (sampler.py); None for replays and runs saved before it
+    sampler: Optional[SamplerReport] = None
+    log: list[str] = []
+    status: str = "planned"
+
+
+class WhyRate(BaseModel):
+    """How many of n answers stated the claim."""
+    k: int = 0
+    n: int = 0
+
+
+class WhyArm(BaseModel):
+    """One experiment on the recorded reading list, re-asked with search off until decided."""
+    id: str
+    kind: Literal["base", "drop_source", "drop_passage", "edit", "inject"]
+    label: str                                  # plain words: what was changed
+    urls: list[str] = []                        # the pages it touched
+    text: list[str] = []                        # lines removed, or the copy put in
+    hypothetical: bool = False                  # edited or injected copy: not what the page says today
+    k: int = 0
+    n: int = 0
+    base_k: int = 0                             # the base it was compared with, when it was decided
+    base_n: int = 0
+    effect: Optional[float] = None              # this arm's rate minus the base rate
+    interval: Optional[list[float]] = None      # 95% interval of the effect, the whole investigation corrected
+    decided: Literal["effect", "no_effect", "undecided", "base"] = "undecided"
+    quotes: list[str] = []                      # a few verbatim sentences that stated the claim
+
+
+class WhyVerdict(BaseModel):
+    kind: Literal["caused_by", "over_determined", "prior_belief", "not_in_reading", "not_said", "copy_fix",
+                  "authority_fix", "not_movable", "copy_lowers", "not_reproducible", "undecided", "budget",
+                  "cancelled", "ceiling"]
+    text: str
+    arm_id: Optional[str] = None
+    fix: Optional[Literal["copy", "authority", "none"]] = None
+
+
+class Investigation(BaseModel):
+    """Why AI says (or does not say) one claim to one branded question, and what changes it (fix/why.py).
+
+    `live` and `off` are real asks, search on and off; every arm is a counterfactual replay of
+    `reading`, the reading list one live answer was built from. None of it feeds a run's scores."""
+    id: str
+    schema_version: int = SCHEMA_VERSION
+    run_id: str
+    created_at: str = Field(default_factory=utc_now)
+    company: str
+    question: str
+    probe_id: Optional[str] = None
+    attribute_id: str
+    claim: str
+    term: Optional[str] = None              # a literal word that counts as stating it; else the evaluator judges
+    # What counts as stating it, as the report counts it: "endorsements" (a claim of the company's: only a
+    # positive observation, drift.py's echo), "mentions" (a perception AI raised, or a literal term), or
+    # "names" / "recommends" (a buyer question's replay test: does the answer name the company, or, where
+    # it already did, recommend it)
+    counts: Literal["mentions", "endorsements", "names", "recommends"] = "mentions"
+    # "claim": a branded question, does AI say the claim. "buyer": a quick win's replay test, does AI
+    # name the company for an unbranded question once it reads the rewrite (why.test_rewrite)
+    kind: Literal["claim", "buyer"] = "claim"
+    fleet_id: Optional[str] = None          # the fleet that dispatched it (fix/fleet.py), if any
+    model: str
+    judge: str
+    provenance: Literal["counterfactual_replay"] = "counterfactual_replay"
+    budget_usd: float
+    spent_usd: float = 0.0
+    status: Literal["running", "complete", "stopped"] = "running"
+    live: WhyRate = WhyRate()
+    off: WhyRate = WhyRate()
+    live_quotes: list[str] = []
+    reading: list[ReadStep] = []
+    arms: list[WhyArm] = []
+    verdicts: list[WhyVerdict] = []
+    log: list[str] = []
+    verification: Optional["Verification"] = None   # a buyer replay test's fix, re-checked once it is live
+
+
+# ---------------------------------------------------------------- the investigation fleet (fix/fleet.py)
+class FleetTask(BaseModel):
+    """One investigator's job as the coordinator dispatched it: a claim, a branded question, a budget."""
+    id: str                                  # t1, t2, ... in dispatch order
+    attribute_id: str
+    claim: str
+    probe_id: str
+    question: str
+    term: Optional[str] = None
+    reason: str                              # the coordinator's own sentence, shown as it is
+    budget_usd: float
+    try_no: int = 1
+    parent: Optional[str] = None             # the task a re-dispatch follows up
+    by: Literal["model", "code"] = "model"   # the coordinator, or the code fallback when it failed
+
+
+class Challenge(BaseModel):
+    """The critic's objection to one finished investigation. Code rules, no model (fleet.critic)."""
+    task_id: str
+    kind: Literal["thin", "ceiling", "floor", "not_reproducible", "off_claim", "contradicts"]
+    ask: Literal["other_question", "more_budget", "accept"]
+    text: str
+    evidence: list[str] = []                 # arm ids, or the other task's id
+
+
+class PlanItem(BaseModel):
+    """One line of the tested plan. Every number is copied from an arm of the investigation it cites."""
+    rank: int
+    attribute_id: str
+    claim: str
+    fix: Literal["copy", "authority", "source", "none", "thin", "untested"]
+    text: str                                # the template's line
+    page_url: Optional[str] = None
+    rewrite: Optional[str] = None
+    hypothetical: bool = False               # the copy is not on the page today
+    sources: list[str] = []                  # fix "source": the pages that make AI say it
+    question: Optional[str] = None
+    task_id: Optional[str] = None
+    investigation_id: Optional[str] = None
+    arm_id: Optional[str] = None
+    k: int = 0
+    n: int = 0
+    base_k: int = 0
+    base_n: int = 0
+    effect: Optional[float] = None
+    interval: Optional[list[float]] = None
+    notes: list[str] = []                    # challenges that stand
+
+
+class ActionPlan(BaseModel):
+    """The ranked plan Quick wins shows once a fleet has run. Its predictions are replays."""
+    items: list[PlanItem] = []
+    provenance: Literal["counterfactual_replay"] = "counterfactual_replay"
+    notes: list[str] = []
+
+
+class Verification(BaseModel):
+    """A fix re-checked once it is live (verify.py). `live` is measured (live_api); the prediction and
+    `control` are replays (counterfactual_replay). They are shown side by side and never pooled."""
+    fleet_id: Optional[str] = None           # None: a quick win's replay test, kept on its Investigation
+    rank: Optional[int] = None
+    attribute_id: str
+    claim: str
+    page_url: str
+    copy_text: str
+    question: str
+    investigation_id: str
+    created_at: str = Field(default_factory=utc_now)
+    page_has_copy: Optional[bool] = None     # None: the page could not be read
+    page_note: str = ""
+    read_by_ai: WhyRate = WhyRate()          # live answers whose reading list carried the fix
+    live: WhyRate = WhyRate()
+    live_provenance: Literal["live_api"] = "live_api"
+    live_quotes: list[str] = []
+    control: WhyRate = WhyRate()             # the old reading list replayed today
+    predicted: WhyRate = WhyRate()           # the arm, in replay
+    base: WhyRate = WhyRate()                # the arm's base, in replay
+    verdict: Literal["not_published", "not_crawled", "confirmed", "not_confirmed", "undecided",
+                     "model_moved", "budget"] = "undecided"
+    text: str = ""
+    budget_usd: float
+    spent_usd: float = 0.0
+
+
+class FleetEvent(BaseModel):
+    """One line of a fleet's append-only log, DATA_DIR/fleets/<fleet id>.jsonl (fleet.EventLog)."""
+    seq: int
+    at: str
+    kind: Literal["started", "shortlist", "turn", "dispatched", "rejected", "skipped", "began", "progress",
+                  "arm", "verdict", "finished", "failed", "cancelling", "challenged", "accepted",
+                  "planned", "verify", "verified", "stopped", "done"]
+    task_id: Optional[str] = None
+    data: dict = {}
+    spent_usd: float = 0.0
+
+
+Investigation.model_rebuild()

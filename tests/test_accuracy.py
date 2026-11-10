@@ -10,16 +10,17 @@ from collections import Counter
 import pytest
 from fastapi import HTTPException
 
-import access
+from core import access
 import api.main as main
 from fakes import CAT_QS, CATEGORY, Judge, openai_reply
-import graph
-import reports
-import sampler
-from agents import ana, onboarding_model
+from measure import graph
+from core import reports
+from measure import sampler
+from measure import ana
+from onboard import onboarding_model
 from providers import fixture, live
-from schemas import Company, QueryEvaluation, Answer
-from scoring import MIN_CONTROL_VENDORS, low_confidence, visibility_by_question, visibility_range
+from core.schemas import Company, QueryEvaluation, Answer
+from score.scoring import MIN_CONTROL_VENDORS, low_confidence, visibility_by_question, visibility_range
 
 F = fixture.FixtureProvider("A")
 
@@ -184,7 +185,8 @@ def test_the_answering_model_defaults_to_a_recent_searching_model_and_is_priced_
 def test_every_model_the_app_can_be_pointed_at_is_priced():
     """A model missing from the table is metered at UNKNOWN_PRICE, which would bill a pass for far
     more than it spent; the defaults and the models the error message offers must all be listed."""
-    from agents import evaluator_model, onboarding_model
+    from judge import evaluator_model
+    from onboard import onboarding_model
     offered = {live.DEFAULT_MODEL, live.FALLBACK_MODEL, evaluator_model.DEFAULT_MODEL,
                onboarding_model.DEFAULT_MODEL,
                "gpt-6-luna", "gpt-5-nano", "gpt-5.6-luna", "gpt-5.4-mini", "gpt-5.5",

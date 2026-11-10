@@ -7,12 +7,13 @@ import threading
 
 import pytest
 
-import access
-import graph
-from agents import ana, evaluation, evaluator_model
+from core import access
+from measure import graph
+from measure import ana
+from judge import evaluation, evaluator_model
 from providers import fixture, live
-from schemas import Attribute, Probe
-from scoring import eligible
+from core.schemas import Attribute, Probe
+from score.scoring import eligible
 
 PROBE = Probe(id="np-1", topic_id="perception", text="What is Notion, and who is it for?",
               kind="named", phase="baseline", purpose="perception")

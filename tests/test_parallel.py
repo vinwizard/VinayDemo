@@ -12,10 +12,10 @@ from collections import defaultdict
 
 import pytest
 
-import access
-import dispatch
-import graph
-import sampler
+from core import access
+from measure import dispatch
+from measure import graph
+from measure import sampler
 from fakes import Judge, openai_reply
 from providers import fixture, live
 from test_fronts import AIM_QS, AIMING, ENDORSE, PLACED, WRITTEN

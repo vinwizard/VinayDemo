@@ -11,11 +11,11 @@ from pathlib import Path
 
 import pytest
 
-import graph
-import labels
+from measure import graph
+from core import labels
 from fakes import replay
 from providers import fixture
-from schemas import Probe
+from core.schemas import Probe
 
 
 def probe(pid, kind="blind", phase="baseline"):
@@ -71,7 +71,7 @@ def test_engine_strings_never_leave_an_id_as_the_only_name(scenario):
 
 
 def test_exclusion_reasons_name_the_question(run_a):
-    import drift
+    from score import drift
     answers = [a for a in run_a.answers if a.probe_id != "np-4"]
     _, reasons, asked = drift.named_eligibility(run_a.probes, answers, run_a.evaluations)
     assert reasons == ["Branded question 4: no answer collected"] and asked == 8
@@ -83,7 +83,7 @@ def test_the_browser_and_the_engine_speak_the_same_words():
     # question was "Control question" on screen but "Unbranded question 1" in the engine's text.
     probes = [probe(*args) for args in [("np-3", "named"), ("np-f1", "named", "followup"), ("kb-2",),
                                         ("kb-c1", "blind", "control"), ("x",)]]
-    script = (f"const m = await import({json.dumps(str(Path(labels.__file__).parent / 'web/src/labels.ts'))});"
+    script = (f"const m = await import({json.dumps(str(Path(labels.__file__).parent.parent / 'web/src/labels.ts'))});"
               f"console.log(JSON.stringify([m.PROVENANCE_LABEL, m.probeLabels({json.dumps([p.model_dump() for p in probes])})]));")
     out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, check=True)
     provenance, names = json.loads(out.stdout)

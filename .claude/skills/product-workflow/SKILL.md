@@ -1,12 +1,12 @@
 ---
 name: product-workflow
-description: Load when changing the engine's agents (onboarding, AnA, evaluation), the LangGraph workflow in graph.py, or the Pydantic state contracts in schemas.py. Agent scopes, node order, routing and budget rules.
+description: Load when changing the engine's agents (onboarding, AnA, evaluation), the LangGraph workflow in measure/graph.py, or the Pydantic state contracts in core/schemas.py. Agent scopes, node order, routing and budget rules.
 ---
 
 # Product workflow, agent scopes and state
 
 Agent boundaries from the original brief. Where this disagrees with the code, README.md or WEB.md, the code
-wins. The state contracts are `schemas.py`; the node order is `graph.build_graph`.
+wins. The state contracts are `core/schemas.py`; the node order is `graph.build_graph`.
 
 ## Agent scopes
 
@@ -58,6 +58,6 @@ Investigation uses LangGraph nodes, wired in `graph.build_graph`. Set a graph re
 transitions using fixture-backed nodes, not a prerecorded video.
 
 Provenance rules: AGENTS.md, "Authored evidence is never presented as measured". Keep source metadata at record level, not only run level.
-`counterfactual_replay` marks the why agent's answers to an edited, recorded reading list (`why.py`): an experiment kept in its own `Investigation` record, never on a run and never scored.
+`counterfactual_replay` marks the why agent's answers to an edited, recorded reading list (`fix/why.py`): an experiment kept in its own `Investigation` record, never on a run and never scored.
 
 Persist completed runs as local JSON in `data/runs/`. Durable recovery of in-flight model calls is out of scope. A restart can reopen a completed run.

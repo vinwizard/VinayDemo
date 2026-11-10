@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-import audit
-from schemas import Attribute, Company, CompanyProfile
+from onboard import audit
+from core.schemas import Attribute, Company, CompanyProfile
 
 FIX = Path(__file__).parent / "audit_fixtures"
 

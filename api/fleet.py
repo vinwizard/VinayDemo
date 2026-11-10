@@ -7,10 +7,10 @@ from typing import Iterator
 
 from fastapi import APIRouter, HTTPException, Request
 
-import access
-import fleet
-import reports
-import verify
+from core import access
+from fix import fleet
+from core import reports
+from fix import verify
 from providers import live
 
 router = APIRouter()

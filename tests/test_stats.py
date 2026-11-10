@@ -2,9 +2,9 @@
 Seeded, so a saved run always shows the same interval; no key, no network."""
 import random
 
-import graph
+from measure import graph
 from providers import fixture
-from scoring import echo_draws, gap_verdict, interval, visibility_draws
+from score.scoring import echo_draws, gap_verdict, interval, visibility_draws
 from test_fronts import run_fronts
 
 

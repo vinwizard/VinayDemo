@@ -3,8 +3,8 @@ import socket
 
 import pytest
 
-import fetching
-from fetching import FetchError, UnsafeURL
+from onboard import fetching
+from onboard.fetching import FetchError, UnsafeURL
 
 
 def stub_resolve(monkeypatch, *addrs: str):

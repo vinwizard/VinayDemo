@@ -1,9 +1,9 @@
 """How to win it back: every kept action points at a page the run read and questions it asked."""
 import json
 
-from agents import win_back
-from agents.evaluator_model import ModelEvaluator
-from agents.onboarding_model import build_profile
+from fix import win_back
+from judge.evaluator_model import ModelEvaluator
+from onboard.onboarding_model import build_profile
 from fakes import replay as run_for
 
 PAGE = "https://example.com/demo-source-claim-1"
@@ -58,7 +58,7 @@ def test_a_fix_citing_no_question_cites_the_claims_own_unrecommended_questions()
     # Amgen on gpt-6-luna, 22 Sep 2026: all three kept fixes had question_ids [], because none of the
     # claims had been asked about. Each claim now has questions of its own (ana.blind_probes_for_fronts)
     # and a fix is for them.
-    from schemas import Probe, QueryEvaluation
+    from core.schemas import Probe, QueryEvaluation
     run = run_for("A")
     run.probes.append(Probe(id="ai_native-b1", topic_id="pos-ai_native", kind="blind", phase="baseline",
                             purpose="p", text="Which workspace drafts documents with AI?"))

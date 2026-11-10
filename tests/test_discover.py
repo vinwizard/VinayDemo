@@ -1,12 +1,12 @@
 """Emergent attributes: discovered from the answers, and held to the same verbatim bar as the rest."""
 import json
 
-import graph
+from measure import graph
 from fakes import openai_reply
-from agents import evaluation
-from agents.evaluator_model import ModelEvaluator, build_discovery_prompt
+from judge import evaluation
+from judge.evaluator_model import ModelEvaluator, build_discovery_prompt
 from providers import fixture, live
-from schemas import Answer, Attribute, AttributeObservation, CompanyProfile, Probe
+from core.schemas import Answer, Attribute, AttributeObservation, CompanyProfile, Probe
 
 PROFILE = CompanyProfile(name="Notion", domain="notion.com")
 TEXT = ("**Notion** is powerful but Clunky on mobile. ([blog.example](https://blog.example/n))\n\n"
@@ -213,10 +213,11 @@ def test_amgen_is_never_placed_as_a_stock_pick():
     had strong revenue growth. Recorded discovery now marks that "business"; it can never be placed."""
     from pathlib import Path
 
-    import drift
-    from agents import ana, onboarding_model
-    from agents.evaluator_model import json_object
-    from schemas import Run
+    from score import drift
+    from measure import ana
+    from onboard import onboarding_model
+    from judge.evaluator_model import json_object
+    from core.schemas import Run
     root = Path(__file__).parent.parent
     rec = json.loads((root / "tests/cassettes/amgen_discovery.json").read_text())
     run = Run.model_validate_json((root / "data/runs" / f"{rec['run']}.json").read_text())

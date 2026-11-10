@@ -6,13 +6,13 @@ from typing import Callable, Iterator, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 
-import access
-import reports
-import verify
-import why
-from agents.ana import attribute_leaks, brand_leaks
+from core import access
+from core import reports
+from fix import verify
+from fix import why
+from measure.ana import attribute_leaks, brand_leaks
 from api.fleet import live_run, resolve
-from fleet import MAX_TERM
+from fix.fleet import MAX_TERM
 
 router = APIRouter()
 MAX_QUESTION = 200
@@ -97,7 +97,7 @@ def why_events(run_id: str, attribute: str, probe: Optional[str], question: Opti
         run, q, pid, t, resolved = prepare(run_id, attribute, probe, question, term, holder)
 
         def experiment(emit):
-            from agents.evaluator_model import ModelEvaluator
+            from judge.evaluator_model import ModelEvaluator
             lab = why.Lab(resolved.model, resolved.tool)
             evaluator = None if t else ModelEvaluator(model=resolved.judge, transport=lab.judge_transport)
             return why.start(run, attribute, q, probe_id=pid, term=t, lab=lab, evaluator=evaluator, emit=emit)
