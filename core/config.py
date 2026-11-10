@@ -6,7 +6,7 @@ stale .env. Values are never printed — only whether a key is present.
 import os
 from pathlib import Path
 
-ENV_FILE = Path(__file__).resolve().parent / ".env"
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
 
 def load_env(path: Path = ENV_FILE) -> list[str]:

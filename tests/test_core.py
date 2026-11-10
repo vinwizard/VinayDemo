@@ -332,3 +332,14 @@ def test_every_stored_time_is_utc_with_its_offset_written():
     for f in [root / "data" / p for p in ("companies/5eed0001.json", "companies/b5aced577f.json", "runs/cb67186167.json")]:
         for key, stamp in re.findall(r'"(created_at|checked_at|collected_at)": "([^"]+)"', f.read_text()):
             assert stamp.endswith("+00:00"), (f.name, key, stamp)
+
+
+def test_files_at_the_repo_root_are_found_from_inside_a_folder():
+    # The engine lives one folder below the repo root, so every lookup of a root file climbs out of
+    # it. Nothing else would catch .env: a missed one is silently skipped and live mode says "no key".
+    from api import main
+    from core import config, reports
+    assert config.ENV_FILE == ROOT / ".env"
+    assert reports.BUNDLED == ROOT / "data"
+    assert fixture.FIXTURES == ROOT / "fixtures"
+    assert main.WEB_DIST == ROOT / "web" / "dist"

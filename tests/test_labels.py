@@ -83,7 +83,7 @@ def test_the_browser_and_the_engine_speak_the_same_words():
     # question was "Control question" on screen but "Unbranded question 1" in the engine's text.
     probes = [probe(*args) for args in [("np-3", "named"), ("np-f1", "named", "followup"), ("kb-2",),
                                         ("kb-c1", "blind", "control"), ("x",)]]
-    script = (f"const m = await import({json.dumps(str(Path(labels.__file__).parent / 'web/src/labels.ts'))});"
+    script = (f"const m = await import({json.dumps(str(Path(labels.__file__).parent.parent / 'web/src/labels.ts'))});"
               f"console.log(JSON.stringify([m.PROVENANCE_LABEL, m.probeLabels({json.dumps([p.model_dump() for p in probes])})]));")
     out = subprocess.run(["node", "--input-type=module", "-e", script], capture_output=True, text=True, check=True)
     provenance, names = json.loads(out.stdout)

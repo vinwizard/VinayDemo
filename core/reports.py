@@ -8,7 +8,7 @@ from pathlib import Path
 from measure.ana import baseline_hash
 from core.schemas import SCHEMA_VERSION, Company, Investigation, Run
 
-BUNDLED = Path(__file__).resolve().parent / "data"
+BUNDLED = Path(__file__).resolve().parent.parent / "data"
 # DATA_DIR moves runs, companies and the access database onto a persistent disk (WEB.md, "Deploy to Render").
 DATA = Path(os.environ.get("DATA_DIR") or BUNDLED)
 RUNS = DATA / "runs"
