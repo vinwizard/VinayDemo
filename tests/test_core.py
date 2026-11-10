@@ -353,7 +353,8 @@ PROMPT_FIELDS = {
     "judge": {"QUOTE_RULES": None, "SCHEMA_HINT": None,
               "PROMPT": {"name", "aliases", "attrs", "question", "answer", "schema"},
               "REPAIR_PROMPT": {"items"}, "DISCOVER_PROMPT": {"name", "attrs", "answers", "quote_rules"}},
-    "fix": {"PROMPT": {"name", "claims", "pages", "questions", "max_words"}, "REASK_INSTRUCTION": None},
+    "fix": {"PROMPT": {"name", "claims", "pages", "questions", "max_words"}, "REASK_INSTRUCTION": None,
+            "COORDINATOR": None},
     "providers": {"NEUTRAL_INSTRUCTION": None},
 }
 
