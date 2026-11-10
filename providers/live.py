@@ -63,8 +63,7 @@ _search: bool = True
 
 CALL_TIMEOUT_S = 90
 
-NEUTRAL_INSTRUCTION = ("Answer the user's question as a helpful assistant. Use web search. "
-                       "Recommend specific products where appropriate and cite sources.")
+NEUTRAL_INSTRUCTION = llm.prompt(__file__, "NEUTRAL_INSTRUCTION")
 
 
 def reasoning_for(model: str) -> Optional[dict]:

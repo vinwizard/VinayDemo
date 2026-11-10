@@ -3,14 +3,18 @@
 `openai_response` and `openai_embedding` are the only doors. Each one asks core/access.py whether the
 acting pass may spend (`access.hold`) before the call, waits out a 429 for the whole process, and
 charges the usage the response reports afterwards. This module imports access to find who is
-paying; access never imports it. Prompts and model choice stay with each caller: the measured model
-must get only the neutral question, never the profile the judge sees.
+paying; access never imports it. Prompts stay in each caller's folder (its prompts.md, read by
+`prompt`) and model choice with each caller: the measured model must get only the neutral question,
+never the profile the judge sees.
 """
 import contextlib
+import functools
 import json
 import os
+import re
 import threading
 import time
+from pathlib import Path
 from typing import Optional
 
 from core import access
@@ -202,3 +206,15 @@ def json_object(raw: str, what: str = "evaluator") -> dict:
     if start == -1 or end == -1:
         raise ValueError(f"{what} returned no JSON object")
     return json.loads(text[start:end + 1])
+
+
+@functools.cache
+def _prompts(path: str) -> dict[str, str]:
+    """Each `## NAME` section of a prompts.md: the text from the heading's blank line to the next heading."""
+    parts = re.split(r"^## ([A-Z_]+)\n\n", Path(path).read_text(encoding="utf-8"), flags=re.M)
+    return {name: body.rstrip("\n") for name, body in zip(parts[1::2], parts[2::2])}
+
+
+def prompt(module_file: str, name: str) -> str:
+    """The prompt `name` from the prompts.md in `module_file`'s folder, exactly as written there."""
+    return _prompts(str(Path(module_file).with_name("prompts.md")))[name]

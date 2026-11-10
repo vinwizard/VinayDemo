@@ -20,6 +20,7 @@ from typing import Callable, Optional
 from urllib.parse import urlparse
 
 from onboard import fetching
+from core import llm
 from core.llm import json_object
 from providers import live
 from core.schemas import Evidence, ReadResult
@@ -36,18 +37,9 @@ LANGUAGES = {"es", "fr", "de", "it", "pt", "nl", "ja", "ko", "zh", "ru", "pl", "
              "tr", "ar", "he", "hi", "th", "vi", "cs", "uk", "ro", "hu", "el"}
 LEGAL = re.compile(r",?\s+(?:inc|llc|ltd|limited|plc|gmbh|corp|corporation|co)\.?$", re.I)
 
-FIND_PROMPT = """Someone wants to measure how AI describes the company named: {name}
-{hint}
-Use web search to find which real company this is and its official website. If several companies
-share this name, list up to 3, most likely first. List only a domain that appeared in a search result.
-Return ONLY JSON: {{"candidates": [{{"name": string, "domain": string, "what": string}}]}}
-name: the company's full name. domain: its official website's domain, like "example.com".
-what: what the company does, in under 15 plain words."""
+FIND_PROMPT = llm.prompt(__file__, "FIND_PROMPT")
 
-GATHER_PROMPT = """Use web search to find the pages that {name} publishes about itself on {domain} and
-its subdomains: about and company pages, product and platform pages, enterprise, pricing, newsroom or
-press, blog, docs and help centre. Search with site:{domain} as well as without it.
-Then list the URLs you found, one per line."""
+GATHER_PROMPT = llm.prompt(__file__, "GATHER_PROMPT")
 
 
 class SearchFailed(RuntimeError):

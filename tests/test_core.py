@@ -343,3 +343,28 @@ def test_files_at_the_repo_root_are_found_from_inside_a_folder():
     assert reports.BUNDLED == ROOT / "data"
     assert fixture.FIXTURES == ROOT / "fixtures"
     assert main.WEB_DIST == ROOT / "web" / "dist"
+
+
+# The fields each prompt's code fills with .format; None: sent as written, never formatted.
+PROMPT_FIELDS = {
+    "onboard": {"FIND_PROMPT": {"name", "hint"}, "GATHER_PROMPT": {"name", "domain"}, "SCHEMA_HINT": None,
+                "PROMPT": {"name", "pages", "schema"}, "QUESTIONS_PROMPT": {"label", "description", "n"},
+                "CATEGORY_PROMPT": {"label", "description"}},
+    "judge": {"QUOTE_RULES": None, "SCHEMA_HINT": None,
+              "PROMPT": {"name", "aliases", "attrs", "question", "answer", "schema"},
+              "REPAIR_PROMPT": {"items"}, "DISCOVER_PROMPT": {"name", "attrs", "answers", "quote_rules"}},
+    "fix": {"PROMPT": {"name", "claims", "pages", "questions", "max_words"}, "REASK_INSTRUCTION": None},
+    "providers": {"NEUTRAL_INSTRUCTION": None},
+}
+
+
+@pytest.mark.parametrize("folder", PROMPT_FIELDS)
+def test_every_prompt_loads_with_the_fields_its_code_fills(folder):
+    import string
+    from core import llm
+    sections = llm._prompts(str(ROOT / folder / "prompts.md"))
+    assert sections.keys() == PROMPT_FIELDS[folder].keys()
+    for name, fields in PROMPT_FIELDS[folder].items():
+        assert sections[name].strip(), name
+        if fields is not None:
+            assert {f for _, f, _, _ in string.Formatter().parse(sections[name]) if f is not None} == fields, name
