@@ -10,7 +10,7 @@ predicted? (WEB.md, "Investigation fleet").
 
 The live asks are measurements (live_api) kept in the Verification; the prediction and the control are
 replays (counterfactual_replay). They are shown side by side, never pooled, and none reaches a run's
-scores. Every call goes through access.openai_response; a check stops at VERIFY_BUDGET_USD.
+scores. Every call goes through llm.openai_response; a check stops at VERIFY_BUDGET_USD.
 """
 import html
 import re

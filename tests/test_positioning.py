@@ -124,14 +124,14 @@ def test_rivals_named_but_never_described_get_their_own_reason():
 
 
 def test_rescore_moves_the_aim_to_the_weighted_claims_without_asking_a_model(monkeypatch, tmp_path):
-    from core import access
+    from core import llm
     from core import embeddings
     from measure import graph
     sample = replay("A")
     live = replay("A")
     live.positioning = positioning.build(live)  # embeds once, through the (faked) metered call
-    monkeypatch.setattr(access, "_create", lambda *a, **k: pytest.fail("no model call expected"))
-    monkeypatch.setattr(access, "_embed", lambda *a, **k: pytest.fail("no embedding call expected"))
+    monkeypatch.setattr(llm, "_create", lambda *a, **k: pytest.fail("no model call expected"))
+    monkeypatch.setattr(llm, "_embed", lambda *a, **k: pytest.fail("no embedding call expected"))
     graph.rescore(sample, {sample.attributes[0].id: 0.5})
     assert sample.positioning.provenance == "synthetic" and sample.positioning.aim == "site"
 

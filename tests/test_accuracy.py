@@ -10,7 +10,7 @@ from collections import Counter
 import pytest
 from fastapi import HTTPException
 
-from core import access
+from core import llm
 import api.main as main
 from fakes import CAT_QS, CATEGORY, Judge, openai_reply
 from measure import graph
@@ -176,8 +176,8 @@ def test_the_answering_model_defaults_to_a_recent_searching_model_and_is_priced_
     """gpt-4.1's training stopped in 2024, so it answered about brands it had never heard of. The
     default is a 2026 model that takes web_search and costs a fraction of it."""
     assert live.model_name() == "gpt-6-luna" and live.MODEL_ENV == "MEASURED_MODEL"
-    assert access.PRICES["gpt-6-luna"] < access.PRICES["gpt-4.1"]
-    assert all(access.UNKNOWN_PRICE[i] > max(p[i] for p in access.PRICES.values()) for i in (0, 1))
+    assert llm.PRICES["gpt-6-luna"] < llm.PRICES["gpt-4.1"]
+    assert all(llm.UNKNOWN_PRICE[i] > max(p[i] for p in llm.PRICES.values()) for i in (0, 1))
     monkeypatch.setenv(live.MODEL_ENV, "gpt-4o")
     assert live.model_name() == "gpt-4o"
 
@@ -191,7 +191,7 @@ def test_every_model_the_app_can_be_pointed_at_is_priced():
                onboarding_model.DEFAULT_MODEL,
                "gpt-6-luna", "gpt-5-nano", "gpt-5.6-luna", "gpt-5.4-mini", "gpt-5.5",
                "gpt-4.1-mini", "gpt-4.1"}
-    assert offered <= set(access.PRICES)
+    assert offered <= set(llm.PRICES)
 
 
 @pytest.mark.parametrize("raw,points", [(None, 20), ("15", 15), ("1", 5), ("90", 50), ("tight", 20)])

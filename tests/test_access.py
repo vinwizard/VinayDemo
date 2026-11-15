@@ -1,5 +1,5 @@
 """Access passes on the public demo: the code exchange, the admin page, the spend meter and who sees
-which run. No key and no network: `access._create`, the one line that talks to OpenAI, is replaced
+which run. No key and no network: `llm._create`, the one line that talks to OpenAI, is replaced
 by a fake that returns a usage payload, or by one that fails the test if it is ever reached.
 """
 import json
@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from core import access
+from core import llm
 from fakes import openai_reply
 import api.main as main
 from core import reports
@@ -33,7 +34,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setenv(access.ADMIN_ENV, "hunter2-long-password")
     monkeypatch.setenv(live.KEY_ENV, "sk-fake-never-sent")
     monkeypatch.setattr(access, "_failures", [])
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: pytest.fail(f"unexpected model call {kw}"))
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: pytest.fail(f"unexpected model call {kw}"))
     access.seed_passes()
 
 
@@ -149,9 +150,9 @@ def test_seeding_on_start_never_touches_admin_made_passes_their_spend_or_links(e
     mine = next(p for p in access.all_passes() if p["label"] == "test")
     access.issue_code("person-1")
     access.set_cap("person-1", 9)
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: {"usage": USAGE, "output": []})
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: {"usage": USAGE, "output": []})
     with access.spending(mine["id"]):
-        access.openai_response(30, model="gpt-4o-mini", input="hi")
+        llm.openai_response(30, model="gpt-4o-mini", input="hi")
     before = {p["id"]: p for p in access.all_passes()}
     access.seed_passes()
     access.seed_passes()
@@ -179,34 +180,34 @@ def test_storage_is_persistent_only_on_a_writable_mounted_disk(env, monkeypatch,
 # --- metering -------------------------------------------------------------------------------------
 
 def test_usage_is_charged_from_the_response_and_estimated_when_missing(env, monkeypatch):
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: {"usage": USAGE, "output": []})
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: {"usage": USAGE, "output": []})
     with access.spending("person-1"):
-        access.openai_response(30, model="gpt-4o-mini", input="hi")
+        llm.openai_response(30, model="gpt-4o-mini", input="hi")
     assert access.get_pass("person-1")["spent_usd"] == pytest.approx(0.21)
-    usd, f = access.cost("some-new-model", {"output": [{"type": "web_search_call"}]})
-    assert f["estimated"] and usd >= access.UNKNOWN_USAGE[0] * access.UNKNOWN_PRICE[0] / 1e6
-    assert usd > access.cost("gpt-4o-mini", {"usage": USAGE})[0] / 10     # never counted as zero
+    usd, f = llm.cost("some-new-model", {"output": [{"type": "web_search_call"}]})
+    assert f["estimated"] and usd >= llm.UNKNOWN_USAGE[0] * llm.UNKNOWN_PRICE[0] / 1e6
+    assert usd > llm.cost("gpt-4o-mini", {"usage": USAGE})[0] / 10     # never counted as zero
 
 
 def test_a_capped_pass_is_refused_before_the_call(env, monkeypatch):
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: {"usage": USAGE, "output": []})
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: {"usage": USAGE, "output": []})
     access.set_cap("person-1", 0.2)
     with access.spending("person-1"):
-        access.openai_response(30, model="gpt-4o-mini", input="hi")         # $0.21: now over
-        monkeypatch.setattr(access, "_create", lambda *a, **k: pytest.fail("called past the cap"))
+        llm.openai_response(30, model="gpt-4o-mini", input="hi")         # $0.21: now over
+        monkeypatch.setattr(llm, "_create", lambda *a, **k: pytest.fail("called past the cap"))
         with pytest.raises(access.Refused, match=r"\$0.20 limit"):
-            access.openai_response(30, model="gpt-4o-mini", input="hi")
+            llm.openai_response(30, model="gpt-4o-mini", input="hi")
 
 
 def test_a_call_with_no_pass_on_the_public_demo_fails_closed(env):
     with pytest.raises(access.Refused):
-        access.openai_response(30, model="gpt-4o-mini", input="hi")
+        llm.openai_response(30, model="gpt-4o-mini", input="hi")
 
 
 # --- live runs on a pass ------------------------------------------------------------------------
 
 def test_a_pass_runs_live_is_charged_and_only_it_sees_the_run(env, monkeypatch):
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: fake_response())
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: fake_response())
     access.own("company", CO, "person-1", "Notion")
     c, _, _ = with_pass()
     got = events(c.get(f"/api/stream?company={CO}&mode=live").text)
@@ -227,7 +228,7 @@ def test_a_pass_runs_live_is_charged_and_only_it_sees_the_run(env, monkeypatch):
 
 
 def test_a_run_that_hits_the_cap_stops_with_a_message_and_saves_nothing(env, monkeypatch):
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: fake_response())
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: fake_response())
     access.own("company", CO, "person-1", "Notion")
     access.set_cap("person-1", 0.06)     # preflight fits; the run's searches do not
     c, _, _ = with_pass()

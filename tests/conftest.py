@@ -13,7 +13,7 @@ import socket
 
 import pytest
 
-from core import access
+from core import llm
 from onboard import audit
 from measure import demand
 from onboard import discovery
@@ -22,7 +22,7 @@ from fix import retrieval
 from measure import sharing
 
 # Every setting the app reads from the environment (providers/, onboard/onboarding_model.py,
-# judge/evaluator_model.py, access.py, the budget modules). A test that wants one sets it itself
+# judge/evaluator_model.py, core/access.py, the budget modules). A test that wants one sets it itself
 # with monkeypatch.
 APP_SETTINGS = ("MEASURED_MODEL", "EVALUATOR_MODEL", "ONBOARDING_MODEL",
                 "TARGET_MARGIN", "RUN_BUDGET_USD", "WOBBLE_AUDIT", "WHY_BUDGET_USD", "OPENAI_API_KEY",
@@ -74,7 +74,7 @@ def offline_page(url):
 @pytest.fixture(autouse=True)
 def offline_retrieval(monkeypatch, tmp_path):
     monkeypatch.setattr(retrieval, "read_page", offline_page)
-    monkeypatch.setattr(access, "_embed", fake_embed)
+    monkeypatch.setattr(llm, "_embed", fake_embed)
     monkeypatch.setattr(embeddings, "_path", lambda: tmp_path / "embeddings.db")
 
 

@@ -8,6 +8,7 @@ import threading
 import pytest
 
 from core import access
+from core import llm
 from measure import graph
 from measure import ana
 from judge import evaluation, evaluator_model
@@ -63,7 +64,7 @@ def test_the_request_forces_live_web_search(monkeypatch):
     external_web_access asks for the open internet rather than the tool's cache-only mode."""
     sent = {}
     monkeypatch.setenv(access.KEY_ENV, "test-key")
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.update(kw) or response())
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: sent.update(kw) or response())
     live.default_transport(live.measured_prompt(PROBE), "test-model", 30)
     assert sent["tools"] == [{"type": "web_search", "external_web_access": True}]
     assert sent["tool_choice"] == live.TOOL_CHOICE == "required"
@@ -79,7 +80,7 @@ def test_after_a_fallback_the_request_drops_the_field_the_api_refused(monkeypatc
         return response()
 
     monkeypatch.setenv(access.KEY_ENV, "test-key")
-    monkeypatch.setattr(access, "_create", create)
+    monkeypatch.setattr(llm, "_create", create)
     resolved = live.preflight()
     live.LiveProvider(fixture.FixtureProvider("A").attributes(), [], resolved=resolved).answer(PROBE)
     assert sent[-1] == (live.FALLBACK_MODEL, [{"type": "web_search"}], "required")
@@ -168,12 +169,12 @@ def test_a_failed_call_the_ledger_charged_counts_against_the_run_budget(monkeypa
     def boom(timeout, **kw):
         raise TimeoutError("took too long")
 
-    monkeypatch.setattr(access, "_create", boom)
+    monkeypatch.setattr(llm, "_create", boom)
     p = live.LiveProvider(fixture.FixtureProvider("A").attributes(), [], model="test-model")
     assert p.answer(PROBE).status == "timeout"
-    assert p.spent == access.cost("test-model", None)[0] > 0
+    assert p.spent == llm.cost("test-model", None)[0] > 0
 
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: (_ for _ in ()).throw(StatusError(400, "bad")))
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: (_ for _ in ()).throw(StatusError(400, "bad")))
     p = live.LiveProvider(fixture.FixtureProvider("A").attributes(), [], model="test-model")
     p.answer(PROBE)
     assert p.spent == 0          # refused with a status: not billed, so not counted
@@ -379,7 +380,7 @@ def test_a_run_keeps_the_tool_it_was_built_with_when_another_preflight_resets(mo
     """Preflight state is process-wide; a second run's preflight must not retarget this run's calls."""
     sent = []
     monkeypatch.setenv(access.KEY_ENV, "test-key")
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.append(kw.get("tools")) or response())
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: sent.append(kw.get("tools")) or response())
     live._fallback = "refused"
     prov = provider()
     live._fallback, live._search = None, True   # what another run's preflight does on entry
@@ -400,7 +401,7 @@ def test_a_fallback_that_cannot_search_measures_ungrounded_rather_than_swapping_
         return response()
 
     monkeypatch.setenv(access.KEY_ENV, "test-key")
-    monkeypatch.setattr(access, "_create", toolless_only)
+    monkeypatch.setattr(llm, "_create", toolless_only)
     resolved = live.preflight()
     why = resolved.reason
     assert resolved.tool is None and resolved.model == live.FALLBACK_MODEL

@@ -29,7 +29,7 @@ already name or recommend the company nearly every time cannot show a gain, and 
 A replay is an experiment on a recorded reading list, never a measurement: its answers are
 provenance `counterfactual_replay`, live only in the Investigation, and never reach a score.
 Edited or injected text that is not a page's own verbatim text is hypothetical copy and is labelled so. Every call goes through
-access.openai_response, and the whole investigation stops at its budget (WHY_BUDGET_USD), at its
+llm.openai_response, and the whole investigation stops at its budget (WHY_BUDGET_USD), at its
 fleet's purse (access.PurseEmpty) or when its fleet cancels it (fleet.py).
 
 "States the claim" counts what the report counts: for a claim of the company's, only answers that
@@ -45,6 +45,7 @@ from typing import Callable, Optional
 from urllib.parse import urlparse
 
 from core import access
+from core import llm
 from core import config
 from judge import evaluation
 from providers import live
@@ -262,14 +263,14 @@ def marker(attribute: Attribute, term: Optional[str], quotes: list[str],
 
 # ---------------------------------------------------------------- the calls
 class Lab:
-    """The three ways the agent asks, each one metered call through access.openai_response, and the
+    """The three ways the agent asks, each one metered call through llm.openai_response, and the
     running spend of all of them. Tests inject `transport`, which receives the create() kwargs."""
 
     def __init__(self, model: str, tool: Optional[dict] = live.SEARCH_TOOL, transport: Optional[Callable] = None):
         self.model, self.tool = model, tool
         # asked as hard as the run asked it (live.reasoning_for), or a replay would change two things
         self.thinking = {"reasoning": r} if (r := live.reasoning_for(model)) else {}
-        self._transport = transport or (lambda **kw: access.openai_response(live.CALL_TIMEOUT_S, **kw))
+        self._transport = transport or (lambda **kw: llm.openai_response(live.CALL_TIMEOUT_S, **kw))
         self.spent = 0.0
         self._lock = threading.Lock()
 
@@ -279,7 +280,7 @@ class Lab:
         except Exception as e:      # a failed call the ledger charged is spent here too
             self._spend(getattr(e, "billed_usd", 0.0))
             raise
-        self._spend(access.cost(kw.get("model", self.model), response)[0])
+        self._spend(llm.cost(kw.get("model", self.model), response)[0])
         return response
 
     def _spend(self, usd: float) -> None:

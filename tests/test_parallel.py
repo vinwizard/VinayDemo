@@ -13,6 +13,7 @@ from collections import defaultdict
 import pytest
 
 from core import access
+from core import llm
 from measure import dispatch
 from measure import graph
 from measure import sampler
@@ -163,7 +164,7 @@ def test_a_run_budget_stops_look_2_as_it_did(monkeypatch):
 
 @pytest.mark.parametrize("calls", [29, 33, 37])   # around what look 2 costs: some fronts get it, some do not
 def test_a_run_budget_that_allows_some_look_2_decides_as_the_sequential_run_did(monkeypatch, calls):
-    one = access.cost("gpt-6-luna", Clock()([{"content": "q"}], "gpt-6-luna", 1))[0]
+    one = llm.cost("gpt-6-luna", Clock()([{"content": "q"}], "gpt-6-luna", 1))[0]
     monkeypatch.setenv(sampler.BUDGET_ENV, str(one * (calls + 0.5)))
     seq, _ = measure(Clock(), sequential=True)
     par, _ = measure(Clock(delay=lambda q: 0.01))
@@ -190,7 +191,7 @@ def test_four_runs_share_one_cap_fairly_and_keep_their_own_answers():
         assert texts and all(t.startswith(f"[run {k}]") for t in texts)   # nothing crossed runs
         assert len(run.answers) == len(solo.answers)
         # each run's purse is its own: exactly the calls it made, at the reported usage
-        one = access.cost(prov.model, Clock()([{"content": "q"}], prov.model, 1))[0]
+        one = llm.cost(prov.model, Clock()([{"content": "q"}], prov.model, 1))[0]
         assert prov.spent == pytest.approx(len(clocks[k].asks) * one)
     # fairness: every run was being answered before any other had finished
     spans = [c.span(lambda q: True) for c in clocks]
@@ -261,24 +262,24 @@ def test_a_429_pauses_every_call_for_the_time_the_api_asked_then_retries(monkeyp
             raise RateLimited({"retry-after-ms": "200"})
         return {"usage": USAGE}
 
-    monkeypatch.setattr(access, "_create", create)
-    monkeypatch.setattr(access, "_calm_at", 0.0)
-    access.openai_response(5, model="gpt-6-luna", input="hi")
+    monkeypatch.setattr(llm, "_create", create)
+    monkeypatch.setattr(llm, "_calm_at", 0.0)
+    llm.openai_response(5, model="gpt-6-luna", input="hi")
     assert len(seen) == 2 and seen[1] - seen[0] >= 0.19
     # a call that starts during the pause waits it out too
-    access.pause(0.2)
+    llm.pause(0.2)
     t0 = time.monotonic()
-    access.openai_response(5, model="gpt-6-luna", input="hi")
+    llm.openai_response(5, model="gpt-6-luna", input="hi")
     assert seen[-1] - t0 >= 0.19
 
 
 def test_an_exhausted_quota_is_not_waited_on(monkeypatch):
     class Quota(RateLimited):
         code = "insufficient_quota"
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: (_ for _ in ()).throw(Quota({})))
-    monkeypatch.setattr(access, "_calm_at", 0.0)
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: (_ for _ in ()).throw(Quota({})))
+    monkeypatch.setattr(llm, "_calm_at", 0.0)
     with pytest.raises(Quota):
-        access.openai_response(5, model="gpt-6-luna", input="hi")
+        llm.openai_response(5, model="gpt-6-luna", input="hi")
 
 
 @pytest.fixture
@@ -295,7 +296,7 @@ def capped_pass(tmp_path, monkeypatch):
         # $0.06 at gpt-4o-mini: the first call alone takes the pass past its cap
         return {"usage": {"input_tokens": 400_000, "output_tokens": 0}}
 
-    monkeypatch.setattr(access, "_create", create)
+    monkeypatch.setattr(llm, "_create", create)
     return access.create_pass("tester", 0.001), gate, made
 
 
@@ -306,7 +307,7 @@ def test_calls_under_way_count_against_a_pass_so_concurrency_cannot_overspend_it
     def call(text):
         try:
             with access.spending(pid):
-                access.openai_response(5, model="gpt-4o-mini", input=text)
+                llm.openai_response(5, model="gpt-4o-mini", input=text)
         except access.Refused:
             refused.append(text)
 
@@ -327,10 +328,10 @@ def test_calls_under_way_count_against_a_pass_so_concurrency_cannot_overspend_it
 
 
 def test_one_429_pauses_every_call_once_and_a_call_is_tried_a_bounded_number_of_times(monkeypatch):
-    monkeypatch.setattr(access, "_calm_at", 0.0)
+    monkeypatch.setattr(llm, "_calm_at", 0.0)
     paused, seen, lock = [], [], threading.Lock()
-    real_pause = access.pause
-    monkeypatch.setattr(access, "pause", lambda s: (real_pause(s), paused.append(s)))
+    real_pause = llm.pause
+    monkeypatch.setattr(llm, "pause", lambda s: (real_pause(s), paused.append(s)))
 
     def create(timeout, **kw):
         with lock:
@@ -340,13 +341,13 @@ def test_one_429_pauses_every_call_once_and_a_call_is_tried_a_bounded_number_of_
             raise RateLimited({"retry-after-ms": "300"})
         return {"usage": USAGE}
 
-    monkeypatch.setattr(access, "_create", create)
-    first = threading.Thread(target=access.openai_response, args=(5,), kwargs=dict(model="gpt-6-luna", input="a"))
+    monkeypatch.setattr(llm, "_create", create)
+    first = threading.Thread(target=llm.openai_response, args=(5,), kwargs=dict(model="gpt-6-luna", input="a"))
     first.start()
     while not paused:
         time.sleep(0.001)
     t0 = time.monotonic()
-    others = [threading.Thread(target=access.openai_response, args=(5,), kwargs=dict(model="gpt-6-luna", input=f"b{i}"))
+    others = [threading.Thread(target=llm.openai_response, args=(5,), kwargs=dict(model="gpt-6-luna", input=f"b{i}"))
               for i in range(3)]
     for t in [*others]:
         t.start()
@@ -357,16 +358,16 @@ def test_one_429_pauses_every_call_once_and_a_call_is_tried_a_bounded_number_of_
     assert sorted(q for q, _ in seen) == ["a", "a", "b0", "b1", "b2"]
 
     tries = []
-    monkeypatch.setattr(access, "pause", lambda s: None)
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: tries.append(1) or (_ for _ in ()).throw(RateLimited({})))
+    monkeypatch.setattr(llm, "pause", lambda s: None)
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: tries.append(1) or (_ for _ in ()).throw(RateLimited({})))
     with pytest.raises(RateLimited):
-        access.openai_response(5, model="gpt-6-luna", input="hi")
-    assert len(tries) == access.RATE_LIMIT_RETRIES + 1
+        llm.openai_response(5, model="gpt-6-luna", input="hi")
+    assert len(tries) == llm.RATE_LIMIT_RETRIES + 1
 
 
 def test_a_pass_at_its_cap_waits_in_the_queue_not_on_a_shared_worker(capped_pass):
     pid, gate, made = capped_pass
-    ask = lambda text: access.openai_response(5, model="gpt-4o-mini", input=text)
+    ask = lambda text: llm.openai_response(5, model="gpt-4o-mini", input=text)
     d = dispatch.Dispatcher(3)
     with access.spending(pid):   # all at once: no worker may take a second before the first has reserved
         capped = [d.submit("capped", ask, text) for text in ("first", "second", "third")]

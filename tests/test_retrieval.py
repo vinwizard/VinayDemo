@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from core import access
+from core import llm
 import api.main as main
 from core import embeddings
 from fakes import openai_reply
@@ -92,7 +93,7 @@ def test_embeddings_are_cached_by_text_and_charged_to_the_pass(tmp_path, monkeyp
     access.create_pass("t", 5)
     pid = access.all_passes()[0]["id"]
     calls = []
-    monkeypatch.setattr(access, "_embed", lambda timeout, **kw: calls.append(kw["input"]) or {
+    monkeypatch.setattr(llm, "_embed", lambda timeout, **kw: calls.append(kw["input"]) or {
         "data": [{"embedding": [1.0, 0.0]} for _ in kw["input"]],
         "usage": {"prompt_tokens": 1_000_000, "total_tokens": 1_000_000}})
     with access.spending(pid):
@@ -128,7 +129,7 @@ def api(tmp_path, monkeypatch):
 def test_asking_again_supplies_both_passages_and_reads_whether_you_are_named(api, monkeypatch):
     c, run = api
     sent = []
-    monkeypatch.setattr(access, "_create", lambda timeout, **kw: sent.append(kw) or openai_reply("Try Notion for this."))
+    monkeypatch.setattr(llm, "_create", lambda timeout, **kw: sent.append(kw) or openai_reply("Try Notion for this."))
     r = c.post(f"/api/runs/{run.id}/reask", json={"probe_id": "pt-1"})
     assert r.status_code == 200, r.text
     row = next(x for x in r.json()["retrieval"]["rows"] if x["probe_id"] == "pt-1")
@@ -150,7 +151,7 @@ def test_asking_again_keeps_weights_saved_while_the_model_answered(api, monkeypa
         c.post(f"/api/runs/{run.id}/rescore", json={"weights": {claim: 0.5}})
         return openai_reply("Try Notion.")
 
-    monkeypatch.setattr(access, "_create", rescore_meanwhile)
+    monkeypatch.setattr(llm, "_create", rescore_meanwhile)
     assert c.post(f"/api/runs/{run.id}/reask", json={"probe_id": "pt-1"}).status_code == 200
     saved = reports.load_run(run.id)
     assert next(a for a in saved.attributes if a.id == claim).intended_weight == 0.5
@@ -159,7 +160,7 @@ def test_asking_again_keeps_weights_saved_while_the_model_answered(api, monkeypa
 
 def test_asking_again_is_refused_without_a_pass_and_on_a_replay(api, monkeypatch):
     c, run = api
-    monkeypatch.setattr(access, "_create", lambda *a, **k: pytest.fail("no model call expected"))
+    monkeypatch.setattr(llm, "_create", lambda *a, **k: pytest.fail("no model call expected"))
     sample = replay()
     reports.save_run(sample)
     assert c.post(f"/api/runs/{sample.id}/reask", json={"probe_id": "pt-1"}).status_code == 400
